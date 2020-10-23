@@ -461,8 +461,7 @@ public class SapHanaClient
         return ColumnMapping.longMapping(
                 createTimeType(0), // SAP HANA's TIME does not support second fraction
                 timeReadFunction(),
-                timeWriteFunction(),
-                DISABLE_PUSHDOWN); // TODO enable, add a test
+                timeWriteFunction());
     }
 
     private static LongReadFunction timeReadFunction()

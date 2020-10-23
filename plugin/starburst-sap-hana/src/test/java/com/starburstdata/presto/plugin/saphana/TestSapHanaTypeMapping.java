@@ -735,7 +735,7 @@ public class TestSapHanaTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        DataTypeTest dataTypeTest = DataTypeTest.create(false) // TODO true
+        DataTypeTest dataTypeTest = DataTypeTest.create()
                 .addRoundTrip(prestoTimestampForSapHanaDataType(3), beforeEpoch)
                 .addRoundTrip(prestoTimestampForSapHanaDataType(3), afterEpoch)
                 .addRoundTrip(prestoTimestampForSapHanaDataType(3), timeDoubledInJvmZone)
@@ -870,6 +870,11 @@ public class TestSapHanaTypeMapping
         assertUpdate("INSERT INTO " + tableName + " (a) VALUES (" + inputLiteral + ")", 1);
         assertThat(query("SELECT a FROM " + tableName))
                 .matches("VALUES " + expectedResult);
+
+        // opportunistically test predicate pushdown if applies to given type
+        assertThat(query("SELECT count(*) FROM " + tableName + " WHERE a = " + expectedResult))
+                .matches("VALUES BIGINT '1'")
+                .isFullyPushedDown();
 
         assertUpdate("DROP TABLE " + tableName);
     }
