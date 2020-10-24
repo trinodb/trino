@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -587,6 +588,41 @@ public abstract class BaseMongoConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching(".*fully qualified namespace .* is too long.*");
+    }
+
+    @Test
+    public void testPredicatePushdown()
+    {
+        // TODO test that that predicate is actually pushed down (here we test only correctness)
+        // varchar equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar range
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar different case
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
+                .returnsEmptyResult()
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // bigint equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // bigint range, with decimal to bigint simplification
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // date equality
+        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
+                .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
+                .isNotFullyPushedDown(FilterNode.class);
     }
 
     private void assertOneNotNullResult(String query)
