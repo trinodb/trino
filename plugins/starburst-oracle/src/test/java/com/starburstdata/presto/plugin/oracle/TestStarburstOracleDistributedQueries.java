@@ -32,7 +32,6 @@ public class TestStarburstOracleDistributedQueries
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.connection-pool.enabled", "true")
                         .put("oracle.connection-pool.max-size", "10")
-                        .put("allow-drop-table", "true")
                         .build())
                 .build();
     }

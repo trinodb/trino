@@ -35,7 +35,6 @@ public class TestOracleCaseInsensitiveMapping
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .put("allow-drop-table", "true")
                         .put("case-insensitive-name-matching", "true")
                         .build())
                 .withTables(ImmutableList.of())

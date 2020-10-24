@@ -10,12 +10,12 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.connectionProperties;
 import static io.prestosql.tpch.TpchTable.NATION;
 
 public class TestOracleLicenseProtection
@@ -26,10 +26,7 @@ public class TestOracleLicenseProtection
             throws Exception
     {
         return OracleQueryRunner.builder()
-                .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .put("allow-drop-table", "true")
-                        .build())
+                .withConnectorProperties(connectionProperties())
                 .withTables(ImmutableList.of(NATION))
                 .withUnlockEnterpriseFeatures(false)
                 .build();

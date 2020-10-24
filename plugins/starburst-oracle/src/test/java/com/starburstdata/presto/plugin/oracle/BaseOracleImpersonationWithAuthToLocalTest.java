@@ -37,7 +37,6 @@ public abstract class BaseOracleImpersonationWithAuthToLocalTest
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .putAll(TestingStarburstOracleServer.connectionProperties())
-                .put("allow-drop-table", "true")
                 .put("oracle.impersonation.enabled", "true")
                 .put("oracle.synonyms.enabled", "true")
                 .put("auth-to-local.config-file", getResource("auth-to-local.json").getPath())

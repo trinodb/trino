@@ -36,7 +36,6 @@ public class TestOracleParallelAggregationPushdown
                 .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .put("allow-drop-table", "true")
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.concurrent.max-splits-per-scan", "17")
                         .build())

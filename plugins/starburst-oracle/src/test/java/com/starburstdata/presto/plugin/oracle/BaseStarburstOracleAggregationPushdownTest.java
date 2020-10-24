@@ -10,7 +10,6 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -19,6 +18,7 @@ import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.connectionProperties;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
@@ -35,10 +35,7 @@ public abstract class BaseStarburstOracleAggregationPushdownTest
     {
         return OracleQueryRunner.builder()
                 .withUnlockEnterpriseFeatures(true)
-                .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .put("allow-drop-table", "true")
-                        .build())
+                .withConnectorProperties(connectionProperties())
                 .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }

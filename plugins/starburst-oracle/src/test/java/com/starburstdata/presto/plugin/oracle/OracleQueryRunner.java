@@ -32,6 +32,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.ALICE_USER;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.USER;
+import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.connectionProperties;
 import static io.airlift.log.Level.DEBUG;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -205,10 +206,7 @@ public final class OracleQueryRunner
 
         // using single node so JMX stats can be queried
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) OracleQueryRunner.builder()
-                .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .put("allow-drop-table", "true")
-                        .build())
+                .withConnectorProperties(connectionProperties())
                 .withNodesCount(1)
                 .withCoordinatorProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .build();

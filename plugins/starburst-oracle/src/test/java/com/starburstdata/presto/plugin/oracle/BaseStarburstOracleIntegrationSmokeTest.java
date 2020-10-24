@@ -58,7 +58,6 @@ public abstract class BaseStarburstOracleIntegrationSmokeTest
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .put("allow-drop-table", "true")
                         .putAll(additionalProperties)
                         .build())
                 .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))

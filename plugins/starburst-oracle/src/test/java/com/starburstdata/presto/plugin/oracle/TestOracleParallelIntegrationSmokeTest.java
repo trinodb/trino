@@ -38,7 +38,6 @@ public class TestOracleParallelIntegrationSmokeTest
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .put("allow-drop-table", "true")
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.concurrent.max-splits-per-scan", "17")
                         .build())

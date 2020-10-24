@@ -58,6 +58,7 @@ public final class TestingStarburstOracleServer
                 .put("connection-url", getJdbcUrl())
                 .put("connection-user", OracleTestUsers.USER)
                 .put("connection-password", OracleTestUsers.PASSWORD)
+                .put("allow-drop-table", "true")
                 .build();
     }
 

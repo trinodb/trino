@@ -51,7 +51,6 @@ public class TestOracleParallelQueries
         return OracleQueryRunner.builder()
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
-                        .put("allow-drop-table", "true")
                         .put("oracle.number.default-scale", "3")
                         .build())
                 .withTables(ImmutableList.of())
