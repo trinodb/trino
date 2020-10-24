@@ -26,6 +26,8 @@ public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
+    private String warehouse;
+    private boolean hadoopMode;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -50,6 +52,30 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    public String getWarehouse()
+    {
+        return warehouse;
+    }
+
+    @Config("iceberg.warehouse")
+    public IcebergConfig setWarehouse(String warehouse)
+    {
+        this.warehouse = warehouse;
+        return this;
+    }
+
+    public boolean isHadoopMode()
+    {
+        return hadoopMode;
+    }
+
+    @Config("iceberg.hadoopmode")
+    public IcebergConfig setHadoopMode(boolean hadoopMode)
+    {
+        this.hadoopMode = hadoopMode;
         return this;
     }
 }

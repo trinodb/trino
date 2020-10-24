@@ -55,6 +55,7 @@ import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.TypeManager;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFiles;
@@ -68,6 +69,10 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
@@ -102,9 +107,13 @@ import static io.prestosql.plugin.iceberg.IcebergTableProperties.getTableLocatio
 import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getFileFormat;
+import static io.prestosql.plugin.iceberg.IcebergUtil.getHadoopCatalog;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIcebergTable;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getTableComment;
+import static io.prestosql.plugin.iceberg.IcebergUtil.icebergSchemaExists;
+import static io.prestosql.plugin.iceberg.IcebergUtil.icebergTableExists;
 import static io.prestosql.plugin.iceberg.IcebergUtil.isIcebergTable;
+import static io.prestosql.plugin.iceberg.IcebergUtil.useMetastore;
 import static io.prestosql.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.prestosql.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.prestosql.plugin.iceberg.TableType.DATA;
@@ -151,7 +160,16 @@ public class IcebergMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases();
+        if (useMetastore(session)) {
+            return metastore.getAllDatabases();
+        }
+        else {
+            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
+            List<Namespace> namespaces = hadoopCatalog.listNamespaces(Namespace.empty());
+            return namespaces.stream()
+                    .map(namespace -> namespace.toString())
+                    .collect(toList());
+        }
     }
 
     @Override
@@ -182,15 +200,24 @@ public class IcebergMetadata
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
         verify(name.getTableType() == DATA, "Wrong table type: " + name.getTableType());
 
-        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
-        if (hiveTable.isEmpty()) {
-            return null;
+        org.apache.iceberg.Table table;
+        if (useMetastore(session)) {
+            Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
+            if (hiveTable.isEmpty()) {
+                return null;
+            }
+            if (!isIcebergTable(hiveTable.get())) {
+                throw new UnknownTableTypeException(tableName);
+            }
+            table = getIcebergTable(metastore, hdfsEnvironment, session, hiveTable.get().getSchemaTableName());
         }
-        if (!isIcebergTable(hiveTable.get())) {
-            throw new UnknownTableTypeException(tableName);
+        else {
+            if (!icebergTableExists(hdfsEnvironment, session, tableName)) {
+                return null;
+            }
+            table = getIcebergTable(metastore, hdfsEnvironment, session, tableName);
         }
 
-        org.apache.iceberg.Table table = getIcebergTable(metastore, hdfsEnvironment, session, hiveTable.get().getSchemaTableName());
         Optional<Long> snapshotId = getSnapshotId(table, name.getSnapshotId());
 
         return new IcebergTableHandle(
@@ -212,12 +239,21 @@ public class IcebergMetadata
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
 
-        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
-        if (hiveTable.isEmpty() || !isIcebergTable(hiveTable.get())) {
-            return Optional.empty();
-        }
+        org.apache.iceberg.Table table;
 
-        org.apache.iceberg.Table table = getIcebergTable(metastore, hdfsEnvironment, session, hiveTable.get().getSchemaTableName());
+        if (useMetastore(session)) {
+            Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), name.getTableName());
+            if (hiveTable.isEmpty() || !isIcebergTable(hiveTable.get())) {
+                return Optional.empty();
+            }
+            table = getIcebergTable(metastore, hdfsEnvironment, session, hiveTable.get().getSchemaTableName());
+        }
+        else {
+            if (!icebergTableExists(hdfsEnvironment, session, tableName)) {
+                return Optional.empty();
+            }
+            table = getIcebergTable(metastore, hdfsEnvironment, session, tableName);
+        }
 
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
         switch (name.getTableType()) {
@@ -256,14 +292,26 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return schemaName.map(Collections::singletonList)
-                .orElseGet(metastore::getAllDatabases)
-                .stream()
-                .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE).stream()
-                        .map(table -> new SchemaTableName(schema, table))
-                        .collect(toList())
-                        .stream())
-                .collect(toList());
+        if (useMetastore(session)) {
+            return schemaName.map(Collections::singletonList)
+                    .orElseGet(metastore::getAllDatabases)
+                    .stream()
+                    .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE).stream()
+                            .map(table -> new SchemaTableName(schema, table))
+                            .collect(toList())
+                            .stream())
+                    .collect(toList());
+        }
+        else {
+            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
+            List<Namespace> namespaces = hadoopCatalog.listNamespaces(Namespace.empty());
+            return namespaces.stream()
+                    .flatMap(namespace -> hadoopCatalog.listTables(namespace).stream()
+                            .map(tableIdentifier -> new SchemaTableName(tableIdentifier.namespace().toString(), tableIdentifier.name()))
+                            .collect(toList())
+                            .stream())
+                    .collect(toList());
+        }
     }
 
     @Override
@@ -321,14 +369,20 @@ public class IcebergMetadata
             return uri;
         });
 
-        Database database = Database.builder()
-                .setDatabaseName(schemaName)
-                .setLocation(location)
-                .setOwnerType(owner.getType())
-                .setOwnerName(owner.getName())
-                .build();
+        if (useMetastore(session)) {
+            Database database = Database.builder()
+                    .setDatabaseName(schemaName)
+                    .setLocation(location)
+                    .setOwnerType(owner.getType())
+                    .setOwnerName(owner.getName())
+                    .build();
 
-        metastore.createDatabase(new HiveIdentity(session), database);
+            metastore.createDatabase(new HiveIdentity(session), database);
+        }
+        else {
+            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
+            hadoopCatalog.createNamespace(Namespace.of(schemaName));
+        }
     }
 
     @Override
@@ -358,7 +412,12 @@ public class IcebergMetadata
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+        if (useMetastore(session)) {
+            finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+        }
+        else {
+            createHadoopTable(session, tableMetadata, layout);
+        }
     }
 
     @Override
@@ -420,6 +479,39 @@ public class IcebergMetadata
                 getColumns(metadata.schema(), typeManager),
                 targetPath,
                 fileFormat);
+    }
+
+    private void createHadoopTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    {
+        SchemaTableName schemaTableName = tableMetadata.getTable();
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+
+        Schema schema = toIcebergSchema(tableMetadata.getColumns());
+
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+
+        if (!icebergSchemaExists(hdfsEnvironment, session, schemaName)) {
+            throw new SchemaNotFoundException(schemaName);
+        }
+        if (icebergTableExists(hdfsEnvironment, session, schemaTableName)) {
+            throw new TableAlreadyExistsException(schemaTableName);
+        }
+
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
+        FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
+        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        if (tableMetadata.getComment().isPresent()) {
+            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+        HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
+        String targetPath = IcebergSessionProperties.getWarehouseLocation(session);
+        Path path = new Path(targetPath);
+        Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
+        String tablePath = targetPath + "/" + schemaName + "/" + tableName;
+        HadoopTables hadoopTables = new HadoopTables(configuration);
+        Map<String, String> properties = propertiesBuilder.build();
+        org.apache.iceberg.Table icebergTable = hadoopTables.create(schema, partitionSpec, properties, tablePath);
     }
 
     @Override
@@ -504,14 +596,27 @@ public class IcebergMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.dropTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), true);
+        if (useMetastore(session)) {
+            metastore.dropTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), true);
+        }
+        else {
+            TableIdentifier tableIdentifier = TableIdentifier.of(handle.getSchemaName(), handle.getTableName());
+            getHadoopCatalog(hdfsEnvironment, session).dropTable(tableIdentifier, false);
+        }
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.renameTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
+        if (useMetastore(session)) {
+            metastore.renameTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
+        }
+        else {
+            TableIdentifier tableIdentifier = TableIdentifier.of(handle.getSchemaName(), handle.getTableName());
+            TableIdentifier newTableIdentifier = TableIdentifier.of(newTable.getSchemaName(), newTable.getTableName());
+            getHadoopCatalog(hdfsEnvironment, session).renameTable(tableIdentifier, newTableIdentifier);
+        }
     }
 
     @Override
@@ -542,8 +647,15 @@ public class IcebergMetadata
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
     {
-        if (metastore.getTable(new HiveIdentity(session), table.getSchemaName(), table.getTableName()).isEmpty()) {
-            throw new TableNotFoundException(table);
+        if (useMetastore(session)) {
+            if (metastore.getTable(new HiveIdentity(session), table.getSchemaName(), table.getTableName()).isEmpty()) {
+                throw new TableNotFoundException(table);
+            }
+        }
+        else {
+            if (!icebergTableExists(hdfsEnvironment, session, table)) {
+                throw new TableNotFoundException(table);
+            }
         }
 
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table);

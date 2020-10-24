@@ -22,6 +22,8 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.TypeManager;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.HistoryEntry;
@@ -30,6 +32,11 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.catalog.Namespace;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.NoSuchNamespaceException;
+import org.apache.iceberg.exceptions.NoSuchTableException;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 
 import java.util.List;
 import java.util.Locale;
@@ -59,12 +66,59 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
+    public static HadoopCatalog getHadoopCatalog(HdfsEnvironment hdfsEnvironment, ConnectorSession session)
+    {
+        String warehouseLocation = IcebergSessionProperties.getWarehouseLocation(session);
+        HdfsContext hdfsContext = new HdfsContext(session, "test");
+        Path path = new Path(warehouseLocation);
+        Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
+        return new HadoopCatalog(configuration, warehouseLocation);
+    }
+
+    public static boolean icebergSchemaExists(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String schemaName)
+    {
+        try {
+            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
+            Namespace namespace = Namespace.of(schemaName);
+            hadoopCatalog.loadNamespaceMetadata(namespace);
+            return true;
+        }
+        catch (NoSuchNamespaceException e) {
+            return false;
+        }
+    }
+
+    public static boolean icebergTableExists(HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
+    {
+        try {
+            TableIdentifier tableIdentifier = TableIdentifier.of(table.getSchemaName(), table.getTableName());
+            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
+            hadoopCatalog.loadTable(tableIdentifier);
+            return true;
+        }
+        catch (NoSuchTableException e) {
+            return false;
+        }
+    }
+
+    public static boolean useMetastore(ConnectorSession session)
+    {
+        return !IcebergSessionProperties.isHadoopMode(session);
+    }
+
     public static Table getIcebergTable(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
     {
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-        HiveIdentity identity = new HiveIdentity(session);
-        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, table.getSchemaName(), table.getTableName());
-        return new BaseTable(operations, quotedTableName(table));
+        if (useMetastore(session)) {
+            HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+            HiveIdentity identity = new HiveIdentity(session);
+            TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, table.getSchemaName(), table.getTableName());
+            return new BaseTable(operations, quotedTableName(table));
+        }
+        else {
+            TableIdentifier tableIdentifier = TableIdentifier.of(table.getSchemaName(), table.getTableName());
+            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
+            return hadoopCatalog.loadTable(tableIdentifier);
+        }
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)
