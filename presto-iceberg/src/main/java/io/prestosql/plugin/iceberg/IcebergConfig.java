@@ -20,13 +20,14 @@ import org.apache.iceberg.FileFormat;
 import javax.validation.constraints.NotNull;
 
 import static io.prestosql.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.prestosql.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.prestosql.plugin.iceberg.IcebergFileFormat.ORC;
 
 public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
-    private boolean hadoopMode;
+    private IcebergCatalogType type = HIVE;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -54,15 +55,16 @@ public class IcebergConfig
         return this;
     }
 
-    public boolean isHadoopMode()
+    @NotNull
+    public IcebergCatalogType getCatalogType()
     {
-        return hadoopMode;
+        return type;
     }
 
-    @Config("iceberg.hadoopmode")
-    public IcebergConfig setHadoopMode(boolean hadoopMode)
+    @Config("iceberg.catalog-type")
+    public IcebergConfig setCatalogType(IcebergCatalogType type)
     {
-        this.hadoopMode = hadoopMode;
+        this.type = type;
         return this;
     }
 }

@@ -41,7 +41,11 @@ import static java.lang.String.format;
 
 public final class IcebergSessionProperties
 {
+<<<<<<< HEAD
     private static final String HADOOP_MODE = "hadoopmode";
+=======
+    private static final String CATALOG_TYPE = "catalog_type";
+>>>>>>> Add support for HDFS only iceberg tables
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -79,8 +83,14 @@ public final class IcebergSessionProperties
                         icebergConfig.isHadoopMode(),
                         false))
                 .add(enumProperty(
+                        CATALOG_TYPE,
+                        "The iceber catalog type to use (either hive or hadoop)",
+                        IcebergCatalogType.class,
+                        icebergConfig.getCatalogType(),
+                        false))
+                .add(enumProperty(
                         COMPRESSION_CODEC,
-                        "Compression codec to use when writing files",
+                        "Compression codec to use when writing fsiles",
                         HiveCompressionCodec.class,
                         icebergConfig.getCompressionCodec(),
                         false))
@@ -196,9 +206,9 @@ public final class IcebergSessionProperties
         return sessionProperties;
     }
 
-    public static boolean isHadoopMode(ConnectorSession session)
+    public static IcebergCatalogType getCatalogType(ConnectorSession session)
     {
-        return session.getProperty(HADOOP_MODE, Boolean.class);
+        return session.getProperty(CATALOG_TYPE, IcebergCatalogType.class);
     }
 
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)

@@ -27,6 +27,8 @@ import java.io.FileOutputStream;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static io.prestosql.plugin.iceberg.IcebergCatalogType.HADOOP;
+import static io.prestosql.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -69,6 +71,9 @@ public final class IcebergQueryRunner
         queryRunner.createCatalog("tpch", "tpch");
 
         Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        dataDir.toFile().mkdirs();
+
+        IcebergCatalogType type = HADOOP;
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
         baseDir.mkdirs();
@@ -86,13 +91,15 @@ public final class IcebergQueryRunner
         out.close();
 
         queryRunner.installPlugin(new IcebergPlugin());
-        Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", dataDir.toString())
                 .put("iceberg.file-format", format.name())
                 .put("hive.config.resources", hivesiteLocation)
-                .put("iceberg.hadoopmode", "true")
-                .build();
+                .put("iceberg.catalog-type", type.name());
+
+
+        Map<String, String> icebergProperties = builder.build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
 

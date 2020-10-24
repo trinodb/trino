@@ -86,7 +86,7 @@ public class TestIcebergMetadataListingHadoopMode
                         .setMetastoreUser("test"));
 
         queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
-        queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of("iceberg.hadoopmode", "true", "hive.config.resources", hivesiteLocation));
+        queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of("iceberg.catalog-type", "hadoop", "hive.config.resources", hivesiteLocation));
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));
 

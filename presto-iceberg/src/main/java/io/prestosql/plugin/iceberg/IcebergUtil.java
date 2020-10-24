@@ -48,6 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.prestosql.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static java.lang.String.format;
@@ -115,7 +116,7 @@ final class IcebergUtil
 
     public static boolean useMetastore(ConnectorSession session)
     {
-        return !IcebergSessionProperties.isHadoopMode(session);
+        return IcebergSessionProperties.getCatalogType(session) == HIVE;
     }
 
     public static Table getIcebergTable(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
