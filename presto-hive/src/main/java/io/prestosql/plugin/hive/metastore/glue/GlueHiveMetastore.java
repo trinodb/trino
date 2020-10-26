@@ -22,6 +22,7 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.handlers.RequestHandler2;
+import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
@@ -179,7 +180,7 @@ public class GlueHiveMetastore
         requireNonNull(glueConfig, "glueConfig is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
-        this.glueClient = createAsyncGlueClient(glueConfig, requestHandler);
+        this.glueClient = createAsyncGlueClient(glueConfig, requestHandler, stats.newRequestMetricsCollector());
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
         this.catalogId = glueConfig.getCatalogId().orElse(null);
         this.partitionSegments = glueConfig.getPartitionSegments();
@@ -189,12 +190,13 @@ public class GlueHiveMetastore
         this.tableFilter = requireNonNull(tableFilter, "tableFilter is null");
     }
 
-    private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler)
+    private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler, RequestMetricCollector metricsCollector)
     {
         ClientConfiguration clientConfig = new ClientConfiguration()
                 .withMaxConnections(config.getMaxGlueConnections())
                 .withMaxErrorRetry(config.getMaxGlueErrorRetries());
         AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
+                .withMetricsCollector(metricsCollector)
                 .withClientConfiguration(clientConfig);
 
         requestHandler.ifPresent(asyncGlueClientBuilder::setRequestHandlers);
