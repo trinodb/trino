@@ -13,18 +13,14 @@
  */
 package io.prestosql.plugin.oracle;
 
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -37,28 +33,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-//temporary rename to TestBaseTestOracleDistributedQueries to preserve nicer commit history (Test prefix is needed)
-public class TestBaseTestOracleDistributedQueries
+public abstract class BaseTestOracleDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private TestingOracleServer oracleServer;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        this.oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), TpchTable.getTables(), false);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        if (oracleServer != null) {
-            oracleServer.close();
-        }
-    }
-
     @Override
     protected boolean supportsDelete()
     {
@@ -392,8 +369,5 @@ public class TestBaseTestOracleDistributedQueries
         return Optional.empty();
     }
 
-    protected SqlExecutor createJdbcSqlExecutor()
-    {
-        return oracleServer::execute;
-    }
+    protected abstract SqlExecutor createJdbcSqlExecutor();
 }
