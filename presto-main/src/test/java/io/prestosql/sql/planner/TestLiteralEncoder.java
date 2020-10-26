@@ -26,6 +26,8 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.Re2JCastToRegexpFunction;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
@@ -54,8 +56,11 @@ import static io.prestosql.operator.scalar.JsonFunctions.castVarcharToJsonPath;
 import static io.prestosql.operator.scalar.StringFunctions.castVarcharToCodePoints;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -166,6 +171,62 @@ public class TestLiteralEncoder
         assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(10), "TIMESTAMP '2020-10-26 11:02:18.0000000000'");
         assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(11), "TIMESTAMP '2020-10-26 11:02:18.00000000000'");
         assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(12), "TIMESTAMP '2020-10-26 11:02:18.000000000000'");
+    }
+
+    @Test
+    public void testEncodeTimestampWithTimeZone()
+    {
+        for (int precision = 0; precision <= 12; precision++) {
+            assertEncode(null, createTimestampWithTimeZoneType(precision), format("CAST(null AS timestamp(%s) with time zone)", precision));
+        }
+
+        assertEncode(packDateTimeWithZone(1603710138_000L, UTC_KEY), createTimestampWithTimeZoneType(0), "TIMESTAMP '2020-10-26 11:02:18 UTC'");
+        assertEncode(packDateTimeWithZone(1603710138_100L, UTC_KEY), createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-10-26 11:02:18.1 UTC'");
+        assertEncode(packDateTimeWithZone(1603710138_120L, UTC_KEY), createTimestampWithTimeZoneType(2), "TIMESTAMP '2020-10-26 11:02:18.12 UTC'");
+        assertEncode(packDateTimeWithZone(1603710138_123L, UTC_KEY), createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-10-26 11:02:18.123 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 100000000, UTC_KEY), createTimestampWithTimeZoneType(4), "TIMESTAMP '2020-10-26 11:02:18.1231 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 120000000, UTC_KEY), createTimestampWithTimeZoneType(5), "TIMESTAMP '2020-10-26 11:02:18.12312 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123000000, UTC_KEY), createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-10-26 11:02:18.123123 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123400000, UTC_KEY), createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-10-26 11:02:18.1231234 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123450000, UTC_KEY), createTimestampWithTimeZoneType(8), "TIMESTAMP '2020-10-26 11:02:18.12312345 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123456000, UTC_KEY), createTimestampWithTimeZoneType(9), "TIMESTAMP '2020-10-26 11:02:18.123123456 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123456700, UTC_KEY), createTimestampWithTimeZoneType(10), "TIMESTAMP '2020-10-26 11:02:18.1231234567 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123456780, UTC_KEY), createTimestampWithTimeZoneType(11), "TIMESTAMP '2020-10-26 11:02:18.12312345678 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123456789, UTC_KEY), createTimestampWithTimeZoneType(12), "TIMESTAMP '2020-10-26 11:02:18.123123456789 UTC'");
+
+        assertEncode(packDateTimeWithZone(1603710138_000L, UTC_KEY), createTimestampWithTimeZoneType(1), "TIMESTAMP '2020-10-26 11:02:18.0 UTC'");
+        assertEncode(packDateTimeWithZone(1603710138_000L, UTC_KEY), createTimestampWithTimeZoneType(2), "TIMESTAMP '2020-10-26 11:02:18.00 UTC'");
+        assertEncode(packDateTimeWithZone(1603710138_000L, UTC_KEY), createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-10-26 11:02:18.000 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_000L, 0, UTC_KEY), createTimestampWithTimeZoneType(4), "TIMESTAMP '2020-10-26 11:02:18.0000 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_000L, 0, UTC_KEY), createTimestampWithTimeZoneType(5), "TIMESTAMP '2020-10-26 11:02:18.00000 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_000L, 0, UTC_KEY), createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-10-26 11:02:18.000000 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_000L, 0, UTC_KEY), createTimestampWithTimeZoneType(7), "TIMESTAMP '2020-10-26 11:02:18.0000000 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_000L, 0, UTC_KEY), createTimestampWithTimeZoneType(8), "TIMESTAMP '2020-10-26 11:02:18.00000000 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_000L, 0, UTC_KEY), createTimestampWithTimeZoneType(9), "TIMESTAMP '2020-10-26 11:02:18.000000000 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_000L, 0, UTC_KEY), createTimestampWithTimeZoneType(10), "TIMESTAMP '2020-10-26 11:02:18.0000000000 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_000L, 0, UTC_KEY), createTimestampWithTimeZoneType(11), "TIMESTAMP '2020-10-26 11:02:18.00000000000 UTC'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_000L, 0, UTC_KEY), createTimestampWithTimeZoneType(12), "TIMESTAMP '2020-10-26 11:02:18.000000000000 UTC'");
+
+        // with zone
+        assertEncode(packDateTimeWithZone(1603710138_000L, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(0), "TIMESTAMP '2020-10-26 12:02:18 Europe/Warsaw'");
+        assertEncode(packDateTimeWithZone(1603710138_123L, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-10-26 12:02:18.123 Europe/Warsaw'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123000000, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-10-26 12:02:18.123123 Europe/Warsaw'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123456000, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(9), "TIMESTAMP '2020-10-26 12:02:18.123123456 Europe/Warsaw'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603710138_123L, 123456789, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(12), "TIMESTAMP '2020-10-26 12:02:18.123123456789 Europe/Warsaw'");
+
+        // DST change forward
+        assertEncode(packDateTimeWithZone(1585445478_000L, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(0), "TIMESTAMP '2020-03-29 03:31:18 Europe/Warsaw'");
+        assertEncode(packDateTimeWithZone(1585445478_123L, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(3), "TIMESTAMP '2020-03-29 03:31:18.123 Europe/Warsaw'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1585445478_123L, 123000000, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(6), "TIMESTAMP '2020-03-29 03:31:18.123123 Europe/Warsaw'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1585445478_123L, 123456000, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(9), "TIMESTAMP '2020-03-29 03:31:18.123123456 Europe/Warsaw'");
+        assertEncode(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1585445478_123L, 123456789, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(12), "TIMESTAMP '2020-03-29 03:31:18.123123456789 Europe/Warsaw'");
+
+        // DST change backward - no direct representation
+        assertRoundTrip(packDateTimeWithZone(1603589478_000L, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(0), Long::equals);
+        assertRoundTrip(packDateTimeWithZone(1603589478_123L, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(3), Long::equals);
+        assertRoundTrip(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603589478_123L, 123000000, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(6), LongTimestampWithTimeZone::equals);
+        assertRoundTrip(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603589478_123L, 123456000, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(9), LongTimestampWithTimeZone::equals);
+        assertRoundTrip(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1603589478_123L, 123456789, TimeZoneKey.getTimeZoneKey("Europe/Warsaw")), createTimestampWithTimeZoneType(12), LongTimestampWithTimeZone::equals);
     }
 
     @Test
