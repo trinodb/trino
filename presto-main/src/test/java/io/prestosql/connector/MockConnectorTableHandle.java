@@ -15,10 +15,15 @@ package io.prestosql.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,17 +31,42 @@ public class MockConnectorTableHandle
         implements ConnectorTableHandle
 {
     private final SchemaTableName tableName;
+    private final TupleDomain<ColumnHandle> constraint;
+    private final Optional<List<ColumnHandle>> columns;
+
+    public MockConnectorTableHandle(SchemaTableName tableName)
+    {
+        this(tableName, TupleDomain.all(), Optional.empty());
+    }
 
     @JsonCreator
-    public MockConnectorTableHandle(@JsonProperty SchemaTableName tableName)
+    public MockConnectorTableHandle(
+            @JsonProperty SchemaTableName tableName,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("columns") Optional<List<ColumnHandle>> columns)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.constraint = requireNonNull(constraint, "constraint is null");
+        requireNonNull(columns, "columns is null");
+        this.columns = columns.map(ImmutableList::copyOf);
     }
 
     @JsonProperty
     public SchemaTableName getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
+    }
+
+    @JsonProperty
+    public Optional<List<ColumnHandle>> getColumns()
+    {
+        return columns;
     }
 
     @Override

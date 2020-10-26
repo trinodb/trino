@@ -40,6 +40,7 @@ import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.function.InvocationConvention;
@@ -593,4 +594,11 @@ public interface Metadata
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
      */
     MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name);
+
+    /**
+     * Returns the result of redirecting the table scan on a given table to a different table.
+     * This method is used by the engine during the plan optimization phase to allow a connector to offload table scans to any other connector.
+     * This method is called after security checks against the original table.
+     */
+    Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle);
 }
