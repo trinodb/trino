@@ -14,7 +14,6 @@
 package io.prestosql.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
@@ -38,7 +37,7 @@ public final class TimestampWithTimeZoneToVarcharCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p) with time zone") long packedEpochMillis)
+    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") long packedEpochMillis)
     {
         long epochMillis = unpackMillisUtc(packedEpochMillis);
         ZoneId zoneId = unpackZoneKey(packedEpochMillis).getZoneId();
@@ -48,7 +47,7 @@ public final class TimestampWithTimeZoneToVarcharCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
+    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
         return utf8Slice(DateTimes.formatTimestampWithTimeZone(
                 (int) precision,
