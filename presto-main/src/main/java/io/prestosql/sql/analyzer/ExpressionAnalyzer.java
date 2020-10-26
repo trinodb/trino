@@ -36,6 +36,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
@@ -176,8 +177,6 @@ import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
-import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
-import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
@@ -1292,12 +1291,60 @@ public class ExpressionAnalyzer
         protected Type visitExtract(Extract node, StackableAstVisitorContext<Context> context)
         {
             Type type = process(node.getExpression(), context);
-            if (!isDateTimeType(type)) {
-                throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
-            }
             Extract.Field field = node.getField();
-            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type instanceof TimestampWithTimeZoneType)) {
-                throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
+
+            switch (field) {
+                case YEAR:
+                case MONTH:
+                    if (!(type instanceof DateType) &&
+                            !(type instanceof TimestampType) &&
+                            !(type instanceof TimestampWithTimeZoneType) &&
+                            !(type.equals(INTERVAL_YEAR_MONTH))) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                case DAY:
+                    if (!(type instanceof DateType) &&
+                            !(type instanceof TimestampType) &&
+                            !(type instanceof TimestampWithTimeZoneType) &&
+                            !(type.equals(INTERVAL_DAY_TIME))) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                case QUARTER:
+                case WEEK:
+                case DAY_OF_MONTH:
+                case DAY_OF_WEEK:
+                case DOW:
+                case DAY_OF_YEAR:
+                case DOY:
+                case YEAR_OF_WEEK:
+                case YOW:
+                    if (!(type instanceof DateType) &&
+                            !(type instanceof TimestampType) &&
+                            !(type instanceof TimestampWithTimeZoneType)) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                case HOUR:
+                case MINUTE:
+                case SECOND:
+                    if (!(type instanceof TimestampType) &&
+                            !(type instanceof TimestampWithTimeZoneType) &&
+                            !(type instanceof TimeType) &&
+                            !(type instanceof TimeWithTimeZoneType) &&
+                            !(type.equals(INTERVAL_DAY_TIME))) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                case TIMEZONE_MINUTE:
+                case TIMEZONE_HOUR:
+                    if (!(type instanceof TimestampWithTimeZoneType) && !(type instanceof TimeWithTimeZoneType)) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unknown field: " + field);
             }
 
             return setExpressionType(node, BIGINT);

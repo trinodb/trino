@@ -13,12 +13,14 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
+import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.query.QueryAssertions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -280,6 +282,28 @@ public class TestExtract
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56.1234567890')")).matches("BIGINT '123'");
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56.12345678901')")).matches("BIGINT '123'");
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '123'");
+    }
+
+    @Test
+    public void testTimezoneHour()
+    {
+        for (int i = 0; i <= 12; i++) {
+            int precision = i;
+            assertThatThrownBy(() -> assertions.expression(format("EXTRACT(TIMEZONE_HOUR FROM CAST(NULL AS TIMESTAMP(%s)))", precision)))
+                    .isInstanceOf(PrestoException.class)
+                    .hasMessage(format("line 1:35: Cannot extract TIMEZONE_HOUR from timestamp(%s)", precision));
+        }
+    }
+
+    @Test
+    public void testTimezoneMinute()
+    {
+        for (int i = 0; i <= 12; i++) {
+            int precision = i;
+            assertThatThrownBy(() -> assertions.expression(format("EXTRACT(TIMEZONE_MINUTE FROM CAST(NULL AS TIMESTAMP(%s)))", precision)))
+                    .isInstanceOf(PrestoException.class)
+                    .hasMessage(format("line 1:37: Cannot extract TIMEZONE_MINUTE from timestamp(%s)", precision));
+        }
     }
 
     @Test
