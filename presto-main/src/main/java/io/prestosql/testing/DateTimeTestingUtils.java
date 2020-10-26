@@ -52,10 +52,10 @@ public final class DateTimeTestingUtils
         return new SqlDate((int) date.getLong(EPOCH_DAY));
     }
 
-    public static SqlTimeWithTimeZone sqlTimeWithTimeZoneOf(int precision, int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond, int offsetHours, int offsetMinutes)
+    public static SqlTimeWithTimeZone sqlTimeWithTimeZoneOf(int precision, int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond, int offsetMinutes)
     {
         long picos = (hour * 3600 + minuteOfHour * 60 + secondOfMinute) * PICOSECONDS_PER_SECOND + scaleNanosToPicos(nanoOfSecond);
-        return SqlTimeWithTimeZone.newInstance(precision, picos, offsetHours * 60 + offsetMinutes);
+        return SqlTimeWithTimeZone.newInstance(precision, picos, offsetMinutes);
     }
 
     public static SqlTimestampWithTimeZone sqlTimestampWithTimeZoneOf(int precision, int year, int month, int day, int hour, int minute, int second, int nanoOfSecond, TimeZoneKey timeZoneKey)
