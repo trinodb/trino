@@ -90,28 +90,63 @@ public class TestLiteralEncoder
             ImmutableSet.of());
 
     @Test
-    public void testEncode()
+    public void testEncodeUnknown()
     {
-        assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
         assertEncode(null, UNKNOWN, "null");
+    }
+
+    @Test
+    public void testEncodeBigint()
+    {
         assertEncode(null, BIGINT, "CAST(null AS bigint)");
         assertEncode(123L, BIGINT, "BIGINT '123'");
+    }
 
+    @Test
+    public void testEncodeDecimal()
+    {
         assertEncode(123L, createDecimalType(7, 1), "CAST(DECIMAL '12.3' AS decimal(7, 1))");
+    }
 
+    @Test
+    public void testEncodeChar()
+    {
         assertEncode(utf8Slice("hello"), createCharType(5), "CAST('hello' AS char(5))");
         assertEncode(utf8Slice("hello"), createCharType(13), "CAST('hello' AS char(13))");
+    }
 
+    @Test
+    public void testEncodeVarchar()
+    {
         assertEncode(utf8Slice("hello"), createVarcharType(5), "'hello'");
         assertEncode(utf8Slice("hello"), createVarcharType(13), "CAST('hello' AS varchar(13))");
         assertEncode(utf8Slice("hello"), VARCHAR, "CAST('hello' AS varchar)");
+    }
 
+    @Test
+    public void testEncodeVarbinary()
+    {
         assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
+        assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
+    }
 
+    @Test
+    public void testEncodeRegex()
+    {
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), LIKE_PATTERN, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), JONI_REGEXP, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), metadata.getType(RE2J_REGEXP_SIGNATURE), (left, right) -> left.pattern().equals(right.pattern()));
+    }
+
+    @Test
+    public void testEncodeJsonPath()
+    {
         assertRoundTrip(castVarcharToJsonPath(utf8Slice("$.foo")), JSON_PATH, (left, right) -> left.pattern().equals(right.pattern()));
+    }
+
+    @Test
+    public void testEncodeCodePoints()
+    {
         assertRoundTrip(castVarcharToCodePoints(utf8Slice("hello")), CODE_POINTS, Arrays::equals);
     }
 
