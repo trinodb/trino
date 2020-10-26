@@ -23,11 +23,14 @@ import io.prestosql.block.BlockSerdeUtil;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.scalar.VarbinaryFunctions;
+import io.prestosql.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.SqlDate;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -41,6 +44,7 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.TimestampLiteral;
 
 import java.util.List;
 
@@ -208,6 +212,18 @@ public final class LiteralEncoder
 
         if (type.equals(DATE)) {
             return new GenericLiteral("DATE", new SqlDate(toIntExact((Long) object)).toString());
+        }
+
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            String representation;
+            if (timestampType.isShort()) {
+                representation = TimestampToVarcharCast.cast(timestampType.getPrecision(), (Long) object).toStringUtf8();
+            }
+            else {
+                representation = TimestampToVarcharCast.cast(timestampType.getPrecision(), (LongTimestamp) object).toStringUtf8();
+            }
+            return new TimestampLiteral(representation);
         }
 
         // There is no automatic built in encoding for this Presto type, so instead the stack type is
