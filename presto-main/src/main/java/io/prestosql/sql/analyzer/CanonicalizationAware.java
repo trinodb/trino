@@ -91,7 +91,7 @@ public class CanonicalizationAware<T extends Node>
         return OptionalInt.empty();
     }
 
-    private static String canonicalize(Identifier identifier)
+    public static String canonicalize(Identifier identifier)
     {
         if (identifier.isDelimited()) {
             return identifier.getValue();

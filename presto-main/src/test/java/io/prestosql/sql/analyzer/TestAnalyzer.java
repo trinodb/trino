@@ -318,6 +318,9 @@ public class TestAnalyzer
         // reference to outer scope relation with anonymous field
         assertFails("SELECT (SELECT outer_relation.* FROM (VALUES 1) inner_relation) FROM (values 2) outer_relation")
                 .hasErrorCode(NOT_SUPPORTED);
+
+        assertFails("SELECT t.a FROM (SELECT t.* FROM (VALUES 1) t(a))")
+                .hasErrorCode(COLUMN_NOT_FOUND);
     }
 
     @Test
