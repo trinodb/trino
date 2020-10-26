@@ -24,7 +24,7 @@ import static io.prestosql.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 
 @Description("Time zone hour of the given timestamp")
 @ScalarFunction("timezone_hour")
-public class TimeZoneHour
+public final class TimeZoneHour
 {
     private TimeZoneHour() {}
 
