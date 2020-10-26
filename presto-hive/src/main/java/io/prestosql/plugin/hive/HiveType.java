@@ -228,7 +228,7 @@ public final class HiveType
 
     public static HiveType toHiveType(Type type)
     {
-        return new HiveType(HiveTypeTranslator.translate(type));
+        return new HiveType(HiveTypeTranslator.toTypeInfo(type));
     }
 
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)
