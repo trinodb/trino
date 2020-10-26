@@ -31,10 +31,13 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SortItem;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.expression.ConnectorExpression;
@@ -67,6 +70,8 @@ public class MockConnector
     private final MockConnectorFactory.ApplyProjection applyProjection;
     private final MockConnectorFactory.ApplyAggregation applyAggregation;
     private final MockConnectorFactory.ApplyTopN applyTopN;
+    private final MockConnectorFactory.ApplyFilter applyFilter;
+    private final MockConnectorFactory.ApplyTableScanRedirect applyTableScanRedirect;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
     private final Supplier<Iterable<EventListener>> eventListeners;
@@ -82,6 +87,8 @@ public class MockConnector
             MockConnectorFactory.ApplyProjection applyProjection,
             MockConnectorFactory.ApplyAggregation applyAggregation,
             MockConnectorFactory.ApplyTopN applyTopN,
+            MockConnectorFactory.ApplyFilter applyFilter,
+            MockConnectorFactory.ApplyTableScanRedirect applyTableScanRedirect,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
             Supplier<Iterable<EventListener>> eventListeners,
@@ -96,6 +103,8 @@ public class MockConnector
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
+        this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
+        this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
@@ -172,6 +181,18 @@ public class MockConnector
                 Map<String, ColumnHandle> assignments)
         {
             return applyTopN.apply(session, handle, topNCount, sortItems, assignments);
+        }
+
+        @Override
+        public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+        {
+            return applyFilter.apply(session, handle, constraint);
+        }
+
+        @Override
+        public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            return applyTableScanRedirect.apply(session, tableHandle);
         }
 
         @Override
