@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
 
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -417,6 +418,29 @@ public class TestPostgreSqlIntegrationSmokeTest
                 .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
                 .collect(joining(" OR "));
         execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+    }
+
+    /**
+     * Regression test for https://github.com/prestosql/presto/issues/5543
+     */
+    @Test
+    public void testTimestampColumnAndTimestampWithTimeZoneConstant()
+            throws Exception
+    {
+        String tableName = "tpch.test_timestamptz_unwrap_cast" + randomTableSuffix();
+        try (AutoCloseable ignored = withTable(tableName, "(id integer, ts_col timestamp(6))")) {
+            execute("INSERT INTO " + tableName + " (id, ts_col) VALUES " +
+                    "(1, timestamp '2020-01-01 01:01:01.000')," +
+                    "(2, timestamp '2019-01-01 01:01:01.000')");
+
+            assertThat(query(format("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'", tableName, getSession().getTimeZoneKey().getId())))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+
+            assertThat(query(format("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'", tableName, "UTC")))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+        }
     }
 
     private String getLongInClause(int start, int length)
