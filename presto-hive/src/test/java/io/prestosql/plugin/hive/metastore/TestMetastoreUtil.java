@@ -16,7 +16,12 @@ package io.prestosql.plugin.hive.metastore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Range;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.ValueSet;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Order;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
@@ -27,9 +32,18 @@ import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static io.prestosql.plugin.hive.HiveColumnHandle.bucketColumnHandle;
+import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLUMN_NAME_DELIMITER;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestMetastoreUtil
@@ -152,5 +166,35 @@ public class TestMetastoreUtil
         expected.remove(COLUMN_NAME_DELIMITER);
         Properties actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
         assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testComputePartitionKeyFilter()
+    {
+        HiveColumnHandle dsColumn = partitionColumn("ds");
+        HiveColumnHandle typeColumn = partitionColumn("type");
+        List<HiveColumnHandle> partitionKeys = ImmutableList.of(dsColumn, typeColumn);
+
+        Domain dsDomain = Domain.create(ValueSet.ofRanges(Range.lessThan(VARCHAR, utf8Slice("2018-05-06"))), false);
+        Domain typeDomain = Domain.create(ValueSet.of(VARCHAR, utf8Slice("fruit")), false);
+
+        TupleDomain<HiveColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<HiveColumnHandle, Domain>builder()
+                .put(bucketColumnHandle(), Domain.create(ValueSet.of(INTEGER, 123L), false))
+                .put(dsColumn, dsDomain)
+                .put(typeColumn, typeDomain)
+                .build());
+
+        TupleDomain<String> filter = computePartitionKeyFilter(partitionKeys, tupleDomain);
+        assertThat(filter.getDomains())
+                .as("output contains only the partition keys")
+                .contains(ImmutableMap.<String, Domain>builder()
+                        .put("ds", dsDomain)
+                        .put("type", typeDomain)
+                        .build());
+    }
+
+    private static HiveColumnHandle partitionColumn(String name)
+    {
+        return new HiveColumnHandle(name, 0, HIVE_STRING, VARCHAR, Optional.empty(), PARTITION_KEY, Optional.empty());
     }
 }
