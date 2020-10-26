@@ -44,6 +44,8 @@ public final class TestingSession
     /*
      * Pacific/Apia
      *  - has DST (e.g. January 2017)
+     *    - DST backward change by 1 hour on 2017-04-02 04:00 local time
+     *    - DST forward change by 1 hour on 2017-09-24 03:00 local time
      *  - had DST change at midnight (on Sunday, 26 September 2010, 00:00:00 clocks were turned forward 1 hour)
      *  - had offset change since 1970 (offset in January 1970: -11:00, offset in January 2017: +14:00, offset in June 2017: +13:00)
      *  - a whole day was skipped during policy change (on Friday, 30 December 2011, 00:00:00 clocks were turned forward 24 hours)
