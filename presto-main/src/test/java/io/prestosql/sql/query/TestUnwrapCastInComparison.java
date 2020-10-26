@@ -14,13 +14,17 @@
 package io.prestosql.sql.query;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.time.LocalTime;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertTrue;
@@ -214,7 +218,117 @@ public class TestUnwrapCastInComparison
         }
     }
 
+    @Test
+    public void testCastTimestampToTimestampWithTimeZone()
+    {
+        // The values in this test are chosen for Pacific/Apia's DST changes
+        Session session = Session.builder(assertions.getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Pacific/Apia"))
+                .build();
+
+        for (String operator : COMPARISON_OPERATORS) {
+            validate(session, operator, "timestamp(3)", "TIMESTAMP '2020-07-03 01:23:45.123'", "timestamp(3) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
+            validate(session, operator, "timestamp(3)", "TIMESTAMP '2020-07-03 01:23:45.123'", "timestamp(3) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
+            validate(session, operator, "timestamp(6)", "TIMESTAMP '2020-07-03 01:23:45.123456'", "timestamp(6) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
+            validate(session, operator, "timestamp(6)", "TIMESTAMP '2020-07-03 01:23:45.123456'", "timestamp(6) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
+            validate(session, operator, "timestamp(9)", "TIMESTAMP '2020-07-03 01:23:45.123456789'", "timestamp(9) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
+            validate(session, operator, "timestamp(9)", "TIMESTAMP '2020-07-03 01:23:45.123456789'", "timestamp(9) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
+            validate(session, operator, "timestamp(12)", "TIMESTAMP '2020-07-03 01:23:45.123456789123'", "timestamp(12) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
+            validate(session, operator, "timestamp(12)", "TIMESTAMP '2020-07-03 01:23:45.123456789123'", "timestamp(12) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
+        }
+
+        // DST forward change (2017-09-24 03:00 -> 2017-09-24 04:00)
+        List<LocalTime> fromLocalTimes = asList(
+                LocalTime.parse("02:59:59.999999999"),
+                LocalTime.parse("03:00:00"),
+                LocalTime.parse("03:00:00.000000001"),
+                LocalTime.parse("03:00:00.000000002"),
+                LocalTime.parse("03:59:59.999999999"),
+                LocalTime.parse("04:00:00"),
+                LocalTime.parse("04:00:00.000000001"),
+                LocalTime.parse("04:00:00.000000002"));
+
+        List<LocalTime> toLocalTimes = asList(
+                // 2017-09-24 02:59:00 Pacific/Apia is 2017-09-23T13:59:00Z
+                LocalTime.parse("13:59:59.999999999"),
+                // 2017-09-24 04:00:00 Pacific/Apia is 2017-09-23T14:00:00Z
+                // 2017-09-24 03:00:00 gets interpreted as 2017-09-23T14:00:00Z too
+                LocalTime.parse("14:00:00"),
+                LocalTime.parse("14:00:00.000000001"),
+                LocalTime.parse("14:00:00.000000002"),
+                LocalTime.parse("14:59:59.999999999"),
+                LocalTime.parse("15:00:00"),
+                LocalTime.parse("15:00:00.000000001"),
+                LocalTime.parse("15:00:00.000000002"));
+
+        for (LocalTime fromLocalTime : fromLocalTimes) {
+            for (LocalTime toLocalTime : toLocalTimes) {
+                for (int timestampPrecision : asList(0, 3, 6, 9, 12)) {
+                    for (String operator : COMPARISON_OPERATORS) {
+                        validate(
+                                session,
+                                operator,
+                                format("timestamp(%s)", timestampPrecision),
+                                format("TIMESTAMP '2017-09-24 %s'", fromLocalTime),
+                                format("timestamp(%s) with time zone", max(9, timestampPrecision)),
+                                format("TIMESTAMP '2017-04-01 %s Z'", toLocalTime));
+                    }
+                }
+            }
+        }
+
+        // DST backward change (2017-04-02 04:00 -> 2017-04-02 03:00)
+        fromLocalTimes = asList(
+                LocalTime.parse("02:59:59.999999999"),
+                LocalTime.parse("03:00:00"),
+                LocalTime.parse("03:00:00.000000001"),
+                LocalTime.parse("03:00:00.000000002"),
+                LocalTime.parse("03:59:59.999999999"),
+                LocalTime.parse("04:00:00"),
+                LocalTime.parse("04:00:00.000000001"),
+                LocalTime.parse("04:00:00.000000002"));
+
+        toLocalTimes = asList(
+                // 2017-04-02 02:59:00 Pacific/Apia is 2017-04-01T12:59:00Z
+                LocalTime.parse("12:59:59.999999999"),
+                // 2017-04-02 03:00:00 Pacific/Apia is 2017-04-01T13:00:00Z
+                LocalTime.parse("13:00:00"),
+                LocalTime.parse("13:00:00.000000001"),
+                LocalTime.parse("13:00:00.000000002"),
+                LocalTime.parse("13:59:59.999999999"),
+                // [2017-04-01T14:00:00Z - 2017-04-01T15:00:00Z) range is not addressable with TIMESTAMP to TIMESTAMP WITH TIME ZONE cast in Pacific/Apia zone
+                LocalTime.parse("14:00:00"),
+                LocalTime.parse("14:00:00.000000001"),
+                LocalTime.parse("14:00:00.000000002"),
+                LocalTime.parse("14:59:59.999999999"),
+                // 2017-04-02 04:00:00 Pacific/Apia is 2017-04-01T15:00:00Z
+                LocalTime.parse("15:00:00"),
+                LocalTime.parse("15:00:00.000000001"),
+                LocalTime.parse("15:00:00.000000002"));
+
+        for (LocalTime fromLocalTime : fromLocalTimes) {
+            for (LocalTime toLocalTime : toLocalTimes) {
+                for (int timestampPrecision : asList(0, 3, 6, 9, 12)) {
+                    for (String operator : COMPARISON_OPERATORS) {
+                        validate(
+                                session,
+                                operator,
+                                format("timestamp(%s)", timestampPrecision),
+                                format("TIMESTAMP '2017-09-24 %s'", fromLocalTime),
+                                format("timestamp(%s) with time zone", max(9, timestampPrecision)),
+                                format("TIMESTAMP '2017-04-01 %s Z'", toLocalTime));
+                    }
+                }
+            }
+        }
+    }
+
     private void validate(String operator, String fromType, Object fromValue, String toType, Object toValue)
+    {
+        validate(assertions.getDefaultSession(), operator, fromType, fromValue, toType, toValue);
+    }
+
+    private void validate(Session session, String operator, String fromType, Object fromValue, String toType, Object toValue)
     {
         String query = format(
                 "SELECT (CAST(v AS %s) %s CAST(%s AS %s)) " +
@@ -225,7 +339,7 @@ public class TestUnwrapCastInComparison
                 fromValue, toType, operator, toValue, toType,
                 fromValue, fromType);
 
-        boolean result = (boolean) assertions.execute(query)
+        boolean result = (boolean) assertions.execute(session, query)
                 .getMaterializedRows()
                 .get(0)
                 .getField(0);
