@@ -13,15 +13,12 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
-import io.prestosql.Session;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.query.QueryAssertions;
-import io.prestosql.testing.TestingSession;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -32,10 +29,7 @@ public class TestExtract
     @BeforeClass
     public void init()
     {
-        Session session = testSessionBuilder()
-                .setTimeZoneKey(TestingSession.DEFAULT_TIME_ZONE_KEY)
-                .build();
-        assertions = new QueryAssertions(session);
+        assertions = new QueryAssertions();
     }
 
     @AfterClass(alwaysRun = true)
