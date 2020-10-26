@@ -57,6 +57,7 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -142,7 +143,7 @@ public class SapHanaClient
     private static final int SAP_HANA_CHAR_LENGTH_LIMIT = 2000;
     private static final int SAP_HANA_VARCHAR_LENGTH_LIMIT = 5000;
 
-    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone("UTC");
+    private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
 
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
 
