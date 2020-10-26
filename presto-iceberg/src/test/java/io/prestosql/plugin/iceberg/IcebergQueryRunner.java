@@ -30,6 +30,7 @@ import java.util.Map;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class IcebergQueryRunner
 {
@@ -81,7 +82,7 @@ public final class IcebergQueryRunner
                 "</property>\n" +
                 "</configuration>\n";
         FileOutputStream out = new FileOutputStream(hivesiteLocation);
-        out.write(hivesite.getBytes());
+        out.write(hivesite.getBytes(UTF_8));
         out.close();
 
         queryRunner.installPlugin(new IcebergPlugin());

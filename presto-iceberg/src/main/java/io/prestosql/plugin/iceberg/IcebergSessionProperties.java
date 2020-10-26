@@ -37,7 +37,6 @@ import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static java.lang.String.format;
 
 public final class IcebergSessionProperties

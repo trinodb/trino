@@ -37,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
@@ -70,7 +71,7 @@ public class TestIcebergMetadataListingHadoopMode
                 "</property>\n" +
                 "</configuration>\n";
         FileOutputStream out = new FileOutputStream(hivesiteLocation);
-        out.write(hivesite.getBytes());
+        out.write(hivesite.getBytes(StandardCharsets.UTF_8));
         out.close();
 
         HdfsConfig hdfsConfig = new HdfsConfig();
