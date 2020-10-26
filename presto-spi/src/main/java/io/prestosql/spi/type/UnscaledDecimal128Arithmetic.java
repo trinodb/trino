@@ -474,19 +474,24 @@ public final class UnscaledDecimal128Arithmetic
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
 
-        long l0 = toUnsignedLong(getInt(left, 0));
-        long l1 = toUnsignedLong(getInt(left, 1));
-        long l2 = toUnsignedLong(getInt(left, 2));
-        int l3raw = getRawInt(left, 3);
-        boolean leftNegative = isNegative(l3raw);
-        long l3 = toUnsignedLong(unpackUnsignedInt(l3raw));
+        multiply(getRawLong(left, 0), getRawLong(left, 1), getRawLong(right, 0), getRawLong(right, 1), result);
+    }
 
-        long r0 = toUnsignedLong(getInt(right, 0));
-        long r1 = toUnsignedLong(getInt(right, 1));
-        long r2 = toUnsignedLong(getInt(right, 2));
-        int r3raw = getRawInt(right, 3);
-        boolean rightNegative = isNegative(r3raw);
-        long r3 = toUnsignedLong(unpackUnsignedInt(r3raw));
+    public static void multiply(long leftLow, long leftHigh, long rightLow, long rightHigh, Slice result)
+    {
+        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
+
+        long l0 = low(leftLow);
+        long l1 = high(leftLow);
+        long l2 = low(leftHigh);
+        boolean leftNegative = isNegative(leftHigh);
+        long l3 = unpackUnsignedInt(high(leftHigh));
+
+        long r0 = low(rightLow);
+        long r1 = high(rightLow);
+        long r2 = low(rightHigh);
+        boolean rightNegative = isNegative(rightHigh);
+        long r3 = unpackUnsignedInt(high(rightHigh));
 
         // the combinations below definitely result in an overflow
         if (((r3 != 0 && (l3 | l2 | l1) != 0) || (r2 != 0 && (l3 | l2) != 0) || (r1 != 0 && l3 != 0))) {
@@ -559,62 +564,12 @@ public final class UnscaledDecimal128Arithmetic
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
 
-        long l0 = toUnsignedLong(getInt(left, 0));
-        long l1 = toUnsignedLong(getInt(left, 1));
-        long l2 = toUnsignedLong(getInt(left, 2));
-        int l3raw = getRawInt(left, 3);
-        boolean leftNegative = isNegative(l3raw);
-        long l3 = toUnsignedLong(unpackUnsignedInt(l3raw));
-
         boolean rightNegative = right < 0;
-        right = abs(right);
-        long r0 = low(right);
-        long r1 = high(right);
-
-        // the combinations below definitely result in an overflow
-        if (r1 != 0 && l3 != 0) {
-            throwOverflowException();
+        if (rightNegative) {
+            right = -right;
         }
 
-        long z0 = 0;
-        long z1 = 0;
-        long z2 = 0;
-        long z3 = 0;
-
-        if (r0 != 0) {
-            long accumulator = r0 * l0;
-            z0 = low(accumulator);
-            accumulator = high(accumulator) + l1 * r0;
-
-            z1 = low(accumulator);
-            accumulator = high(accumulator) + l2 * r0;
-
-            z2 = low(accumulator);
-            accumulator = high(accumulator) + l3 * r0;
-
-            z3 = low(accumulator);
-
-            if (high(accumulator) != 0) {
-                throwOverflowException();
-            }
-        }
-
-        if (r1 != 0) {
-            long accumulator = l0 * r1 + z1;
-            z1 = low(accumulator);
-            accumulator = high(accumulator) + l1 * r1 + z2;
-
-            z2 = low(accumulator);
-            accumulator = high(accumulator) + l2 * r1 + z3;
-
-            z3 = low(accumulator);
-
-            if (high(accumulator) != 0) {
-                throwOverflowException();
-            }
-        }
-
-        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
+        multiply(getRawLong(left, 0), getRawLong(left, 1), right, rightNegative ? SIGN_LONG_MASK : 0, result);
     }
 
     public static void multiply(Slice left, int right, Slice result)
@@ -655,6 +610,7 @@ public final class UnscaledDecimal128Arithmetic
         pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
     }
 
+    // Using multiply(long, long, long, long, Slice) here decreases performance by ~40%
     public static void multiply(long left, long right, Slice result)
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
@@ -1895,6 +1851,11 @@ public final class UnscaledDecimal128Arithmetic
     }
 
     private static int unpackUnsignedInt(int value)
+    {
+        return value & ~SIGN_INT_MASK;
+    }
+
+    private static long unpackUnsignedInt(long value)
     {
         return value & ~SIGN_INT_MASK;
     }
