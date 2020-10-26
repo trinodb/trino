@@ -29,6 +29,7 @@ import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.prestosql.sql.planner.iterative.rule.AddIntermediateAggregations;
+import io.prestosql.sql.planner.iterative.rule.ApplyTableScanRedirection;
 import io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.prestosql.sql.planner.iterative.rule.CreatePartialTopN;
 import io.prestosql.sql.planner.iterative.rule.DesugarArrayConstructor;
@@ -536,6 +537,21 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new TransformFilteringSemiJoinToInnerJoin()))); // must run after PredicatePushDown
+
+        // Perform redirection before CBO rules to ensure stats from destination connector are used
+        // Perform redirection before agg, topN, limit, sample etc. push down into table scan as the destination connector may support a different set of push downs
+        // Perform redirection after at least one PredicatePushDown and PushPredicateIntoTableScan to allow connector to use pushed down predicates in redirection decision
+        // Perform redirection after at least table scan pruning rules because redirected table might have fewer columns
+        // PushPredicateIntoTableScan must be run after redirection
+        // Column pruning rules need to be run after redirection
+        builder.add(
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new ApplyTableScanRedirection(metadata),
+                                new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))));
 
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 ruleStats,

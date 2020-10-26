@@ -1054,4 +1054,9 @@ public interface ConnectorMetadata
     {
         return new MaterializedViewFreshness(false);
     }
+
+    default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
 }

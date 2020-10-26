@@ -29,10 +29,13 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SortItem;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.expression.ConnectorExpression;
@@ -63,6 +66,8 @@ public class MockConnectorFactory
     private final ApplyProjection applyProjection;
     private final ApplyAggregation applyAggregation;
     private final ApplyTopN applyTopN;
+    private final ApplyFilter applyFilter;
+    private final ApplyTableScanRedirect applyTableScanRedirect;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
     private final Supplier<Iterable<EventListener>> eventListeners;
@@ -78,6 +83,8 @@ public class MockConnectorFactory
             ApplyProjection applyProjection,
             ApplyAggregation applyAggregation,
             ApplyTopN applyTopN,
+            ApplyFilter applyFilter,
+            ApplyTableScanRedirect applyTableScanRedirect,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
             Supplier<Iterable<EventListener>> eventListeners,
@@ -92,6 +99,8 @@ public class MockConnectorFactory
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
+        this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
+        this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
@@ -123,6 +132,8 @@ public class MockConnectorFactory
                 applyProjection,
                 applyAggregation,
                 applyTopN,
+                applyFilter,
+                applyTableScanRedirect,
                 getInsertLayout,
                 getNewTableLayout,
                 eventListeners,
@@ -168,6 +179,18 @@ public class MockConnectorFactory
     }
 
     @FunctionalInterface
+    public interface ApplyFilter
+    {
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint);
+    }
+
+    @FunctionalInterface
+    public interface ApplyTableScanRedirect
+    {
+        Optional<TableScanRedirectApplicationResult> apply(ConnectorSession session, ConnectorTableHandle handle);
+    }
+
+    @FunctionalInterface
     public interface ListRoleGrants
     {
         Set<RoleGrant> apply(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
@@ -189,6 +212,8 @@ public class MockConnectorFactory
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
         private Grants<String> schemaGrants = new AllowAllGrants<>();
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
+        private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
+        private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -244,6 +269,18 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withApplyFilter(ApplyFilter applyFilter)
+        {
+            this.applyFilter = applyFilter;
+            return this;
+        }
+
+        public Builder withApplyTableScanRedirect(ApplyTableScanRedirect applyTableScanRedirect)
+        {
+            this.applyTableScanRedirect = applyTableScanRedirect;
+            return this;
+        }
+
         public Builder withGetInsertLayout(BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout)
         {
             this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
@@ -295,6 +332,8 @@ public class MockConnectorFactory
                     applyProjection,
                     applyAggregation,
                     applyTopN,
+                    applyFilter,
+                    applyTableScanRedirect,
                     getInsertLayout,
                     getNewTableLayout,
                     eventListeners,
