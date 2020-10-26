@@ -40,7 +40,7 @@ public class TestOracleIntegrationSmokeTest
             throws Exception
     {
         oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION), false);
+        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION), false, false);
     }
 
     @AfterClass(alwaysRun = true)

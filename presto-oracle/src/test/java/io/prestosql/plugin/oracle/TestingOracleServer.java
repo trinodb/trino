@@ -87,7 +87,7 @@ public class TestingOracleServer
     @Override
     public String getJdbcUrl()
     {
-        return "jdbc:oracle:thin:@" + getHost() + ":" + getOraclePort() + ":" + getSid() + "?remarksReporting=true";
+        return "jdbc:oracle:thin:@" + getHost() + ":" + getOraclePort() + ":" + getSid();
     }
 
     public void execute(String sql)
