@@ -57,7 +57,7 @@ public final class DateTimes
 
     public static final Pattern TIME_PATTERN = Pattern.compile("" +
             "(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?" +
-            "\\s*((?<offsetHour>[+-]\\d\\d):(?<offsetMinute>\\d\\d))?");
+            "\\s*((?<sign>[+-])(?<offsetHour>\\d\\d):(?<offsetMinute>\\d\\d))?");
 
     private static final long[] POWERS_OF_TEN = {
             1L,
@@ -556,6 +556,7 @@ public final class DateTimes
         int hour = Integer.parseInt(matcher.group("hour"));
         int minute = Integer.parseInt(matcher.group("minute"));
         int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+        int offsetSign = matcher.group("sign").equals("+") ? 1 : -1;
         int offsetHour = Integer.parseInt((matcher.group("offsetHour")));
         int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
 
@@ -572,9 +573,7 @@ public final class DateTimes
         }
 
         long nanos = (((hour * 60) + minute) * 60 + second) * NANOSECONDS_PER_SECOND + rescale(fractionValue, precision, 9);
-        int offsetMinutes = offsetHour * 60 + offsetMinute;
-
-        return packTimeWithTimeZone(nanos, offsetMinutes);
+        return packTimeWithTimeZone(nanos, calculateOffsetMinutes(offsetSign, offsetHour, offsetMinute));
     }
 
     public static LongTimeWithTimeZone parseLongTimeWithTimeZone(String value)
@@ -587,6 +586,7 @@ public final class DateTimes
         int hour = Integer.parseInt(matcher.group("hour"));
         int minute = Integer.parseInt(matcher.group("minute"));
         int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+        int offsetSign = matcher.group("sign").equals("+") ? 1 : -1;
         int offsetHour = Integer.parseInt((matcher.group("offsetHour")));
         int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
 
@@ -603,9 +603,7 @@ public final class DateTimes
         }
 
         long picos = (((hour * 60) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + rescale(fractionValue, precision, 12);
-        int offset = offsetHour * 60 + offsetMinute;
-
-        return new LongTimeWithTimeZone(picos, offset);
+        return new LongTimeWithTimeZone(picos, calculateOffsetMinutes(offsetSign, offsetHour, offsetMinute));
     }
 
     public static LongTimestamp longTimestamp(long precision, Instant start)
@@ -650,6 +648,11 @@ public final class DateTimes
         return epochMillis;
     }
 
+    public static int calculateOffsetMinutes(int sign, int offsetHour, int offsetMinute)
+    {
+        return sign * (offsetHour * 60 + offsetMinute);
+    }
+
     public static int getOffsetMinutes(Instant instant, TimeZoneKey zoneKey)
     {
         return zoneKey
@@ -661,6 +664,7 @@ public final class DateTimes
 
     public static boolean isValidOffset(int hour, int minute)
     {
-        return (hour == 14 && minute == 0 || hour < 14) && (hour == -14 && minute == 0 || hour > -14) && minute >= 0 && minute <= 59;
+        return (hour == 14 && minute == 0) ||
+                (hour >= 0 && hour < 14 && minute >= 0 && minute <= 59);
     }
 }

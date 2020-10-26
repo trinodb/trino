@@ -84,12 +84,13 @@ public class TestCustomJsonDateTimeFormatter
         testTime(sqlTimeOf(3, 0, 0, 0, 0), "HH:mm:ss.SSS", 3, "00:00:00.000");
         testTime(sqlTimeOf(3, 23, 59, 59, 999000000), "HH:mm:ss.SSS", 3, "23:59:59.999");
 
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 0, 0), "HH:mm:ss.SSS Z", "10:23:35.123 +0000");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 0, 0, 0, 0, 0, 0), "HH:mm:ss.SSS Z", "00:00:00.000 +0000");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 2, 0), "HH:mm:ss.SSS Z", "10:23:35.123 +0200");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 10, 0), "HH:mm:ss.SSS Z", "10:23:35.123 +1000");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, -10, 0), "HH:mm:ss.SSS Z", "10:23:35.123 -1000");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 23, 59, 59, 999000000, 0, 0), "HH:mm:ss.SSS Z", "23:59:59.999 +0000");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 0), "HH:mm:ss.SSS Z", "10:23:35.123 +0000");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 0, 0, 0, 0, 0), "HH:mm:ss.SSS Z", "00:00:00.000 +0000");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 2 * 60), "HH:mm:ss.SSS Z", "10:23:35.123 +0200");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 10 * 60), "HH:mm:ss.SSS Z", "10:23:35.123 +1000");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, -10 * 60), "HH:mm:ss.SSS Z", "10:23:35.123 -1000");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 23, 59, 59, 999000000, 0), "HH:mm:ss.SSS Z", "23:59:59.999 +0000");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 12, 34, 56, 789000000, -35), "HH:mm:ss.SSS Z", "12:34:56.789 -0035");
 
         testTimestamp(sqlTimestampOf(3, 2020, 8, 18, 12, 38, 29, 123), "yyyy-dd-MM HH:mm:ss.SSS", "2020-18-08 12:38:29.123");
         testTimestamp(sqlTimestampOf(3, 1970, 1, 1, 0, 0, 0, 0), "yyyy-dd-MM HH:mm:ss.SSS", "1970-01-01 00:00:00.000");
