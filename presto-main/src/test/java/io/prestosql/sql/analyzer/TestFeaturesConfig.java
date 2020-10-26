@@ -104,7 +104,8 @@ public class TestFeaturesConfig
                 .setPredicatePushdownUseTableProperties(true)
                 .setIgnoreDownstreamPreferences(false)
                 .setOmitDateTimeTypePrecision(false)
-                .setIterativeRuleBasedColumnPruning(true));
+                .setIterativeRuleBasedColumnPruning(true)
+                .setRedirectTableScansEnabled(true));
     }
 
     @Test
@@ -174,6 +175,7 @@ public class TestFeaturesConfig
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("optimizer.iterative-rule-based-column-pruning", "false")
+                .put("optimizer.redirect-table-scans", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -239,7 +241,8 @@ public class TestFeaturesConfig
                 .setPredicatePushdownUseTableProperties(false)
                 .setIgnoreDownstreamPreferences(true)
                 .setOmitDateTimeTypePrecision(true)
-                .setIterativeRuleBasedColumnPruning(false);
+                .setIterativeRuleBasedColumnPruning(false)
+                .setRedirectTableScansEnabled(false);
         assertFullMapping(properties, expected);
     }
 }
