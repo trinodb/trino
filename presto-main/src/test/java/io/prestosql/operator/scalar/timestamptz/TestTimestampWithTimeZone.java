@@ -271,6 +271,112 @@ public class TestTimestampWithTimeZone
 
         assertThat(assertions.expression("TIMESTAMP '-12001-05-01 12:34:56.123456789012 Asia/Kathmandu'"))
                 .isEqualTo(timestampWithTimeZone(12, -12001, 5, 1, 12, 34, 56, 123_456_789_012L, getTimeZoneKey("Asia/Kathmandu")));
+
+        // negative offset hour
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(0))
+                .isEqualTo(timestampWithTimeZone(0, 2020, 5, 1, 12, 34, 56, 0, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(1))
+                .isEqualTo(timestampWithTimeZone(1, 2020, 5, 1, 12, 34, 56, 100_000_000_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(2))
+                .isEqualTo(timestampWithTimeZone(2, 2020, 5, 1, 12, 34, 56, 120_000_000_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(3))
+                .isEqualTo(timestampWithTimeZone(3, 2020, 5, 1, 12, 34, 56, 123_000_000_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(4))
+                .isEqualTo(timestampWithTimeZone(4, 2020, 5, 1, 12, 34, 56, 123_400_000_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(5))
+                .isEqualTo(timestampWithTimeZone(5, 2020, 5, 1, 12, 34, 56, 123_450_000_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(6))
+                .isEqualTo(timestampWithTimeZone(6, 2020, 5, 1, 12, 34, 56, 123_456_000_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(7))
+                .isEqualTo(timestampWithTimeZone(7, 2020, 5, 1, 12, 34, 56, 123_456_700_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(8))
+                .isEqualTo(timestampWithTimeZone(8, 2020, 5, 1, 12, 34, 56, 123_456_780_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(9))
+                .isEqualTo(timestampWithTimeZone(9, 2020, 5, 1, 12, 34, 56, 123_456_789_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(10))
+                .isEqualTo(timestampWithTimeZone(10, 2020, 5, 1, 12, 34, 56, 123_456_789_000L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678901 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(11))
+                .isEqualTo(timestampWithTimeZone(11, 2020, 5, 1, 12, 34, 56, 123_456_789_010L, getTimeZoneKey("-08:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789012 -08:35'"))
+                .hasType(createTimestampWithTimeZoneType(12))
+                .isEqualTo(timestampWithTimeZone(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L, getTimeZoneKey("-08:35")));
+
+        // negative offset minute
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(0))
+                .isEqualTo(timestampWithTimeZone(0, 2020, 5, 1, 12, 34, 56, 0, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(1))
+                .isEqualTo(timestampWithTimeZone(1, 2020, 5, 1, 12, 34, 56, 100_000_000_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(2))
+                .isEqualTo(timestampWithTimeZone(2, 2020, 5, 1, 12, 34, 56, 120_000_000_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(3))
+                .isEqualTo(timestampWithTimeZone(3, 2020, 5, 1, 12, 34, 56, 123_000_000_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(4))
+                .isEqualTo(timestampWithTimeZone(4, 2020, 5, 1, 12, 34, 56, 123_400_000_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(5))
+                .isEqualTo(timestampWithTimeZone(5, 2020, 5, 1, 12, 34, 56, 123_450_000_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(6))
+                .isEqualTo(timestampWithTimeZone(6, 2020, 5, 1, 12, 34, 56, 123_456_000_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(7))
+                .isEqualTo(timestampWithTimeZone(7, 2020, 5, 1, 12, 34, 56, 123_456_700_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(8))
+                .isEqualTo(timestampWithTimeZone(8, 2020, 5, 1, 12, 34, 56, 123_456_780_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(9))
+                .isEqualTo(timestampWithTimeZone(9, 2020, 5, 1, 12, 34, 56, 123_456_789_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(10))
+                .isEqualTo(timestampWithTimeZone(10, 2020, 5, 1, 12, 34, 56, 123_456_789_000L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678901 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(11))
+                .isEqualTo(timestampWithTimeZone(11, 2020, 5, 1, 12, 34, 56, 123_456_789_010L, getTimeZoneKey("-00:35")));
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789012 -00:35'"))
+                .hasType(createTimestampWithTimeZoneType(12))
+                .isEqualTo(timestampWithTimeZone(12, 2020, 5, 1, 12, 34, 56, 123_456_789_012L, getTimeZoneKey("-00:35")));
     }
 
     @Test
