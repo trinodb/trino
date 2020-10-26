@@ -441,7 +441,7 @@ public final class MetastoreUtil
         for (HiveColumnHandle partitionKey : partitionKeys) {
             String name = partitionKey.getName();
             Domain domain = effectivePredicate.getDomains().get().get(partitionKey);
-            if (domain != null && domain.isNullableSingleValue()) {
+            if (domain != null) {
                 domains.put(name, domain);
             }
         }
