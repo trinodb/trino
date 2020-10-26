@@ -1279,6 +1279,35 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 03:23:45.1234567891 America/Los_Angeles' AS TIME(10) WITH TIME ZONE)")).matches("TIME '03:23:45.1234567891+08:35'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 03:23:45.12345678912 America/Los_Angeles' AS TIME(11) WITH TIME ZONE)")).matches("TIME '03:23:45.12345678912+08:35'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 03:23:45.123456789123 America/Los_Angeles' AS TIME(12) WITH TIME ZONE)")).matches("TIME '03:23:45.123456789123+08:35'");
+
+        // negative offset
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45 -08:35' AS TIME(0) WITH TIME ZONE)")).matches("TIME '01:23:45-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.1 -08:35' AS TIME(1) WITH TIME ZONE)")).matches("TIME '01:23:45.1-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.12 -08:35' AS TIME(2) WITH TIME ZONE)")).matches("TIME '01:23:45.12-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.123 -08:35' AS TIME(3) WITH TIME ZONE)")).matches("TIME '01:23:45.123-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.1234 -08:35' AS TIME(4) WITH TIME ZONE)")).matches("TIME '01:23:45.1234-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.12345 -08:35' AS TIME(5) WITH TIME ZONE)")).matches("TIME '01:23:45.12345-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.123456 -08:35' AS TIME(6) WITH TIME ZONE)")).matches("TIME '01:23:45.123456-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.1234567 -08:35' AS TIME(7) WITH TIME ZONE)")).matches("TIME '01:23:45.1234567-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.12345678 -08:35' AS TIME(8) WITH TIME ZONE)")).matches("TIME '01:23:45.12345678-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.123456789 -08:35' AS TIME(9) WITH TIME ZONE)")).matches("TIME '01:23:45.123456789-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.1234567891 -08:35' AS TIME(10) WITH TIME ZONE)")).matches("TIME '01:23:45.1234567891-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.12345678912 -08:35' AS TIME(11) WITH TIME ZONE)")).matches("TIME '01:23:45.12345678912-08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.123456789123 -08:35' AS TIME(12) WITH TIME ZONE)")).matches("TIME '01:23:45.123456789123-08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45 -00:35' AS TIME(0) WITH TIME ZONE)")).matches("TIME '01:23:45-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.1 -00:35' AS TIME(1) WITH TIME ZONE)")).matches("TIME '01:23:45.1-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.12 -00:35' AS TIME(2) WITH TIME ZONE)")).matches("TIME '01:23:45.12-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.123 -00:35' AS TIME(3) WITH TIME ZONE)")).matches("TIME '01:23:45.123-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.1234 -00:35' AS TIME(4) WITH TIME ZONE)")).matches("TIME '01:23:45.1234-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.12345 -00:35' AS TIME(5) WITH TIME ZONE)")).matches("TIME '01:23:45.12345-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.123456 -00:35' AS TIME(6) WITH TIME ZONE)")).matches("TIME '01:23:45.123456-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.1234567 -00:35' AS TIME(7) WITH TIME ZONE)")).matches("TIME '01:23:45.1234567-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.12345678 -00:35' AS TIME(8) WITH TIME ZONE)")).matches("TIME '01:23:45.12345678-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.123456789 -00:35' AS TIME(9) WITH TIME ZONE)")).matches("TIME '01:23:45.123456789-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.1234567891 -00:35' AS TIME(10) WITH TIME ZONE)")).matches("TIME '01:23:45.1234567891-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.12345678912 -00:35' AS TIME(11) WITH TIME ZONE)")).matches("TIME '01:23:45.12345678912-00:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-03-08 01:23:45.123456789123 -00:35' AS TIME(12) WITH TIME ZONE)")).matches("TIME '01:23:45.123456789123-00:35'");
     }
 
     @Test

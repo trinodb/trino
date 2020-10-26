@@ -53,63 +53,209 @@ public class TestTimeWithTimeZone
     {
         assertThat(assertions.expression("TIME '12:34:56+08:35'"))
                 .hasType(createTimeWithTimeZoneType(0))
-                .isEqualTo(timeWithTimeZone(0, 12, 34, 56, 0, 8, 35));
+                .isEqualTo(timeWithTimeZone(0, 12, 34, 56, 0, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.1+08:35'"))
                 .hasType(createTimeWithTimeZoneType(1))
-                .isEqualTo(timeWithTimeZone(1, 12, 34, 56, 100_000_000_000L, 8, 35));
+                .isEqualTo(timeWithTimeZone(1, 12, 34, 56, 100_000_000_000L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.1+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.12+08:35'"))
                 .hasType(createTimeWithTimeZoneType(2))
-                .isEqualTo(timeWithTimeZone(2, 12, 34, 56, 120_000_000_000L, 8, 35));
+                .isEqualTo(timeWithTimeZone(2, 12, 34, 56, 120_000_000_000L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.12+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.123+08:35'"))
                 .hasType(createTimeWithTimeZoneType(3))
-                .isEqualTo(timeWithTimeZone(3, 12, 34, 56, 123_000_000_000L, 8, 35));
+                .isEqualTo(timeWithTimeZone(3, 12, 34, 56, 123_000_000_000L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.123+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.1234+08:35'"))
                 .hasType(createTimeWithTimeZoneType(4))
-                .isEqualTo(timeWithTimeZone(4, 12, 34, 56, 123_400_000_000L, 8, 35));
+                .isEqualTo(timeWithTimeZone(4, 12, 34, 56, 123_400_000_000L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.1234+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.12345+08:35'"))
                 .hasType(createTimeWithTimeZoneType(5))
-                .isEqualTo(timeWithTimeZone(5, 12, 34, 56, 123_450_000_000L, 8, 35));
+                .isEqualTo(timeWithTimeZone(5, 12, 34, 56, 123_450_000_000L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.12345+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.123456+08:35'"))
                 .hasType(createTimeWithTimeZoneType(6))
-                .isEqualTo(timeWithTimeZone(6, 12, 34, 56, 123_456_000_000L, 8, 35));
+                .isEqualTo(timeWithTimeZone(6, 12, 34, 56, 123_456_000_000L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.123456+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.1234567+08:35'"))
                 .hasType(createTimeWithTimeZoneType(7))
-                .isEqualTo(timeWithTimeZone(7, 12, 34, 56, 123_456_700_000L, 8, 35));
+                .isEqualTo(timeWithTimeZone(7, 12, 34, 56, 123_456_700_000L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.1234567+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.12345678+08:35'"))
                 .hasType(createTimeWithTimeZoneType(8))
-                .isEqualTo(timeWithTimeZone(8, 12, 34, 56, 123_456_780_000L, 8, 35));
+                .isEqualTo(timeWithTimeZone(8, 12, 34, 56, 123_456_780_000L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.12345678+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.123456789+08:35'"))
                 .hasType(createTimeWithTimeZoneType(9))
-                .isEqualTo(timeWithTimeZone(9, 12, 34, 56, 123_456_789_000L, 8, 35));
+                .isEqualTo(timeWithTimeZone(9, 12, 34, 56, 123_456_789_000L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.123456789+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.1234567891+08:35'"))
                 .hasType(createTimeWithTimeZoneType(10))
-                .isEqualTo(timeWithTimeZone(10, 12, 34, 56, 123_456_789_100L, 8, 35));
+                .isEqualTo(timeWithTimeZone(10, 12, 34, 56, 123_456_789_100L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.1234567891+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.12345678912+08:35'"))
                 .hasType(createTimeWithTimeZoneType(11))
-                .isEqualTo(timeWithTimeZone(11, 12, 34, 56, 123_456_789_120L, 8, 35));
+                .isEqualTo(timeWithTimeZone(11, 12, 34, 56, 123_456_789_120L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.12345678912+08:35");
 
         assertThat(assertions.expression("TIME '12:34:56.123456789123+08:35'"))
                 .hasType(createTimeWithTimeZoneType(12))
-                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, 8, 35));
+                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, 8 * 60 + 35))
+                .asString().isEqualTo("12:34:56.123456789123+08:35");
 
+        // negative offsets
+        assertThat(assertions.expression("TIME '12:34:56-08:35'"))
+                .hasType(createTimeWithTimeZoneType(0))
+                .isEqualTo(timeWithTimeZone(0, 12, 34, 56, 0, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.1-08:35'"))
+                .hasType(createTimeWithTimeZoneType(1))
+                .isEqualTo(timeWithTimeZone(1, 12, 34, 56, 100_000_000_000L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.1-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.12-08:35'"))
+                .hasType(createTimeWithTimeZoneType(2))
+                .isEqualTo(timeWithTimeZone(2, 12, 34, 56, 120_000_000_000L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.12-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.123-08:35'"))
+                .hasType(createTimeWithTimeZoneType(3))
+                .isEqualTo(timeWithTimeZone(3, 12, 34, 56, 123_000_000_000L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.123-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.1234-08:35'"))
+                .hasType(createTimeWithTimeZoneType(4))
+                .isEqualTo(timeWithTimeZone(4, 12, 34, 56, 123_400_000_000L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.1234-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.12345-08:35'"))
+                .hasType(createTimeWithTimeZoneType(5))
+                .isEqualTo(timeWithTimeZone(5, 12, 34, 56, 123_450_000_000L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.12345-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.123456-08:35'"))
+                .hasType(createTimeWithTimeZoneType(6))
+                .isEqualTo(timeWithTimeZone(6, 12, 34, 56, 123_456_000_000L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.123456-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.1234567-08:35'"))
+                .hasType(createTimeWithTimeZoneType(7))
+                .isEqualTo(timeWithTimeZone(7, 12, 34, 56, 123_456_700_000L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.1234567-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.12345678-08:35'"))
+                .hasType(createTimeWithTimeZoneType(8))
+                .isEqualTo(timeWithTimeZone(8, 12, 34, 56, 123_456_780_000L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.12345678-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.123456789-08:35'"))
+                .hasType(createTimeWithTimeZoneType(9))
+                .isEqualTo(timeWithTimeZone(9, 12, 34, 56, 123_456_789_000L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.123456789-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.1234567891-08:35'"))
+                .hasType(createTimeWithTimeZoneType(10))
+                .isEqualTo(timeWithTimeZone(10, 12, 34, 56, 123_456_789_100L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.1234567891-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.12345678912-08:35'"))
+                .hasType(createTimeWithTimeZoneType(11))
+                .isEqualTo(timeWithTimeZone(11, 12, 34, 56, 123_456_789_120L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.12345678912-08:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.123456789123-08:35'"))
+                .hasType(createTimeWithTimeZoneType(12))
+                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, -(8 * 60 + 35)))
+                .asString().isEqualTo("12:34:56.123456789123-08:35");
+
+        // negative offset minutes
+        assertThat(assertions.expression("TIME '12:34:56-00:35'"))
+                .hasType(createTimeWithTimeZoneType(0))
+                .isEqualTo(timeWithTimeZone(0, 12, 34, 56, 0, -35))
+                .asString().isEqualTo("12:34:56-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.1-00:35'"))
+                .hasType(createTimeWithTimeZoneType(1))
+                .isEqualTo(timeWithTimeZone(1, 12, 34, 56, 100_000_000_000L, -35))
+                .asString().isEqualTo("12:34:56.1-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.12-00:35'"))
+                .hasType(createTimeWithTimeZoneType(2))
+                .isEqualTo(timeWithTimeZone(2, 12, 34, 56, 120_000_000_000L, -35))
+                .asString().isEqualTo("12:34:56.12-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.123-00:35'"))
+                .hasType(createTimeWithTimeZoneType(3))
+                .isEqualTo(timeWithTimeZone(3, 12, 34, 56, 123_000_000_000L, -35))
+                .asString().isEqualTo("12:34:56.123-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.1234-00:35'"))
+                .hasType(createTimeWithTimeZoneType(4))
+                .isEqualTo(timeWithTimeZone(4, 12, 34, 56, 123_400_000_000L, -35))
+                .asString().isEqualTo("12:34:56.1234-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.12345-00:35'"))
+                .hasType(createTimeWithTimeZoneType(5))
+                .isEqualTo(timeWithTimeZone(5, 12, 34, 56, 123_450_000_000L, -35))
+                .asString().isEqualTo("12:34:56.12345-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.123456-00:35'"))
+                .hasType(createTimeWithTimeZoneType(6))
+                .isEqualTo(timeWithTimeZone(6, 12, 34, 56, 123_456_000_000L, -35))
+                .asString().isEqualTo("12:34:56.123456-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.1234567-00:35'"))
+                .hasType(createTimeWithTimeZoneType(7))
+                .isEqualTo(timeWithTimeZone(7, 12, 34, 56, 123_456_700_000L, -35))
+                .asString().isEqualTo("12:34:56.1234567-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.12345678-00:35'"))
+                .hasType(createTimeWithTimeZoneType(8))
+                .isEqualTo(timeWithTimeZone(8, 12, 34, 56, 123_456_780_000L, -35))
+                .asString().isEqualTo("12:34:56.12345678-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.123456789-00:35'"))
+                .hasType(createTimeWithTimeZoneType(9))
+                .isEqualTo(timeWithTimeZone(9, 12, 34, 56, 123_456_789_000L, -35))
+                .asString().isEqualTo("12:34:56.123456789-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.1234567891-00:35'"))
+                .hasType(createTimeWithTimeZoneType(10))
+                .isEqualTo(timeWithTimeZone(10, 12, 34, 56, 123_456_789_100L, -35))
+                .asString().isEqualTo("12:34:56.1234567891-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.12345678912-00:35'"))
+                .hasType(createTimeWithTimeZoneType(11))
+                .isEqualTo(timeWithTimeZone(11, 12, 34, 56, 123_456_789_120L, -35))
+                .asString().isEqualTo("12:34:56.12345678912-00:35");
+
+        assertThat(assertions.expression("TIME '12:34:56.123456789123-00:35'"))
+                .hasType(createTimeWithTimeZoneType(12))
+                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, -35))
+                .asString().isEqualTo("12:34:56.123456789123-00:35");
+
+        // limits
         assertThat(assertions.expression("TIME '12:34:56.123456789123+14:00'"))
                 .hasType(createTimeWithTimeZoneType(12))
-                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, 14, 00));
+                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, 14 * 60));
 
         assertThat(assertions.expression("TIME '12:34:56.123456789123-14:00'"))
                 .hasType(createTimeWithTimeZoneType(12))
-                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, -14, 00));
+                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, 14 * 60));
 
         assertThatThrownBy(() -> assertions.expression("TIME '12:34:56.1234567891234+08:35'"))
                 .hasMessage("line 1:8: TIME WITH TIME ZONE precision must be in range [0, 12]: 13");
@@ -1110,6 +1256,35 @@ public class TestTimeWithTimeZone
 
         assertThat(assertions.expression("CAST(TIME '12:34:56.555555555555+08:35' AS TIMESTAMP(11) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.55555555556 +08:35'");
 
+        // negative offset
+        assertThat(assertions.expression("CAST(TIME '12:34:56-08:35' AS TIMESTAMP(0) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1-08:35' AS TIMESTAMP(1) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.1 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12-08:35' AS TIMESTAMP(2) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.12 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123-08:35' AS TIMESTAMP(3) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.123 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234-08:35' AS TIMESTAMP(4) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.1234 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345-08:35' AS TIMESTAMP(5) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.12345 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456-08:35' AS TIMESTAMP(6) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.123456 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234567-08:35' AS TIMESTAMP(7) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.1234567 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345678-08:35' AS TIMESTAMP(8) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.12345678 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456789-08:35' AS TIMESTAMP(9) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.123456789 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234567891-08:35' AS TIMESTAMP(10) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.1234567891 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345678912-08:35' AS TIMESTAMP(11) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.12345678912 -08:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456789123-08:35' AS TIMESTAMP(12) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.123456789123 -08:35'");
+
+        assertThat(assertions.expression("CAST(TIME '12:34:56-00:35' AS TIMESTAMP(0) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1-00:35' AS TIMESTAMP(1) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.1 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12-00:35' AS TIMESTAMP(2) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.12 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123-00:35' AS TIMESTAMP(3) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.123 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234-00:35' AS TIMESTAMP(4) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.1234 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345-00:35' AS TIMESTAMP(5) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.12345 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456-00:35' AS TIMESTAMP(6) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.123456 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234567-00:35' AS TIMESTAMP(7) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.1234567 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345678-00:35' AS TIMESTAMP(8) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.12345678 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456789-00:35' AS TIMESTAMP(9) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.123456789 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234567891-00:35' AS TIMESTAMP(10) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.1234567891 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345678912-00:35' AS TIMESTAMP(11) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.12345678912 -00:35'");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456789123-00:35' AS TIMESTAMP(12) WITH TIME ZONE)", session)).matches("TIMESTAMP '2020-05-01 12:34:56.123456789123 -00:35'");
+
         // 5-digit year in the future
         assertThat(assertions.expression("CAST(TIMESTAMP '12001-05-01 12:34:56+08:35' AS TIMESTAMP(0) WITH TIME ZONE)", session)).matches("TIMESTAMP '12001-05-01 12:34:56 +08:35'");
 
@@ -1435,6 +1610,36 @@ public class TestTimeWithTimeZone
         assertThat(assertions.expression("CAST(TIME '12:34:56.1234567890+08:35' AS VARCHAR)")).isEqualTo("12:34:56.1234567890+08:35");
         assertThat(assertions.expression("CAST(TIME '12:34:56.12345678901+08:35' AS VARCHAR)")).isEqualTo("12:34:56.12345678901+08:35");
         assertThat(assertions.expression("CAST(TIME '12:34:56.123456789012+08:35' AS VARCHAR)")).isEqualTo("12:34:56.123456789012+08:35");
+
+        // negative offset
+        assertThat(assertions.expression("CAST(TIME '12:34:56-08:35' AS VARCHAR)")).isEqualTo("12:34:56-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1-08:35' AS VARCHAR)")).isEqualTo("12:34:56.1-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12-08:35' AS VARCHAR)")).isEqualTo("12:34:56.12-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123-08:35' AS VARCHAR)")).isEqualTo("12:34:56.123-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234-08:35' AS VARCHAR)")).isEqualTo("12:34:56.1234-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345-08:35' AS VARCHAR)")).isEqualTo("12:34:56.12345-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456-08:35' AS VARCHAR)")).isEqualTo("12:34:56.123456-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234567-08:35' AS VARCHAR)")).isEqualTo("12:34:56.1234567-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345678-08:35' AS VARCHAR)")).isEqualTo("12:34:56.12345678-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456789-08:35' AS VARCHAR)")).isEqualTo("12:34:56.123456789-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234567890-08:35' AS VARCHAR)")).isEqualTo("12:34:56.1234567890-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345678901-08:35' AS VARCHAR)")).isEqualTo("12:34:56.12345678901-08:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456789012-08:35' AS VARCHAR)")).isEqualTo("12:34:56.123456789012-08:35");
+
+        // negative minute offset
+        assertThat(assertions.expression("CAST(TIME '12:34:56-00:35' AS VARCHAR)")).isEqualTo("12:34:56-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1-00:35' AS VARCHAR)")).isEqualTo("12:34:56.1-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12-00:35' AS VARCHAR)")).isEqualTo("12:34:56.12-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123-00:35' AS VARCHAR)")).isEqualTo("12:34:56.123-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234-00:35' AS VARCHAR)")).isEqualTo("12:34:56.1234-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345-00:35' AS VARCHAR)")).isEqualTo("12:34:56.12345-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456-00:35' AS VARCHAR)")).isEqualTo("12:34:56.123456-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234567-00:35' AS VARCHAR)")).isEqualTo("12:34:56.1234567-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345678-00:35' AS VARCHAR)")).isEqualTo("12:34:56.12345678-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456789-00:35' AS VARCHAR)")).isEqualTo("12:34:56.123456789-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.1234567890-00:35' AS VARCHAR)")).isEqualTo("12:34:56.1234567890-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.12345678901-00:35' AS VARCHAR)")).isEqualTo("12:34:56.12345678901-00:35");
+        assertThat(assertions.expression("CAST(TIME '12:34:56.123456789012-00:35' AS VARCHAR)")).isEqualTo("12:34:56.123456789012-00:35");
     }
 
     @Test
@@ -2070,40 +2275,40 @@ public class TestTimeWithTimeZone
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Pacific/Apia"))
                 .build();
 
-        assertThat(assertions.expression("TIME '12:34:56-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.1-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.1+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.12-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.12+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.123-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.123+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.1234-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.1234+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.12345-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.12345+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.123456-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.123456+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.1234567-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.1234567+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.12345678-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.12345678+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.123456789-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.123456789+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.1234567891-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.1234567891+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.12345678912-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.12345678912+08:35'");
-        assertThat(assertions.expression("TIME '12:34:56.123456789123-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:00:56.123456789123+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.1-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.1+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.12-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.12+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.123-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.123+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.1234-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.1234+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.12345-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.12345+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.123456-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.123456+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.1234567-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.1234567+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.12345678-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.12345678+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.123456789-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.123456789+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.1234567891-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.1234567891+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.12345678912-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.12345678912+08:35'");
+        assertThat(assertions.expression("TIME '12:34:56.123456789123-07:09' AT TIME ZONE '+08:35'", session)).matches("TIME '04:18:56.123456789123+08:35'");
 
-        assertThat(assertions.expression("TIME '12:34:56-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.1-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.1 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.12-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.12 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.123-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.123 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.1234-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.1234 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.12345-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.12345 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.123456-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.123456 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.1234567-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.1234567 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.12345678-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.12345678 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.123456789-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.123456789 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.1234567891-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.1234567891 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.12345678912-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.12345678912 +10:00'");
-        assertThat(assertions.expression("TIME '12:34:56.123456789123-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:25:56.123456789123 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.1-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.1 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.12-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.12 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.123-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.123 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.1234-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.1234 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.12345-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.12345 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.123456-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.123456 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.1234567-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.1234567 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.12345678-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.12345678 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.123456789-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.123456789 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.1234567891-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.1234567891 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.12345678912-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.12345678912 +10:00'");
+        assertThat(assertions.expression("TIME '12:34:56.123456789123-07:09' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIME '05:43:56.123456789123 +10:00'");
     }
 
-    private static BiFunction<Session, QueryRunner, Object> timeWithTimeZone(int precision, int hour, int minute, int second, long picoOfSecond, int offsetHour, int offsetMinute)
+    private static BiFunction<Session, QueryRunner, Object> timeWithTimeZone(int precision, int hour, int minute, int second, long picoOfSecond, int offsetMinutes)
     {
         return (session, queryRunner) -> {
             long picos = (hour * 3600 + minute * 60 + second) * PICOSECONDS_PER_SECOND + picoOfSecond;
-            return SqlTimeWithTimeZone.newInstance(precision, picos, offsetHour * 60 + offsetMinute);
+            return SqlTimeWithTimeZone.newInstance(precision, picos, offsetMinutes);
         };
     }
 }

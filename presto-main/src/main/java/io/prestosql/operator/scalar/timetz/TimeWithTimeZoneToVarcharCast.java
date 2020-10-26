@@ -32,6 +32,7 @@ import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.prestosql.type.DateTimes.SECONDS_PER_MINUTE;
 import static io.prestosql.type.DateTimes.scaleFactor;
+import static java.lang.Math.abs;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -79,7 +80,7 @@ public final class TimeWithTimeZoneToVarcharCast
             output.appendByte('.');
             output.appendBytes(format("%0" + precision + "d", scaledFraction).getBytes(UTF_8));
         }
-        output.appendBytes(format("%+03d:%02d", offsetMinutes / 60, offsetMinutes % 60).getBytes(UTF_8));
+        output.appendBytes(format("%s%02d:%02d", offsetMinutes >= 0 ? '+' : '-', abs(offsetMinutes / 60), abs(offsetMinutes % 60)).getBytes(UTF_8));
 
         return output.slice();
     }
