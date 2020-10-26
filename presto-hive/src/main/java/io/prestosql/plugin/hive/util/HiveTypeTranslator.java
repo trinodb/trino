@@ -64,7 +64,7 @@ public final class HiveTypeTranslator
 {
     private HiveTypeTranslator() {}
 
-    public static TypeInfo translate(Type type)
+    public static TypeInfo toTypeInfo(Type type)
     {
         requireNonNull(type, "type is null");
         if (BOOLEAN.equals(type)) {
@@ -121,12 +121,12 @@ public final class HiveTypeTranslator
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
         }
         if (isArrayType(type)) {
-            TypeInfo elementType = translate(type.getTypeParameters().get(0));
+            TypeInfo elementType = toTypeInfo(type.getTypeParameters().get(0));
             return getListTypeInfo(elementType);
         }
         if (isMapType(type)) {
-            TypeInfo keyType = translate(type.getTypeParameters().get(0));
-            TypeInfo valueType = translate(type.getTypeParameters().get(1));
+            TypeInfo keyType = toTypeInfo(type.getTypeParameters().get(0));
+            TypeInfo valueType = toTypeInfo(type.getTypeParameters().get(1));
             return getMapTypeInfo(keyType, valueType);
         }
         if (isRowType(type)) {
@@ -144,7 +144,7 @@ public final class HiveTypeTranslator
             return getStructTypeInfo(
                     fieldNames.build(),
                     type.getTypeParameters().stream()
-                            .map(HiveTypeTranslator::translate)
+                            .map(HiveTypeTranslator::toTypeInfo)
                             .collect(toImmutableList()));
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
