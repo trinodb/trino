@@ -46,6 +46,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
@@ -68,11 +69,22 @@ final class IcebergUtil
 
     public static HadoopCatalog getHadoopCatalog(HdfsEnvironment hdfsEnvironment, ConnectorSession session)
     {
-        String warehouseLocation = IcebergSessionProperties.getWarehouseLocation(session);
-        HdfsContext hdfsContext = new HdfsContext(session, "test");
-        Path path = new Path(warehouseLocation);
+        HdfsContext hdfsContext = new HdfsContext(session, "not used");
+        Path path = new Path("/");
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
-        return new HadoopCatalog(configuration, warehouseLocation);
+        String warehouse = configuration.get("hive.metastore.warehouse.dir");
+        if (warehouse == null || warehouse.isEmpty()) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, format("hive.metastore.warehouse.dir not set"));
+        }
+        return getHadoopCatalog(hdfsEnvironment, session, warehouse);
+    }
+
+    public static HadoopCatalog getHadoopCatalog(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String location)
+    {
+        HdfsContext hdfsContext = new HdfsContext(session, "not used");
+        Path path = new Path(location);
+        Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
+        return new HadoopCatalog(configuration, location);
     }
 
     public static boolean icebergSchemaExists(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String schemaName)

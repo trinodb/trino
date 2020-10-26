@@ -36,6 +36,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.util.Optional;
 
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
@@ -58,9 +59,19 @@ public class TestIcebergMetadataListingHadoopMode
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
-        File baseHadoopDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_hadoop").toFile();
+        baseDir.mkdirs();
 
-        baseHadoopDir.mkdirs();
+        String hivesiteLocation = queryRunner.getCoordinator().getBaseDataDir() + "/hive-site.xml";
+        String hivesite = "<configuration>\n" +
+                "<property>\n" +
+                "  <name>hive.metastore.warehouse.dir</name>\n" +
+                "  <value>" + baseDir + "</value>\n" +
+                "  <description></description>\n" +
+                "</property>\n" +
+                "</configuration>\n";
+        FileOutputStream out = new FileOutputStream(hivesiteLocation);
+        out.write(hivesite.getBytes());
+        out.close();
 
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
@@ -74,7 +85,7 @@ public class TestIcebergMetadataListingHadoopMode
                         .setMetastoreUser("test"));
 
         queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
-        queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of("iceberg.warehouse", baseHadoopDir.getAbsolutePath(), "iceberg.hadoopmode", "true"));
+        queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of("iceberg.hadoopmode", "true", "hive.config.resources", hivesiteLocation));
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.security", "sql-standard"));
 
@@ -84,21 +95,20 @@ public class TestIcebergMetadataListingHadoopMode
     @BeforeClass
     public void setUp()
     {
-        assertQuerySucceeds("CREATE SCHEMA hive.test_schema");
         assertQuerySucceeds("CREATE SCHEMA iceberg.test_schema");
         assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_table1 (_string VARCHAR, _integer INTEGER)");
         assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_table2 (_double DOUBLE) WITH (partitioning = ARRAY['_double'])");
-        assertQuerySucceeds("CREATE TABLE hive.test_schema.hive_table (_double DOUBLE)");
+        //assertQuerySucceeds("CREATE TABLE iceberg.test_schema.hive_table (_double DOUBLE)");
         //assertEquals(ImmutableSet.copyOf(metastore.getAllTables("test_schema")), ImmutableSet.of("iceberg_table1", "iceberg_table2", "hive_table"));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        assertQuerySucceeds("DROP TABLE IF EXISTS hive.test_schema.hive_table");
+        //assertQuerySucceeds("DROP TABLE IF EXISTS iceberg.test_schema.hive_table");
         assertQuerySucceeds("DROP TABLE IF EXISTS iceberg.test_schema.iceberg_table2");
         assertQuerySucceeds("DROP TABLE IF EXISTS iceberg.test_schema.iceberg_table1");
-        assertQuerySucceeds("DROP SCHEMA IF EXISTS hive.test_schema");
+        assertQuerySucceeds("DROP SCHEMA IF EXISTS iceberg.test_schema");
     }
 
     @Test
@@ -126,6 +136,7 @@ public class TestIcebergMetadataListingHadoopMode
     {
         assertQuerySucceeds("SELECT * FROM iceberg.test_schema.iceberg_table1");
         // jcc iceberg table not in hive catalog
-        // assertQueryFails("SELECT * FROM iceberg.test_schema.hive_table", "Not an Iceberg table: test_schema.hive_table");
+        // what is returned is Table 'iceberg.test_schema.hive_table' does not exist"
+        //assertQueryFails("SELECT * FROM iceberg.test_schema.hive_table", "Not an Iceberg table: test_schema.hive_table");
     }
 }

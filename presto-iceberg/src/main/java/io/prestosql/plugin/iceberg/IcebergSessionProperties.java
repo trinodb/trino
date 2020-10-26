@@ -43,7 +43,6 @@ import static java.lang.String.format;
 public final class IcebergSessionProperties
 {
     private static final String HADOOP_MODE = "hadoopmode";
-    private static final String WAREHOUSE_LOCATION = "warehouse";
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -75,11 +74,6 @@ public final class IcebergSessionProperties
             ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(stringProperty(
-                        WAREHOUSE_LOCATION,
-                        "Location of warehouse in hadoop mode",
-                        icebergConfig.getWarehouse(),
-                        false))
                 .add(booleanProperty(
                         HADOOP_MODE,
                         "Use hadoop file system to store schema/table information.",
@@ -201,11 +195,6 @@ public final class IcebergSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
-    }
-
-    public static String getWarehouseLocation(ConnectorSession session)
-    {
-        return session.getProperty(WAREHOUSE_LOCATION, String.class);
     }
 
     public static boolean isHadoopMode(ConnectorSession session)
