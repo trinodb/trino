@@ -13,14 +13,18 @@
  */
 package io.prestosql.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.SqlExecutor;
+import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
-public class TestOracleTypeMapping
-        extends AbstractTestOracleTypeMapping
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
+import static org.assertj.core.api.Assertions.assertThat;
+
+public class TestOracleDistributedQueries
+        extends BaseTestOracleDistributedQueries
 {
     private TestingOracleServer oracleServer;
 
@@ -29,7 +33,7 @@ public class TestOracleTypeMapping
             throws Exception
     {
         this.oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), ImmutableList.of(), false, false);
+        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), TpchTable.getTables(), false, false);
     }
 
     @AfterClass(alwaysRun = true)
@@ -40,9 +44,23 @@ public class TestOracleTypeMapping
         }
     }
 
+    @Test
     @Override
-    protected SqlExecutor getOracleSqlExecutor()
+    public void testCommentColumn()
     {
-        return sql -> oracleServer.execute(sql);
+        String tableName = "test_comment_column_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+
+        // comment set
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
+        // without remarksReporting Oracle does not return comments set
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
+    }
+
+    @Override
+    protected SqlExecutor createJdbcSqlExecutor()
+    {
+        return oracleServer::execute;
     }
 }
