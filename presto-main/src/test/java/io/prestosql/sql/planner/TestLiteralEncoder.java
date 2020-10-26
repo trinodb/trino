@@ -25,6 +25,7 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.Re2JCastToRegexpFunction;
 import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
@@ -54,6 +55,7 @@ import static io.prestosql.operator.scalar.StringFunctions.castVarcharToCodePoin
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -67,6 +69,7 @@ import static io.prestosql.type.JsonPathType.JSON_PATH;
 import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
 import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
@@ -128,6 +131,41 @@ public class TestLiteralEncoder
     {
         assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
         assertEncodeCaseInsensitively(utf8Slice("hello"), VARBINARY, literalVarbinary("hello".getBytes(UTF_8)));
+    }
+
+    @Test
+    public void testEncodeTimestamp()
+    {
+        for (int precision = 0; precision <= 12; precision++) {
+            assertEncode(null, createTimestampType(precision), format("CAST(null AS timestamp(%s))", precision));
+        }
+
+        assertEncode(1603710138_000000L, createTimestampType(0), "TIMESTAMP '2020-10-26 11:02:18'");
+        assertEncode(1603710138_100000L, createTimestampType(1), "TIMESTAMP '2020-10-26 11:02:18.1'");
+        assertEncode(1603710138_120000L, createTimestampType(2), "TIMESTAMP '2020-10-26 11:02:18.12'");
+        assertEncode(1603710138_123000L, createTimestampType(3), "TIMESTAMP '2020-10-26 11:02:18.123'");
+        assertEncode(1603710138_123400L, createTimestampType(4), "TIMESTAMP '2020-10-26 11:02:18.1234'");
+        assertEncode(1603710138_123450L, createTimestampType(5), "TIMESTAMP '2020-10-26 11:02:18.12345'");
+        assertEncode(1603710138_123456L, createTimestampType(6), "TIMESTAMP '2020-10-26 11:02:18.123456'");
+        assertEncode(new LongTimestamp(1603710138_123456L, 100000), createTimestampType(7), "TIMESTAMP '2020-10-26 11:02:18.1234561'");
+        assertEncode(new LongTimestamp(1603710138_123456L, 120000), createTimestampType(8), "TIMESTAMP '2020-10-26 11:02:18.12345612'");
+        assertEncode(new LongTimestamp(1603710138_123456L, 123000), createTimestampType(9), "TIMESTAMP '2020-10-26 11:02:18.123456123'");
+        assertEncode(new LongTimestamp(1603710138_123456L, 123400), createTimestampType(10), "TIMESTAMP '2020-10-26 11:02:18.1234561234'");
+        assertEncode(new LongTimestamp(1603710138_123456L, 123450), createTimestampType(11), "TIMESTAMP '2020-10-26 11:02:18.12345612345'");
+        assertEncode(new LongTimestamp(1603710138_123456L, 123456), createTimestampType(12), "TIMESTAMP '2020-10-26 11:02:18.123456123456'");
+
+        assertEncode(1603710138_000000L, createTimestampType(1), "TIMESTAMP '2020-10-26 11:02:18.0'");
+        assertEncode(1603710138_000000L, createTimestampType(2), "TIMESTAMP '2020-10-26 11:02:18.00'");
+        assertEncode(1603710138_000000L, createTimestampType(3), "TIMESTAMP '2020-10-26 11:02:18.000'");
+        assertEncode(1603710138_000000L, createTimestampType(4), "TIMESTAMP '2020-10-26 11:02:18.0000'");
+        assertEncode(1603710138_000000L, createTimestampType(5), "TIMESTAMP '2020-10-26 11:02:18.00000'");
+        assertEncode(1603710138_000000L, createTimestampType(6), "TIMESTAMP '2020-10-26 11:02:18.000000'");
+        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(7), "TIMESTAMP '2020-10-26 11:02:18.0000000'");
+        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(8), "TIMESTAMP '2020-10-26 11:02:18.00000000'");
+        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(9), "TIMESTAMP '2020-10-26 11:02:18.000000000'");
+        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(10), "TIMESTAMP '2020-10-26 11:02:18.0000000000'");
+        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(11), "TIMESTAMP '2020-10-26 11:02:18.00000000000'");
+        assertEncode(new LongTimestamp(1603710138_000000L, 0), createTimestampType(12), "TIMESTAMP '2020-10-26 11:02:18.000000000000'");
     }
 
     @Test
