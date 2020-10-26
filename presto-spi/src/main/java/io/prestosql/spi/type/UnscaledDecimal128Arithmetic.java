@@ -630,23 +630,19 @@ public final class UnscaledDecimal128Arithmetic
         long z2 = 0;
         long z3 = 0;
 
-        if (l0 != 0) {
-            long accumulator = r0 * l0;
-            z0 = low(accumulator);
-            accumulator = high(accumulator) + r1 * l0;
+        long accumulator = r0 * l0;
+        z0 = low(accumulator);
+        accumulator = high(accumulator) + r1 * l0;
 
-            z1 = low(accumulator);
-            z2 = accumulator >> 32;
-        }
+        z1 = low(accumulator);
+        z2 = accumulator >> 32;
 
-        if (l1 != 0) {
-            long accumulator = r0 * l1 + z1;
-            z1 = low(accumulator);
-            accumulator = high(accumulator) + r1 * l1 + z2;
+        accumulator = r0 * l1 + z1;
+        z1 = low(accumulator);
+        accumulator = high(accumulator) + r1 * l1 + z2;
 
-            z2 = low(accumulator);
-            z3 = high(accumulator);
-        }
+        z2 = low(accumulator);
+        z3 = high(accumulator);
 
         pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
     }
