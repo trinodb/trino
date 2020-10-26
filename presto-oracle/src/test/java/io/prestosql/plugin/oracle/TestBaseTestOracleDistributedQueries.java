@@ -37,7 +37,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestOracleDistributedQueries
+//temporary rename to TestBaseTestOracleDistributedQueries to preserve nicer commit history (Test prefix is needed)
+public class TestBaseTestOracleDistributedQueries
         extends AbstractTestDistributedQueries
 {
     private TestingOracleServer oracleServer;
