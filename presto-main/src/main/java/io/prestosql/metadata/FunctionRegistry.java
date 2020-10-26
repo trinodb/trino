@@ -717,6 +717,8 @@ public class FunctionRegistry
                 .scalar(io.prestosql.operator.scalar.timetz.ExtractMinute.class)
                 .scalar(io.prestosql.operator.scalar.timetz.ExtractSecond.class)
                 .scalar(io.prestosql.operator.scalar.timetz.ExtractMillisecond.class)
+                .scalar(io.prestosql.operator.scalar.timetz.TimeZoneHour.class)
+                .scalar(io.prestosql.operator.scalar.timetz.TimeZoneMinute.class)
                 .scalar(io.prestosql.operator.scalar.timetz.DateTrunc.class)
                 .scalar(io.prestosql.operator.scalar.timetz.AtTimeZone.class)
                 .scalar(io.prestosql.operator.scalar.timetz.AtTimeZoneWithOffset.class)
