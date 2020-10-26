@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.plugin.hive.acid.AcidSchema;
+import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
@@ -243,6 +244,11 @@ public class HiveColumnHandle
     public String toString()
     {
         return name + ":" + getHiveType() + ":" + columnType;
+    }
+
+    public Column toMetastoreColumn()
+    {
+        return new Column(name, getHiveType(), comment);
     }
 
     public static HiveColumnHandle updateRowIdColumnHandle()
