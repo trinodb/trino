@@ -1,338 +1,247 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.prestosql.plugin.sybase;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
-import io.prestosql.plugin.jdbc.*;
+import io.prestosql.plugin.jdbc.BaseJdbcClient;
+import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.ColumnMapping;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.JdbcColumnHandle;
+import io.prestosql.plugin.jdbc.JdbcExpression;
+import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.plugin.jdbc.JdbcTableHandle;
+import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.PredicatePushdownController;
+import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRule;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgDecimal;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgFloatingPoint;
+import io.prestosql.plugin.jdbc.expression.ImplementCount;
+import io.prestosql.plugin.jdbc.expression.ImplementCountAll;
+import io.prestosql.plugin.jdbc.expression.ImplementMinMax;
+import io.prestosql.plugin.jdbc.expression.ImplementSum;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.sql.*;
-import java.text.NumberFormat;
-import java.text.ParseException;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiFunction;
+
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TypeParameter.of;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static java.util.Locale.ENGLISH;
-import static java.util.Objects.isNull;
-
+import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public class SybaseClient
-        extends BaseJdbcClient {
+        extends BaseJdbcClient
+{
+    private static final Joiner DOT_JOINER = Joiner.on(".");
 
-    private final Map<String, LoadingCache<String, Optional<String>>> schemaTableMapping = new ConcurrentHashMap<>();
-    private static final Logger log = Logger.get(SybaseClient.class);
-    private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
-            .put(BOOLEAN, "boolean")
-            .put(BIGINT, "bigint")
-            .put(INTEGER, "integer")
-            .put(SMALLINT, "smallint")
-            .put(TINYINT, "tinyint")
-            .put(DOUBLE, "double precision")
-            .put(REAL, "real")
-            .put(VARBINARY, "varbinary")
-            .put(DATE, "date")
-            .put(TIME, "time")
-            .put(TIME_WITH_TIME_ZONE, "time with time zone")
-            .put(TIMESTAMP, "timestamp")
-            .put(VARCHAR, "varchar")
-            .build();
+    // Sybase supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
+    private static final int SYBASE_MAX_LIST_EXPRESSIONS = 500;
+
+    public static final PredicatePushdownController DISABLE_UNSUPPORTED_PUSHDOWN = domain -> {
+        if (domain.getValues().getRanges().getRangeCount() <= SYBASE_MAX_LIST_EXPRESSIONS) {
+            return new PredicatePushdownController.DomainPushdownResult(domain, domain);
+        }
+
+        return new PredicatePushdownController.DomainPushdownResult(Domain.all(domain.getType()), domain);
+    };
+
+    private final AggregateFunctionRewriter aggregateFunctionRewriter;
 
     @Inject
-    public SybaseClient(BaseJdbcConfig config, ConnectionFactory connectionFactory) {
+    public SybaseClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
+    {
         super(config, "\"", connectionFactory);
+
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, Optional.empty(), Optional.empty(), Optional.empty());
+        JdbcTypeHandle intTypeHandle = new JdbcTypeHandle(Types.INTEGER, Optional.of("integer"), 0, Optional.empty(), Optional.empty(), Optional.empty());
+
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+                this::quoted,
+                ImmutableSet.<AggregateFunctionRule>builder()
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementCountAll(intTypeHandle))
+                        .add(new ImplementCount(intTypeHandle))
+                        .add(new ImplementCountAll(intTypeHandle))
+                        .add(new ImplementMinMax())
+                        .add(new ImplementSum(SybaseClient::toTypeHandle))
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgBigint())
+                        .build());
     }
 
     @Override
-    public boolean isLimitGuaranteed() {
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        // TODO support complex ConnectorExpressions
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+    }
+
+    private static String singleQuote(String... objects)
+    {
+        return singleQuote(DOT_JOINER.join(objects));
+    }
+
+    private static String singleQuote(String literal)
+    {
+        return "\'" + literal + "\'";
+    }
+
+    @Override
+    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    {
+        String sql = format(
+                "sp_rename %s, %s",
+                singleQuote(catalogName, schemaName, tableName),
+                singleQuote(newTable.getTableName()));
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "sp_rename %s, %s, 'COLUMN'",
+                    singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
+                    singleQuote(newColumnName));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    {
+        String sql = format(
+                "SELECT %s INTO %s FROM %s WHERE 0 = 1",
+                columnNames.stream()
+                        .map(this::quoted)
+                        .collect(joining(", ")),
+                quoted(catalogName, schemaName, newTableName),
+                quoted(catalogName, schemaName, tableName));
+        execute(connection, sql);
+    }
+
+    @Override
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    {
+        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
+        if (mapping.isPresent()) {
+            return mapping;
+        }
+        // TODO implement proper type mapping
+        return super.toPrestoType(session, connection, typeHandle)
+                .map(columnMapping -> new ColumnMapping(
+                        columnMapping.getType(),
+                        columnMapping.getReadFunction(),
+                        columnMapping.getWriteFunction(),
+                        DISABLE_UNSUPPORTED_PUSHDOWN));
+    }
+
+    @Override
+    public void abortReadConnection(Connection connection)
+            throws SQLException
+    {
+        connection.close();
+    }
+
+    @Override
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
+    {
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("bit", booleanWriteFunction());
+        }
+
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            String dataType;
+            if (varcharType.isUnbounded() || varcharType.getBoundedLength() > 4000) {
+                dataType = "nvarchar(max)";
+            }
+            else {
+                dataType = "nvarchar(" + varcharType.getBoundedLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
+
+        if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            String dataType;
+            if (charType.getLength() > 4000) {
+                dataType = "nvarchar(max)";
+            }
+            else {
+                dataType = "nchar(" + charType.getLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, charWriteFunction());
+        }
+
+        return super.toWriteMapping(session, type);
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> {
+            String start = "SELECT ";
+            checkArgument(sql.startsWith(start));
+            return "SELECT TOP " + limit + " " + sql.substring(start.length());
+        });
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
         return true;
     }
-
-    /**
-     * Pull the list of Table names from the RDBMS exactly as they are returned. Override if the RDBMS method to pull the tables is different. Each {
-     * the table’s original schema name as the first element, and the original table name on the second element
-     *
-     * @param schema the schema to the list the tables for, or NULL for all
-     * @return the schema + table names
-     */
-
-    protected List<CaseSensitiveMappedSchemaTableName> getOriginalTablesWithSchema(Connection connection, String schema) {
-        try (ResultSet resultSet = getTables(connection, Optional.of(schema), Optional.empty())) {
-            ImmutableList.Builder<CaseSensitiveMappedSchemaTableName> list = ImmutableList.builder();
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE SCHEM");
-                String tablename = resultSet.getString("TABLE_NAME");
-                list.add(new CaseSensitiveMappedSchemaTableName(schemaName, tablename));
-            }
-            return list.build();
-        } catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
-    public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema) {
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-
-            String finalizeSchema = finalizeSchemaName(metadata, schema.get());
-            Map<String, Map<String, String>> schemaMappedNames = new HashMap<>();
-            ImmutableList.Builder<SchemaTableName> tableNameList = ImmutableList.builder();
-            for (CaseSensitiveMappedSchemaTableName table : getOriginalTablesWithSchema(connection, finalizeSchema)) {
-                Map<String, String> mappedNames = schemaMappedNames.computeIfAbsent(table.getSchemaName(), s -> new HashMap<>());
-                mappedNames.put(table.getSchemaNameLower(), table.getTableName());
-                tableNameList.add(new SchemaTableName(table.getSchemaNameLower(), table.getTableNameLower()));
-                // if someone is listing all of the table names, throw them all into the cache as a refresh since we already spent the time pulling
-                for (Map.Entry<String, Map<String, String>> entry : schemaMappedNames.entrySet()) {
-                    updateTableMapping(identity, entry.getKey(), entry.getValue());
-                }
-            }
-            return tableNameList.build();
-        } catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
-    protected Collection<String> listSchemas(Connection connection) {
-        try (ResultSet resultSet = connection.getMetaData().getSchemas()) {
-            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE SCHEM");
-                // skip internal schemas
-                if (!schemaName.equalsIgnoreCase("information schema")) {
-                    schemaNames.add(schemaName);
-                }
-            }
-            return schemaNames.build();
-        } catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-    }
-
-    private void updateTableMapping(JdbcIdentity identity, String jdbcSchema, Map<String, String> tableMapping) {
-        LoadingCache<String, Optional<String>> tableNameMapping = getTableMapping(identity, jdbcSchema);
-        Map<String, Optional<String>> tmp = new HashMap<>();
-        for (Map.Entry<String, String> entry : tableMapping.entrySet()) {
-            tmp.put(entry.getKey(), Optional.of(entry.getValue()));
-        }
-        tableNameMapping.putAll(tmp);
-    }
-
-    /**
-     * Fetch the {@link LoadingCache} of table mapped names for the given schema name
-     *
-     * @param jdbcSchema the original name of the schema as it exists in the JDBC server
-     * @return the {@link LoadingCache} which contains the table mapped names
-     */
-
-    private LoadingCache<String, Optional<String>> getTableMapping(JdbcIdentity identity, String jdbcSchema) {
-        return schemaTableMapping.computeIfAbsent(jdbcSchema, (String s) ->
-                CacheBuilder.newBuilder().build(new CacheLoader<String, Optional<String>>() {
-                    @Override
-                    public Optional<String> load(String key) throws Exception {
-                        try (Connection connection = connectionFactory.openConnection(identity)) {
-                            DatabaseMetaData metadata = connection.getMetaData();
-                            String jdbcSchemaName = finalizeSchemaName(metadata, jdbcSchema);
-
-                            for (CaseSensitiveMappedSchemaTableName table : getOriginalTablesWithSchema(connection, jdbcSchemaName)) {
-                                String tableName = table.getTableName();
-                                if (tableName.equals(key)) {
-                                    return Optional.of(tableName);
-                                }
-
-                                String tableNameLower = table.getTableNameLower();
-                                if (tableNameLower.equals(key)) {
-                                    return Optional.of(tableName);
-                                }
-
-                            }
-                        } catch (SQLException e) {
-                            throw new PrestoException(JDBC_ERROR, e);
-                        }
-                        return Optional.empty();
-                    }
-                }));
-    }
-
-    /**
-     * Looks up the table name given to map it to it’s original, case-sensitive name in the database
-     *
-     * @param jdbcSchema The database schema name
-     * @param jdbcSchema The database schema name
-     * @param tableName The table name within the schema that needs to be mapped to it’s original, or NULL if it couldn’t be found in the cache
-     * @return The mapped case sensitive table name, if found, otherwise the original table name passed in
-     */
-    private String getMappedTableName(JdbcIdentity identity, String jdbcSchema, String tableName) {
-        LoadingCache<String, Optional<String>> tableNameMapping = getTableMapping(identity, jdbcSchema);
-        Optional<String> value = tableNameMapping.getUnchecked(tableName);
-        if (value.isPresent()) {
-            return value.get();
-        }
-
-        tableNameMapping.invalidate(jdbcSchema);
-        return null;
-    }
-
-    protected String finalizeSchemaName(DatabaseMetaData metadata, String schemaName)
-            throws SQLException {
-        if (schemaName == null) {
-            return null;
-        }
-        if (metadata.storesUpperCaseIdentifiers()) {
-            return schemaName.toUpperCase(ENGLISH);
-        } else {
-            Optional<String> value = Optional.ofNullable(schemaName);
-            //schemaMappingCache,getUnchecked(schemaName)
-            if (value.isPresent()) {
-                return value.get();
-            }
-            // If we get back an Empty value,invalidate it now so that in the future we can try and load it again into cache and return the value
-            //At this point it is extremely likely we are trying to create the schema,since it wasn’t healthy initially present and couldn’t be found current schemaMappingcache.invalidate(schemaName);
-            return schemaName;
-        }
-    }
-
-    protected String finalizeTableName(JdbcIdentity identity, DatabaseMetaData metaData, String schemaName, String tableName) throws SQLException {
-        if (schemaName == null || tableName == null) {
-            return null;
-        }
-
-        if (metaData.storesUpperCaseIdentifiers()) {
-            return tableName.toUpperCase(ENGLISH);
-        } else {
-            String value = getMappedTableName(identity, schemaName, tableName);
-            if (value == null) {
-                return tableName;
-            }
-            // if we couldn’t look up the table in the mapping cache, return the value we were given return value;
-            return value;
-        }
-    }
-
-
-    @Nullable
-    @Override
-    public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName) {
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            String jdbcSchemaName = finalizeSchemaName(metadata, schemaTableName.getSchemaName());
-            String jdbcTableName = finalizeTableName(identity, metadata, jdbcSchemaName, schemaTableName.getTableName());
-            if (jdbcTableName == null) {
-                return null;
-            }
-            try (ResultSet resultSet = getTables(connection, Optional.of(jdbcSchemaName), Optional.of(jdbcTableName))) {
-                List<JdbcTableHandle> tableHandles = new ArrayList<>();
-                while (resultSet.next()) {
-                    tableHandles.add(new JdbcTableHandle(
-                            schemaTableName,
-                            resultSet.getString("TABLE CAT"),
-                            resultSet.getString("TABLE SCHEM"),
-                            resultSet.getString("TABLE NAME")));
-                }
-                if (tableHandles.isEmpty()) {
-                    return null;
-                }
-                if (tableHandles.size() > 1) {
-                    throw new PrestoException(NOT_SUPPORTED, "Multiple tables matched;" + schemaTableName);
-
-                }
-                return Optional.of(getOnlyElement(tableHandles));
-            }
-        } catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
-    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException {
-        DatabaseMetaData metadata = connection.getMetaData();
-        String escape = metadata.getSearchStringEscape();
-        return metadata.getTables(
-                connection.getCatalog(),
-                escapeNamePattern(schemaName, escape).orElse(null),
-                escapeNamePattern(tableName, escape).orElse(null),
-                new String[]{"TABLE", "VIEW", "MATERIALIZED VIEW", "FORGIEN TABLE"});
-    }
-
-    private SybaseTableDescription loadTable(String tableDescriptionPath) {
-        Map<String, String> fileInfo = new HashMap<>();
-        try {
-            File file = new File(tableDescriptionPath);
-            BufferedReader br = new BufferedReader(new FileReader(file));
-            String st;
-            while ((st = br.readLine()) != null) {
-                String[] pairs = st.split(" *= *", 2);
-                fileInfo.put(pairs[0], pairs.length == 1 ? "" : pairs[1]);
-            }
-            return new SybaseTableDescription(
-                    fileInfo.get("schemaName"),
-                    fileInfo.get("tableName"),
-                    fileInfo.get("column"),
-                    !isNull(fileInfo.get("minValue")) ? NumberFormat.getInstance().parse(fileInfo.get("minValue")) : null,
-                    !isNull(fileInfo.get("maxValue")) ? NumberFormat.getInstance().parse(fileInfo.get("maxValue")) : null,
-                    Integer.valueOf(fileInfo.get("numberPartitions"))
-            );
-
-        } catch (ParseException | IOException e) {
-            log.error("File path is invalid!!!");
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
-    public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle) {
-    // SybaseIQ doesnot allow qualifying the target of a rename
-        StringBuilder sql = new StringBuilder()
-                .append("ALTER TABLE")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(" RENAME TO ")
-                .append(quoted(handle.getTableName()));
-
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            execute(connection, sql.toString());
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
-            throws SQLException {
-        connection.setAutoCommit(false);
-        PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(0);
-        return statement;
-    }
-
-
 }

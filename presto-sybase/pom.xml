@@ -1,15 +1,14 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>333-SNAPSHOT</version>
+        <version>345-SNAPSHOT</version>
     </parent>
-
     <artifactId>presto-sybase</artifactId>
-    <description>Presto - Sybase IQ/ASE Connector</description>
+
+    <description>Presto - Sybase Connector</description>
     <packaging>presto-plugin</packaging>
 
     <properties>
@@ -20,6 +19,11 @@
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-base-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-matching</artifactId>
         </dependency>
 
         <dependency>
@@ -37,30 +41,24 @@
             <artifactId>guice</artifactId>
         </dependency>
 
-       <dependency>
-            <groupId>jconn4</groupId>
-            <artifactId>jconn4</artifactId>
-            <version>16.0</version>
-            <scope>system</scope>
-            <systemPath>${basedir}/jconn4.jar</systemPath>        
-       </dependency>
-
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
+            <groupId>jconn42</groupId>
+            <artifactId>jconn42</artifactId>
+            <version>16</version>
         </dependency>
 
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>net.jodah</groupId>-->
+<!--            <artifactId>failsafe</artifactId>-->
+<!--            <scope>compile</scope>-->
+<!--        </dependency>-->
 
-        <!-- Presto SPI -->
+
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
@@ -86,16 +84,48 @@
         </dependency>
 
         <!-- for testing -->
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
 
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+<!--        <dependency>-->
+<!--            <groupId>io.prestosql</groupId>-->
+<!--            <artifactId>presto-testing-docker</artifactId>-->
+<!--            <scope>test</scope>-->
+<!--        </dependency>-->
+
+<!--        <dependency>-->
+<!--            <groupId>io.airlift.tpch</groupId>-->
+<!--            <artifactId>tpch</artifactId>-->
+<!--            <scope>test</scope>-->
+<!--        </dependency>-->
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 </project>
