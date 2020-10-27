@@ -232,17 +232,17 @@ public class TestMemSqlIntegrationSmokeTest
         // bigint equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
-                .isCorrectlyPushedDown();
+                .isFullyPushedDown();
 
         // bigint range, with decimal to bigint simplification
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
-                .isCorrectlyPushedDown();
+                .isFullyPushedDown();
 
         // date equality
         assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
                 .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
-                .isCorrectlyPushedDown();
+                .isFullyPushedDown();
     }
 
     /**
