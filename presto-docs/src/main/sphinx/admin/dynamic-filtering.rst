@@ -211,3 +211,7 @@ Limitations
 * Dynamic filtering is currently implemented only for :doc:`/connector/hive` and :doc:`/connector/memory` connectors.
 * Push down of dynamic filters into local table scan on worker nodes is limited to broadcast joins.
 * Min-max dynamic filter collection is not supported for DOUBLE, REAL and unorderable data types.
+* Dynamic filtering is supported when the join key contains a cast from the build key type to the
+  probe key type. Dynamic filtering is also supported in limited scenarios when there is an implicit
+  cast from the probe key type to the build key type. For example, dynamic filtering is supported when
+  the build side key is of ``DOUBLE`` type and the probe side key is of ``REAL`` or ``INTEGER`` type.
