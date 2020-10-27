@@ -538,6 +538,8 @@ Dynamic Filtering
 The Hive connector supports the :doc:`dynamic filtering </admin/dynamic-filtering>` optimization.
 Dynamic partition pruning is supported for partitioned tables stored in any file format
 for broadcast as well as partitioned joins.
+Dynamic bucket pruning is supported for bucketed tables stored in any file format for
+broadcast joins only.
 
 For tables stored in ORC or Parquet file format, dynamic filters are also pushed into
 local table scan on worker nodes for broadcast joins. Dynamic filter predicates
