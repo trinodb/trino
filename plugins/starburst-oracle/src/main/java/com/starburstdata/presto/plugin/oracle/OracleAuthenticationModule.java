@@ -50,6 +50,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static java.util.Objects.requireNonNull;
 import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_REPORT_REMARKS;
 import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_RESTRICT_GETTABLES;
 
 public class OracleAuthenticationModule
@@ -273,6 +274,9 @@ public class OracleAuthenticationModule
         if (oracleConfig.isSynonymsEnabled()) {
             properties.setProperty(CONNECTION_PROPERTY_INCLUDE_SYNONYMS, "true");
             properties.setProperty(CONNECTION_PROPERTY_RESTRICT_GETTABLES, "true");
+        }
+        if (oracleConfig.isRemarksReportingEnabled()) {
+            properties.setProperty(CONNECTION_PROPERTY_REPORT_REMARKS, "true");
         }
         return properties;
     }
