@@ -181,6 +181,7 @@ import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.prestosql.sql.tree.WindowFrame.Type.GROUPS;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.sql.tree.WindowFrame.Type.ROWS;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
@@ -1012,6 +1013,28 @@ public class ExpressionAnalyzer
                         if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
                             Expression endValue = frame.getEnd().get().getValue().get();
                             analyzeFrameRangeOffset(endValue, frame.getEnd().get().getType(), context, window);
+                        }
+                    }
+                    else if (frame.getType() == GROUPS) {
+                        if (frame.getStart().getValue().isPresent()) {
+                            if (window.getOrderBy().isEmpty()) {
+                                throw semanticException(MISSING_ORDER_BY, window, "Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
+                            }
+                            Expression startValue = frame.getStart().getValue().get();
+                            Type type = process(startValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw semanticException(TYPE_MISMATCH, node, "Window frame GROUPS start value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
+                        }
+                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                            if (window.getOrderBy().isEmpty()) {
+                                throw semanticException(MISSING_ORDER_BY, window, "Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
+                            }
+                            Expression endValue = frame.getEnd().get().getValue().get();
+                            Type type = process(endValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw semanticException(TYPE_MISMATCH, node, "Window frame GROUPS end value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
                         }
                     }
                     else {

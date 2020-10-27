@@ -117,6 +117,7 @@ import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.prestosql.sql.tree.IntervalLiteral.IntervalField.DAY;
 import static io.prestosql.sql.tree.IntervalLiteral.IntervalField.YEAR;
 import static io.prestosql.sql.tree.IntervalLiteral.Sign.POSITIVE;
+import static io.prestosql.sql.tree.WindowFrame.Type.GROUPS;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.sql.tree.WindowFrame.Type.ROWS;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -873,7 +874,7 @@ class QueryPlanner
                 frameEnd = plan.getFrameBoundSymbol();
                 sortKeyCoercedForFrameEndComparison = plan.getSortKeyCoercedForFrameBoundComparison();
             }
-            else if (window.getFrame().isPresent() && window.getFrame().get().getType() == ROWS) {
+            else if (window.getFrame().isPresent() && (window.getFrame().get().getType() == ROWS || window.getFrame().get().getType() == GROUPS)) {
                 frameStart = window.getFrame().get().getStart().getValue().map(coercions::get);
                 frameEnd = window.getFrame().get().getEnd().flatMap(FrameBound::getValue).map(coercions::get);
             }

@@ -1012,6 +1012,37 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testInvalidWindowFrameTypeGroups()
+    {
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS UNBOUNDED FOLLOWING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 2 FOLLOWING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN UNBOUNDED FOLLOWING AND CURRENT ROW) FROM (VALUES 1) T(x)")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND UNBOUNDED PRECEDING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5 PRECEDING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND 5 PRECEDING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN 2 FOLLOWING AND CURRENT ROW) FROM (VALUES 1) T(x)")
+                .hasErrorCode(INVALID_WINDOW_FRAME);
+
+        assertFails("SELECT rank() OVER (GROUPS 2 PRECEDING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(MISSING_ORDER_BY);
+
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 5e-1 PRECEDING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS 'foo' PRECEDING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 5e-1 FOLLOWING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(TYPE_MISMATCH);
+        assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 'foo' FOLLOWING) FROM (VALUES 1) T(x)")
+                .hasErrorCode(TYPE_MISMATCH);
+    }
+
+    @Test
     public void testDistinctInWindowFunctionParameter()
     {
         assertFails("SELECT a, count(DISTINCT b) OVER () FROM t1")
