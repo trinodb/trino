@@ -292,7 +292,7 @@ public class SnowflakeSplitSource
                 jdbcTableHandle.getSchemaName(),
                 jdbcTableHandle.getTableName(),
                 Optional.of(ImmutableMap.of()),
-                // TODO why are we passing all columns as `partitionColumns`?
+                ImmutableList.of(),
                 getHiveColumnHandles(columns),
                 Optional.of(ImmutableList.of(new HivePartition(schemaTableName))),
                 all(),
