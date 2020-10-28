@@ -23,6 +23,8 @@ import java.util.function.Function;
 
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_MAX_ROWS_PER_PAGE_PROPERTY;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_PRODUCE_PAGES;
+import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_CATALOG;
+import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_SCHEMA;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
@@ -36,6 +38,8 @@ public final class TpchQueryRunnerBuilder
 
     private Optional<Integer> maxRowsPerPage = Optional.empty();
     private Optional<Boolean> producePages = Optional.empty();
+    private Optional<String> destinationCatalog = Optional.empty();
+    private Optional<String> destinationSchema = Optional.empty();
 
     private TpchQueryRunnerBuilder()
     {
@@ -60,6 +64,18 @@ public final class TpchQueryRunnerBuilder
         return this;
     }
 
+    public TpchQueryRunnerBuilder withTableScanRedirectionCatalog(String destinationCatalog)
+    {
+        this.destinationCatalog = Optional.of(destinationCatalog);
+        return this;
+    }
+
+    public TpchQueryRunnerBuilder withTableScanRedirectionSchema(String destinationSchema)
+    {
+        this.destinationSchema = Optional.of(destinationSchema);
+        return this;
+    }
+
     public static TpchQueryRunnerBuilder builder()
     {
         return new TpchQueryRunnerBuilder();
@@ -74,6 +90,8 @@ public final class TpchQueryRunnerBuilder
             ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
             maxRowsPerPage.ifPresent(value -> properties.put(TPCH_MAX_ROWS_PER_PAGE_PROPERTY, value.toString()));
             producePages.ifPresent(value -> properties.put(TPCH_PRODUCE_PAGES, value.toString()));
+            destinationCatalog.ifPresent(value -> properties.put(TPCH_TABLE_SCAN_REDIRECTION_CATALOG, value));
+            destinationSchema.ifPresent(value -> properties.put(TPCH_TABLE_SCAN_REDIRECTION_SCHEMA, value));
             queryRunner.createCatalog("tpch", "tpch", properties.build());
             return queryRunner;
         }
