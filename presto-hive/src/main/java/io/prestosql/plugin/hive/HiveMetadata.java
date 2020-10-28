@@ -1172,6 +1172,12 @@ public class HiveMetadata
         metastore.dropColumn(new HiveIdentity(session), hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), columnHandle.getName());
     }
 
+    @Override
+    public void setTableAuthorization(ConnectorSession session, SchemaTableName table, PrestoPrincipal principal)
+    {
+        metastore.setTableOwner(new HiveIdentity(session), table.getSchemaName(), table.getTableName(), HivePrincipal.from(principal));
+    }
+
     private void failIfAvroSchemaIsSet(ConnectorSession session, HiveTableHandle handle)
     {
         Table table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName())

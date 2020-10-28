@@ -13,6 +13,7 @@ Synopsis
       [ WITH ( property_name = expression [, ...] ) ]
     ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] column_name TO new_column_name
+    ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
 
 Description
 -----------
@@ -59,6 +60,14 @@ Rename column ``id`` to ``user_id`` in the ``users`` table::
 Rename column ``id`` to ``user_id`` in the ``users`` table if table ``users`` and column ``id`` exists::
 
     ALTER TABLE IF EXISTS users RENAME column IF EXISTS id to user_id;
+
+Change owner of table ``people`` to user ``alice``::
+
+    ALTER TABLE people SET AUTHORIZATION alice
+
+Allow everyone with role public to drop and alter table ``people``::
+
+    ALTER TABLE people SET AUTHORIZATION ROLE PUBLIC
 
 See Also
 --------

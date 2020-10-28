@@ -127,6 +127,7 @@ import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowFunctions;
@@ -1624,6 +1625,20 @@ public class TestSqlParser
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
         assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
+    }
+
+    @Test
+    public void testAlterTableSetAuthorization()
+    {
+        assertStatement(
+                "ALTER TABLE foo.bar.baz SET AUTHORIZATION qux",
+                new SetTableAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("qux"))));
+        assertStatement(
+                "ALTER TABLE foo.bar.baz SET AUTHORIZATION USER qux",
+                new SetTableAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("qux"))));
+        assertStatement(
+                "ALTER TABLE foo.bar.baz SET AUTHORIZATION ROLE qux",
+                new SetTableAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("qux"))));
     }
 
     @Test

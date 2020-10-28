@@ -239,6 +239,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetTableAuthorization(context, table, principal);
+    }
+
+    @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         delegate().checkCanSelectFromColumns(context, table, columns);

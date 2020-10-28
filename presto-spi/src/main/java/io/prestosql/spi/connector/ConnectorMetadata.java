@@ -318,6 +318,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Sets the user/role on the specified table.
+     */
+    default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, PrestoPrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a table");
+    }
+
+    /**
      * Rename the specified column
      */
     default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)

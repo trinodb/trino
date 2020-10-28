@@ -344,6 +344,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        verifyRecordingMode();
+        delegate.setTableOwner(identity, databaseName, tableName, principal);
+    }
+
+    @Override
     public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
     {
         verifyRecordingMode();

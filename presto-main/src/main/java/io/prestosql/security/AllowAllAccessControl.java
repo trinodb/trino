@@ -176,6 +176,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName)
     {
     }

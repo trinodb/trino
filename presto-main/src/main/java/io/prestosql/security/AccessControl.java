@@ -239,6 +239,13 @@ public interface AccessControl
     void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to change the specified table's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, PrestoPrincipal principal);
+
+    /**
      * Check if identity is allowed to rename a column in the specified table.
      *
      * @throws AccessDeniedException if not allowed

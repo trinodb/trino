@@ -236,6 +236,13 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(JOE, bobTable, ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanRenameView(BOB, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
         assertDenied(() -> accessControl.checkCanRenameView(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
+
+        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new PrestoPrincipal(PrincipalType.USER, "some_user"));
+        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new PrestoPrincipal(PrincipalType.USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.USER, "some_user")));
     }
 
     @Test

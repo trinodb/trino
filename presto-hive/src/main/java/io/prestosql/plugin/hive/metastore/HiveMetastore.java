@@ -81,6 +81,8 @@ public interface HiveMetastore
 
     void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment);
 
+    void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal);
+
     void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment);
 
     void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);

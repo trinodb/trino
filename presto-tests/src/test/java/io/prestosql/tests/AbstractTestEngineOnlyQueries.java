@@ -1135,6 +1135,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("DROP SCHEMA foo");
         assertDescribeOutputEmpty("CREATE TABLE foo (x bigint)");
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
+        assertDescribeOutputEmpty("ALTER TABLE foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");

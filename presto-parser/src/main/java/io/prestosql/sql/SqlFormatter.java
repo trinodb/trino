@@ -91,6 +91,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
@@ -1184,6 +1185,17 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatColumnDefinition(node.getColumn()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitSetTableAuthorization(SetTableAuthorization node, Integer context)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(formatName(node.getSource()))
+                    .append(" SET AUTHORIZATION ")
+                    .append(formatPrincipal(node.getPrincipal()));
 
             return null;
         }
