@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSource;
@@ -59,7 +58,6 @@ import static java.util.Objects.requireNonNull;
 public class OrcPageSource
         implements ConnectorPageSource
 {
-    private static final Logger log = Logger.get(OrcPageSource.class);
     private static final Block ORIGINAL_FILE_TRANSACTION_ID_BLOCK = nativeValueToBlock(BIGINT, 0L);
 
     private final OrcRecordReader recordReader;

@@ -21,9 +21,7 @@ import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
-import io.prestosql.orc.metadata.ColumnMetadata;
 import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
@@ -187,7 +185,6 @@ public class OrcFileWriterFactory
                 return null;
             };
 
-            ColumnMetadata<OrcType> rootType;
             if (transaction.isInsert() && useAcidSchema) {
                 // Only add the ACID columns if the request is for INSERT -- for DELETE, the columns are
                 // added by the caller.  This is because the ACID columns for DELETE depend on the rows
