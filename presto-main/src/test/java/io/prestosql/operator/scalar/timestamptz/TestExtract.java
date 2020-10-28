@@ -13,33 +13,30 @@
  */
 package io.prestosql.operator.scalar.timestamptz;
 
+import io.prestosql.operator.scalar.AbstractTestExtract;
 import io.prestosql.sql.parser.ParsingException;
-import io.prestosql.sql.query.QueryAssertions;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.stream.IntStream;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestExtract
+        extends AbstractTestExtract
 {
-    private QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
+    @Override
+    protected List<String> types()
     {
-        assertions = new QueryAssertions();
+        return IntStream.rangeClosed(0, 12)
+                .mapToObj(precision -> format("timestamp(%s) with time zone", precision))
+                .collect(toImmutableList());
     }
 
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
-    @Test
+    @Override
     public void testYear()
     {
         assertThat(assertions.expression("EXTRACT(YEAR FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '2020'");
@@ -71,7 +68,7 @@ public class TestExtract
         assertThat(assertions.expression("year(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '2020'");
     }
 
-    @Test
+    @Override
     public void testMonth()
     {
         assertThat(assertions.expression("EXTRACT(MONTH FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '5'");
@@ -103,7 +100,7 @@ public class TestExtract
         assertThat(assertions.expression("month(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '5'");
     }
 
-    @Test
+    @Override
     public void testDay()
     {
         assertThat(assertions.expression("EXTRACT(DAY FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '10'");
@@ -135,7 +132,7 @@ public class TestExtract
         assertThat(assertions.expression("day(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '10'");
     }
 
-    @Test
+    @Override
     public void testHour()
     {
         assertThat(assertions.expression("EXTRACT(HOUR FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '12'");
@@ -167,7 +164,7 @@ public class TestExtract
         assertThat(assertions.expression("hour(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '12'");
     }
 
-    @Test
+    @Override
     public void testMinute()
     {
         assertThat(assertions.expression("EXTRACT(MINUTE FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '34'");
@@ -199,7 +196,7 @@ public class TestExtract
         assertThat(assertions.expression("minute(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '34'");
     }
 
-    @Test
+    @Override
     public void testSecond()
     {
         assertThat(assertions.expression("EXTRACT(SECOND FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '56'");
@@ -253,8 +250,8 @@ public class TestExtract
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '123'");
     }
 
-    @Test
-    public void testTimeZoneHour()
+    @Override
+    public void testTimezoneHour()
     {
         assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56 +08:35')")).matches("BIGINT '8'");
         assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1 +08:35')")).matches("BIGINT '8'");
@@ -314,8 +311,8 @@ public class TestExtract
         assertThat(assertions.expression("timezone_hour(TIMESTAMP '2020-05-10 12:34:56.123456789123 -08:35')")).matches("BIGINT '-8'");
     }
 
-    @Test
-    public void testTimeZoneMinute()
+    @Override
+    public void testTimezoneMinute()
     {
         assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56 +08:35')")).matches("BIGINT '35'");
         assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1 +08:35')")).matches("BIGINT '35'");
@@ -404,7 +401,7 @@ public class TestExtract
         assertThat(assertions.expression("timezone_minute(TIMESTAMP '2020-05-10 12:34:56.123456789123 -00:35')")).matches("BIGINT '-35'");
     }
 
-    @Test
+    @Override
     public void testDayOfWeek()
     {
         assertThat(assertions.expression("EXTRACT(DAY_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '7'");
@@ -436,7 +433,7 @@ public class TestExtract
         assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '7'");
     }
 
-    @Test
+    @Override
     public void testDayOfYear()
     {
         assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '131'");
@@ -468,7 +465,7 @@ public class TestExtract
         assertThat(assertions.expression("day_of_year(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '131'");
     }
 
-    @Test
+    @Override
     public void testQuarter()
     {
         assertThat(assertions.expression("EXTRACT(QUARTER FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '2'");
@@ -522,7 +519,7 @@ public class TestExtract
         assertThat(assertions.expression("week_of_year(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '19'");
     }
 
-    @Test
+    @Override
     public void testYearOfWeek()
     {
         assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM TIMESTAMP '2020-05-10 12:34:56 Asia/Kathmandu')")).matches("BIGINT '2020'");

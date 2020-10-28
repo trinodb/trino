@@ -13,68 +13,30 @@
  */
 package io.prestosql.operator.scalar.timetz;
 
-import io.prestosql.spi.PrestoException;
+import io.prestosql.operator.scalar.AbstractTestExtract;
 import io.prestosql.sql.parser.ParsingException;
-import io.prestosql.sql.query.QueryAssertions;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.stream.IntStream;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestExtract
+        extends AbstractTestExtract
 {
-    protected QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
+    @Override
+    protected List<String> types()
     {
-        assertions = new QueryAssertions();
+        return IntStream.rangeClosed(0, 12)
+                .mapToObj(precision -> format("time(%s) with time zone", precision))
+                .collect(toImmutableList());
     }
 
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
-    @Test
-    public void testYear()
-    {
-        for (int i = 0; i <= 12; i++) {
-            int precision = i;
-            assertThatThrownBy(() -> assertions.expression(format("EXTRACT(YEAR FROM CAST(NULL AS TIME(%s) WITH TIME ZONE))", precision)))
-                    .isInstanceOf(PrestoException.class)
-                    .hasMessage(format("line 1:26: Cannot extract YEAR from time(%s) with time zone", precision));
-        }
-    }
-
-    @Test
-    public void testMonth()
-    {
-        for (int i = 0; i <= 12; i++) {
-            int precision = i;
-            assertThatThrownBy(() -> assertions.expression(format("EXTRACT(MONTH FROM CAST(NULL AS TIME(%s) WITH TIME ZONE))", precision)))
-                    .isInstanceOf(PrestoException.class)
-                    .hasMessage(format("line 1:27: Cannot extract MONTH from time(%s) with time zone", precision));
-        }
-    }
-
-    @Test
-    public void testDay()
-    {
-        for (int i = 0; i <= 12; i++) {
-            int precision = i;
-            assertThatThrownBy(() -> assertions.expression(format("EXTRACT(DAY FROM CAST(NULL AS TIME(%s) WITH TIME ZONE))", precision)))
-                    .isInstanceOf(PrestoException.class)
-                    .hasMessage(format("line 1:25: Cannot extract DAY from time(%s) with time zone", precision));
-        }
-    }
-
-    @Test
+    @Override
     public void testHour()
     {
         assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56+08:35')")).matches("BIGINT '12'");
@@ -106,7 +68,7 @@ public class TestExtract
         assertThat(assertions.expression("hour(TIME '12:34:56.123456789012+08:35')")).matches("BIGINT '12'");
     }
 
-    @Test
+    @Override
     public void testMinute()
     {
         assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56+08:35')")).matches("BIGINT '34'");
@@ -138,7 +100,7 @@ public class TestExtract
         assertThat(assertions.expression("minute(TIME '12:34:56.123456789012+08:35')")).matches("BIGINT '34'");
     }
 
-    @Test
+    @Override
     public void testSecond()
     {
         assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56+08:35')")).matches("BIGINT '56'");
@@ -192,8 +154,8 @@ public class TestExtract
         assertThat(assertions.expression("millisecond(TIME '12:34:56.123456789012+08:35')")).matches("BIGINT '123'");
     }
 
-    @Test
-    public void testTimeZoneHour()
+    @Override
+    public void testTimezoneHour()
     {
         assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56+08:35')")).matches("BIGINT '8'");
         assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIME '12:34:56.1+08:35')")).matches("BIGINT '8'");
@@ -282,8 +244,8 @@ public class TestExtract
         assertThat(assertions.expression("timezone_hour(TIME '12:34:56.123456789012-00:35')")).matches("BIGINT '0'");
     }
 
-    @Test
-    public void testTimeZoneMinute()
+    @Override
+    public void testTimezoneMinute()
     {
         assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56+08:35')")).matches("BIGINT '35'");
         assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIME '12:34:56.1+08:35')")).matches("BIGINT '35'");
