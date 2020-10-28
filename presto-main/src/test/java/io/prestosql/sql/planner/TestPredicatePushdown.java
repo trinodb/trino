@@ -15,10 +15,8 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.Metadata;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
@@ -30,8 +28,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 public class TestPredicatePushdown
         extends AbstractPredicatePushdownTest
 {
-    private final Metadata metadata = createTestMetadataManager();
-
     public TestPredicatePushdown()
     {
         super(true);

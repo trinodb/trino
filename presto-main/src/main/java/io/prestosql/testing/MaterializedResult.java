@@ -294,7 +294,6 @@ public class MaterializedResult
         }
         else if (type instanceof TimestampType) {
             long micros = ((SqlTimestamp) value).getEpochMicros();
-            int precision = ((TimestampType) type).getPrecision();
             type.writeLong(blockBuilder, micros);
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
