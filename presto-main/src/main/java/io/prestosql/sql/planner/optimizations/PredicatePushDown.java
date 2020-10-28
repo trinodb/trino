@@ -88,6 +88,7 @@ import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.prestosql.sql.planner.iterative.rule.UnwrapCastInComparison.unwrapCasts;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
@@ -239,7 +240,7 @@ public class PredicatePushDown
             // pre-projected symbols.
             Predicate<Expression> isSupported = conjunct ->
                     isDeterministic(conjunct, metadata) &&
-                            SymbolsExtractor.extractUnique(conjunct).stream()
+                            extractUnique(conjunct).stream()
                                     .allMatch(partitionSymbols::contains);
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
@@ -261,7 +262,7 @@ public class PredicatePushDown
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toSet());
 
-            Predicate<Expression> deterministic = conjunct -> SymbolsExtractor.extractUnique(conjunct).stream()
+            Predicate<Expression> deterministic = conjunct -> extractUnique(conjunct).stream()
                     .allMatch(deterministicSymbols::contains);
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(deterministic));
@@ -324,7 +325,7 @@ public class PredicatePushDown
                     .filter(entry -> node.getCommonGroupingColumns().contains(entry.getKey()))
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().toSymbolReference()));
 
-            Predicate<Expression> pushdownEligiblePredicate = conjunct -> commonGroupingSymbolMapping.keySet().containsAll(SymbolsExtractor.extractUnique(conjunct));
+            Predicate<Expression> pushdownEligiblePredicate = conjunct -> commonGroupingSymbolMapping.keySet().containsAll(extractUnique(conjunct));
 
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(pushdownEligiblePredicate));
 
@@ -344,7 +345,7 @@ public class PredicatePushDown
         {
             Set<Symbol> pushDownableSymbols = ImmutableSet.copyOf(node.getDistinctSymbols());
             Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream()
-                    .collect(Collectors.partitioningBy(conjunct -> SymbolsExtractor.extractUnique(conjunct).stream().allMatch(pushDownableSymbols::contains)));
+                    .collect(Collectors.partitioningBy(conjunct -> extractUnique(conjunct).stream().allMatch(pushDownableSymbols::contains)));
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(metadata, conjuncts.get(true)));
 
@@ -487,7 +488,7 @@ public class PredicatePushDown
                 if (joinEqualityExpression(conjunct, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols())) {
                     ComparisonExpression equality = (ComparisonExpression) conjunct;
 
-                    boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(SymbolsExtractor.extractUnique(equality.getLeft()));
+                    boolean alignedComparison = node.getLeft().getOutputSymbols().containsAll(extractUnique(equality.getLeft()));
                     Expression leftExpression = (alignedComparison) ? equality.getLeft() : equality.getRight();
                     Expression rightExpression = (alignedComparison) ? equality.getRight() : equality.getLeft();
 
@@ -738,8 +739,8 @@ public class PredicatePushDown
                 Collection<Symbol> outerSymbols,
                 Collection<Symbol> innerSymbols)
         {
-            checkArgument(outerSymbols.containsAll(SymbolsExtractor.extractUnique(outerEffectivePredicate)), "outerEffectivePredicate must only contain symbols from outerSymbols");
-            checkArgument(innerSymbols.containsAll(SymbolsExtractor.extractUnique(innerEffectivePredicate)), "innerEffectivePredicate must only contain symbols from innerSymbols");
+            checkArgument(outerSymbols.containsAll(extractUnique(outerEffectivePredicate)), "outerEffectivePredicate must only contain symbols from outerSymbols");
+            checkArgument(innerSymbols.containsAll(extractUnique(innerEffectivePredicate)), "innerEffectivePredicate must only contain symbols from innerSymbols");
 
             ImmutableList.Builder<Expression> outerPushdownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> innerPushdownConjuncts = ImmutableList.builder();
@@ -873,8 +874,8 @@ public class PredicatePushDown
                 Collection<Symbol> leftSymbols,
                 Collection<Symbol> rightSymbols)
         {
-            checkArgument(leftSymbols.containsAll(SymbolsExtractor.extractUnique(leftEffectivePredicate)), "leftEffectivePredicate must only contain symbols from leftSymbols");
-            checkArgument(rightSymbols.containsAll(SymbolsExtractor.extractUnique(rightEffectivePredicate)), "rightEffectivePredicate must only contain symbols from rightSymbols");
+            checkArgument(leftSymbols.containsAll(extractUnique(leftEffectivePredicate)), "leftEffectivePredicate must only contain symbols from leftSymbols");
+            checkArgument(rightSymbols.containsAll(extractUnique(rightEffectivePredicate)), "rightEffectivePredicate must only contain symbols from rightSymbols");
 
             ImmutableList.Builder<Expression> leftPushDownConjuncts = ImmutableList.builder();
             ImmutableList.Builder<Expression> rightPushDownConjuncts = ImmutableList.builder();
@@ -1139,8 +1140,8 @@ public class PredicatePushDown
             if (expression instanceof ComparisonExpression && isDeterministic(expression, metadata)) {
                 ComparisonExpression comparison = (ComparisonExpression) expression;
                 if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
-                    Set<Symbol> symbols1 = SymbolsExtractor.extractUnique(comparison.getLeft());
-                    Set<Symbol> symbols2 = SymbolsExtractor.extractUnique(comparison.getRight());
+                    Set<Symbol> symbols1 = extractUnique(comparison.getLeft());
+                    Set<Symbol> symbols2 = extractUnique(comparison.getRight());
                     if (symbols1.isEmpty() || symbols2.isEmpty()) {
                         return false;
                     }
@@ -1337,7 +1338,7 @@ public class PredicatePushDown
             // Sort non-equality predicates by those that can be pushed down and those that cannot
             Set<Symbol> groupingKeys = ImmutableSet.copyOf(node.getGroupingKeys());
             for (Expression conjunct : EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate)) {
-                if (node.getGroupIdSymbol().isPresent() && SymbolsExtractor.extractUnique(conjunct).contains(node.getGroupIdSymbol().get())) {
+                if (node.getGroupIdSymbol().isPresent() && extractUnique(conjunct).contains(node.getGroupIdSymbol().get())) {
                     // aggregation operator synthesizes outputs for group ids corresponding to the global grouping set (i.e., ()), so we
                     // need to preserve any predicates that evaluate the group id to run after the aggregation
                     // TODO: we should be able to infer if conditions on grouping() correspond to global grouping sets to determine whether
@@ -1451,7 +1452,7 @@ public class PredicatePushDown
         @Override
         public PlanNode visitAssignUniqueId(AssignUniqueId node, RewriteContext<Expression> context)
         {
-            Set<Symbol> predicateSymbols = SymbolsExtractor.extractUnique(context.get());
+            Set<Symbol> predicateSymbols = extractUnique(context.get());
             checkState(!predicateSymbols.contains(node.getIdColumn()), "UniqueId in predicate is not yet supported");
             return context.defaultRewrite(node, context.get());
         }
