@@ -169,6 +169,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetTableAuthorization(context, tableName, principal);
+    }
+
+    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         delegate().checkCanSelectFromColumns(context, tableName, columnNames);

@@ -226,6 +226,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetTableAuthorization(context, tableName, principal);
+    }
+
+    @Override
     public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanInsertIntoTable(context, tableName);

@@ -71,6 +71,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -286,6 +287,14 @@ public class FileBasedAccessControl
     {
         if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyRenameColumn(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, PrestoPrincipal principal)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denySetTableAuthorization(tableName.toString(), principal);
         }
     }
 

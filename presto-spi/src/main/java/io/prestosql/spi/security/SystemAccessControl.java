@@ -59,6 +59,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -380,6 +381,16 @@ public interface SystemAccessControl
     default void checkCanDropColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyDropColumn(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to change the specified table's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+        denySetTableAuthorization(table.toString(), principal);
     }
 
     /**

@@ -630,6 +630,33 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        // TODO Add role support https://github.com/prestosql/presto/issues/5706
+        if (principal.getType() != USER) {
+            throw new PrestoException(NOT_SUPPORTED, "Setting table owner type as a role is not supported");
+        }
+
+        try {
+            Table table = getExistingTable(identity, databaseName, tableName);
+            TableInput newTableInput = GlueInputConverter.convertTable(table);
+            newTableInput.setOwner(principal.getName());
+
+            stats.getReplaceTable().call(() ->
+                    glueClient.updateTable(new UpdateTableRequest()
+                            .withCatalogId(catalogId)
+                            .withDatabaseName(databaseName)
+                            .withTableInput(newTableInput)));
+        }
+        catch (EntityNotFoundException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (AmazonServiceException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
     public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
     {
         throw new PrestoException(NOT_SUPPORTED, "Column comment is not yet supported by Glue service");

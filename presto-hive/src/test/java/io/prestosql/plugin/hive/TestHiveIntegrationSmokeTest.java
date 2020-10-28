@@ -772,6 +772,66 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testTableAuthorization()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
+        assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
+
+        assertAccessDenied(
+                alice,
+                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice",
+                "Cannot set authorization for table test_table_authorization.foo to USER alice");
+        assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
+        assertUpdate(alice, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION admin");
+
+        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
+        assertUpdate(admin, "DROP SCHEMA test_table_authorization");
+    }
+
+    @Test
+    public void testTableAuthorizationForRole()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
+        assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
+        assertUpdate(admin, "CREATE ROLE admin");
+
+        // TODO Change assertions once https://github.com/prestosql/presto/issues/5706 is done
+        assertAccessDenied(
+                alice,
+                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
+                "Cannot set authorization for table test_table_authorization.foo to ROLE admin");
+        assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
+        assertQueryFails(
+                alice,
+                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
+                "Setting table owner type as a role is not supported");
+
+        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
+        assertUpdate(admin, "DROP SCHEMA test_table_authorization");
+        assertUpdate(admin, "DROP ROLE admin");
+    }
+
+    @Test
     public void testShowCreateSchema()
     {
         Session admin = Session.builder(getQueryRunner().getDefaultSession())

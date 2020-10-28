@@ -53,6 +53,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -260,6 +261,16 @@ public interface ConnectorAccessControl
     default void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyDropColumn(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to change the specified table's user/role.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, PrestoPrincipal principal)
+    {
+        denySetTableAuthorization(tableName.toString(), principal);
     }
 
     /**

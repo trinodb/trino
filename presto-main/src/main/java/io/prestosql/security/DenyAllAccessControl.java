@@ -66,6 +66,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSess
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -254,6 +255,12 @@ public class DenyAllAccessControl
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         denyDropColumn(tableName.toString());
+    }
+
+    @Override
+    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, PrestoPrincipal principal)
+    {
+        denySetTableAuthorization(tableName.toString(), principal);
     }
 
     @Override

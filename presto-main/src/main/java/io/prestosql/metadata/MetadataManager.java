@@ -50,6 +50,7 @@ import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
@@ -714,6 +715,14 @@ public final class MetadataManager
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
         metadata.dropColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), column);
+    }
+
+    @Override
+    public void setTableAuthorization(Session session, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+        CatalogName catalogName = new CatalogName(table.getCatalogName());
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.setTableAuthorization(session.toConnectorSession(catalogName), table.getSchemaTableName(), principal);
     }
 
     @Override

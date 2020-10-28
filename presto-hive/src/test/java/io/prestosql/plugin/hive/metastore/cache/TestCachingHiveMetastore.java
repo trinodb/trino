@@ -23,6 +23,7 @@ import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.Table;
@@ -70,6 +71,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClien
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_ROLES;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_TABLE;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -183,6 +185,22 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getTableStats().getRequestCount(), 3);
         assertEquals(metastore.getTableStats().getHitRate(), 1.0 / 3);
+    }
+
+    @Test
+    public void testSetTableAuthorization()
+    {
+        assertEquals(mockClient.getAccessCount(), 0);
+        assertNotNull(metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE));
+        assertNotNull(metastore.getDatabase(TEST_DATABASE));
+        assertEquals(mockClient.getAccessCount(), 2);
+        metastore.setTableOwner(IDENTITY, TEST_DATABASE, TEST_TABLE, new HivePrincipal(USER, "ignore"));
+        assertEquals(mockClient.getAccessCount(), 3);
+        assertNotNull(metastore.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 4);
+        // Assert that database cache has not been invalidated
+        assertNotNull(metastore.getDatabase(TEST_DATABASE));
+        assertEquals(mockClient.getAccessCount(), 4);
     }
 
     @Test
