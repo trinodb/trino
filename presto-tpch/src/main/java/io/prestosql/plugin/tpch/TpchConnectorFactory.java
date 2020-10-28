@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.Boolean.FALSE;
@@ -39,6 +40,8 @@ public class TpchConnectorFactory
     public static final String TPCH_COLUMN_NAMING_PROPERTY = "tpch.column-naming";
     public static final String TPCH_PRODUCE_PAGES = "tpch.produce-pages";
     public static final String TPCH_MAX_ROWS_PER_PAGE_PROPERTY = "tpch.max-rows-per-page";
+    public static final String TPCH_TABLE_SCAN_REDIRECTION_CATALOG = "tpch.table-scan-redirection-catalog";
+    public static final String TPCH_TABLE_SCAN_REDIRECTION_SCHEMA = "tpch.table-scan-redirection-schema";
     private static final int DEFAULT_MAX_ROWS_PER_PAGE = 1_000_000;
 
     private final int defaultSplitsPerNode;
@@ -92,7 +95,12 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(columnNaming, predicatePushdownEnabled, partitioningEnabled);
+                return new TpchMetadata(
+                        columnNaming,
+                        predicatePushdownEnabled,
+                        partitioningEnabled,
+                        getTpchTableScanRedirectionCatalog(properties),
+                        getTpchTableScanRedirectionSchema(properties));
             }
 
             @Override
@@ -152,5 +160,15 @@ public class TpchConnectorFactory
         catch (NumberFormatException e) {
             throw new IllegalArgumentException(format("Invalid property %s", TPCH_MAX_ROWS_PER_PAGE_PROPERTY));
         }
+    }
+
+    private Optional<String> getTpchTableScanRedirectionCatalog(Map<String, String> properties)
+    {
+        return Optional.ofNullable(properties.get(TPCH_TABLE_SCAN_REDIRECTION_CATALOG));
+    }
+
+    private Optional<String> getTpchTableScanRedirectionSchema(Map<String, String> properties)
+    {
+        return Optional.ofNullable(properties.get(TPCH_TABLE_SCAN_REDIRECTION_SCHEMA));
     }
 }
