@@ -49,6 +49,9 @@ public class FlakyTestRetryAnalyzer
     @Override
     public boolean retry(ITestResult result)
     {
+        if (result.isSuccess()) {
+            return false;
+        }
         if (!isEnabled()) {
             return false;
         }
