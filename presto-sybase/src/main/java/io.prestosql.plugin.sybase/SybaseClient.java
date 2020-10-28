@@ -88,22 +88,21 @@ public class SybaseClient
     {
         super(config, "\"", connectionFactory);
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, Optional.empty(), Optional.empty(), Optional.empty());
-        JdbcTypeHandle intTypeHandle = new JdbcTypeHandle(Types.INTEGER, Optional.of("integer"), 0, Optional.empty(), Optional.empty(), Optional.empty());
-
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, 0, Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementCountAll(intTypeHandle))
-                        .add(new ImplementCount(intTypeHandle))
-                        .add(new ImplementCountAll(intTypeHandle))
                         .add(new ImplementMinMax())
                         .add(new ImplementSum(SybaseClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgBigint())
+                        .add(new ImplementSybaseDBStdev())
+                        .add(new ImplementSybaseDBStddevPop())
+                        .add(new ImplementSybaseDBVariance())
+                        .add(new ImplementSybaseDBVariancePop())
                         .build());
     }
 
@@ -116,7 +115,7 @@ public class SybaseClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty(), Optional.empty()));
     }
 
     private static String singleQuote(String... objects)
