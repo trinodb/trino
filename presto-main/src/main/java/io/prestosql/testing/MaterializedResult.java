@@ -64,7 +64,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -82,6 +81,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 public class MaterializedResult
         implements Iterable<MaterializedRow>
@@ -212,7 +212,9 @@ public class MaterializedResult
 
     public Set<Object> getOnlyColumnAsSet()
     {
-        return getOnlyColumn().collect(toImmutableSet());
+        return getOnlyColumn()
+                // values are nullable
+                .collect(toSet());
     }
 
     public Object getOnlyValue()
