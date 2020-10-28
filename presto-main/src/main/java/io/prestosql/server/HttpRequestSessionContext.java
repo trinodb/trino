@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session.ResourceEstimateBuilder;
@@ -80,8 +79,6 @@ import static java.util.Objects.requireNonNull;
 public final class HttpRequestSessionContext
         implements SessionContext
 {
-    private static final Logger log = Logger.get(HttpRequestSessionContext.class);
-
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     public static final String AUTHENTICATED_IDENTITY = "presto.authenticated-identity";
 
