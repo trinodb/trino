@@ -316,14 +316,16 @@ Metastore Configuration Properties
 The required Hive metastore can be configured with a number of properties.
 Specific properties can be used to further configure the
 `Thrift <#thrift-metastore-configuration-properties>`__ or
-`Glue <#aws-glue-catalog-configuration-properties>`__ metastore.
+`Glue <#aws-glue-catalog-configuration-properties>`__ or
+`File <#file-metastore-configuration-properties>`__ metastore.
 
 ======================================= ============================================================ ============
 Property Name                                      Description                                       Default
 ======================================= ============================================================ ============
 ``hive.metastore``                      The type of Hive metastore to use. Presto currently supports ``thrift``
-                                        the default Hive Thrift metastore (``thrift``), and the AWS
-                                        Glue Catalog (``glue``) as metadata sources.
+                                        the default Hive Thrift metastore (``thrift``), the AWS Glue
+                                        Catalog (``glue``) ,and the file metastore ( ``file``) as
+                                        metadata sources.
 
 ``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
                                         valid.
@@ -446,6 +448,27 @@ Property Name                                        Description
 ``hive.metastore.glue.get-partition-threads``        Number of threads for parallel partition fetches from Glue,
                                                      defaults to ``20``.
 ==================================================== ============================================================
+
+File Metastore Configuration Properties
+-----------------------------------------
+
+In order to use file as metastore, ensure to configure the metastore with
+``hive.metastore=file`` and remove configuration item ``hive.metastore.uri``
+provide further details with the following properties:
+
+=================================================== =================================================== ============
+Property Name                                       Description                                         Default
+=================================================== =================================================== ============
+``hive.metastore.catalog.dir``                      File-based metastore catalog directory,
+                                                    Example: ``file://tmp``
+
+``hive.metastore.user``                             Hive file-based metastore username for file access. ``presto``
+
+``hive.metastore.assume-canonical-partition-keys``  Disable optimized metastore partition fetching for  ``false``
+                                                    non-string partition keys. Setting this property
+                                                    allows to avoid ignoring data with non-canonical
+                                                    partition values.
+=================================================== =================================================== ============
 
 Google Cloud Storage Configuration
 ----------------------------------
