@@ -53,21 +53,26 @@ public class FlakyTestRetryAnalyzer
             return false;
         }
         if (!isEnabled()) {
+            log.info("not retrying; FlakyTestRetryAnalyzer disabled");
             return false;
         }
         Method javaMethod = result.getMethod().getConstructorOrMethod().getMethod();
         if (javaMethod == null) {
+            log.info("not retrying; cannot get java method");
             return false;
         }
         Flaky annotation = javaMethod.getAnnotation(Flaky.class);
         if (annotation == null) {
+            log.info("not retrying; @Flaky annotation not present");
             return false;
         }
         if (result.getThrowable() == null) {
+            log.info("not retrying; throwable not present in result");
             return false;
         }
         String stackTrace = getStackTraceAsString(result.getThrowable());
         if (!Pattern.compile(annotation.match()).matcher(stackTrace).find()) {
+            log.warn("not retrying; stacktrace '%s' does not match pattern '%s'", stackTrace, annotation.match());
             return false;
         }
 
