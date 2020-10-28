@@ -43,10 +43,24 @@ public class TestExtract
     }
 
     @Override
+    public void testWeek()
+    {
+        assertThat(assertions.expression("EXTRACT(WEEK FROM DATE '2020-05-10')")).matches("BIGINT '19'");
+        assertThat(assertions.expression("EXTRACT(WEEK FROM DATE '1960-05-10')")).matches("BIGINT '19'");
+    }
+
+    @Override
     public void testDay()
     {
         assertThat(assertions.expression("EXTRACT(DAY FROM DATE '2020-05-10')")).matches("BIGINT '10'");
         assertThat(assertions.expression("EXTRACT(DAY FROM DATE '1960-05-10')")).matches("BIGINT '10'");
+    }
+
+    @Override
+    public void testDayOfMonth()
+    {
+        assertThat(assertions.expression("EXTRACT(DAY_OF_MONTH FROM DATE '2020-05-10')")).matches("BIGINT '10'");
+        assertThat(assertions.expression("EXTRACT(DAY_OF_MONTH FROM DATE '1960-05-10')")).matches("BIGINT '10'");
     }
 
     @Override
@@ -57,10 +71,24 @@ public class TestExtract
     }
 
     @Override
+    public void testDow()
+    {
+        assertThat(assertions.expression("EXTRACT(DOW FROM DATE '2020-05-10')")).matches("BIGINT '7'");
+        assertThat(assertions.expression("EXTRACT(DOW FROM DATE '1960-05-10')")).matches("BIGINT '2'");
+    }
+
+    @Override
     public void testDayOfYear()
     {
         assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM DATE '2020-05-10')")).matches("BIGINT '131'");
         assertThat(assertions.expression("EXTRACT(DAY_OF_YEAR FROM DATE '1960-05-10')")).matches("BIGINT '131'");
+    }
+
+    @Override
+    public void testDoy()
+    {
+        assertThat(assertions.expression("EXTRACT(DOY FROM DATE '2020-05-10')")).matches("BIGINT '131'");
+        assertThat(assertions.expression("EXTRACT(DOY FROM DATE '1960-05-10')")).matches("BIGINT '131'");
     }
 
     @Override
@@ -75,5 +103,12 @@ public class TestExtract
     {
         assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM DATE '2020-05-10')")).matches("BIGINT '2020'");
         assertThat(assertions.expression("EXTRACT(YEAR_OF_WEEK FROM DATE '1960-05-10')")).matches("BIGINT '1960'");
+    }
+
+    @Override
+    public void testYow()
+    {
+        assertThat(assertions.expression("EXTRACT(YOW FROM DATE '2020-05-10')")).matches("BIGINT '2020'");
+        assertThat(assertions.expression("EXTRACT(YOW FROM DATE '1960-05-10')")).matches("BIGINT '1960'");
     }
 }
