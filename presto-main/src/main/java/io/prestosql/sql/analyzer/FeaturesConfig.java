@@ -44,20 +44,20 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
-        "deprecated.legacy-char-to-varchar-coercion",
-        "deprecated.legacy-map-subscript",
-        "deprecated.group-by-uses-equal",
-        "deprecated.legacy-row-field-ordinal-access",
-        "deprecated.legacy-unnest-array-rows",
-        "resource-group-manager",
-        "fast-inequality-joins",
-        "experimental.resource-groups-enabled",
-        "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
-        "optimizer.processing-optimization",
-        "deprecated.legacy-order-by",
+        "deprecated.group-by-uses-equal",
+        "deprecated.legacy-char-to-varchar-coercion",
         "deprecated.legacy-join-using",
-        "deprecated.legacy-timestamp"
+        "deprecated.legacy-map-subscript",
+        "deprecated.legacy-order-by",
+        "deprecated.legacy-row-field-ordinal-access",
+        "deprecated.legacy-timestamp",
+        "deprecated.legacy-unnest-array-rows",
+        "experimental-syntax-enabled",
+        "experimental.resource-groups-enabled",
+        "fast-inequality-joins",
+        "optimizer.processing-optimization",
+        "resource-group-manager",
 })
 public class FeaturesConfig
 {
