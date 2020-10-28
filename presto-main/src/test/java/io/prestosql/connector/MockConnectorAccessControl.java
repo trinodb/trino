@@ -15,6 +15,7 @@ package io.prestosql.connector;
 
 import io.prestosql.plugin.base.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
@@ -24,7 +25,9 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static java.util.Objects.requireNonNull;
 
 class MockConnectorAccessControl
@@ -33,10 +36,12 @@ class MockConnectorAccessControl
     private static final String INFORMATION_SCHEMA = "information_schema";
 
     private final Grants<String> schemaGrants;
+    private final Grants<SchemaTableName> tableGrants;
 
-    MockConnectorAccessControl(Grants<String> schemaGrants)
+    MockConnectorAccessControl(Grants<String> schemaGrants, Grants<SchemaTableName> tableGrants)
     {
         this.schemaGrants = requireNonNull(schemaGrants, "schemaGrants is null");
+        this.tableGrants = requireNonNull(tableGrants, "tableGrants is null");
     }
 
     @Override
@@ -63,6 +68,32 @@ class MockConnectorAccessControl
         }
     }
 
+    @Override
+    public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
+    {
+        return tableNames.stream()
+                .filter(tableName -> canAccessSchema(context.getIdentity(), tableName.getSchemaName()) || canAccessTable(context.getIdentity(), tableName))
+                .collect(toImmutableSet());
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        String user = context.getIdentity().getUser();
+        if (!schemaGrants.canGrant(user, tableName.getSchemaName(), privilege) && !tableGrants.canGrant(user, tableName, privilege)) {
+            denyGrantTablePrivilege(privilege.toString(), tableName.getTableName());
+        }
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
+    {
+        String user = context.getIdentity().getUser();
+        if (!schemaGrants.canGrant(user, tableName.getSchemaName(), privilege) && !tableGrants.canGrant(user, tableName, privilege)) {
+            denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
+        }
+    }
+
     public void grantSchemaPrivileges(String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
         schemaGrants.grant(grantee, schemaName, privileges, grantOption);
@@ -73,9 +104,24 @@ class MockConnectorAccessControl
         schemaGrants.revoke(revokee, schemaName, privileges, grantOption);
     }
 
-    private boolean canAccessSchema(ConnectorIdentity identity, String schema)
+    public void grantTablePrivileges(SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        return schema.equalsIgnoreCase(INFORMATION_SCHEMA)
-                || Arrays.stream(Privilege.values()).anyMatch(privilege -> schemaGrants.isAllowed(identity.getUser(), schema, privilege));
+        tableGrants.grant(grantee, tableName, privileges, grantOption);
+    }
+
+    public void revokeTablePrivileges(SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal revokee, boolean grantOption)
+    {
+        tableGrants.revoke(revokee, tableName, privileges, grantOption);
+    }
+
+    private boolean canAccessSchema(ConnectorIdentity identity, String schemaName)
+    {
+        return schemaName.equalsIgnoreCase(INFORMATION_SCHEMA)
+                || Arrays.stream(Privilege.values()).anyMatch(privilege -> schemaGrants.isAllowed(identity.getUser(), schemaName, privilege));
+    }
+
+    private boolean canAccessTable(ConnectorIdentity identity, SchemaTableName tableName)
+    {
+        return Arrays.stream(Privilege.values()).anyMatch(privilege -> tableGrants.isAllowed(identity.getUser(), tableName, privilege));
     }
 }

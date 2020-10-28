@@ -161,6 +161,7 @@ public class MockConnectorFactory
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
         private Grants<String> schemaGrants = new AllowAllGrants<>();
+        private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -244,6 +245,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withTableGrants(Grants<SchemaTableName> tableGrants)
+        {
+            this.tableGrants = tableGrants;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             return new MockConnectorFactory(
@@ -258,7 +265,7 @@ public class MockConnectorFactory
                     getNewTableLayout,
                     eventListeners,
                     roleGrants,
-                    new MockConnectorAccessControl(schemaGrants));
+                    new MockConnectorAccessControl(schemaGrants, tableGrants));
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
