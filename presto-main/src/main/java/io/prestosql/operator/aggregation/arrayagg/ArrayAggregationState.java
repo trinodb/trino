@@ -34,4 +34,6 @@ public interface ArrayAggregationState
     {
         throw new UnsupportedOperationException();
     }
+
+    String getBlockSimpleName();
 }

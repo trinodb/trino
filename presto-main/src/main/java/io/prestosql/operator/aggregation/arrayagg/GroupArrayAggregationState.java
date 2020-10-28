@@ -39,6 +39,17 @@ public final class GroupArrayAggregationState
     }
 
     @Override
+    public String getBlockSimpleName()
+    {
+        return GroupArrayAggregationState.class.getSimpleName();
+    }
+
+    public String getBlockSimpleName(Block block)
+    {
+        return block.getClass().getSimpleName();
+    }
+
+    @Override
     protected final void accept(ArrayAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
     {
         consumer.accept(pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
