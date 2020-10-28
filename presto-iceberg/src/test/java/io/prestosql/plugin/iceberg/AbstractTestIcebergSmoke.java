@@ -19,6 +19,7 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
+import io.prestosql.operator.OperatorStats;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.predicate.NullableValue;
@@ -31,6 +32,7 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.ResultWithQueryId;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -45,9 +47,13 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertLessThan;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
@@ -1388,5 +1394,56 @@ public abstract class AbstractTestIcebergSmoke
         Session session = getSession();
         assertUpdate(session, "DROP TABLE " + table);
         assertFalse(getQueryRunner().tableExists(session, table));
+    }
+
+    @Test
+    public void testLocalDynamicFilterWithEmptyBuildSide()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'");
+        assertEquals(result.getResult().getRowCount(), 0);
+
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch.lineitem");
+        assertEquals(probeStats.getInputPositions(), 0);
+        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), probeStats.getTotalDrivers());
+    }
+
+    @Test
+    public void testDynamicFilterWithSelectiveBuildSide()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 172799.49");
+        assertGreaterThan(result.getResult().getRowCount(), 0);
+
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch.lineitem");
+        // Probe-side is partially scanned
+        assertLessThan(probeStats.getInputPositions(), 60175L);
+        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), probeStats.getTotalDrivers());
+    }
+
+    @Test
+    public void testDynamicFilterWithNonSelectiveBuildSide()
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertGreaterThan(result.getResult().getRowCount(), 0);
+
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch.lineitem");
+        // Probe-side is fully scanned
+        assertEquals(probeStats.getInputPositions(), 60175L);
+        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), 0);
+    }
+
+    private Session withBroadcastJoin()
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+              .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+              .build();
     }
 }

@@ -29,6 +29,7 @@ import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.OperatorStats;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
@@ -442,7 +443,7 @@ public abstract class AbstractTestQueryFramework
                         return false;
                     }
                     TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
-                    return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
+                    return tableScanNode.getTable().getConnectorHandle().toString().contains(tableName);
                 })
                 .findOnlyElement()
                 .getId();
