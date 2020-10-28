@@ -190,7 +190,7 @@ public class InternalHiveSplitFactory
             blockBuilder.add(new InternalHiveBlock(blockStart, blockEnd, getHostAddresses(blockLocation)));
         }
         List<InternalHiveBlock> blocks = blockBuilder.build();
-        checkBlocks(blocks, start, length);
+        checkBlocks(path, blocks, start, length);
 
         if (!splittable) {
             // not splittable, use the hosts from the first block if it exists
@@ -224,14 +224,30 @@ public class InternalHiveSplitFactory
                 acidInfo));
     }
 
-    private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)
+    private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)
     {
-        checkArgument(length >= 0);
-        checkArgument(!blocks.isEmpty());
-        checkArgument(start == blocks.get(0).getStart());
-        checkArgument(start + length == blocks.get(blocks.size() - 1).getEnd());
+        checkArgument(start >= 0, "Split (%s) has negative start (%s)", path, start);
+        checkArgument(length >= 0, "Split (%s) has negative length (%s)", path, length);
+        checkArgument(!blocks.isEmpty(), "Split (%s) has no blocks", path);
+        checkArgument(
+                start == blocks.get(0).getStart(),
+                "Split (%s) start (%s) does not match first block start (%s)",
+                path,
+                start,
+                blocks.get(0).getStart());
+        checkArgument(
+                start + length == blocks.get(blocks.size() - 1).getEnd(),
+                "Split (%s) end (%s) does not match last block end (%s)",
+                path,
+                start + length,
+                blocks.get(blocks.size() - 1).getEnd());
         for (int i = 1; i < blocks.size(); i++) {
-            checkArgument(blocks.get(i - 1).getEnd() == blocks.get(i).getStart());
+            checkArgument(
+                    blocks.get(i - 1).getEnd() == blocks.get(i).getStart(),
+                    "Split (%s) block end (%s) does not match next block start (%s)",
+                    path,
+                    blocks.get(i - 1).getEnd(),
+                    blocks.get(i).getStart());
         }
     }
 
