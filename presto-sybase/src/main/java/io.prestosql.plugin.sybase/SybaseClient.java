@@ -40,8 +40,10 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
@@ -89,6 +91,8 @@ public class SybaseClient
         super(config, "\"", connectionFactory);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, 0, Optional.empty(), Optional.empty());
+        JdbcTypeHandle intTypeHandle = new JdbcTypeHandle(Types.INTEGER, Optional.of("int"), 10, 0, Optional.empty(), Optional.empty());
+
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule>builder()
@@ -96,8 +100,10 @@ public class SybaseClient
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax())
                         .add(new ImplementSum(SybaseClient::toTypeHandle))
+                        .add(new ImplementSum(SybaseClient::toIntTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgInt())
                         .add(new ImplementAvgBigint())
                         .add(new ImplementSybaseDBStdev())
                         .add(new ImplementSybaseDBStddevPop())
@@ -116,6 +122,11 @@ public class SybaseClient
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty(), Optional.empty()));
+    }
+
+    private static Optional<JdbcTypeHandle> toIntTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.INTEGER, Optional.of("int"), 10, 0, Optional.empty(), Optional.empty()));
     }
 
     private static String singleQuote(String... objects)
@@ -180,11 +191,22 @@ public class SybaseClient
         }
         // TODO implement proper type mapping
         return super.toPrestoType(session, connection, typeHandle)
-                .map(columnMapping -> new ColumnMapping(
-                        columnMapping.getType(),
-                        columnMapping.getReadFunction(),
-                        columnMapping.getWriteFunction(),
-                        DISABLE_UNSUPPORTED_PUSHDOWN));
+                .map(columnMapping -> {
+                    if (columnMapping.getType() instanceof IntegerType) {
+                        return new ColumnMapping(
+                                BigintType.BIGINT,
+                                columnMapping.getReadFunction(),
+                                columnMapping.getWriteFunction(),
+                                DISABLE_UNSUPPORTED_PUSHDOWN);
+                    }
+                    else {
+                        return new ColumnMapping(
+                                columnMapping.getType(),
+                                columnMapping.getReadFunction(),
+                                columnMapping.getWriteFunction(),
+                                DISABLE_UNSUPPORTED_PUSHDOWN);
+                    }
+                });
     }
 
     @Override
