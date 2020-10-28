@@ -96,6 +96,7 @@ public class TestFileBasedSystemAccessControl
     private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot add a column to table .*";
     private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop a column from table .*";
     private static final String RENAME_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename a column in table .*";
+    private static final String AUTH_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for table .* to .*";
     private static final String TABLE_COMMENT_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot comment table to .*";
     private static final String INSERT_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot insert into table .*";
     private static final String DELETE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot delete from table .*";
@@ -562,6 +563,33 @@ public class TestFileBasedSystemAccessControl
 
         accessControl.checkCanRenameColumn(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
         assertAccessDenied(() -> accessControl.checkCanRenameColumn(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), RENAME_COLUMNS_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testCheckCanSetTableAuthorizationForAdmin()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanSetTableAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetTableAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new PrestoPrincipal(PrincipalType.USER, "some_user"));
+    }
+
+    @Test
+    public void testCheckCanSetTableAuthorizationForOwner()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new PrestoPrincipal(PrincipalType.USER, "some_user"));
+    }
+
+    @Test
+    public void testCheckCanSetTableAuthorizationForNonOwner()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        assertAccessDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new PrestoPrincipal(PrincipalType.ROLE, "some_role")), AUTH_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new PrestoPrincipal(PrincipalType.USER, "some_user")), AUTH_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

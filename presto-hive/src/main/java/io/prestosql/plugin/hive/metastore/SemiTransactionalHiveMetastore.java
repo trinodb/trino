@@ -490,6 +490,11 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.commentTable(identity, databaseName, tableName, comment));
     }
 
+    public synchronized void setTableOwner(HiveIdentity identity, String schema, String table, HivePrincipal principal)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.setTableOwner(identity, schema, table, principal));
+    }
+
     public synchronized void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.commentColumn(identity, databaseName, tableName, columnName, comment));
@@ -1014,7 +1019,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    private String getTableOwner(HiveIdentity identity, String databaseName, String tableName)
+    public synchronized String getTableOwner(HiveIdentity identity, String databaseName, String tableName)
     {
         return getExistingTable(identity, databaseName, tableName).getOwner();
     }

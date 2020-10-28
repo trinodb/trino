@@ -286,6 +286,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setTableAuthorization(ConnectorSession session, SchemaTableName table, PrestoPrincipal principal)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setTableAuthorization(session, table, principal);
+        }
+    }
+
+    @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

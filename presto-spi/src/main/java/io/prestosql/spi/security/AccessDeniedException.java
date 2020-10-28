@@ -258,6 +258,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop a column from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetTableAuthorization(String tableName, PrestoPrincipal principal)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for table %s to %s", tableName, principal));
+    }
+
     public static void denyRenameColumn(String tableName)
     {
         denyRenameColumn(tableName, null);

@@ -339,7 +339,7 @@ public class MockThriftMetastoreClient
     @Override
     public void alterTableWithEnvironmentContext(String databaseName, String tableName, Table newTable, EnvironmentContext context)
     {
-        throw new UnsupportedOperationException();
+        // No-op, accessCount already increased by getTable call
     }
 
     @Override

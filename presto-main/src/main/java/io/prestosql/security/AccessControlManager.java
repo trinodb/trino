@@ -573,6 +573,23 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetTableAuthorization(SecurityContext securityContext, QualifiedObjectName tableName, PrestoPrincipal principal)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(principal, "principal is null");
+
+        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetTableAuthorization(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), principal));
+
+        catalogAuthorizationCheck(
+                tableName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanSetTableAuthorization(context, tableName.asSchemaTableName(), principal));
+    }
+
+    @Override
     public void checkCanInsertIntoTable(SecurityContext securityContext, QualifiedObjectName tableName)
     {
         requireNonNull(securityContext, "securityContext is null");

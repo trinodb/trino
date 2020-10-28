@@ -64,6 +64,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCs
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -245,6 +246,24 @@ public class BridgingHiveMetastore
 
         table.setParameters(parameters);
         alterTable(identity, databaseName, tableName, table);
+    }
+
+    @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        // TODO Add role support https://github.com/prestosql/presto/issues/5706
+        if (principal.getType() != USER) {
+            throw new PrestoException(NOT_SUPPORTED, "Setting table owner type as a role is not supported");
+        }
+
+        Table table = fromMetastoreApiTable(delegate.getTable(identity, databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName))));
+
+        Table newTable = Table.builder(table)
+                .setOwner(principal.getName())
+                .build();
+
+        delegate.alterTable(identity, databaseName, tableName, toMetastoreApiTable(newTable));
     }
 
     @Override

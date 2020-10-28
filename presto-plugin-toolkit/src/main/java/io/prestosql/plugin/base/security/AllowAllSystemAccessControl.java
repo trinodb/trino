@@ -223,6 +223,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
     }

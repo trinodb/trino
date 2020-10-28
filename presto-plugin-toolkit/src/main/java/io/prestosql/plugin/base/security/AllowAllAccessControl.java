@@ -134,6 +134,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
     }

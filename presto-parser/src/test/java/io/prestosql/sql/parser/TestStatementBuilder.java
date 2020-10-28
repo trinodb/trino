@@ -237,6 +237,10 @@ public class TestStatementBuilder
         printStatement("comment on column test.a is 'test'");
         printStatement("drop table test");
 
+        printStatement("alter table foo set authorization alice");
+        printStatement("alter table foo.bar set authorization USER alice");
+        printStatement("alter table foo.bar.baz set authorization ROLE public");
+
         printStatement("create view foo as with a as (select 123) select * from a");
         printStatement("create or replace view foo as select 123 from t");
 

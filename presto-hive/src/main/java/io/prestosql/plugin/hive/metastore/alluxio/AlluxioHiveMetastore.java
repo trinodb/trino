@@ -310,6 +310,12 @@ public class AlluxioHiveMetastore
     }
 
     @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "setTableOwner");
+    }
+
+    @Override
     public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
     {
         throw new PrestoException(NOT_SUPPORTED, "commentColumn");

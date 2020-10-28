@@ -562,6 +562,18 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        identity = updateIdentity(identity);
+        try {
+            delegate.setTableOwner(identity, databaseName, tableName, principal);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    @Override
     public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
     {
         identity = updateIdentity(identity);

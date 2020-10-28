@@ -153,6 +153,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
@@ -495,6 +496,15 @@ class AstBuilder
                 (ColumnDefinition) visit(context.columnDefinition()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitSetTableAuthorization(SqlBaseParser.SetTableAuthorizationContext context)
+    {
+        return new SetTableAuthorization(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                getPrincipalSpecification(context.principal()));
     }
 
     @Override

@@ -24,6 +24,7 @@ import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
@@ -198,6 +199,11 @@ public interface Metadata
      * Add the specified column to the table.
      */
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
+
+    /**
+     * Set the authorization (owner) of specified table's user/role
+     */
+    void setTableAuthorization(Session session, CatalogSchemaTableName table, PrestoPrincipal principal);
 
     /**
      * Drop the specified column.
