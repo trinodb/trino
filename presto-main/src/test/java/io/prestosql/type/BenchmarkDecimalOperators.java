@@ -15,7 +15,6 @@ package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
@@ -69,7 +68,6 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.sql.ExpressionTestUtils.createExpression;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
@@ -556,7 +554,6 @@ public class BenchmarkDecimalOperators
     {
         private final Metadata metadata = createTestMetadataManager();
         private final TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
-        private final Session session = testSessionBuilder().build();
         private final Random random = new Random();
 
         protected final Map<String, Symbol> symbols = new HashMap<>();
