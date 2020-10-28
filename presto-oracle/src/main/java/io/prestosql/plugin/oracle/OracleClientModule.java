@@ -53,6 +53,7 @@ public class OracleClientModule
     {
         Properties connectionProperties = new Properties();
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
+        connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_REPORT_REMARKS, String.valueOf(oracleConfig.isRemarksReportingEnabled()));
 
         if (oracleConfig.isConnectionPoolEnabled()) {
             return new OraclePoolConnectionFactory(
