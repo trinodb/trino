@@ -123,6 +123,10 @@ Name                                   Description
                                        name for the query is ``presto-jdbc``.
 ``accessToken``                        Access token for token based authentication.
 ``SSL``                                Use HTTPS for connections
+``SSLVerification``                    The method of SSL verification. There are three modes: ``FULL``
+                                       (default), ``CA`` and ``NONE``. For ``FULL``, the normal TLS
+                                       verification is performed. For ``CA``, only the CA is verified but
+                                       hostname mismatch is allowed. For ``NONE``, there is no verification.
 ``SSLKeyStorePath``                    The location of the Java KeyStore file that contains the certificate
                                        and private key to use for authentication.
 ``SSLKeyStorePassword``                The password for the KeyStore.
