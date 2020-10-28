@@ -105,7 +105,7 @@ public class PrestoS3ClientFactory
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix(enabled ? "presto-select" : "presto");
 
-        AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config, defaults);
+        AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config);
         AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
                 .withCredentials(awsCredentialsProvider)
                 .withClientConfiguration(clientConfiguration)
@@ -138,7 +138,7 @@ public class PrestoS3ClientFactory
         return clientBuilder.build();
     }
 
-    private static AWSCredentialsProvider getAwsCredentialsProvider(Configuration conf, HiveS3Config defaults)
+    private static AWSCredentialsProvider getAwsCredentialsProvider(Configuration conf)
     {
         Optional<AWSCredentials> credentials = getAwsCredentials(conf);
         if (credentials.isPresent()) {

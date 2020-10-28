@@ -19,7 +19,6 @@ import com.linkedin.coral.presto.rel2presto.RelToPrestoConverter;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.CoralSemiTransactionalHiveMSCAdapter;
@@ -72,7 +71,6 @@ public final class ViewReaderUtil
     static final String VIEW_SUFFIX = " */";
     private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
-    private static Logger log = Logger.get(io.prestosql.plugin.hive.ViewReaderUtil.class);
 
     public static boolean isPrestoView(Table table)
     {
