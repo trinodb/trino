@@ -294,5 +294,17 @@ public class MockConnector
         {
             accessControl.revokeSchemaPrivileges(schemaName, privileges, revokee, grantOption);
         }
+
+        @Override
+        public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+        {
+            accessControl.grantTablePrivileges(tableName, privileges, grantee, grantOption);
+        }
+
+        @Override
+        public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal revokee, boolean grantOption)
+        {
+            accessControl.revokeTablePrivileges(tableName, privileges, revokee, grantOption);
+        }
     }
 }
