@@ -31,6 +31,7 @@ import static io.prestosql.type.DateTimes.SECONDS_PER_DAY;
 import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
 import static java.lang.Math.multiplyExact;
+import static java.lang.Math.toIntExact;
 
 @ScalarOperator(CAST)
 public final class TimeToTimestampCast
@@ -57,7 +58,13 @@ public final class TimeToTimestampCast
             @SqlType("time(sourcePrecision)") long time)
     {
         long epochMicros = cast(sourcePrecision, targetPrecision, session, time);
-        return new LongTimestamp(epochMicros, (int) (time % PICOSECONDS_PER_MICROSECOND));
+        int picosOfMicro = toIntExact(time % PICOSECONDS_PER_MICROSECOND);
+        picosOfMicro = toIntExact(round(picosOfMicro, toIntExact(12 - targetPrecision)));
+        if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
+            epochMicros++;
+            picosOfMicro = 0;
+        }
+        return new LongTimestamp(epochMicros, picosOfMicro);
     }
 
     private static long cast(long sourcePrecision, long targetPrecision, ConnectorSession session, long time)
