@@ -48,6 +48,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -63,6 +64,14 @@ public class TestSetSessionTask
 {
     private static final String CATALOG_NAME = "foo";
     private static final String MUST_BE_POSITIVE = "property must be positive";
+
+    private enum Size
+    {
+        SMALL,
+        MEDIUM,
+        LARGE,
+    }
+
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
@@ -94,6 +103,12 @@ public class TestSetSessionTask
                         "property that should be positive",
                         null,
                         TestSetSessionTask::validatePositive,
+                        false),
+                enumProperty(
+                        "size_property",
+                        "size enum property",
+                        Size.class,
+                        null,
                         false));
 
         metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
@@ -147,6 +162,19 @@ public class TestSetSessionTask
     }
 
     @Test
+    public void testSetSessionWithInvalidEnum()
+    {
+        try {
+            testSetSessionWithEnum(new StringLiteral("XL"), "XL");
+            fail();
+        }
+        catch (PrestoException e) {
+            assertEquals(INVALID_SESSION_PROPERTY.toErrorCode(), e.getErrorCode());
+            assertEquals("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]", e.getMessage());
+        }
+    }
+
+    @Test
     public void testSetSessionWithParameters()
     {
         FunctionCall functionCall = new FunctionCallBuilder(metadata)
@@ -165,6 +193,11 @@ public class TestSetSessionTask
     private void testSetSessionWithValidation(Expression expression, String expectedValue)
     {
         testSetSessionWithParameters("positive_property", expression, expectedValue, emptyList());
+    }
+
+    private void testSetSessionWithEnum(Expression expression, String expectedValue)
+    {
+        testSetSessionWithParameters("size_property", expression, expectedValue, emptyList());
     }
 
     private void testSetSessionWithParameters(String property, Expression expression, String expectedValue, List<Expression> parameters)
