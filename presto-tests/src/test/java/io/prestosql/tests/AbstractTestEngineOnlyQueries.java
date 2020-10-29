@@ -1140,6 +1140,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
         assertDescribeOutputEmpty("DROP VIEW foo");
+        assertDescribeOutputEmpty("ALTER VIEW foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("PREPARE test FROM SELECT * FROM orders");
         assertDescribeOutputEmpty("EXECUTE test");
         assertDescribeOutputEmpty("DEALLOCATE PREPARE test");

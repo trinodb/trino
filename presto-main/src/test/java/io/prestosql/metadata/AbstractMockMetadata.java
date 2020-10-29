@@ -454,6 +454,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setViewAuthorization(Session session, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();

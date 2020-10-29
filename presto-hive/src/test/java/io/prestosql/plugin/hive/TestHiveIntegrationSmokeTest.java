@@ -54,6 +54,7 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
+import io.prestosql.testing.sql.TestTable;
 import io.prestosql.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
@@ -851,6 +852,134 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
         assertUpdate(admin, "DROP SCHEMA test_table_authorization");
         assertUpdate(admin, "DROP ROLE admin");
+    }
+
+    @Test
+    public void testViewAuthorization()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+
+        assertUpdate(admin, "CREATE SCHEMA " + schema);
+        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT current_user AS user");
+
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice",
+                "Cannot set authorization for view " + schema + ".test_view to USER alice");
+        assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
+        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
+
+        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        assertUpdate(admin, "DROP SCHEMA " + schema);
+    }
+
+    @Test
+    public void testViewAuthorizationSecurityDefiner()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+
+        assertUpdate(admin, "CREATE SCHEMA " + schema);
+        assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
+        assertUpdate(admin, "INSERT INTO " + schema + ".test_table VALUES (1)", 1);
+        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view SECURITY DEFINER AS SELECT * from " + schema + ".test_table");
+        assertUpdate(admin, "GRANT SELECT ON " + schema + ".test_view TO alice");
+
+        assertQuery(alice, "SELECT * FROM " + schema + ".test_view", "VALUES (1)");
+        assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
+        assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
+
+        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
+        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
+        assertUpdate(admin, "DROP SCHEMA " + schema);
+    }
+
+    @Test
+    public void testViewAuthorizationSecurityInvoker()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+
+        assertUpdate(admin, "CREATE SCHEMA " + schema);
+        assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
+        assertUpdate(admin, "INSERT INTO " + schema + ".test_table VALUES (1)", 1);
+        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view SECURITY INVOKER AS SELECT * from " + schema + ".test_table");
+        assertUpdate(admin, "GRANT SELECT ON " + schema + ".test_view TO alice");
+
+        assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
+        assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
+        assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
+
+        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
+        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
+        assertUpdate(admin, "DROP SCHEMA " + schema);
+    }
+
+    @Test
+    public void testViewAuthorizationForRole()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+
+        assertUpdate(admin, "CREATE SCHEMA " + schema);
+        assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
+        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT * FROM " + schema + ".test_table");
+        assertUpdate(admin, "CREATE ROLE admin");
+
+        // TODO Change assertions once https://github.com/prestosql/presto/issues/5706 is done
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
+                "Cannot set authorization for view " + schema + ".test_view to ROLE admin");
+        assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
+        assertQueryFails(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
+                "Setting table owner type as a role is not supported");
+
+        assertUpdate(admin, "DROP ROLE admin");
+        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
+        assertUpdate(admin, "DROP SCHEMA " + schema);
     }
 
     @Test

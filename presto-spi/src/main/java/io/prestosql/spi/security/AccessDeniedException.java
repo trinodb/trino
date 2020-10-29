@@ -348,6 +348,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetViewAuthorization(String tableName, PrestoPrincipal principal)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s", tableName, principal));
+    }
+
     public static void denyDropView(String viewName)
     {
         denyDropView(viewName, null);

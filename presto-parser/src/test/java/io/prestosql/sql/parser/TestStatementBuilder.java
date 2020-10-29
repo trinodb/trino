@@ -245,6 +245,9 @@ public class TestStatementBuilder
         printStatement("create or replace view foo as select 123 from t");
 
         printStatement("drop view foo");
+        printStatement("alter view foo set authorization alice");
+        printStatement("alter view foo.bar set authorization USER alice");
+        printStatement("alter view foo.bar.baz set authorization ROLE public");
 
         printStatement("insert into t select * from t");
         printStatement("insert into t (c1, c2) select * from t");

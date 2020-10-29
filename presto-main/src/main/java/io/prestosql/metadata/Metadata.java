@@ -366,6 +366,11 @@ public interface Metadata
     void renameView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
 
     /**
+     * Set the authorization (owner) of specified view's user/role
+     */
+    void setViewAuthorization(Session session, CatalogSchemaTableName view, PrestoPrincipal principal);
+
+    /**
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedObjectName viewName);

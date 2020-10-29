@@ -1852,6 +1852,12 @@ public class HiveMetadata
     }
 
     @Override
+    public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+        setTableAuthorization(session, viewName, principal);
+    }
+
+    @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         if (getView(session, viewName).isEmpty()) {
