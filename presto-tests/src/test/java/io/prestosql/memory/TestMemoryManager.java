@@ -21,6 +21,7 @@ import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.QueryId;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testng.services.Flaky;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -82,6 +83,7 @@ public class TestMemoryManager
     }
 
     @Test(timeOut = 240_000)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4948", match = "ExceededMemoryLimitException: Query exceeded per-node total memory limit of")
     public void testResourceOverCommit()
             throws Exception
     {
