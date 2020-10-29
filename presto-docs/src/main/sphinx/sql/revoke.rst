@@ -25,6 +25,10 @@ The optional ``GRANT OPTION FOR`` clause also revokes the privileges to grant th
 
 For ``REVOKE`` statement to succeed, the user executing it should possess the specified privileges as well as the ``GRANT OPTION`` for those privileges.
 
+Revoke on a table revokes the specified privilege on all columns of the table.
+
+Revoke on a schema revokes the specified privilege on all columns of all tables of the schema.
+
 Examples
 --------
 
