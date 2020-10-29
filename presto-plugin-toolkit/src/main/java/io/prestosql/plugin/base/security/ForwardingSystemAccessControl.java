@@ -275,6 +275,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetViewAuthorization(context, view, principal);
+    }
+
+    @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanDropView(context, view);

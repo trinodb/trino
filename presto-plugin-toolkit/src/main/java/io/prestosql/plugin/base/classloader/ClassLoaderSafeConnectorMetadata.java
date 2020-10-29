@@ -484,6 +484,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setViewAuthorization(session, viewName, principal);
+        }
+    }
+
+    @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

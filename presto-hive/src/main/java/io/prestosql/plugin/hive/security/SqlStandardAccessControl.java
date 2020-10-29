@@ -84,6 +84,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSess
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -312,6 +313,14 @@ public class SqlStandardAccessControl
     {
         if (!isTableOwner(context, viewName)) {
             denyRenameView(viewName.toString(), newViewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+        if (!isTableOwner(context, viewName)) {
+            denySetViewAuthorization(viewName.toString(), principal);
         }
     }
 

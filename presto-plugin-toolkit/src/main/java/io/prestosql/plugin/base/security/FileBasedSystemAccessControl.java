@@ -91,6 +91,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAutho
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -675,6 +676,14 @@ public class FileBasedSystemAccessControl
         // check if user owns the existing view, and if they will be an owner of the view after the rename
         if (!checkTablePermission(context, view, OWNERSHIP) || !checkTablePermission(context, newView, OWNERSHIP)) {
             denyRenameView(view.toString(), newView.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+        if (!checkTablePermission(context, view, OWNERSHIP)) {
+            denySetViewAuthorization(view.toString(), principal);
         }
     }
 

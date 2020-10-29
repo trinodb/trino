@@ -129,6 +129,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.SetTableAuthorization;
+import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowFunctions;
@@ -1563,6 +1564,20 @@ public class TestSqlParser
     public void testRenameView()
     {
         assertStatement("ALTER VIEW a RENAME TO b", new RenameView(QualifiedName.of("a"), QualifiedName.of("b")));
+    }
+
+    @Test
+    public void testAlterViewSetAuthorization()
+    {
+        assertStatement(
+                "ALTER VIEW foo.bar.baz SET AUTHORIZATION qux",
+                new SetViewAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("qux"))));
+        assertStatement(
+                "ALTER VIEW foo.bar.baz SET AUTHORIZATION USER qux",
+                new SetViewAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("qux"))));
+        assertStatement(
+                "ALTER VIEW foo.bar.baz SET AUTHORIZATION ROLE qux",
+                new SetViewAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("qux"))));
     }
 
     @Test

@@ -1121,6 +1121,16 @@ public final class MetadataManager
     }
 
     @Override
+    public void setViewAuthorization(Session session, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, view.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.setViewAuthorization(session.toConnectorSession(catalogName), view.getSchemaTableName(), principal);
+    }
+
+    @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());

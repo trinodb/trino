@@ -301,6 +301,13 @@ public class TestFileBasedAccessControl
         accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new PrestoPrincipal(PrincipalType.USER, "some_user"));
         assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.USER, "some_user")));
+
+        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new PrestoPrincipal(PrincipalType.USER, "some_user"));
+        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new PrestoPrincipal(PrincipalType.USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.USER, "some_user")));
     }
 
     @Test

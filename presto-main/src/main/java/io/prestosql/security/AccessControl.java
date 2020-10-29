@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
+
 public interface AccessControl
 {
     /**
@@ -279,6 +281,16 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
+
+    /**
+     * Check if identity is allowed to change the specified view's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, PrestoPrincipal principal)
+    {
+        denySetViewAuthorization(view.toString(), principal);
+    }
 
     /**
      * Check if identity is allowed to drop the specified view.

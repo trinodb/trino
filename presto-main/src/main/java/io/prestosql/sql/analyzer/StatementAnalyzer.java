@@ -144,6 +144,7 @@ import io.prestosql.sql.tree.SetOperation;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.SetTableAuthorization;
+import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.SimpleGroupBy;
 import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.SortItem;
@@ -877,6 +878,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitRenameView(RenameView node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitSetViewAuthorization(SetViewAuthorization node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }

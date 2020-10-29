@@ -61,6 +61,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAutho
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -451,6 +452,16 @@ public interface SystemAccessControl
     default void checkCanRenameView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
     {
         denyRenameTable(view.toString(), newView.toString());
+    }
+
+    /**
+     * Check if identity is allowed to change the specified view's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+        denySetViewAuthorization(view.toString(), principal);
     }
 
     /**

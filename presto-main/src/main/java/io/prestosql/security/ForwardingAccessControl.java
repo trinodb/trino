@@ -256,6 +256,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetViewAuthorization(context, view, principal);
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         delegate().checkCanDropView(context, viewName);

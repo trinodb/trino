@@ -206,6 +206,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
     }
