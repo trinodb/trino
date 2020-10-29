@@ -1513,8 +1513,8 @@ public class TestExpressionCompiler
     public void testFunctionWithSessionCall()
             throws Exception
     {
-        assertExecute("now()", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
-        assertExecute("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.newInstance(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
+        assertExecute("now()", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.fromInstant(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
+        assertExecute("current_timestamp", TIMESTAMP_WITH_TIME_ZONE, SqlTimestampWithTimeZone.fromInstant(3, TEST_SESSION.getStart(), TEST_SESSION.getTimeZoneKey().getZoneId()));
 
         Futures.allAsList(futures).get();
     }
