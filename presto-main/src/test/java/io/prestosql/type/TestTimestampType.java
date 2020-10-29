@@ -30,17 +30,17 @@ public class TestTimestampType
     public static Block createTestBlock()
     {
         BlockBuilder blockBuilder = TIMESTAMP_MILLIS.createBlockBuilder(null, 15);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 3333);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 3333);
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, 4444);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 3333_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 3333_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 4444_000);
         return blockBuilder.build();
     }
 
