@@ -87,7 +87,12 @@ public class SetSessionTask
         String value = serializeSessionProperty(type, objectValue);
 
         // verify the SQL value can be decoded by the property
-        propertyMetadata.decode(objectValue);
+        try {
+            propertyMetadata.decode(objectValue);
+        }
+        catch (RuntimeException e) {
+            throw semanticException(INVALID_SESSION_PROPERTY, statement, e.getMessage());
+        }
 
         stateMachine.addSetSessionProperties(propertyName.toString(), value);
 
