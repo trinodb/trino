@@ -253,6 +253,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
     }

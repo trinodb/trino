@@ -154,6 +154,7 @@ import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.SetTableAuthorization;
+import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
@@ -546,6 +547,15 @@ class AstBuilder
     public Node visitRenameView(SqlBaseParser.RenameViewContext context)
     {
         return new RenameView(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
+    }
+
+    @Override
+    public Node visitSetViewAuthorization(SqlBaseParser.SetViewAuthorizationContext context)
+    {
+        return new SetViewAuthorization(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                getPrincipalSpecification(context.principal()));
     }
 
     @Override

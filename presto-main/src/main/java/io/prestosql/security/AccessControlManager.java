@@ -643,6 +643,23 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetViewAuthorization(SecurityContext securityContext, QualifiedObjectName viewName, PrestoPrincipal principal)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(viewName, "tableName is null");
+        requireNonNull(principal, "principal is null");
+
+        checkCanAccessCatalog(securityContext, viewName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetViewAuthorization(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(), principal));
+
+        catalogAuthorizationCheck(
+                viewName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanSetViewAuthorization(context, viewName.asSchemaTableName(), principal));
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext securityContext, QualifiedObjectName viewName)
     {
         requireNonNull(securityContext, "securityContext is null");

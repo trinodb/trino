@@ -205,6 +205,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetViewAuthorization(context, viewName, principal);
+    }
+
+    @Override
     public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         delegate().checkCanDropView(context, viewName);

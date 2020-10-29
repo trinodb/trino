@@ -222,6 +222,18 @@ public class TestSqlStandardAccessControlChecks
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlSetViewAuthorization()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("ALTER VIEW %s SET AUTHORIZATION bob", viewName)))
+                .failsWithMessage(format("Access Denied: Cannot set authorization for view default.%s to USER bob", viewName));
+        assertThat(() -> bobExecutor.executeQuery(format("DROP VIEW %s", viewName)))
+                .failsWithMessage(format("Access Denied: Cannot drop view default.%s", viewName));
+
+        aliceExecutor.executeQuery(format("ALTER VIEW %s SET AUTHORIZATION bob", viewName));
+        bobExecutor.executeQuery(format("DROP VIEW %s", viewName));
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlShowColumns()
     {
         assertThat(() -> bobExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName)))

@@ -78,6 +78,7 @@ statement
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
+    | ALTER VIEW from=qualifiedName SET AUTHORIZATION principal        #setViewAuthorization
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?                                          #createRole

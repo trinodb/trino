@@ -527,6 +527,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Sets the user/role on the specified view.
+     */
+    default void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a view");
+    }
+
+    /**
      * Drop the specified view.
      */
     default void dropView(ConnectorSession session, SchemaTableName viewName)

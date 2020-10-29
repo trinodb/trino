@@ -68,6 +68,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAutho
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -285,6 +286,12 @@ public class DenyAllAccessControl
     public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
     {
         denyRenameView(viewName.toString(), newViewName.toString());
+    }
+
+    @Override
+    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, PrestoPrincipal principal)
+    {
+        denySetViewAuthorization(view.toString(), principal);
     }
 
     @Override
