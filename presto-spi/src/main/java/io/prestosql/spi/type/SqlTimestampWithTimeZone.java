@@ -40,7 +40,7 @@ public final class SqlTimestampWithTimeZone
     private final int picosOfMilli;
     private final TimeZoneKey timeZoneKey;
 
-    public static SqlTimestampWithTimeZone newInstance(int precision, Instant instant, ZoneId zoneId)
+    public static SqlTimestampWithTimeZone fromInstant(int precision, Instant instant, ZoneId zoneId)
     {
         return newInstanceWithRounding(precision, instant.toEpochMilli(), (instant.getNano() % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND, TimeZoneKey.getTimeZoneKey(zoneId.getId()));
     }
