@@ -18,15 +18,17 @@ import com.amazonaws.services.glue.model.Partition;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.glue.converter.GlueToPrestoConverter;
+import io.prestosql.plugin.hive.metastore.glue.converter.GlueToPrestoConverter.GluePartitionConverter;
 import io.prestosql.spi.security.PrincipalType;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
@@ -37,7 +39,9 @@ import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.ge
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -55,6 +59,11 @@ public class TestGlueToPrestoConverter
         testDatabase = getGlueTestDatabase();
         testTable = getGlueTestTable(testDatabase.getName());
         testPartition = getGlueTestPartition(testDatabase.getName(), testTable.getName(), ImmutableList.of("val1"));
+    }
+
+    private static GluePartitionConverter createPartitionConverter(Table table)
+    {
+        return new GluePartitionConverter(GlueToPrestoConverter.convertTable(table, table.getDatabaseName()));
     }
 
     @Test
@@ -113,13 +122,49 @@ public class TestGlueToPrestoConverter
     @Test
     public void testConvertPartition()
     {
-        io.prestosql.plugin.hive.metastore.Partition prestoPartition = GlueToPrestoConverter.convertPartition(testPartition, ImmutableMap.of());
+        GluePartitionConverter converter = createPartitionConverter(testTable);
+        io.prestosql.plugin.hive.metastore.Partition prestoPartition = converter.apply(testPartition);
         assertEquals(prestoPartition.getDatabaseName(), testPartition.getDatabaseName());
         assertEquals(prestoPartition.getTableName(), testPartition.getTableName());
         assertColumnList(prestoPartition.getColumns(), testPartition.getStorageDescriptor().getColumns());
         assertEquals(prestoPartition.getValues(), testPartition.getValues());
         assertStorage(prestoPartition.getStorage(), testPartition.getStorageDescriptor());
         assertEquals(prestoPartition.getParameters(), testPartition.getParameters());
+    }
+
+    @Test
+    public void testPartitionConversionMemoization()
+    {
+        String fakeS3Location = "s3://some-fake-location";
+        testPartition.getStorageDescriptor().setLocation(fakeS3Location);
+        //  Second partition to convert with equal (but not aliased) values
+        Partition partitionTwo = getGlueTestPartition("" + testDatabase.getName(), "" + testTable.getName(), new ArrayList<>(testPartition.getValues()));
+        //  Ensure storage fields match as well
+        partitionTwo.getStorageDescriptor().setColumns(new ArrayList<>(testPartition.getStorageDescriptor().getColumns()));
+        partitionTwo.getStorageDescriptor().setBucketColumns(new ArrayList<>(testPartition.getStorageDescriptor().getBucketColumns()));
+        partitionTwo.getStorageDescriptor().setLocation("" + fakeS3Location);
+        partitionTwo.getStorageDescriptor().setInputFormat("" + testPartition.getStorageDescriptor().getInputFormat());
+        partitionTwo.getStorageDescriptor().setOutputFormat("" + testPartition.getStorageDescriptor().getOutputFormat());
+        partitionTwo.getStorageDescriptor().setParameters(new HashMap<>(testPartition.getStorageDescriptor().getParameters()));
+
+        GluePartitionConverter converter = createPartitionConverter(testTable);
+        io.prestosql.plugin.hive.metastore.Partition prestoPartition = converter.apply(testPartition);
+        io.prestosql.plugin.hive.metastore.Partition prestoPartition2 = converter.apply(partitionTwo);
+
+        assertNotSame(prestoPartition, prestoPartition2);
+        assertSame(prestoPartition2.getDatabaseName(), prestoPartition.getDatabaseName());
+        assertSame(prestoPartition2.getTableName(), prestoPartition.getTableName());
+        assertSame(prestoPartition2.getColumns(), prestoPartition.getColumns());
+        assertSame(prestoPartition2.getParameters(), prestoPartition.getParameters());
+        assertNotSame(prestoPartition2.getValues(), prestoPartition.getValues());
+
+        Storage storage = prestoPartition.getStorage();
+        Storage storage2 = prestoPartition2.getStorage();
+
+        assertSame(storage2.getStorageFormat(), storage.getStorageFormat());
+        assertSame(storage2.getBucketProperty(), storage.getBucketProperty());
+        assertSame(storage2.getSerdeParameters(), storage.getSerdeParameters());
+        assertNotSame(storage2.getLocation(), storage.getLocation());
     }
 
     @Test
@@ -143,7 +188,7 @@ public class TestGlueToPrestoConverter
     public void testPartitionNullParameters()
     {
         testPartition.setParameters(null);
-        assertNotNull(GlueToPrestoConverter.convertPartition(testPartition, ImmutableMap.of()).getParameters());
+        assertNotNull(createPartitionConverter(testTable).apply(testPartition).getParameters());
     }
 
     private static void assertColumnList(List<Column> actual, List<com.amazonaws.services.glue.model.Column> expected)
