@@ -25,6 +25,10 @@ The optional ``WITH GRANT OPTION`` clause allows the grantee to grant these same
 
 For ``GRANT`` statement to succeed, the user executing it should possess the specified privileges as well as the ``GRANT OPTION`` for those privileges.
 
+Grant on a table grants the specified privilege on all current and future columns of the table.
+
+Grant on a schema grants the specified privilege on all current and future columns of all current and future tables of the schema.
+
 Examples
 --------
 
