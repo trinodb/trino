@@ -61,7 +61,7 @@ public final class DateTimeTestingUtils
         ZonedDateTime base = ZonedDateTime.of(year, month, day, hour, minute, second, 0, timeZoneKey.getZoneId());
 
         long epochMillis = base.toEpochSecond() * MILLISECONDS_PER_SECOND + nanoOfSecond / NANOSECONDS_PER_MILLISECOND;
-        int picosOfMilli = (int) scaleNanosToPicos(nanoOfSecond);
+        int picosOfMilli = (nanoOfSecond % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND;
 
         return SqlTimestampWithTimeZone.newInstance(precision, epochMillis, picosOfMilli, timeZoneKey);
     }

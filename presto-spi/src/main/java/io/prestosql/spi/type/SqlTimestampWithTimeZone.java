@@ -28,6 +28,7 @@ import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlTimestampWithTimeZone
@@ -47,7 +48,25 @@ public final class SqlTimestampWithTimeZone
 
     public static SqlTimestampWithTimeZone newInstance(int precision, long epochMillis, int picosOfMilli, TimeZoneKey timeZoneKey)
     {
-        return newInstanceWithRounding(precision, epochMillis, picosOfMilli, timeZoneKey);
+        if (precision <= 3) {
+            if (picosOfMilli != 0) {
+                throw new IllegalArgumentException(format("Expected picosOfMilli to be 0 for precision %s: %s", precision, picosOfMilli));
+            }
+            if (round(epochMillis, 3 - precision) != epochMillis) {
+                throw new IllegalArgumentException(format("Expected 0s for digits beyond precision %s: epochMicros = %s", precision, epochMillis));
+            }
+        }
+        else {
+            if (round(picosOfMilli, 12 - precision) != picosOfMilli) {
+                throw new IllegalArgumentException(format("Expected 0s for digits beyond precision %s: picosOfMilli = %s", precision, picosOfMilli));
+            }
+        }
+
+        if (picosOfMilli < 0 || picosOfMilli > PICOSECONDS_PER_MILLISECOND) {
+            throw new IllegalArgumentException("picosOfMilli is out of range: " + picosOfMilli);
+        }
+
+        return new SqlTimestampWithTimeZone(precision, epochMillis, picosOfMilli, timeZoneKey);
     }
 
     private static SqlTimestampWithTimeZone newInstanceWithRounding(int precision, long epochMillis, int picosOfMilli, TimeZoneKey sessionTimeZoneKey)
