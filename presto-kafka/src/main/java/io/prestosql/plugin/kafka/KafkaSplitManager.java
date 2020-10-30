@@ -129,17 +129,7 @@ public class KafkaSplitManager
     {
         InputStream inputStream = null;
         try {
-            if (isURI(dataSchemaLocation.trim().toLowerCase(ENGLISH))) {
-                try {
-                    inputStream = new URL(dataSchemaLocation).openStream();
-                }
-                catch (MalformedURLException e) {
-                    inputStream = new FileInputStream(dataSchemaLocation);
-                }
-            }
-            else {
-                inputStream = new FileInputStream(dataSchemaLocation);
-            }
+            inputStream = openSchemaLocation(dataSchemaLocation);
             return CharStreams.toString(new InputStreamReader(inputStream, UTF_8));
         }
         catch (IOException e) {
@@ -148,6 +138,21 @@ public class KafkaSplitManager
         finally {
             closeQuietly(inputStream);
         }
+    }
+
+    private static InputStream openSchemaLocation(String dataSchemaLocation)
+            throws IOException
+    {
+        if (isURI(dataSchemaLocation.trim().toLowerCase(ENGLISH))) {
+            try {
+                return new URL(dataSchemaLocation).openStream();
+            }
+            catch (MalformedURLException ignore) {
+                // TODO probably should not be ignored
+            }
+        }
+
+        return new FileInputStream(dataSchemaLocation);
     }
 
     private static void closeQuietly(InputStream stream)
