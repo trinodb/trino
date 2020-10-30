@@ -1707,7 +1707,9 @@ public final class MetadataManager
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, argumentTypes);
+                OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, argumentTypes);
+                operatorNotFound.addSuppressed(e);
+                throw operatorNotFound;
             }
             else {
                 throw e;
@@ -1725,7 +1727,9 @@ public final class MetadataManager
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
+                OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
+                operatorNotFound.addSuppressed(e);
+                throw operatorNotFound;
             }
             throw e;
         }
