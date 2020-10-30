@@ -13,34 +13,41 @@
  */
 package io.prestosql.plugin.kafka;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
+import io.airlift.log.Logger;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
 import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.testng.IRetryAnalyzer;
+import org.testng.ITestResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-import org.testng.internal.collections.Pair;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 import static io.prestosql.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -48,8 +55,9 @@ import static org.testng.Assert.assertTrue;
 public class TestKafkaIntegrationPushDown
         extends AbstractTestQueryFramework
 {
+    private static final Logger log = Logger.get(TestKafkaIntegrationPushDown.class);
     private static final int MESSAGE_NUM = 1000;
-    private static final int TIMESTAMP_TEST_COUNT = 5;
+    private static final int TIMESTAMP_TEST_COUNT = 6;
     private static final int TIMESTAMP_TEST_START_INDEX = 2;
     private static final int TIMESTAMP_TEST_END_INDEX = 4;
 
@@ -82,8 +90,8 @@ public class TestKafkaIntegrationPushDown
                 .build();
         testingKafka.createTopicWithConfig(2, 1, topicNamePartition, false);
         testingKafka.createTopicWithConfig(2, 1, topicNameOffset, false);
-        testingKafka.createTopicWithConfig(2, 1, topicNameCreateTime, false);
-        testingKafka.createTopicWithConfig(2, 1, topicNameLogAppend, true);
+        testingKafka.createTopicWithConfig(1, 1, topicNameCreateTime, false);
+        testingKafka.createTopicWithConfig(1, 1, topicNameLogAppend, true);
         return queryRunner;
     }
 
@@ -101,7 +109,7 @@ public class TestKafkaIntegrationPushDown
     {
         createMessages(topicNamePartition);
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        String sql = String.format("SELECT count(*) FROM default.%s WHERE _partition_id=1",
+        String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1",
                 topicNamePartition);
 
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
@@ -113,37 +121,40 @@ public class TestKafkaIntegrationPushDown
     {
         createMessages(topicNameOffset);
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        String sql = String.format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10",
+        String sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10",
                 topicNameOffset);
 
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 18);
 
-        sql = String.format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10",
+        sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10",
                 topicNameOffset);
 
         queryResult = queryRunner.executeWithQueryId(getSession(), sql);
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 14);
 
-        sql = String.format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3",
+        sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3",
                 topicNameOffset);
 
         queryResult = queryRunner.executeWithQueryId(getSession(), sql);
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 2);
     }
 
-    @Test
+    @Test(retryAnalyzer = FixedCountRetryAnalyzer.class)
     public void testTimestampCreateTimeModePushDown() throws ExecutionException, InterruptedException
     {
-        Pair<String, String> timePair = createTimestampTestMessages(topicNameCreateTime);
+        RecordMessage recordMessage = createTimestampTestMessages(topicNameCreateTime);
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         // ">= startTime" insure including index 2, "< endTime"  insure excluding index 4;
-        String sql = String.format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
-                topicNameCreateTime, timePair.first(), timePair.second());
+        String sql = format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
+                topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime());
 
         // timestamp_upper_bound_force_push_down_enabled default as false.
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 998);
+        String debugDumpString = buildDebugDumpString(topicNameCreateTime, recordMessage, queryRunner, sql, queryResult);
+        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
+                .describedAs("with dump:\n%s", debugDumpString)
+                .isEqualTo(998);
 
         // timestamp_upper_bound_force_push_down_enabled set as true.
         Session sessionWithUpperBoundPushDownEnabled = Session.builder(getSession())
@@ -151,19 +162,70 @@ public class TestKafkaIntegrationPushDown
                 .build();
 
         queryResult = queryRunner.executeWithQueryId(sessionWithUpperBoundPushDownEnabled, sql);
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 2);
+        debugDumpString = buildDebugDumpString(topicNameCreateTime, recordMessage, queryRunner, sql, queryResult);
+        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
+                .describedAs("with dump:\n%s", debugDumpString)
+                .isEqualTo(2);
     }
 
-    @Test
+    @Test(retryAnalyzer = FixedCountRetryAnalyzer.class)
     public void testTimestampLogAppendModePushDown() throws ExecutionException, InterruptedException
     {
-        Pair<String, String> timePair = createTimestampTestMessages(topicNameLogAppend);
+        RecordMessage recordMessage = createTimestampTestMessages(topicNameLogAppend);
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         // ">= startTime" insure including index 2, "< endTime"  insure excluding index 4;
-        String sql = String.format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
-                topicNameLogAppend, timePair.first(), timePair.second());
+        String sql = format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
+                topicNameLogAppend, recordMessage.getStartTime(), recordMessage.getEndTime());
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 2);
+
+        String debugDumpString = buildDebugDumpString(topicNameLogAppend, recordMessage, queryRunner, sql, queryResult);
+        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions())
+                .describedAs("with dump:\n%s", debugDumpString)
+                .isEqualTo(2);
+    }
+
+    private String buildDebugDumpString(String topic,
+                                        RecordMessage recordMessage,
+                                        DistributedQueryRunner queryRunner,
+                                        String sql,
+                                        ResultWithQueryId<MaterializedResult> queryResult)
+    {
+        StringBuilder sb = new StringBuilder();
+        // dump main messages
+        sb.append("Main messages:").append("\n");
+        for (int i = 0; i < recordMessage.getTestMessageSignatures().size(); i++) {
+            String dumpMessage = recordMessage.getTestMessageSignatures().get(i);
+            sb.append("  ").append(dumpMessage);
+            if (i == TIMESTAMP_TEST_START_INDEX) {
+                sb.append(", startTime:").append(recordMessage.getStartTime());
+            }
+            else if (i == TIMESTAMP_TEST_END_INDEX) {
+                sb.append(", endTime:").append(recordMessage.getEndTime());
+            }
+            sb.append("\n");
+        }
+
+        // dump sql and result
+        sb.append(format("test sql:%s\n", sql));
+        sb.append("test sql result:").append("\n").append(buildResultsDebugDumpString(queryResult.getResult()));
+
+        // dump data in kafka
+        sql = format("SELECT _partition_id,_partition_offset,_timestamp FROM default.%s WHERE _partition_offset between %s and %s order by _partition_id, _timestamp",
+                topic,
+                recordMessage.getStartOffset(),
+                recordMessage.getStartOffset() + MESSAGE_NUM);
+        MaterializedResult rows = queryRunner.execute(getSession(), sql);
+        sb.append("data check result:").append("\n").append(buildResultsDebugDumpString(rows)).append("\n");
+        return sb.toString();
+    }
+
+    private String buildResultsDebugDumpString(MaterializedResult rows)
+    {
+        StringBuilder sb = new StringBuilder();
+        for (MaterializedRow row : rows) {
+            sb.append(format("  dump values:%s\n", row.toString()));
+        }
+        return sb.toString();
     }
 
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
@@ -171,12 +233,16 @@ public class TestKafkaIntegrationPushDown
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
     }
 
-    private Pair<String, String> createTimestampTestMessages(String topicName) throws ExecutionException, InterruptedException
+    private RecordMessage createTimestampTestMessages(String topicName) throws ExecutionException, InterruptedException
     {
         String startTime = null;
         String endTime = null;
+        long startOffset = -1;
+        ImmutableList.Builder<String> testMethodSignatures = ImmutableList.builder();
         Future<RecordMetadata> lastSendFuture = Futures.immediateFuture(null);
         long lastTimeStamp = -1;
+        // Avoid last test case has impact on this test case when invocationCount of @Test enabled
+        Thread.sleep(100);
         try (KafkaProducer<Long, Object> producer = testingKafka.createProducer()) {
             for (long messageNum = 0; messageNum < MESSAGE_NUM; messageNum++) {
                 long key = messageNum;
@@ -187,7 +253,11 @@ public class TestKafkaIntegrationPushDown
                     RecordMetadata r = lastSendFuture.get();
                     assertTrue(lastTimeStamp != r.timestamp());
                     lastTimeStamp = r.timestamp();
-                    if (messageNum == TIMESTAMP_TEST_START_INDEX) {
+                    testMethodSignatures.add(format("timestamp:%s: partitionId:%s, offset:%s", r.timestamp(), r.partition(), r.offset()));
+                    if (messageNum == 0) {
+                        startOffset = r.offset();
+                    }
+                    else if (messageNum == TIMESTAMP_TEST_START_INDEX) {
                         startTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
                                 .format(LocalDateTime.ofInstant(Instant.ofEpochMilli(r.timestamp()), ZoneId.of("UTC")));
                     }
@@ -196,14 +266,14 @@ public class TestKafkaIntegrationPushDown
                                 .format(LocalDateTime.ofInstant(Instant.ofEpochMilli(r.timestamp()), ZoneId.of("UTC")));
                     }
                     // Sleep for a while to ensure different timestamps for different messages..
-                    Thread.sleep(20);
+                    Thread.sleep(100);
                 }
             }
         }
         lastSendFuture.get();
         requireNonNull(startTime, "startTime result is none");
         requireNonNull(endTime, "endTime result is none");
-        return Pair.of(startTime, endTime);
+        return new RecordMessage(startTime, endTime, startOffset, testMethodSignatures.build());
     }
 
     private void createMessages(String topicName)
@@ -218,5 +288,58 @@ public class TestKafkaIntegrationPushDown
             }
         }
         lastSendFuture.get();
+    }
+
+    private static class RecordMessage
+    {
+        private final String startTime;
+        private final String endTime;
+        private final long startOffset;
+        private final List<String> testMessageSignatures;
+
+        public RecordMessage(String startTime, String endTime, Long startOffset, List<String> testMessageSignatures)
+        {
+            this.startTime = startTime;
+            this.endTime = endTime;
+            this.startOffset = startOffset;
+            this.testMessageSignatures = testMessageSignatures;
+        }
+
+        public String getStartTime()
+        {
+            return startTime;
+        }
+
+        public String getEndTime()
+        {
+            return endTime;
+        }
+
+        public Long getStartOffset()
+        {
+            return startOffset;
+        }
+
+        public List<String> getTestMessageSignatures()
+        {
+            return testMessageSignatures;
+        }
+    }
+
+    private static class FixedCountRetryAnalyzer
+            implements IRetryAnalyzer
+    {
+        int count = 1;
+
+        @Override
+        public boolean retry(ITestResult iTestResult)
+        {
+            if (!iTestResult.isSuccess() && count < 2) {
+                count++;
+                log.warn("retry happened for method:%s", iTestResult.getMethod());
+                return true;
+            }
+            return false;
+        }
     }
 }
