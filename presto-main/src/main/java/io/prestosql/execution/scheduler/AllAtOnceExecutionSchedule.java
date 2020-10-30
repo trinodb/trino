@@ -99,7 +99,7 @@ public class AllAtOnceExecutionSchedule
         Set<PlanFragment> rootFragments = fragments.stream()
                 .filter(fragment -> !remoteSources.contains(fragment.getId()))
                 .collect(toImmutableSet());
-        checkArgument(rootFragments.size() == 1, "Expected one root fragment, but found: " + rootFragments);
+        checkArgument(rootFragments.size() == 1, "Expected one root fragment, but found: %s", rootFragments);
 
         Visitor visitor = new Visitor(fragments);
         visitor.processFragment(getOnlyElement(rootFragments).getId());

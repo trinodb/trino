@@ -912,7 +912,7 @@ public class FunctionRegistry
         public SqlFunction get(FunctionId functionId)
         {
             SqlFunction sqlFunction = functions.get(functionId);
-            checkArgument(sqlFunction != null, "Unknown function implementation: " + functionId);
+            checkArgument(sqlFunction != null, "Unknown function implementation: %s", functionId);
             return sqlFunction;
         }
     }
