@@ -127,16 +127,11 @@ public class KafkaSplitManager
 
     private static String readSchema(String dataSchemaLocation)
     {
-        InputStream inputStream = null;
-        try {
-            inputStream = openSchemaLocation(dataSchemaLocation);
+        try (InputStream inputStream = openSchemaLocation(dataSchemaLocation)) {
             return CharStreams.toString(new InputStreamReader(inputStream, UTF_8));
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Could not parse the Avro schema at: " + dataSchemaLocation, e);
-        }
-        finally {
-            closeQuietly(inputStream);
         }
     }
 
@@ -153,17 +148,6 @@ public class KafkaSplitManager
         }
 
         return new FileInputStream(dataSchemaLocation);
-    }
-
-    private static void closeQuietly(InputStream stream)
-    {
-        try {
-            if (stream != null) {
-                stream.close();
-            }
-        }
-        catch (IOException ignored) {
-        }
     }
 
     private static boolean isURI(String location)
