@@ -28,7 +28,6 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import static io.prestosql.plugin.iceberg.IcebergCatalogType.HADOOP;
-import static io.prestosql.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -97,7 +96,6 @@ public final class IcebergQueryRunner
                 .put("iceberg.file-format", format.name())
                 .put("hive.config.resources", hivesiteLocation)
                 .put("iceberg.catalog-type", type.name());
-
 
         Map<String, String> icebergProperties = builder.build();
 
