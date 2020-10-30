@@ -224,7 +224,8 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 makeTableHandle(TupleDomain.all()),
                 ImmutableList.copyOf(assignments.keySet()),
-                assignments);
+                assignments,
+                false);
 
         expressionNormalizer = new ExpressionIdentityNormalizer();
     }
@@ -500,7 +501,8 @@ public class TestEffectivePredicateExtractor
                 newId(),
                 makeTableHandle(TupleDomain.all()),
                 ImmutableList.copyOf(assignments.keySet()),
-                assignments);
+                assignments,
+                false);
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
 
@@ -509,7 +511,8 @@ public class TestEffectivePredicateExtractor
                 makeTableHandle(TupleDomain.none()),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                TupleDomain.none());
+                TupleDomain.none(),
+                false);
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
         assertEquals(effectivePredicate, FALSE_LITERAL);
 
@@ -519,7 +522,8 @@ public class TestEffectivePredicateExtractor
                 makeTableHandle(predicate),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                predicate);
+                predicate,
+                false);
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AE)));
 
@@ -531,7 +535,8 @@ public class TestEffectivePredicateExtractor
                 makeTableHandle(TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L)))),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                predicate);
+                predicate,
+                false);
         effectivePredicate = effectivePredicateExtractorWithoutTableProperties.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BE), equals(bigintLiteral(1L), AE)));
 
@@ -540,7 +545,8 @@ public class TestEffectivePredicateExtractor
                 makeTableHandle(predicate),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                TupleDomain.all());
+                TupleDomain.all(),
+                false);
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
         assertEquals(effectivePredicate, and(equals(AE, bigintLiteral(1)), equals(BE, bigintLiteral(2))));
 
@@ -551,7 +557,8 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         scanAssignments.get(A), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L)),
-                        scanAssignments.get(B), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L)))));
+                        scanAssignments.get(B), Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L)))),
+                false);
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BE), equals(bigintLiteral(1L), AE)));
 
@@ -560,7 +567,8 @@ public class TestEffectivePredicateExtractor
                 makeTableHandle(TupleDomain.all()),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                TupleDomain.all());
+                TupleDomain.all(),
+                false);
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
         assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
     }
@@ -1119,7 +1127,8 @@ public class TestEffectivePredicateExtractor
                 makeTableHandle(TupleDomain.all()),
                 ImmutableList.copyOf(scanAssignments.keySet()),
                 scanAssignments,
-                TupleDomain.all());
+                TupleDomain.all(),
+                false);
     }
 
     private static PlanNodeId newId()

@@ -566,7 +566,8 @@ public class TestSourcePartitionedScheduler
                 tableScanNodeId,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
-                ImmutableMap.of(symbol, new TestingColumnHandle("column")));
+                ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                false);
         FilterNode filterNode = new FilterNode(
                 new PlanNodeId("filter_node_id"),
                 tableScan,
