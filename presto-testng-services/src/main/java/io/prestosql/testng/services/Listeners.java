@@ -13,8 +13,6 @@
  */
 package io.prestosql.testng.services;
 
-import org.testng.ITestNGListener;
-
 import static java.lang.String.format;
 
 final class Listeners
@@ -26,7 +24,7 @@ final class Listeners
      *
      * @apiNote A TestNG listener cannot throw an exception, as this are not currently properly handlded by TestNG.
      */
-    public static void reportListenerFailure(Class<? extends ITestNGListener> listenerClass, String format, Object... args)
+    public static void reportListenerFailure(Class<?> listenerClass, String format, Object... args)
     {
         System.err.println(format("FATAL: %s: ", listenerClass.getName()) + format(format, args));
         System.err.println("JVM will be terminated");

@@ -18,6 +18,7 @@ import io.airlift.log.Logger;
 import org.testng.IRetryAnalyzer;
 import org.testng.ITestNGMethod;
 import org.testng.ITestResult;
+import org.testng.annotations.Test;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -29,6 +30,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.testng.services.Listeners.reportListenerFailure;
 import static java.lang.String.format;
 
 public class FlakyTestRetryAnalyzer
@@ -49,23 +51,31 @@ public class FlakyTestRetryAnalyzer
     @Override
     public boolean retry(ITestResult result)
     {
-        if (result.isSuccess()) {
-            return false;
-        }
         if (!isEnabled()) {
             log.info("not retrying; FlakyTestRetryAnalyzer disabled");
             return false;
         }
+
         Method javaMethod = result.getMethod().getConstructorOrMethod().getMethod();
         if (javaMethod == null) {
             log.info("not retrying; cannot get java method");
             return false;
         }
+
         Flaky annotation = javaMethod.getAnnotation(Flaky.class);
         if (annotation == null) {
             log.info("not retrying; @Flaky annotation not present");
             return false;
         }
+
+        if (!javaMethod.isAnnotationPresent(Test.class)) {
+            reportListenerFailure(getClass(), "@Flaky does not work on a method without @Test: %s", javaMethod);
+        }
+
+        if (result.isSuccess()) {
+            return false;
+        }
+
         if (result.getThrowable() == null) {
             log.info("not retrying; throwable not present in result");
             return false;
