@@ -10,6 +10,10 @@ then
     # rpm -e wont remove it, because this directory may later contain files not
     # deployed by the rpm
     rm -rf /var/lib/presto
+    # The RPM instead of linking to /usr/lib/presto/ as a directory attribute
+    # now links to all the individual jar files in /usr/lib/presto/lib/ and
+    # /usr/lib/presto/plugin/. So remove the parent dir manually during uninstall
+    rm -rf /usr/lib/presto
     # Remove /etc/presto directory if no other files present
     if [ -z "$(ls -A /etc/presto)" ]
     then
