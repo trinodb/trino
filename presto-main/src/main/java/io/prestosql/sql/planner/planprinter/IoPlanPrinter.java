@@ -661,7 +661,7 @@ public class IoPlanPrinter
             else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget) {
                 TableWriterNode.RefreshMaterializedViewTarget target = (TableWriterNode.RefreshMaterializedViewTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getInsertHandle().getCatalogName().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }

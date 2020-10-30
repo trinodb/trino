@@ -354,7 +354,8 @@ public abstract class AbstractMockMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            InsertTableHandle tableHandle,
+            TableHandle tableHandle,
+            InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles)
