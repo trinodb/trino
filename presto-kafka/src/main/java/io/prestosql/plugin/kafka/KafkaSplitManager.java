@@ -134,7 +134,6 @@ public class KafkaSplitManager
                     inputStream = new URL(dataSchemaLocation).openStream();
                 }
                 catch (MalformedURLException e) {
-                    // try again before failing
                     inputStream = new FileInputStream(dataSchemaLocation);
                 }
             }
