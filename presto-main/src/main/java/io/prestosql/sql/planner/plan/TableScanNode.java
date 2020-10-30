@@ -41,6 +41,7 @@ public class TableScanNode
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
 
     private final TupleDomain<ColumnHandle> enforcedConstraint;
+    private final boolean forDelete;
 
     // We need this factory method to disambiguate with the constructor used for deserializing
     // from a json object. The deserializer sets some fields which are never transported
@@ -49,9 +50,10 @@ public class TableScanNode
             PlanNodeId id,
             TableHandle table,
             List<Symbol> outputs,
-            Map<Symbol, ColumnHandle> assignments)
+            Map<Symbol, ColumnHandle> assignments,
+            boolean forDelete)
     {
-        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all());
+        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), forDelete);
     }
 
     @JsonCreator
@@ -59,7 +61,8 @@ public class TableScanNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
-            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments)
+            @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
+            @JsonProperty("forDelete") boolean forDelete)
     {
         // This constructor is for JSON deserialization only. Do not use.
         super(id);
@@ -68,6 +71,7 @@ public class TableScanNode
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.enforcedConstraint = null;
+        this.forDelete = forDelete;
     }
 
     public TableScanNode(
@@ -75,7 +79,8 @@ public class TableScanNode
             TableHandle table,
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
-            TupleDomain<ColumnHandle> enforcedConstraint)
+            TupleDomain<ColumnHandle> enforcedConstraint,
+            boolean forDelete)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -83,6 +88,7 @@ public class TableScanNode
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
+        this.forDelete = forDelete;
     }
 
     @JsonProperty("table")
@@ -119,6 +125,12 @@ public class TableScanNode
         return enforcedConstraint;
     }
 
+    @JsonProperty("forDelete")
+    public boolean isForDelete()
+    {
+        return forDelete;
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -139,6 +151,7 @@ public class TableScanNode
                 .add("outputSymbols", outputSymbols)
                 .add("assignments", assignments)
                 .add("enforcedConstraint", enforcedConstraint)
+                .add("forDelete", forDelete)
                 .toString();
     }
 
