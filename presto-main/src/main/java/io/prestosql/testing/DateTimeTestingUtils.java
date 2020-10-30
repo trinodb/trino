@@ -52,7 +52,7 @@ public final class DateTimeTestingUtils
 
     public static SqlTimeWithTimeZone sqlTimeWithTimeZoneOf(int precision, int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond, int offsetMinutes)
     {
-        long picos = (hour * 3600 + minuteOfHour * 60 + secondOfMinute) * PICOSECONDS_PER_SECOND + scaleNanosToPicos(nanoOfSecond);
+        long picos = (hour * 3600 + minuteOfHour * 60 + secondOfMinute) * PICOSECONDS_PER_SECOND + ((long) nanoOfSecond) * PICOSECONDS_PER_NANOSECOND;
         return SqlTimeWithTimeZone.newInstance(precision, picos, offsetMinutes);
     }
 
@@ -151,11 +151,6 @@ public final class DateTimeTestingUtils
     public static SqlTime sqlTimeOf(int precision, LocalTime time)
     {
         return SqlTime.newInstance(precision, time.toNanoOfDay() * PICOSECONDS_PER_NANOSECOND);
-    }
-
-    public static long scaleNanosToPicos(long nanos)
-    {
-        return Math.multiplyExact(nanos, PICOSECONDS_PER_NANOSECOND);
     }
 
     private static int millisToNanos(int millisOfSecond)
