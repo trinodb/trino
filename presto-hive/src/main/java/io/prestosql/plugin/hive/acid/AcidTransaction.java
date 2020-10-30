@@ -98,7 +98,7 @@ public class AcidTransaction
 
     private void ensureTransactionRunning(String description)
     {
-        checkState(isAcidTransactionRunning(), "Not in ACID transaction while " + description);
+        checkState(isAcidTransactionRunning(), "Not in ACID transaction while %s", description);
     }
 
     @JsonIgnore

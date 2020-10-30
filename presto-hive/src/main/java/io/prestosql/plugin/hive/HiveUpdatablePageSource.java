@@ -112,19 +112,19 @@ public class HiveUpdatablePageSource
         this.configuration = requireNonNull(configuration, "configuration is null");
         this.session = requireNonNull(session, "session is null");
         this.hiveRowTypeNullsBlock = nativeValueToBlock(hiveRowType.getType(typeManager), null);
-        checkArgument(hiveTableHandle.isInAcidTransaction(), "Not in a transaction; hiveTableHandle: " + hiveTableHandle);
+        checkArgument(hiveTableHandle.isInAcidTransaction(), "Not in a transaction; hiveTableHandle: %s", hiveTableHandle);
         this.writeId = hiveTableHandle.getWriteId();
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
         requireNonNull(bucketPath, "bucketPath is null");
         if (originalFile) {
             Matcher matcher = ORIGINAL_FILE_PATH_MATCHER.matcher(bucketPath.toString());
-            checkArgument(matcher.matches(), "Original file bucketPath doesn't have the required format: " + bucketPath);
+            checkArgument(matcher.matches(), "Original file bucketPath doesn't have the required format: %s", bucketPath);
             this.bucketFilename = format("bucket_%05d", bucketNumber.isEmpty() ? 0 : bucketNumber.getAsInt());
             this.deleteDeltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deleteDeltaSubdir(writeId, writeId, statementId)));
         }
         else {
             Matcher matcher = BUCKET_PATH_MATCHER.matcher(bucketPath.toString());
-            checkArgument(matcher.matches(), "bucketPath doesn't have the required format: " + bucketPath);
+            checkArgument(matcher.matches(), "bucketPath doesn't have the required format: %s", bucketPath);
             // delete_delta bucket files should not have attemptId suffix
             this.bucketFilename = matcher.group("filenameBase");
             this.deleteDeltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deleteDeltaSubdir(writeId, writeId, statementId)));
