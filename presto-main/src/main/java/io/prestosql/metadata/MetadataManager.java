@@ -211,7 +211,7 @@ public final class MetadataManager
         functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators);
         functionResolver = new FunctionResolver(this);
 
-        this.procedures = new ProcedureRegistry(this);
+        this.procedures = new ProcedureRegistry();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
