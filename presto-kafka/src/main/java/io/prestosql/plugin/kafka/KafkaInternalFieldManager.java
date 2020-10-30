@@ -125,7 +125,7 @@ public class KafkaInternalFieldManager
             return ColumnMetadata.builder()
                     .setName(columnName)
                     .setType(type)
-                    .setComment(Optional.ofNullable(columnName))
+                    .setComment(Optional.ofNullable(comment))
                     .setHidden(hidden)
                     .build();
         }
