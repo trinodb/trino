@@ -41,11 +41,7 @@ import static java.lang.String.format;
 
 public final class IcebergSessionProperties
 {
-<<<<<<< HEAD
-    private static final String HADOOP_MODE = "hadoopmode";
-=======
     private static final String CATALOG_TYPE = "catalog_type";
->>>>>>> Add support for HDFS only iceberg tables
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -77,11 +73,6 @@ public final class IcebergSessionProperties
             ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(booleanProperty(
-                        HADOOP_MODE,
-                        "Use hadoop file system to store schema/table information.",
-                        icebergConfig.isHadoopMode(),
-                        false))
                 .add(enumProperty(
                         CATALOG_TYPE,
                         "The iceber catalog type to use (either hive or hadoop)",
