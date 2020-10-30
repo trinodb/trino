@@ -1541,7 +1541,7 @@ public class SemiTransactionalHiveMetastore
             Table table = deletionState.getTable();
             checkArgument(currentHiveTransaction.isPresent(), "currentHiveTransaction isn't present");
             AcidTransaction transaction = currentHiveTransaction.get().getTransaction();
-            checkArgument(transaction.isDelete(), "transaction should be delete, but is " + transaction);
+            checkArgument(transaction.isDelete(), "transaction should be delete, but is %s", transaction);
 
             cleanUpTasksForAbort.addAll(deletionState.getPartitionAndStatementIds().stream()
                     .map(ps -> new DirectoryCleanUpTask(context, new Path(ps.getDeleteDeltaDirectory()), true))

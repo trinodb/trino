@@ -54,8 +54,8 @@ public class KerberosAuthentication
         requireNonNull(principal, "principal is null");
         requireNonNull(keytabLocation, "keytabLocation is null");
         Path keytabPath = Paths.get(keytabLocation);
-        checkArgument(exists(keytabPath), "keytab does not exist: " + keytabLocation);
-        checkArgument(isReadable(keytabPath), "keytab is not readable: " + keytabLocation);
+        checkArgument(exists(keytabPath), "keytab does not exist: %s", keytabLocation);
+        checkArgument(isReadable(keytabPath), "keytab is not readable: %s", keytabLocation);
         this.principal = createKerberosPrincipal(principal);
         this.configuration = createConfiguration(this.principal.getName(), keytabLocation);
     }

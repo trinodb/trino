@@ -100,7 +100,7 @@ public final class ElasticsearchQueryBuilder
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             BoolQueryBuilder rangeQueryBuilder = new BoolQueryBuilder();
             Set<Object> valuesToInclude = new HashSet<>();
-            checkState(!range.isAll(), "Invalid range for column: " + columnName);
+            checkState(!range.isAll(), "Invalid range for column: %s", columnName);
             if (range.isSingleValue()) {
                 valuesToInclude.add(range.getLow().getValue());
             }
