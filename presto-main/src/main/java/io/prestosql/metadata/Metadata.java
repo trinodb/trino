@@ -282,7 +282,8 @@ public interface Metadata
      */
     Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            InsertTableHandle tableHandle,
+            TableHandle tableHandle,
+            InsertTableHandle insertTableHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles);

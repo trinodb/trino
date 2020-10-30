@@ -369,25 +369,34 @@ public class TableWriterNode
     public static class RefreshMaterializedViewTarget
             extends WriterTarget
     {
-        private final InsertTableHandle handle;
+        private final TableHandle tableHandle;
+        private final InsertTableHandle insertHandle;
         private final SchemaTableName schemaTableName;
         private final List<TableHandle> sourceTableHandles;
 
         @JsonCreator
         public RefreshMaterializedViewTarget(
-                @JsonProperty("handle") InsertTableHandle handle,
+                @JsonProperty("tableHandle") TableHandle tableHandle,
+                @JsonProperty("insertHandle") InsertTableHandle insertHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles)
         {
-            this.handle = requireNonNull(handle, "handle is null");
+            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+            this.insertHandle = requireNonNull(insertHandle, "insertHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
         }
 
         @JsonProperty
-        public InsertTableHandle getHandle()
+        public TableHandle getTableHandle()
         {
-            return handle;
+            return tableHandle;
+        }
+
+        @JsonProperty
+        public InsertTableHandle getInsertHandle()
+        {
+            return insertHandle;
         }
 
         @JsonProperty
@@ -405,7 +414,7 @@ public class TableWriterNode
         @Override
         public String toString()
         {
-            return handle.toString();
+            return insertHandle.toString();
         }
     }
 
