@@ -122,7 +122,7 @@ public class TableWriterOperator
                 return pageSinkManager.createPageSink(session, ((InsertTarget) target).getHandle());
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewTarget) {
-                return pageSinkManager.createPageSink(session, ((TableWriterNode.RefreshMaterializedViewTarget) target).getHandle());
+                return pageSinkManager.createPageSink(session, ((TableWriterNode.RefreshMaterializedViewTarget) target).getInsertHandle());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }

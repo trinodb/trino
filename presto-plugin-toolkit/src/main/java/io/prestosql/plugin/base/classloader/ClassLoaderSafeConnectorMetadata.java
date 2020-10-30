@@ -448,13 +448,14 @@ public class ClassLoaderSafeConnectorMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
+            ConnectorTableHandle tableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishRefreshMaterializedView(session, insertHandle, fragments, computedStatistics, sourceTableHandles);
+            return delegate.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles);
         }
     }
 

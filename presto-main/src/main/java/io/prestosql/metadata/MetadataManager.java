@@ -872,18 +872,20 @@ public final class MetadataManager
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            InsertTableHandle tableHandle,
+            TableHandle tableHandle,
+            InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles)
     {
-        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogName catalogName = insertHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 
         List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
                 .map(TableHandle::getConnectorHandle)
                 .collect(toImmutableList());
-        return metadata.finishRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), fragments, computedStatistics, sourceConnectorHandles);
+        return metadata.finishRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), insertHandle.getConnectorHandle(),
+            fragments, computedStatistics, sourceConnectorHandles);
     }
 
     @Override

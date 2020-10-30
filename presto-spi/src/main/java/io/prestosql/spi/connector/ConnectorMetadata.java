@@ -464,6 +464,7 @@ public interface ConnectorMetadata
      */
     default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
+            ConnectorTableHandle tableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
