@@ -509,7 +509,8 @@ public class PlanBuilder
                 tableHandle,
                 symbols,
                 assignments,
-                enforcedConstraint);
+                enforcedConstraint,
+                false);
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)

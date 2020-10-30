@@ -219,6 +219,11 @@ public class Analysis
         this.target = Optional.empty();
     }
 
+    public boolean isDeleteTarget(QualifiedObjectName name)
+    {
+        return "DELETE".equals(updateType) && Optional.of(name).equals(target);
+    }
+
     public boolean isSkipMaterializedViewRefresh()
     {
         return skipMaterializedViewRefresh;

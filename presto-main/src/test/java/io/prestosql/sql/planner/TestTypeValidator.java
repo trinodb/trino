@@ -101,7 +101,8 @@ public class TestTypeValidator
                 TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                TupleDomain.all());
+                TupleDomain.all(),
+                false);
     }
 
     @Test

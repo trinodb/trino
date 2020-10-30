@@ -192,7 +192,8 @@ public class PushAggregationIntoTableScan
                                 context.getIdAllocator().getNextId(),
                                 result.getHandle(),
                                 newScanOutputs.build(),
-                                scanAssignments),
+                                scanAssignments,
+                                tableScan.isForDelete()),
                         assignmentBuilder.build()));
     }
 
