@@ -16,6 +16,7 @@ package io.prestosql.server.rpm;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.GenericContainer;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
@@ -41,14 +42,58 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class ServerIT
 {
+    private static final String BASE_IMAGE = "prestodev/centos7-oj11";
+
     @Parameters("rpm")
     @Test
     public void testWithJava11(String rpm)
     {
-        testServer("prestodev/centos7-oj11", rpm, "11");
+        testServer(rpm, "11");
     }
 
-    private static void testServer(String baseImage, String rpmHostPath, String expectedJavaVersion)
+    @Parameters("rpm")
+    @Test
+    public void testUninstall(String rpmHostPath)
+            throws Exception
+    {
+        String rpm = "/" + new File(rpmHostPath).getName();
+        String installAndStartPresto = "" +
+                "yum localinstall -q -y " + rpm + "\n" +
+                "/etc/init.d/presto start\n" +
+                // allow tail to work with Docker's non-local file system
+                "tail ---disable-inotify -F /var/log/presto/server.log\n";
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
+            container.withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
+                    .withCommand("sh", "-xeuc", installAndStartPresto)
+                    .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
+                    .start();
+            String uninstallPresto = "" +
+                    "/etc/init.d/presto stop\n" +
+                    "rpm -e presto-server-rpm\n";
+            container.execInContainer("sh", "-xeuc", uninstallPresto);
+
+            ExecResult actual = container.execInContainer("rpm", "-q", "presto-server-rpm");
+            assertEquals(actual.getStdout(), "package presto-server-rpm is not installed\n");
+
+            assertPathDeleted(container, "/var/lib/presto");
+            assertPathDeleted(container, "/usr/lib/presto");
+            assertPathDeleted(container, "/etc/init.d/presto");
+            assertPathDeleted(container, "/usr/shared/doc/presto");
+        }
+    }
+
+    private static void assertPathDeleted(GenericContainer container, String path)
+            throws Exception
+    {
+        ExecResult actualResult = container.execInContainer(
+                "sh",
+                "-xeuc",
+                format("test -d %s && echo -n 'path exists' || echo -n 'path deleted'", path));
+        assertEquals(actualResult.getStdout(), "path deleted");
+        assertEquals(actualResult.getExitCode(), 0);
+    }
+
+    private static void testServer(String rpmHostPath, String expectedJavaVersion)
     {
         String rpm = "/" + new File(rpmHostPath).getName();
 
@@ -70,7 +115,7 @@ public class ServerIT
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/presto/server.log\n";
 
-        try (GenericContainer<?> container = new GenericContainer<>(baseImage)) {
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
             container.withExposedPorts(8080)
                     // the RPM is hundreds MB and file system bind is much more efficient
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
