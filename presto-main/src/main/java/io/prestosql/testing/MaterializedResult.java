@@ -397,7 +397,7 @@ public class MaterializedResult
         while (!pageSource.isFinished()) {
             Page outputPage = pageSource.getNextPage();
             if (outputPage == null) {
-                break;
+                continue;
             }
             builder.page(outputPage);
         }
