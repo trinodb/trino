@@ -57,7 +57,7 @@ public final class TypeValidator
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(session, metadata, typeAnalyzer, types, warningCollector), null);
+        plan.accept(new Visitor(session, metadata, typeAnalyzer, types), null);
     }
 
     private static class Visitor
@@ -67,15 +67,13 @@ public final class TypeValidator
         private final TypeCoercion typeCoercion;
         private final TypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
-        private final WarningCollector warningCollector;
 
-        public Visitor(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
+        public Visitor(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types)
         {
             this.session = requireNonNull(session, "session is null");
             this.typeCoercion = new TypeCoercion(metadata::getType);
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
-            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
         @Override
