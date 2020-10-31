@@ -448,7 +448,7 @@ public class PageFunctionCompiler
                 .retObject();
 
         // constructor
-        generateConstructor(classDefinition, cachedInstanceBinder, compiledLambdaMap, method -> {
+        generateConstructor(classDefinition, cachedInstanceBinder, method -> {
             Variable thisVariable = method.getScope().getThis();
             method.getBody().append(thisVariable.setField(selectedPositions, newArray(type(boolean[].class), 0)));
         });
@@ -572,7 +572,6 @@ public class PageFunctionCompiler
     private static void generateConstructor(
             ClassDefinition classDefinition,
             CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             Consumer<MethodDefinition> additionalStatements)
     {
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));

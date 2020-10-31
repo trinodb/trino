@@ -42,7 +42,6 @@ import io.prestosql.operator.scalar.timestamp.ExtractSecond;
 import io.prestosql.operator.scalar.timestamp.ExtractWeekOfYear;
 import io.prestosql.operator.scalar.timestamp.ExtractYear;
 import io.prestosql.operator.scalar.timestamp.ExtractYearOfWeek;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
@@ -1532,7 +1531,7 @@ public class TestExpressionCompiler
                 Long micros = null;
                 if (left != null) {
                     micros = left.getMillis() * MICROSECONDS_PER_MILLISECOND;
-                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), micros, field);
+                    expected = callExtractFunction(micros, field);
                 }
                 String expressionPattern = format(
                         "extract(%s from from_unixtime(cast(%s as double) / 1000000))",
@@ -1546,7 +1545,7 @@ public class TestExpressionCompiler
     }
 
     @SuppressWarnings("fallthrough")
-    private static long callExtractFunction(ConnectorSession session, long value, Field field)
+    private static long callExtractFunction(long value, Field field)
     {
         switch (field) {
             case YEAR:
