@@ -22,6 +22,7 @@ import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.parquet.ParquetTimestampUtils.decode;
 import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -35,24 +36,25 @@ public class TimestampColumnReader
 {
     private final DateTimeZone timeZone;
 
-    public TimestampColumnReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
+    public TimestampColumnReader(RichColumnDescriptor descriptor, Type prestoType, DateTimeZone timeZone)
     {
-        super(descriptor);
+        super(descriptor, prestoType);
+        checkArgument(prestoType instanceof TimestampType || prestoType instanceof TimestampWithTimeZoneType, "Unsupported type: %s", prestoType);
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     // TODO: refactor to provide type at construction time (https://github.com/prestosql/presto/issues/5198)
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            if (type instanceof TimestampWithTimeZoneType) {
+            if (prestoType instanceof TimestampWithTimeZoneType) {
                 DecodedTimestamp decodedTimestamp = decode(valuesReader.readBytes());
                 long utcMillis = decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
-                type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
+                prestoType.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
             }
             else {
-                PrestoTimestampEncoder<?> prestoTimestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
+                PrestoTimestampEncoder<?> prestoTimestampEncoder = createTimestampEncoder((TimestampType) prestoType, timeZone);
                 prestoTimestampEncoder.write(decode(valuesReader.readBytes()), blockBuilder);
             }
         }

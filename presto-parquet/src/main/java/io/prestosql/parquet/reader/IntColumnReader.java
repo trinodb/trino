@@ -20,16 +20,16 @@ import io.prestosql.spi.type.Type;
 public class IntColumnReader
         extends PrimitiveColumnReader
 {
-    public IntColumnReader(RichColumnDescriptor descriptor)
+    public IntColumnReader(RichColumnDescriptor descriptor, Type prestoType)
     {
-        super(descriptor);
+        super(descriptor, prestoType);
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            type.writeLong(blockBuilder, valuesReader.readInteger());
+            prestoType.writeLong(blockBuilder, valuesReader.readInteger());
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();

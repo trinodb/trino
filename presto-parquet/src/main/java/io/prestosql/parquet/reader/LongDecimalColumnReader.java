@@ -34,14 +34,14 @@ public class LongDecimalColumnReader
 {
     private final DecimalType parquetDecimalType;
 
-    LongDecimalColumnReader(RichColumnDescriptor descriptor, DecimalType parquetDecimalType)
+    LongDecimalColumnReader(RichColumnDescriptor descriptor, Type prestoType, DecimalType parquetDecimalType)
     {
-        super(descriptor);
+        super(descriptor, prestoType);
         this.parquetDecimalType = requireNonNull(parquetDecimalType, "parquetDecimalType is null");
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type prestoType)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (!(prestoType instanceof DecimalType)) {
             throw new ParquetDecodingException(format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));

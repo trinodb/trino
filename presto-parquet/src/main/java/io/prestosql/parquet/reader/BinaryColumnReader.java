@@ -29,13 +29,13 @@ import static io.prestosql.spi.type.Varchars.truncateToLength;
 public class BinaryColumnReader
         extends PrimitiveColumnReader
 {
-    public BinaryColumnReader(RichColumnDescriptor descriptor)
+    public BinaryColumnReader(RichColumnDescriptor descriptor, Type prestoType)
     {
-        super(descriptor);
+        super(descriptor, prestoType);
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
@@ -46,13 +46,13 @@ public class BinaryColumnReader
             else {
                 value = wrappedBuffer(binary.getBytes());
             }
-            if (type instanceof VarcharType) {
-                value = truncateToLength(value, type);
+            if (prestoType instanceof VarcharType) {
+                value = truncateToLength(value, prestoType);
             }
-            if (type instanceof CharType) {
-                value = truncateToLengthAndTrimSpaces(value, type);
+            if (prestoType instanceof CharType) {
+                value = truncateToLengthAndTrimSpaces(value, prestoType);
             }
-            type.writeSlice(blockBuilder, value);
+            prestoType.writeSlice(blockBuilder, value);
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();
