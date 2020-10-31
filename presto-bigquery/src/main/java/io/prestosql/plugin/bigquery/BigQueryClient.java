@@ -61,12 +61,6 @@ class BigQueryClient
         this.viewMaterializationDataset = config.getViewMaterializationDataset();
     }
 
-    // return empty if no filters are used
-    private static Optional<String> createWhereClause(String[] filters)
-    {
-        return Optional.empty();
-    }
-
     TableInfo getTable(TableId tableId)
     {
         TableId bigQueryTableId = tableIds.get(tableId);
@@ -153,19 +147,14 @@ class BigQueryClient
         String columns = requiredColumns.isEmpty() ? "*" :
                 requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
 
-        return selectSql(table, columns, new String[] {});
+        return selectSql(table, columns);
     }
 
     // assuming the SELECT part is properly formatted, can be used to call functions such as COUNT and SUM
-    String selectSql(TableId table, String formattedColumns, String[] filters)
+    String selectSql(TableId table, String formattedColumns)
     {
         String tableName = fullTableName(table);
-
-        String whereClause = createWhereClause(filters)
-                .map(clause -> "WHERE " + clause)
-                .orElse("");
-
-        return format("SELECT %s FROM `%s` %s", formattedColumns, tableName, whereClause);
+        return format("SELECT %s FROM `%s`", formattedColumns, tableName);
     }
 
     private String fullTableName(TableId tableId)
