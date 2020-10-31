@@ -51,7 +51,6 @@ import org.apache.accumulo.core.data.PartialKey;
 import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.io.Text;
 
 import javax.inject.Inject;
@@ -196,7 +195,7 @@ public class AccumuloClient
             throw new PrestoException(INVALID_TABLE_PROPERTY, "Duplicate column names are not supported");
         }
 
-        Optional<Map<String, Pair<String, String>>> columnMapping = AccumuloTableProperties.getColumnMapping(meta.getProperties());
+        Optional<Map<String, Entry<String, String>>> columnMapping = AccumuloTableProperties.getColumnMapping(meta.getProperties());
         if (columnMapping.isPresent()) {
             // Validate there are no duplicates in the column mapping
             long distinctMappings = columnMapping.get().values().stream().distinct().count();
@@ -290,7 +289,7 @@ public class AccumuloClient
     private static List<AccumuloColumnHandle> getColumnHandles(ConnectorTableMetadata meta, String rowIdColumn)
     {
         // Get the column mappings from the table property or auto-generate columns if not defined
-        Map<String, Pair<String, String>> mapping = AccumuloTableProperties.getColumnMapping(meta.getProperties()).orElse(autoGenerateMapping(meta.getColumns(), AccumuloTableProperties.getLocalityGroups(meta.getProperties())));
+        Map<String, Entry<String, String>> mapping = AccumuloTableProperties.getColumnMapping(meta.getProperties()).orElse(autoGenerateMapping(meta.getColumns(), AccumuloTableProperties.getLocalityGroups(meta.getProperties())));
 
         // The list of indexed columns
         Optional<List<String>> indexedColumns = AccumuloTableProperties.getIndexColumns(meta.getProperties());
@@ -318,16 +317,16 @@ public class AccumuloClient
                 }
 
                 // Get the mapping for this column
-                Pair<String, String> famqual = mapping.get(cm.getName());
+                Entry<String, String> famqual = mapping.get(cm.getName());
                 boolean indexed = indexedColumns.isPresent() && indexedColumns.get().contains(cm.getName().toLowerCase(Locale.ENGLISH));
-                String comment = format("Accumulo column %s:%s. Indexed: %b", famqual.getLeft(), famqual.getRight(), indexed);
+                String comment = format("Accumulo column %s:%s. Indexed: %b", famqual.getKey(), famqual.getValue(), indexed);
 
                 // Create a new AccumuloColumnHandle object
                 cBuilder.add(
                         new AccumuloColumnHandle(
                                 cm.getName(),
-                                Optional.of(famqual.getLeft()),
-                                Optional.of(famqual.getRight()),
+                                Optional.of(famqual.getKey()),
+                                Optional.of(famqual.getValue()),
                                 cm.getType(),
                                 ordinal,
                                 comment,
@@ -410,12 +409,12 @@ public class AccumuloClient
      * @param groups Mapping of locality groups to a set of Presto columns, or null if none
      * @return Column mappings
      */
-    private static Map<String, Pair<String, String>> autoGenerateMapping(List<ColumnMetadata> columns, Optional<Map<String, Set<String>>> groups)
+    private static Map<String, Entry<String, String>> autoGenerateMapping(List<ColumnMetadata> columns, Optional<Map<String, Set<String>>> groups)
     {
-        Map<String, Pair<String, String>> mapping = new HashMap<>();
+        Map<String, Entry<String, String>> mapping = new HashMap<>();
         for (ColumnMetadata column : columns) {
             Optional<String> family = getColumnLocalityGroup(column.getName(), groups);
-            mapping.put(column.getName(), Pair.of(family.orElse(column.getName()), column.getName()));
+            mapping.put(column.getName(), Map.entry(family.orElse(column.getName()), column.getName()));
         }
         return mapping;
     }
