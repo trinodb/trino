@@ -99,9 +99,6 @@ public class MongoSession
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
     private static final String OR_OP = "$or";
-    private static final String AND_OP = "$and";
-    private static final String NOT_OP = "$not";
-    private static final String NOR_OP = "$nor";
 
     private static final String EQ_OP = "$eq";
     private static final String NOT_EQ_OP = "$ne";
@@ -110,7 +107,6 @@ public class MongoSession
     private static final String LT_OP = "$lt";
     private static final String LTE_OP = "$lte";
     private static final String IN_OP = "$in";
-    private static final String NOTIN_OP = "$nin";
 
     private final TypeManager typeManager;
     private final MongoClient client;
