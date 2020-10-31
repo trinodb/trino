@@ -2166,7 +2166,7 @@ public class HiveMetadata
         }
 
         Map<String, Assignment> newAssignments = new HashMap<>();
-        ImmutableMap.Builder<ConnectorExpression, Variable> expressionToVariableMappings = ImmutableMap.builder();
+        ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
 
         for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
@@ -2193,12 +2193,13 @@ public class HiveMetadata
             Assignment newAssignment = new Assignment(projectedColumnName, projectedColumnHandle, expression.getType());
             newAssignments.put(projectedColumnName, newAssignment);
 
-            expressionToVariableMappings.put(expression, projectedColumnVariable);
+            newVariablesBuilder.put(expression, projectedColumnVariable);
         }
 
         // Modify projections to refer to new variables
+        Map<ConnectorExpression, Variable> newVariables = newVariablesBuilder.build();
         List<ConnectorExpression> newProjections = projections.stream()
-                .map(expression -> replaceWithNewVariables(expression, expressionToVariableMappings.build()))
+                .map(expression -> replaceWithNewVariables(expression, newVariables))
                 .collect(toImmutableList());
 
         List<Assignment> outputAssignments = newAssignments.values().stream().collect(toImmutableList());
