@@ -50,7 +50,7 @@ public class BigQueryConnectorFactory
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
-                new BigQueryConnectorModule(context.getNodeManager()),
+                new BigQueryConnectorModule(),
                 binder -> {
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
