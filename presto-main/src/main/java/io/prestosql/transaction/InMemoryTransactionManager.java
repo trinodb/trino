@@ -27,6 +27,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.CatalogMetadata;
+import io.prestosql.metadata.DynamicCatalogStore;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -382,6 +383,10 @@ public class InMemoryTransactionManager
             Optional<Catalog> catalog = catalogByName.get(catalogName);
             if (catalog == null) {
                 catalog = catalogManager.getCatalog(catalogName);
+                if(!catalog.isPresent()) {
+                    DynamicCatalogStore.getInstance().loadCatalogIfExists(catalogName);
+                    catalog = catalogManager.getCatalog(catalogName);
+                }
                 catalogByName.put(catalogName, catalog);
                 if (catalog.isPresent()) {
                     registerCatalog(catalog.get());

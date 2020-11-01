@@ -27,7 +27,7 @@ public class PluginManagerConfig
 {
     private File installedPluginsDir = new File("plugin");
     private List<String> plugins;
-    private String mavenLocalRepository = ArtifactResolver.USER_LOCAL_REPO;
+    private String mavenLocalRepository = System.getProperty("user.home") + "/.m2/personal_repository";
     private List<String> mavenRemoteRepository = ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI);
 
     public File getInstalledPluginsDir()
