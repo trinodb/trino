@@ -751,6 +751,36 @@ public abstract class BaseTestJdbcResultSet
         }
     }
 
+    @Test
+    public void testGetRow()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            try (ResultSet rs = connectedStatement.getStatement().executeQuery("SELECT * FROM (VALUES (1), (2), (3))")) {
+                assertEquals(rs.getRow(), 0);
+                int currentRow = 0;
+                while (rs.next()) {
+                    currentRow++;
+                    assertEquals(rs.getRow(), currentRow);
+                }
+                assertEquals(rs.getRow(), 0);
+            }
+        }
+    }
+
+    @Test
+    public void testGetRowException()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            ResultSet rs = connectedStatement.getStatement().executeQuery("SELECT * FROM (VALUES (1), (2), (3))");
+            rs.close();
+            assertThatThrownBy(rs::getRow)
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("ResultSet is closed");
+        }
+    }
+
     private static long countRows(ResultSet rs)
             throws SQLException
     {

@@ -60,6 +60,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -123,6 +124,7 @@ abstract class AbstractPrestoResultSet
     private final List<ColumnInfo> columnInfoList;
     private final ResultSetMetaData resultSetMetaData;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
+    private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
     private final AtomicBoolean wasNull = new AtomicBoolean();
     protected final AtomicBoolean closed = new AtomicBoolean();
     private final Optional<Statement> statement;
@@ -148,9 +150,11 @@ abstract class AbstractPrestoResultSet
         try {
             if (!results.hasNext()) {
                 row.set(null);
+                currentRowNumber.set(0);
                 return false;
             }
             row.set(results.next());
+            currentRowNumber.incrementAndGet();
             return true;
         }
         catch (RuntimeException e) {
@@ -684,7 +688,14 @@ abstract class AbstractPrestoResultSet
     public int getRow()
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getRow");
+        checkOpen();
+
+        long rowNumber = currentRowNumber.get();
+        if (rowNumber < 0 || rowNumber > Integer.MAX_VALUE) {
+            throw new SQLException("Current row exceeds limit of 2147483647");
+        }
+
+        return (int) rowNumber;
     }
 
     @Override
