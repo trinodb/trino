@@ -53,7 +53,6 @@ public class MockPinotClient
         super(
                 pinotConfig,
                 new IdentityPinotHostMapper(),
-                new PinotMetrics(),
                 new TestingHttpClient(request -> null),
                 TABLES_JSON_CODEC,
                 BROKERS_FOR_TABLE_JSON_CODEC,

@@ -13,18 +13,14 @@
  */
 package io.prestosql.pinot;
 
-import io.airlift.http.client.Request;
-import io.airlift.http.client.StringResponseHandler.StringResponse;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.net.HttpURLConnection.HTTP_MULT_CHOICE;
 import static java.net.HttpURLConnection.HTTP_OK;
-import static java.util.Locale.ENGLISH;
 
 public class PinotMetrics
 {
@@ -75,42 +71,6 @@ public class PinotMetrics
     public PinotMetricsStats getBrokerRoutingTableStats()
     {
         return brokerRoutingTableStats;
-    }
-
-    public void monitorRequest(
-            Request request,
-            StringResponse response,
-            long duration,
-            TimeUnit timeUnit)
-    {
-        String[] split = request.getUri().getPath().split("/");
-        String secondLast = split.length >= 2 ? split[split.length - 2].toLowerCase(ENGLISH) : null;
-        String last = split[split.length - 1].toLowerCase(ENGLISH);
-        if ("post".equalsIgnoreCase(request.getMethod()) && "query".equalsIgnoreCase(last)) {
-            queryStats.record(response, duration, timeUnit);
-        }
-        else if ("get".equalsIgnoreCase(request.getMethod())) {
-            switch (last) {
-                case "tables":
-                    tablesStats.record(response, duration, timeUnit);
-                    break;
-                case "schema":
-                    schemaStats.record(response, duration, timeUnit);
-                    break;
-                case "debug":
-                    if (secondLast != null) {
-                        switch (secondLast) {
-                            case "routingtable":
-                                brokerRoutingTableStats.record(response, duration, timeUnit);
-                                break;
-                            case "timeboundary":
-                                brokerTimeBoundaryStats.record(response, duration, timeUnit);
-                                break;
-                        }
-                    }
-            }
-            getStats.record(response, duration, timeUnit);
-        }
     }
 
     public static boolean isValidPinotHttpResponseCode(int status)

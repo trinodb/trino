@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -41,7 +40,6 @@ import io.prestosql.pinot.PinotConfig;
 import io.prestosql.pinot.PinotErrorCode;
 import io.prestosql.pinot.PinotException;
 import io.prestosql.pinot.PinotInsufficientServerResponseException;
-import io.prestosql.pinot.PinotMetrics;
 import io.prestosql.pinot.PinotSessionProperties;
 import io.prestosql.pinot.query.PinotQuery;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -94,10 +92,8 @@ public class PinotClient
     private static final String QUERY_URL_TEMPLATE = "http://%s/query/sql";
 
     private final List<String> controllerUrls;
-    private final PinotMetrics metrics;
     private final HttpClient httpClient;
     private final PinotHostMapper pinotHostMapper;
-    private final Ticker ticker = Ticker.systemTicker();
 
     private final LoadingCache<String, List<String>> brokersForTableCache;
 
@@ -111,7 +107,6 @@ public class PinotClient
     public PinotClient(
             PinotConfig config,
             PinotHostMapper pinotHostMapper,
-            PinotMetrics metrics,
             @ForPinot HttpClient httpClient,
             JsonCodec<GetTables> tablesJsonCodec,
             JsonCodec<BrokersForTable> brokersForTableJsonCodec,
@@ -131,7 +126,6 @@ public class PinotClient
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
 
         this.controllerUrls = config.getControllerUrls();
-        this.metrics = requireNonNull(metrics, "metrics is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.brokersForTableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
@@ -157,8 +151,6 @@ public class PinotClient
         }
         Request request = requestBuilder.build();
         JsonResponseHandler<T> responseHandler = createJsonResponseHandler(codec);
-        long startTime = ticker.read();
-        long duration;
         T response = null;
         try {
             response = httpClient.execute(request, responseHandler);
@@ -175,10 +167,6 @@ public class PinotClient
                             request.getHeaders(),
                             response));
         }
-        finally {
-            duration = ticker.read() - startTime;
-        }
-        //metrics.monitorRequest(request, response, duration, TimeUnit.NANOSECONDS);
         return response;
     }
 
