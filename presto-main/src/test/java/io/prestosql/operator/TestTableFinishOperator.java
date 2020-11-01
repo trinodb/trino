@@ -122,22 +122,22 @@ public class TestTableFinishOperator
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 6).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 7).build().get(0));
 
-        assertThat(driverContext.getSystemMemoryUsage()).isGreaterThan(0);
-        assertEquals(driverContext.getMemoryUsage(), 0);
+        assertThat(driverContext.getSystemMemoryUsage()).as("systemMemoryUsage").isGreaterThan(0);
+        assertEquals(driverContext.getMemoryUsage(), 0, "memoryUsage");
 
-        assertTrue(operator.isBlocked().isDone());
-        assertTrue(operator.needsInput());
+        assertTrue(operator.isBlocked().isDone(), "isBlocked should be done");
+        assertTrue(operator.needsInput(), "needsInput should be true");
 
         operator.finish();
-        assertFalse(operator.isFinished());
+        assertFalse(operator.isFinished(), "isFinished should be false");
 
         assertNull(operator.getOutput());
         List<Type> outputTypes = ImmutableList.of(BIGINT);
         assertPageEquals(outputTypes, operator.getOutput(), rowPagesBuilder(outputTypes).row(9).build().get(0));
 
-        assertTrue(operator.isBlocked().isDone());
-        assertFalse(operator.needsInput());
-        assertTrue(operator.isFinished());
+        assertTrue(operator.isBlocked().isDone(), "isBlocked should be done");
+        assertFalse(operator.needsInput(), "needsInput should be false");
+        assertTrue(operator.isFinished(), "isFinished should be true");
 
         operator.close();
 
@@ -151,11 +151,11 @@ public class TestTableFinishOperator
         assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
 
         TableFinishInfo tableFinishInfo = operator.getInfo();
-        assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).isGreaterThan(0);
-        assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).isGreaterThan(0);
+        assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).as("statisticsWallTime nanoseconds").isGreaterThan(0);
+        assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).as("statisticsCpuTime nanoseconds").isGreaterThan(0);
 
-        assertEquals(driverContext.getSystemMemoryUsage(), 0);
-        assertEquals(driverContext.getMemoryUsage(), 0);
+        assertEquals(driverContext.getSystemMemoryUsage(), 0, "systemMemoryUsage");
+        assertEquals(driverContext.getMemoryUsage(), 0, "memoryUsage");
     }
 
     private static class TestTableFinisher
