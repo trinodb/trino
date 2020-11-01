@@ -55,7 +55,6 @@ import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -149,10 +148,6 @@ public class TestTableFinishOperator
                 .closeEntry()
                 .build();
         assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
-
-        TableFinishInfo tableFinishInfo = operator.getInfo();
-        assertThat(tableFinishInfo.getStatisticsWallTime().getValue(NANOSECONDS)).as("statisticsWallTime nanoseconds").isGreaterThan(0);
-        assertThat(tableFinishInfo.getStatisticsCpuTime().getValue(NANOSECONDS)).as("statisticsCpuTime nanoseconds").isGreaterThan(0);
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0, "systemMemoryUsage");
         assertEquals(driverContext.getMemoryUsage(), 0, "memoryUsage");
