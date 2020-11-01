@@ -27,7 +27,6 @@ public enum PinotErrorCode
     PINOT_INSUFFICIENT_SERVER_RESPONSE(2, EXTERNAL), // numServersResponded < numServersQueried
     PINOT_EXCEPTION(3, EXTERNAL), // Exception reported by pinot
     PINOT_HTTP_ERROR(4, EXTERNAL), // Some non okay http error code
-    PINOT_UNEXPECTED_RESPONSE(5, EXTERNAL), // Invalid json response with okay http return code
     PINOT_UNABLE_TO_FIND_BROKER(7, EXTERNAL),
     PINOT_DECODE_ERROR(8, EXTERNAL),
     PINOT_INVALID_PQL_GENERATED(9, INTERNAL_ERROR),
