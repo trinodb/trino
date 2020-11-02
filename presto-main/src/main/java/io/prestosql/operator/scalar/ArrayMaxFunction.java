@@ -114,7 +114,7 @@ public final class ArrayMaxFunction
             int selectedPosition = -1;
             for (int position = 0; position < block.getPositionCount(); position++) {
                 if (block.isNull(position)) {
-                    continue;
+                    return -1;
                 }
                 if (selectedPosition < 0 || ((long) compareMethodHandle.invokeExact(block, position, block, selectedPosition)) > 0) {
                     selectedPosition = position;
