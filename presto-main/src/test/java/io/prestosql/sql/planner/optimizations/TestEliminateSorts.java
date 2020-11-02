@@ -92,7 +92,7 @@ public class TestEliminateSorts
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new AddExchanges(getQueryRunner().getMetadata(), getQueryRunner().getTypeOperators(), typeAnalyzer),
-                new PruneUnreferencedOutputs(getQueryRunner().getMetadata(), typeAnalyzer),
+                new PruneUnreferencedOutputs(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),

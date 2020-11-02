@@ -30,7 +30,6 @@ import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -113,12 +112,10 @@ public class PruneUnreferencedOutputs
         implements PlanOptimizer
 {
     private final Metadata metadata;
-    private final TypeAnalyzer typeAnalyzer;
 
-    public PruneUnreferencedOutputs(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public PruneUnreferencedOutputs(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override

@@ -338,7 +338,7 @@ public class TestReorderWindows
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0),
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(1),
                                 new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(2))),
-                new PruneUnreferencedOutputs(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata())));
+                new PruneUnreferencedOutputs(getQueryRunner().getMetadata()));
         assertPlan(sql, pattern, optimizers);
     }
 }
