@@ -1142,42 +1142,42 @@ public class TestMathFunctions
         assertFunction("greatest(TINYINT'-1', TINYINT'-2')", TINYINT, (byte) -1);
         assertFunction("greatest(TINYINT'5', TINYINT'4', TINYINT'3', TINYINT'2', TINYINT'1', TINYINT'2', TINYINT'3', TINYINT'4', TINYINT'1', TINYINT'5')", TINYINT, (byte) 5);
         assertFunction("greatest(TINYINT'-1')", TINYINT, (byte) -1);
-        assertFunction("greatest(TINYINT'5', TINYINT'4', CAST(NULL AS TINYINT), TINYINT'3')", TINYINT, (byte) 5);
+        assertFunction("greatest(TINYINT'5', TINYINT'4', CAST(NULL AS TINYINT), TINYINT'3')", TINYINT, null);
 
         // smallint
         assertFunction("greatest(SMALLINT'1', SMALLINT'2')", SMALLINT, (short) 2);
         assertFunction("greatest(SMALLINT'-1', SMALLINT'-2')", SMALLINT, (short) -1);
         assertFunction("greatest(SMALLINT'5', SMALLINT'4', SMALLINT'3', SMALLINT'2', SMALLINT'1', SMALLINT'2', SMALLINT'3', SMALLINT'4', SMALLINT'1', SMALLINT'5')", SMALLINT, (short) 5);
         assertFunction("greatest(SMALLINT'-1')", SMALLINT, (short) -1);
-        assertFunction("greatest(SMALLINT'5', SMALLINT'4', CAST(NULL AS SMALLINT), SMALLINT'3')", SMALLINT, (short) 5);
+        assertFunction("greatest(SMALLINT'5', SMALLINT'4', CAST(NULL AS SMALLINT), SMALLINT'3')", SMALLINT, null);
 
         // integer
         assertFunction("greatest(1, 2)", INTEGER, 2);
         assertFunction("greatest(-1, -2)", INTEGER, -1);
         assertFunction("greatest(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", INTEGER, 5);
         assertFunction("greatest(-1)", INTEGER, -1);
-        assertFunction("greatest(5, 4, CAST(NULL AS INTEGER), 3)", INTEGER, 5);
+        assertFunction("greatest(5, 4, CAST(NULL AS INTEGER), 3)", INTEGER, null);
 
         // bigint
         assertFunction("greatest(10000000000, 20000000000)", BIGINT, 20000000000L);
         assertFunction("greatest(-10000000000, -20000000000)", BIGINT, -10000000000L);
         assertFunction("greatest(5000000000, 4, 3, 2, 1000000000, 2, 3, 4, 1, 5000000000)", BIGINT, 5000000000L);
         assertFunction("greatest(-10000000000)", BIGINT, -10000000000L);
-        assertFunction("greatest(5000000000, 4000000000, CAST(NULL as BIGINT), 3000000000)", BIGINT, 5000000000L);
+        assertFunction("greatest(5000000000, 4000000000, CAST(NULL as BIGINT), 3000000000)", BIGINT, null);
 
         // double
         assertFunction("greatest(1.5E0, 2.3E0)", DOUBLE, 2.3);
         assertFunction("greatest(-1.5E0, -2.3E0)", DOUBLE, -1.5);
         assertFunction("greatest(-1.5E0, -2.3E0, -5/3)", DOUBLE, -1.0);
         assertFunction("greatest(1.5E0, -1.0E0 / 0.0E0, 1.0E0 / 0.0E0)", DOUBLE, Double.POSITIVE_INFINITY);
-        assertFunction("greatest(5, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, 5.0);
+        assertFunction("greatest(5, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // float
         assertFunction("greatest(REAL '1.5', 2.3E0)", DOUBLE, 2.3);
         assertFunction("greatest(REAL '-1.5', -2.3E0)", DOUBLE, (double) -1.5f);
         assertFunction("greatest(-1.5E0, REAL '-2.3', -5/3)", DOUBLE, -1.0);
         assertFunction("greatest(REAL '1.5', REAL '-1.0' / 0.0E0, 1.0E0 / REAL '0.0')", DOUBLE, (double) (1.0f / 0.0f));
-        assertFunction("greatest(5, REAL '4', CAST(NULL as DOUBLE), 3)", DOUBLE, 5.0);
+        assertFunction("greatest(5, REAL '4', CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // decimal
         assertDecimalFunction("greatest(1.0, 2.0)", decimal("2.0"));
@@ -1190,8 +1190,8 @@ public class TestMathFunctions
         assertFunction("greatest(1.0E0, 2)", DOUBLE, 2.0);
         assertFunction("greatest(1, 2.0E0)", DOUBLE, 2.0);
         assertFunction("greatest(1.0E0, 2)", DOUBLE, 2.0);
-        assertFunction("greatest(5.0E0, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, 5.0);
-        assertFunction("greatest(5.0E0, 4, CAST(NULL as BIGINT), 3)", DOUBLE, 5.0);
+        assertFunction("greatest(5.0E0, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
+        assertFunction("greatest(5.0E0, 4, CAST(NULL as BIGINT), 3)", DOUBLE, null);
         assertFunction("greatest(1.0, 2.0E0)", DOUBLE, 2.0);
         assertDecimalFunction("greatest(5, 4, 3.0, 2)", decimal("0000000005.0"));
 
@@ -1214,42 +1214,42 @@ public class TestMathFunctions
         assertFunction("least(TINYINT'-1', TINYINT'-2')", TINYINT, (byte) -2);
         assertFunction("least(TINYINT'5', TINYINT'4', TINYINT'3', TINYINT'2', TINYINT'1', TINYINT'2', TINYINT'3', TINYINT'4', TINYINT'1', TINYINT'5')", TINYINT, (byte) 1);
         assertFunction("least(TINYINT'-1')", TINYINT, (byte) -1);
-        assertFunction("least(TINYINT'5', TINYINT'4', CAST(NULL AS TINYINT), TINYINT'3')", TINYINT, (byte) 3);
+        assertFunction("least(TINYINT'5', TINYINT'4', CAST(NULL AS TINYINT), TINYINT'3')", TINYINT, null);
 
         // integer
         assertFunction("least(SMALLINT'1', SMALLINT'2')", SMALLINT, (short) 1);
         assertFunction("least(SMALLINT'-1', SMALLINT'-2')", SMALLINT, (short) -2);
         assertFunction("least(SMALLINT'5', SMALLINT'4', SMALLINT'3', SMALLINT'2', SMALLINT'1', SMALLINT'2', SMALLINT'3', SMALLINT'4', SMALLINT'1', SMALLINT'5')", SMALLINT, (short) 1);
         assertFunction("least(SMALLINT'-1')", SMALLINT, (short) -1);
-        assertFunction("least(SMALLINT'5', SMALLINT'4', CAST(NULL AS SMALLINT), SMALLINT'3')", SMALLINT, (short) 3);
+        assertFunction("least(SMALLINT'5', SMALLINT'4', CAST(NULL AS SMALLINT), SMALLINT'3')", SMALLINT, null);
 
         // integer
         assertFunction("least(1, 2)", INTEGER, 1);
         assertFunction("least(-1, -2)", INTEGER, -2);
         assertFunction("least(5, 4, 3, 2, 1, 2, 3, 4, 1, 5)", INTEGER, 1);
         assertFunction("least(-1)", INTEGER, -1);
-        assertFunction("least(5, 4, CAST(NULL AS INTEGER), 3)", INTEGER, 3);
+        assertFunction("least(5, 4, CAST(NULL AS INTEGER), 3)", INTEGER, null);
 
         // bigint
         assertFunction("least(10000000000, 20000000000)", BIGINT, 10000000000L);
         assertFunction("least(-10000000000, -20000000000)", BIGINT, -20000000000L);
         assertFunction("least(50000000000, 40000000000, 30000000000, 20000000000, 50000000000)", BIGINT, 20000000000L);
         assertFunction("least(-10000000000)", BIGINT, -10000000000L);
-        assertFunction("least(500000000, 400000000, CAST(NULL as BIGINT), 300000000)", BIGINT, 300000000L);
+        assertFunction("least(500000000, 400000000, CAST(NULL as BIGINT), 300000000)", BIGINT, null);
 
         // double
         assertFunction("least(1.5E0, 2.3E0)", DOUBLE, 1.5);
         assertFunction("least(-1.5E0, -2.3E0)", DOUBLE, -2.3);
         assertFunction("least(-1.5E0, -2.3E0, -5/3)", DOUBLE, -2.3);
         assertFunction("least(1.5E0, -1.0E0 / 0.0E0, 1.0E0 / 0.0E0)", DOUBLE, Double.NEGATIVE_INFINITY);
-        assertFunction("least(5, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, 3.0);
+        assertFunction("least(5, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // float
         assertFunction("least(REAL '1.5', 2.3E0)", DOUBLE, (double) 1.5f);
         assertFunction("least(REAL '-1.5', -2.3E0)", DOUBLE, -2.3);
         assertFunction("least(-2.3E0, REAL '-0.4', -5/3)", DOUBLE, -2.3);
         assertFunction("least(1.5E0, REAL '-1.0' / 0.0E0, 1.0E0 / 0.0E0)", DOUBLE, (double) (-1.0f / 0.0f));
-        assertFunction("least(REAL '5', 4, CAST(NULL as DOUBLE), 3)", DOUBLE, 3.0);
+        assertFunction("least(REAL '5', 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
 
         // decimal
         assertDecimalFunction("least(1.0, 2.0)", decimal("1.0"));
@@ -1262,8 +1262,8 @@ public class TestMathFunctions
         assertFunction("least(1.0E0, 2)", DOUBLE, 1.0);
         assertFunction("least(1, 2.0E0)", DOUBLE, 1.0);
         assertFunction("least(1.0E0, 2)", DOUBLE, 1.0);
-        assertFunction("least(5.0E0, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, 3.0);
-        assertFunction("least(5.0E0, 4, CAST(NULL as BIGINT), 3)", DOUBLE, 3.0);
+        assertFunction("least(5.0E0, 4, CAST(NULL as DOUBLE), 3)", DOUBLE, null);
+        assertFunction("least(5.0E0, 4, CAST(NULL as BIGINT), 3)", DOUBLE, null);
         assertFunction("least(1.0, 2.0E0)", DOUBLE, 1.0);
         assertDecimalFunction("least(5, 4, 3.0, 2)", decimal("0000000002.0"));
 
@@ -1275,8 +1275,10 @@ public class TestMathFunctions
     public void testGreatestWithNaN()
     {
         assertFunction("greatest(1.5E0, 0.0E0 / 0.0E0)", DOUBLE, Double.NaN);
+        assertFunction("greatest(1.5E0, 0.0E0 / 0.0E0, 2.7E0)", DOUBLE, Double.NaN);
         assertFunction("greatest(1.5E0, REAL '0.0' / REAL '0.0')", DOUBLE, Double.NaN);
-        assertFunction("greatest(null, REAL '0.0' / REAL '0.0')", REAL, Float.NaN);
+        assertFunction("greatest(1.5E0, REAL '0.0' / REAL '0.0', 2.7E0)", DOUBLE, Double.NaN);
+        assertFunction("greatest(null, REAL '0.0' / REAL '0.0')", REAL, null);
         assertFunction("greatest(1.0E0 / 0.0E0, REAL '0.0' / REAL '0.0')", DOUBLE, Double.NaN);
     }
 
