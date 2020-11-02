@@ -20,6 +20,7 @@ import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
 import java.util.Optional;
 
@@ -148,6 +149,7 @@ public class TestKuduDistributedQueries
     }
 
     @Override
+    @Test
     public void testWrittenStats()
     {
         // TODO Kudu connector supports CTAS and inserts, but the test would fail
