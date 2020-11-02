@@ -597,13 +597,13 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY [NaN()])", DOUBLE, NaN);
         assertFunction("ARRAY_MIN(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
         assertFunction("ARRAY_MIN(ARRAY [NaN(), NaN(), NaN()])", DOUBLE, NaN);
-        assertFunction("ARRAY_MIN(ARRAY [NULL, 2, 3])", INTEGER, 2);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, 2, 3])", INTEGER, null);
         assertFunction("ARRAY_MIN(ARRAY [NaN(), 2, 3])", DOUBLE, 2.0);
-        assertFunction("ARRAY_MIN(ARRAY [NULL, NaN(), 1])", DOUBLE, 1.0);
-        assertFunction("ARRAY_MIN(ARRAY [NaN(), NULL, 3.0])", DOUBLE, 3.0);
-        assertFunction("ARRAY_MIN(ARRAY [1.0E0, NULL, 3])", DOUBLE, 1.0E0);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, NaN(), 1])", DOUBLE, null);
+        assertFunction("ARRAY_MIN(ARRAY [NaN(), NULL, 3.0])", DOUBLE, null);
+        assertFunction("ARRAY_MIN(ARRAY [1.0E0, NULL, 3])", DOUBLE, null);
         assertFunction("ARRAY_MIN(ARRAY [1.0, NaN(), 3])", DOUBLE, 1.0);
-        assertFunction("ARRAY_MIN(ARRAY ['1', '2', NULL])", createVarcharType(1), "1");
+        assertFunction("ARRAY_MIN(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
         assertFunction("ARRAY_MIN(ARRAY [3, 2, 1])", INTEGER, 1);
         assertFunction("ARRAY_MIN(ARRAY [1, 2, 3])", INTEGER, 1);
         assertFunction("ARRAY_MIN(ARRAY [BIGINT '3', 2, 1])", BIGINT, 1L);
@@ -612,7 +612,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY [1.0E0, 2.5E0, 3.0E0])", DOUBLE, 1.0);
         assertFunction("ARRAY_MIN(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "kittens");
         assertFunction("ARRAY_MIN(ARRAY [TRUE, FALSE])", BOOLEAN, false);
-        assertFunction("ARRAY_MIN(ARRAY [NULL, FALSE])", BOOLEAN, false);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, FALSE])", BOOLEAN, null);
         assertFunction("ARRAY_MIN(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2222-05-10 12:34:56.123456789'])",
                 createTimestampType(9),
                 timestamp(9, "2020-05-10 12:34:56.123456789"));
@@ -630,13 +630,13 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY [NaN()])", DOUBLE, NaN);
         assertFunction("ARRAY_MAX(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
         assertFunction("ARRAY_MAX(ARRAY [NaN(), NaN(), NaN()])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [NULL, 2, 3])", INTEGER, 3);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, 2, 3])", INTEGER, null);
         assertFunction("ARRAY_MAX(ARRAY [NaN(), 2, 3])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [NULL, NaN(), 1])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [NaN(), NULL, 3.0])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [1.0E0, NULL, 3])", DOUBLE, 3.0);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, NaN(), 1])", DOUBLE, null);
+        assertFunction("ARRAY_MAX(ARRAY [NaN(), NULL, 3.0])", DOUBLE, null);
+        assertFunction("ARRAY_MAX(ARRAY [1.0E0, NULL, 3])", DOUBLE, null);
         assertFunction("ARRAY_MAX(ARRAY [1.0, NaN(), 3])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY ['1', '2', NULL])", createVarcharType(1), "2");
+        assertFunction("ARRAY_MAX(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
         assertFunction("ARRAY_MAX(ARRAY [3, 2, 1])", INTEGER, 3);
         assertFunction("ARRAY_MAX(ARRAY [1, 2, 3])", INTEGER, 3);
         assertFunction("ARRAY_MAX(ARRAY [BIGINT '1', 2, 3])", BIGINT, 3L);
@@ -645,7 +645,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY [1.0E0, 2.5E0, 3.0E0])", DOUBLE, 3.0);
         assertFunction("ARRAY_MAX(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "puppies");
         assertFunction("ARRAY_MAX(ARRAY [TRUE, FALSE])", BOOLEAN, true);
-        assertFunction("ARRAY_MAX(ARRAY [NULL, FALSE])", BOOLEAN, false);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, FALSE])", BOOLEAN, null);
         assertFunction("ARRAY_MAX(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'])",
                 createTimestampType(9),
                 timestamp(9, "2020-05-10 12:34:56.123456789"));
