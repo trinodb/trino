@@ -36,13 +36,11 @@ public class StructColumnWriter
 
     private final List<ColumnWriter> columnWriters;
     private final int maxDefinitionLevel;
-    private final int maxRepetitionLevel;
 
-    public StructColumnWriter(List<ColumnWriter> columnWriters, int maxDefinitionLevel, int maxRepetitionLevel)
+    public StructColumnWriter(List<ColumnWriter> columnWriters, int maxDefinitionLevel)
     {
         this.columnWriters = requireNonNull(columnWriters, "columnWriters is null");
         this.maxDefinitionLevel = maxDefinitionLevel;
-        this.maxRepetitionLevel = maxRepetitionLevel;
     }
 
     @Override
