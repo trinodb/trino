@@ -381,7 +381,7 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 session -> !isIterativeRuleBasedColumnPruning(session),
-                ImmutableList.of(new PruneUnreferencedOutputs(metadata, typeAnalyzer)),
+                ImmutableList.of(new PruneUnreferencedOutputs(metadata)),
                 columnPruningRules);
 
         builder.add(
