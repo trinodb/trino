@@ -23,7 +23,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.airlift.bytecode.expression.BytecodeExpressions;
+import io.airlift.bytecode.instruction.LabelNode;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
@@ -51,9 +51,8 @@ import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.airlift.bytecode.expression.BytecodeExpressions.and;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.airlift.bytecode.expression.BytecodeExpressions.isNotNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
@@ -162,7 +161,10 @@ public abstract class AbstractGreatestLeast
 
         Variable value = scope.declareVariable(wrap(javaTypes.get(0)), "value");
 
-        body.append(value.set(BytecodeExpressions.constantNull(wrap(javaTypes.get(0)))));
+        BytecodeExpression nullValue = constantNull(wrap(javaTypes.get(0)));
+        body.append(value.set(nullValue));
+
+        LabelNode done = new LabelNode("done");
 
         compareMethod = compareMethod.asType(methodType(boolean.class, compareMethod.type().wrap().parameterList()));
         for (int i = 0; i < javaTypes.size(); i++) {
@@ -175,9 +177,16 @@ public abstract class AbstractGreatestLeast
                     parameter,
                     value);
             body.append(new IfStatement()
-                    .condition(and(isNotNull(parameter), or(isNull(value), invokeCompare)))
+                    .condition(isNull(parameter))
+                    .ifTrue(new BytecodeBlock()
+                            .append(value.set(nullValue))
+                            .gotoLabel(done)));
+            body.append(new IfStatement()
+                    .condition(or(isNull(value), invokeCompare))
                     .ifTrue(value.set(parameter)));
         }
+
+        body.visitLabel(done);
 
         body.append(value.ret());
 
