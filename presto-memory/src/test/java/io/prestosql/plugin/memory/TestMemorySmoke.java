@@ -14,7 +14,6 @@
 package io.prestosql.plugin.memory;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -31,9 +30,8 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -106,7 +104,7 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
                 withBroadcastJoin(),
                 0,
-                ImmutableSet.of(0, ORDERS_COUNT));
+                0, ORDERS_COUNT);
     }
 
     @Test
@@ -119,13 +117,13 @@ public class TestMemorySmoke
                 sql,
                 withBroadcastJoin(),
                 expectedRowCount,
-                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+                LINEITEM_COUNT, ORDERS_COUNT);
         // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
         assertDynamicFiltering(
                 sql,
                 withLargeDynamicFilters(),
                 expectedRowCount,
-                ImmutableSet.of(60139, ORDERS_COUNT));
+                60139, ORDERS_COUNT);
     }
 
     @Test
@@ -136,7 +134,7 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
                 withPartitionedJoin(),
                 0,
-                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+                LINEITEM_COUNT, ORDERS_COUNT);
     }
 
     @Test
@@ -153,14 +151,14 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '",
                 withBroadcastJoin(),
                 6,
-                ImmutableSet.of(6, ORDERS_COUNT));
+                6, ORDERS_COUNT);
 
         // Join lineitem with a single row of part
         assertDynamicFiltering(
                 "SELECT l.comment FROM  lineitem l, part p WHERE p.partkey = l.partkey AND p.comment = 'onic deposits'",
                 withBroadcastJoin(),
                 39,
-                ImmutableSet.of(39, PART_COUNT));
+                39, PART_COUNT);
     }
 
     @Test
@@ -172,7 +170,7 @@ public class TestMemorySmoke
                 "SELECT * FROM coerce_test l JOIN orders o ON l.orderkey_int = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
                 withBroadcastJoin(),
                 6,
-                ImmutableSet.of(6, ORDERS_COUNT));
+                6, ORDERS_COUNT);
     }
 
     @Test
@@ -186,7 +184,7 @@ public class TestMemorySmoke
                         " AND p.partkey = l.partkey AND p.comment = 'onic deposits'",
                 withBroadcastJoinNonReordering(),
                 1,
-                ImmutableSet.of(1, ORDERS_COUNT, PART_COUNT));
+                1, PART_COUNT, ORDERS_COUNT);
     }
 
     @Test
@@ -197,7 +195,7 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
                 withBroadcastJoin(),
                 0,
-                ImmutableSet.of(0, ORDERS_COUNT));
+                0, ORDERS_COUNT);
     }
 
     @Test
@@ -212,13 +210,13 @@ public class TestMemorySmoke
                 sql,
                 withBroadcastJoin(),
                 expectedRowCount,
-                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+                LINEITEM_COUNT, ORDERS_COUNT);
         // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
         assertDynamicFiltering(
                 sql,
                 withLargeDynamicFilters(),
                 expectedRowCount,
-                ImmutableSet.of(60139, ORDERS_COUNT));
+                60139, ORDERS_COUNT);
     }
 
     @Test
@@ -229,7 +227,7 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
                 withPartitionedJoin(),
                 0,
-                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+                LINEITEM_COUNT, ORDERS_COUNT);
     }
 
     @Test
@@ -240,14 +238,14 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.comment = 'nstructions sleep furiously among ')",
                 withBroadcastJoin(),
                 6,
-                ImmutableSet.of(6, ORDERS_COUNT));
+                6, ORDERS_COUNT);
 
         // Join lineitem with a single row of part
         assertDynamicFiltering(
                 "SELECT l.comment FROM lineitem l WHERE l.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
                 withBroadcastJoin(),
                 39,
-                ImmutableSet.of(39, PART_COUNT));
+                39, PART_COUNT);
     }
 
     @Test
@@ -260,16 +258,16 @@ public class TestMemorySmoke
                         "WHERE t.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
                 withBroadcastJoinNonReordering(),
                 1,
-                ImmutableSet.of(1, ORDERS_COUNT, PART_COUNT));
+                1, ORDERS_COUNT, PART_COUNT);
     }
 
-    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, Set<Integer> expectedOperatorRowsRead)
+    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, selectQuery);
 
         assertEquals(result.getResult().getRowCount(), expectedRowCount);
-        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), expectedOperatorRowsRead);
+        assertEquals(getOperatorRowsRead(runner, result.getQueryId()).toArray(), expectedOperatorRowsRead);
     }
 
     private Session withBroadcastJoin()
@@ -302,7 +300,7 @@ public class TestMemorySmoke
                 .build();
     }
 
-    private static Set<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
+    private static List<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
     {
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()
@@ -310,7 +308,7 @@ public class TestMemorySmoke
                 .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .map(OperatorStats::getInputPositions)
                 .map(Math::toIntExact)
-                .collect(toImmutableSet());
+                .collect(toImmutableList());
     }
 
     @Test
