@@ -246,6 +246,10 @@ public final class TestRun
                     exposePort(container, 5007); // debug port
                 }
 
+                if (Boolean.getBoolean("CONTINUOUS_INTEGRATION")) {
+                    container.withEnv("CONTINUOUS_INTEGRATION", "true");
+                }
+
                 container
                         // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
