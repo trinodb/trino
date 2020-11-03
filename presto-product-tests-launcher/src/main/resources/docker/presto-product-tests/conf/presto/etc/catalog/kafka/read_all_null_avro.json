@@ -1,7 +1,7 @@
 {
-  "tableName": "all_datatypes_avro",
+  "tableName": "read_all_null_avro",
   "schemaName": "product_tests",
-  "topicName": "all_datatypes_avro",
+  "topicName": "read_all_null_avro",
   "message": {
     "dataFormat": "avro",
     "dataSchema": "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes_avro_schema.avsc",
