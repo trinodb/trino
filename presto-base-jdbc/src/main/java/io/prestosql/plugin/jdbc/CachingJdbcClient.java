@@ -28,6 +28,7 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
@@ -344,6 +345,12 @@ public class CachingJdbcClient
     public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
     {
         return delegate.getTableProperties(identity, tableHandle);
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return delegate.getTableScanRedirection(session, tableHandle);
     }
 
     private void invalidateSchemasCache()

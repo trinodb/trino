@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
@@ -139,4 +140,9 @@ public interface JdbcClient
     String quoted(RemoteTableName remoteTableName);
 
     Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle);
+
+    default Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
 }

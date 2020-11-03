@@ -41,6 +41,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.predicate.Domain;
@@ -300,6 +301,13 @@ public class JdbcMetadata
                 handle.getColumns());
 
         return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle table)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        return jdbcClient.getTableScanRedirection(session, tableHandle);
     }
 
     @Override
