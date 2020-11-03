@@ -928,7 +928,7 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT count(*) FROM (SELECT sum(orderkey) FROM orders)",
                 output(
-                        values(ImmutableList.of("_col0"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))));
+                        values(ImmutableList.of("_col0"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"))))));
         assertPlan(
                 "SELECT count(s) FROM (SELECT sum(orderkey) AS s FROM orders)",
                 anyTree(
