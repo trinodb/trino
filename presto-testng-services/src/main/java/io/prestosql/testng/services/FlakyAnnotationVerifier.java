@@ -92,12 +92,11 @@ public class FlakyAnnotationVerifier
 
     private static boolean hasOrInheritsAnnotation(Method method, Class<? extends Annotation> annotationClass)
     {
-        Optional<Method> currentMethod = Optional.of(method);
-        while (currentMethod.isPresent()) {
-            if (currentMethod.get().isAnnotationPresent(annotationClass)) {
+        while (method != null) {
+            if (method.isAnnotationPresent(annotationClass)) {
                 return true;
             }
-            currentMethod = getSuperMethod(currentMethod.get());
+            method = getSuperMethod(method).orElse(null);
         }
         return false;
     }
