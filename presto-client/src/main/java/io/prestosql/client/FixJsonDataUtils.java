@@ -47,6 +47,7 @@ import static io.prestosql.client.ClientStandardTypes.TIMESTAMP;
 import static io.prestosql.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.prestosql.client.ClientStandardTypes.TINYINT;
+import static io.prestosql.client.ClientStandardTypes.TSRANGE;
 import static io.prestosql.client.ClientStandardTypes.UUID;
 import static io.prestosql.client.ClientStandardTypes.VARCHAR;
 import static java.util.Collections.unmodifiableList;
@@ -169,6 +170,7 @@ final class FixJsonDataUtils
             case DECIMAL:
             case CHAR:
             case GEOMETRY:
+            case TSRANGE: // maintain postgres standard tsrange '[a,b)' -> ["a","b")
                 return String.class.cast(value);
             case BING_TILE:
                 // Bing tiles are serialized as strings when used as map keys,

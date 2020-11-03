@@ -145,6 +145,8 @@ import io.prestosql.operator.scalar.SplitToMapFunction;
 import io.prestosql.operator.scalar.SplitToMultimapFunction;
 import io.prestosql.operator.scalar.StringFunctions;
 import io.prestosql.operator.scalar.TDigestFunctions;
+import io.prestosql.operator.scalar.TSRangeFunctions;
+import io.prestosql.operator.scalar.TSRangeOperators;
 import io.prestosql.operator.scalar.TryFunction;
 import io.prestosql.operator.scalar.TypeOfFunction;
 import io.prestosql.operator.scalar.UrlFunctions;
@@ -723,6 +725,11 @@ public class FunctionRegistry
                 .scalar(io.prestosql.operator.scalar.timetz.AtTimeZone.class)
                 .scalar(io.prestosql.operator.scalar.timetz.AtTimeZoneWithOffset.class)
                 .scalar(CurrentTime.class);
+
+        // tsrange operators and functions
+        builder
+                .scalars(TSRangeOperators.class)
+                .scalars(TSRangeFunctions.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:

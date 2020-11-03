@@ -41,6 +41,7 @@ import static io.prestosql.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.prestosql.spi.type.StandardTypes.IPADDRESS;
 import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.StandardTypes.UUID;
+import static io.prestosql.spi.type.TSRangeType.TSRANGE_MILLIS;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -90,6 +91,8 @@ public class TestFixJsonDataUtils
                 mapType(new TypeSignature("BingTile"), BIGINT.getTypeSignature()),
                 ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1),
                 ImmutableMap.of("BingTile{x=1, y=2, zoom_level=10}", 1L));
+        assertQueryResult(TSRANGE_MILLIS.getTypeSignature(), "[2020-10-31 04,2020-10-31 06)", "[2020-10-31 04,2020-10-31 06)");
+        assertQueryResult(TSRANGE_MILLIS.getTypeSignature(), "[2020-10-31 04:34:00.000,2020-10-31 06:00:00.000)", "[2020-10-31 04:34:00.000,2020-10-31 06:00:00.000)");
     }
 
     private void assertQueryResult(TypeSignature type, Object data, Object expected)

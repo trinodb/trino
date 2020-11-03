@@ -55,6 +55,7 @@ import static io.prestosql.spi.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static io.prestosql.spi.type.QuantileDigestParametricType.QDIGEST;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TSRangeParametricType.TSRANGE;
 import static io.prestosql.spi.type.TimeParametricType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneParametricType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampParametricType.TIMESTAMP;
@@ -134,6 +135,7 @@ final class TypeRegistry
         addParametricType(TIMESTAMP_WITH_TIME_ZONE);
         addParametricType(TIME);
         addParametricType(TIME_WITH_TIME_ZONE);
+        addParametricType(TSRANGE);
 
         parametricTypeCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
