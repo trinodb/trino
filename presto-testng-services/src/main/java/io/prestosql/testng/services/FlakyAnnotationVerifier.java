@@ -83,23 +83,18 @@ public class FlakyAnnotationVerifier
     {
         return Arrays.stream(realClass.getMethods())
                 .filter(method -> hasOrInheritsAnnotation(method, Flaky.class))
-                .filter(method -> !hasAnnotation(method, Test.class))
+                .filter(method -> !method.isAnnotationPresent(Test.class))
                 .collect(toImmutableList());
     }
 
     @Override
     public void onAfterClass(ITestClass testClass) {}
 
-    private static boolean hasAnnotation(Method method, Class<? extends Annotation> annotationClass)
-    {
-        return method.getAnnotation(annotationClass) != null;
-    }
-
     private static boolean hasOrInheritsAnnotation(Method method, Class<? extends Annotation> annotationClass)
     {
         Optional<Method> currentMethod = Optional.of(method);
         while (currentMethod.isPresent()) {
-            if (hasAnnotation(currentMethod.get(), annotationClass)) {
+            if (currentMethod.get().isAnnotationPresent(annotationClass)) {
                 return true;
             }
             currentMethod = getSuperMethod(currentMethod.get());
