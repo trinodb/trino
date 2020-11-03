@@ -43,14 +43,14 @@ import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 
-public class TestKafkaSmokeTest
+public class TestKafkaReadsSmokeTest
         extends ProductTest
 {
     private static final String KAFKA_CATALOG = "kafka";
     private static final String SCHEMA_NAME = "product_tests";
 
-    private static final String SIMPLE_KEY_AND_VALUE_TABLE_NAME = "simple_key_and_value";
-    private static final String SIMPLE_KEY_AND_VALUE_TOPIC_NAME = "simple_key_and_value";
+    private static final String SIMPLE_KEY_AND_VALUE_TABLE_NAME = "read_simple_key_and_value";
+    private static final String SIMPLE_KEY_AND_VALUE_TOPIC_NAME = "read_simple_key_and_value";
 
     // kafka-connectors requires tables to be predefined in presto configuration
     // the requirements here will be used to verify that table actually exists and to
@@ -91,8 +91,8 @@ public class TestKafkaSmokeTest
                 row("piotr", 3, "kasia", 4));
     }
 
-    private static final String ALL_DATATYPES_RAW_TABLE_NAME = "all_datatypes_raw";
-    private static final String ALL_DATATYPES_RAW_TOPIC_NAME = "all_datatypes_raw";
+    private static final String ALL_DATATYPES_RAW_TABLE_NAME = "read_all_datatypes_raw";
+    private static final String ALL_DATATYPES_RAW_TOPIC_NAME = "read_all_datatypes_raw";
 
     private static class AllDataTypesRawTable
             implements RequirementsProvider
@@ -177,8 +177,8 @@ public class TestKafkaSmokeTest
                 true));
     }
 
-    private static final String ALL_DATATYPES_CSV_TABLE_NAME = "all_datatypes_csv";
-    private static final String ALL_DATATYPES_CSV_TOPIC_NAME = "all_datatypes_csv";
+    private static final String ALL_DATATYPES_CSV_TABLE_NAME = "read_all_datatypes_csv";
+    private static final String ALL_DATATYPES_CSV_TOPIC_NAME = "read_all_datatypes_csv";
 
     private static class AllDataTypesCsvTable
             implements RequirementsProvider
@@ -226,8 +226,8 @@ public class TestKafkaSmokeTest
                 row("kasia", 9223372036854775807L, 2147483647, 32767, null, null, null));
     }
 
-    private static final String ALL_DATATYPES_JSON_TABLE_NAME = "all_datatypes_json";
-    private static final String ALL_DATATYPES_JSON_TOPIC_NAME = "all_datatypes_json";
+    private static final String ALL_DATATYPES_JSON_TABLE_NAME = "read_all_datatypes_json";
+    private static final String ALL_DATATYPES_JSON_TOPIC_NAME = "read_all_datatypes_json";
 
     private static class AllDataTypesJsonTable
             implements RequirementsProvider
