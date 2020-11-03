@@ -145,24 +145,24 @@ public class StaticMetastoreLocator
 
         private final Ticker ticker = Ticker.systemTicker();
         private long backoffDuration = MIN_BACKOFF;
-        private OptionalLong lastFailureTimestamps = OptionalLong.empty();
+        private OptionalLong lastFailureTimestamp = OptionalLong.empty();
 
         synchronized void fail()
         {
-            lastFailureTimestamps = OptionalLong.of(ticker.read());
+            lastFailureTimestamp = OptionalLong.of(ticker.read());
             backoffDuration = min(backoffDuration * 2, MAX_BACKOFF);
         }
 
         synchronized void success()
         {
-            lastFailureTimestamps = OptionalLong.empty();
+            lastFailureTimestamp = OptionalLong.empty();
             backoffDuration = MIN_BACKOFF;
         }
 
         synchronized long getBackoffDuration()
         {
-            if (lastFailureTimestamps.isPresent()) {
-                long timeSinceLastFail = ticker.read() - lastFailureTimestamps.getAsLong();
+            if (lastFailureTimestamp.isPresent()) {
+                long timeSinceLastFail = ticker.read() - lastFailureTimestamp.getAsLong();
                 return max(backoffDuration - timeSinceLastFail, 0);
             }
             return 0;
