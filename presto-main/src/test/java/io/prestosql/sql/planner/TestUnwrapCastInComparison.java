@@ -16,13 +16,12 @@ package io.prestosql.sql.planner;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
-
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 
 public class TestUnwrapCastInComparison
         extends BasePlanTest
@@ -827,7 +826,7 @@ public class TestUnwrapCastInComparison
     public void smokeTests()
     {
         // smoke tests for various type combinations
-        for (String type : Arrays.asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
+        for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
             assertPlan(
                     format("SELECT * FROM (VALUES TINYINT '1') t(a) WHERE a = %s '1'", type),
                     anyTree(
@@ -835,7 +834,7 @@ public class TestUnwrapCastInComparison
                                     values("A"))));
         }
 
-        for (String type : Arrays.asList("INTEGER", "BIGINT", "REAL", "DOUBLE")) {
+        for (String type : asList("INTEGER", "BIGINT", "REAL", "DOUBLE")) {
             assertPlan(
                     format("SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = %s '1'", type),
                     anyTree(
@@ -843,7 +842,7 @@ public class TestUnwrapCastInComparison
                                     values("A"))));
         }
 
-        for (String type : Arrays.asList("BIGINT", "DOUBLE")) {
+        for (String type : asList("BIGINT", "DOUBLE")) {
             assertPlan(
                     format("SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = %s '1'", type),
                     anyTree(
