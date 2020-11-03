@@ -84,7 +84,6 @@ public class FlakyAnnotationVerifier
         return Arrays.stream(realClass.getMethods())
                 .filter(method -> hasOrInheritsAnnotation(method, Flaky.class))
                 .filter(method -> !hasAnnotation(method, Test.class))
-                .filter(method -> hasOrInheritsAnnotation(method, Test.class))
                 .collect(toImmutableList());
     }
 
