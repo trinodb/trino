@@ -29,7 +29,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -41,12 +41,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
 
 public class StaticMetastoreLocator
         implements MetastoreLocator
 {
-    private final List<HostAndPort> addresses;
     private final List<Backoff> backoffs;
     private final ThriftMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
@@ -78,11 +76,12 @@ public class StaticMetastoreLocator
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
-        this.addresses = metastoreUris.stream()
+        this.backoffs = metastoreUris.stream()
                 .map(StaticMetastoreLocator::checkMetastoreUri)
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
-                .collect(toList());
-        this.backoffs = IntStream.range(0, addresses.size()).mapToObj(ignore -> new Backoff(ticker)).collect(toImmutableList());
+                .map(address -> new Backoff(address, ticker))
+                .collect(Collectors.toUnmodifiableList());
+
         this.metastoreUsername = metastoreUsername;
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
     }
@@ -101,20 +100,21 @@ public class StaticMetastoreLocator
     {
         Comparator<Backoff> comparator = Comparator.comparingLong(Backoff::getBackoffDuration)
                 .thenComparingLong(Backoff::getLastFailureTimestamp);
-        List<Integer> indices = backoffs.stream()
+        List<Backoff> backoffsSorted = backoffs.stream()
                 .sorted(comparator)
-                .map(backoffs::indexOf)
                 .collect(toImmutableList());
 
         TException lastException = null;
-        for (int index : indices) {
+        for (Backoff backoff : backoffsSorted) {
             try {
-                return getClient(addresses.get(index), backoffs.get(index), delegationToken);
+                return getClient(backoff.getAddress(), backoff, delegationToken);
             }
             catch (TException e) {
                 lastException = e;
             }
         }
+
+        List<HostAndPort> addresses = backoffsSorted.stream().map(Backoff::getAddress).collect(Collectors.toUnmodifiableList());
         throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
     }
 
@@ -158,13 +158,20 @@ public class StaticMetastoreLocator
         static final long MIN_BACKOFF = new Duration(50, MILLISECONDS).roundTo(NANOSECONDS);
         static final long MAX_BACKOFF = new Duration(60, SECONDS).roundTo(NANOSECONDS);
 
+        private final HostAndPort address;
         private final Ticker ticker;
         private long backoffDuration = MIN_BACKOFF;
         private OptionalLong lastFailureTimestamp = OptionalLong.empty();
 
-        Backoff(Ticker ticker)
+        Backoff(HostAndPort address, Ticker ticker)
         {
+            this.address = requireNonNull(address, "address is null");
             this.ticker = requireNonNull(ticker, "ticker is null");
+        }
+
+        public HostAndPort getAddress()
+        {
+            return address;
         }
 
         synchronized void fail()
