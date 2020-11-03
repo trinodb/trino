@@ -27,6 +27,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestUnwrapCastInComparison
 {
+    private static final List<String> COMPARISON_OPERATORS = asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM");
+
     private QueryAssertions assertions;
 
     @BeforeClass
@@ -47,7 +49,7 @@ public class TestUnwrapCastInComparison
     {
         for (Number from : asList(null, Byte.MIN_VALUE, 0, 1, Byte.MAX_VALUE)) {
             String fromType = "TINYINT";
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (Number to : asList(null, Byte.MIN_VALUE - 1, Byte.MIN_VALUE, 0, 1, Byte.MAX_VALUE, Byte.MAX_VALUE + 1)) {
                     validate(operator, fromType, from, "SMALLINT", to);
                 }
@@ -76,7 +78,7 @@ public class TestUnwrapCastInComparison
     {
         for (Number from : asList(null, Short.MIN_VALUE, 0, 1, Short.MAX_VALUE)) {
             String fromType = "SMALLINT";
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (Number to : asList(null, Short.MIN_VALUE - 1, Short.MIN_VALUE, 0, 1, Short.MAX_VALUE, Short.MAX_VALUE + 1)) {
                     validate(operator, fromType, from, "INTEGER", to);
                 }
@@ -101,7 +103,7 @@ public class TestUnwrapCastInComparison
     {
         for (Number from : asList(null, Integer.MIN_VALUE, 0, 1, Integer.MAX_VALUE)) {
             String fromType = "INTEGER";
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, 0, 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
                     validate(operator, fromType, from, "BIGINT", to);
                 }
@@ -122,7 +124,7 @@ public class TestUnwrapCastInComparison
     {
         for (Number from : asList(null, Long.MIN_VALUE, 0, 1, Long.MAX_VALUE)) {
             String fromType = "BIGINT";
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 53 + 1, 0, 0.1, 0.9, 1, 1L << 53 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
                     validate(operator, fromType, from, "DOUBLE", to);
                 }
@@ -141,7 +143,7 @@ public class TestUnwrapCastInComparison
         String toType = "DOUBLE";
 
         for (String from : toLiteral(fromType, asList(null, Float.NEGATIVE_INFINITY, -Float.MAX_VALUE, 0, 0.1, 0.9, 1, Float.MAX_VALUE, Float.POSITIVE_INFINITY, Float.NaN))) {
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (String to : toLiteral(toType, asList(null, Double.NEGATIVE_INFINITY, Math.nextDown((double) -Float.MIN_VALUE), (double) -Float.MIN_VALUE, 0, 0.1, 0.9, 1, (double) Float.MAX_VALUE, Math.nextUp((double) Float.MAX_VALUE), Double.POSITIVE_INFINITY, Double.NaN))) {
                     validate(operator, fromType, from, toType, to);
                 }
@@ -155,7 +157,7 @@ public class TestUnwrapCastInComparison
         // decimal(15) -> double
         List<String> values = ImmutableList.of("-999999999999999", "999999999999999");
         for (String from : values) {
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (String to : values) {
                     validate(operator, "DECIMAL(15, 0)", from, "DOUBLE", Double.valueOf(to));
                 }
@@ -165,7 +167,7 @@ public class TestUnwrapCastInComparison
         // decimal(16) -> double
         values = ImmutableList.of("-9999999999999999", "9999999999999999");
         for (String from : values) {
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (String to : values) {
                     validate(operator, "DECIMAL(16, 0)", from, "DOUBLE", Double.valueOf(to));
                 }
@@ -175,7 +177,7 @@ public class TestUnwrapCastInComparison
         // decimal(7) -> real
         values = ImmutableList.of("-999999", "999999");
         for (String from : values) {
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (String to : values) {
                     validate(operator, "DECIMAL(7, 0)", from, "REAL", Double.valueOf(to));
                 }
@@ -185,7 +187,7 @@ public class TestUnwrapCastInComparison
         // decimal(8) -> real
         values = ImmutableList.of("-9999999", "9999999");
         for (String from : values) {
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (String to : values) {
                     validate(operator, "DECIMAL(8, 0)", from, "REAL", Double.valueOf(to));
                 }
@@ -197,7 +199,7 @@ public class TestUnwrapCastInComparison
     public void testVarchar()
     {
         for (String from : asList(null, "''", "'a'", "'b'")) {
-            for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+            for (String operator : COMPARISON_OPERATORS) {
                 for (String to : asList(null, "''", "'a'", "'aa'", "'b'", "'bb'")) {
                     validate(operator, "VARCHAR(1)", from, "VARCHAR(2)", to);
                 }
@@ -205,7 +207,7 @@ public class TestUnwrapCastInComparison
         }
 
         // type with no range
-        for (String operator : asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+        for (String operator : COMPARISON_OPERATORS) {
             for (String to : asList("'" + "a".repeat(200) + "'", "'" + "b".repeat(200) + "'")) {
                 validate(operator, "VARCHAR(200)", "'" + "a".repeat(200) + "'", "VARCHAR(300)", to);
             }
