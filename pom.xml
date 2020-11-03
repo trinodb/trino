@@ -89,7 +89,7 @@
         <module>presto-cassandra</module>
         <module>presto-cli</module>
         <module>presto-client</module>
-        <module>presto-docs</module>
+        <!--<module>presto-docs</module>-->
         <module>presto-druid</module>
         <module>presto-elasticsearch</module>
         <module>presto-example-http</module>

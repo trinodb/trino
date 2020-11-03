@@ -68,70 +68,10 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static HadoopCatalog getHadoopCatalog(HdfsEnvironment hdfsEnvironment, ConnectorSession session)
-    {
-        HdfsContext hdfsContext = new HdfsContext(session, "not used");
-        Path path = new Path("/");
-        Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
-        String warehouse = configuration.get("hive.metastore.warehouse.dir");
-        if (warehouse == null || warehouse.isEmpty()) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, format("hive.metastore.warehouse.dir not set"));
-        }
-        return getHadoopCatalog(hdfsEnvironment, session, warehouse);
-    }
-
-    public static HadoopCatalog getHadoopCatalog(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String location)
-    {
-        HdfsContext hdfsContext = new HdfsContext(session, "not used");
-        Path path = new Path(location);
-        Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
-        return new HadoopCatalog(configuration, location);
-    }
-
-    public static boolean icebergSchemaExists(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String schemaName)
-    {
-        try {
-            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
-            Namespace namespace = Namespace.of(schemaName);
-            hadoopCatalog.loadNamespaceMetadata(namespace);
-            return true;
-        }
-        catch (NoSuchNamespaceException e) {
-            return false;
-        }
-    }
-
-    public static boolean icebergTableExists(HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
-    {
-        try {
-            TableIdentifier tableIdentifier = TableIdentifier.of(table.getSchemaName(), table.getTableName());
-            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
-            hadoopCatalog.loadTable(tableIdentifier);
-            return true;
-        }
-        catch (NoSuchTableException e) {
-            return false;
-        }
-    }
 
     public static boolean useMetastore(ConnectorSession session)
     {
         return IcebergSessionProperties.getCatalogType(session) == HIVE;
-    }
-
-    public static Table getIcebergTable(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
-    {
-        if (useMetastore(session)) {
-            HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-            HiveIdentity identity = new HiveIdentity(session);
-            TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, table.getSchemaName(), table.getTableName());
-            return new BaseTable(operations, quotedTableName(table));
-        }
-        else {
-            TableIdentifier tableIdentifier = TableIdentifier.of(table.getSchemaName(), table.getTableName());
-            HadoopCatalog hadoopCatalog = getHadoopCatalog(hdfsEnvironment, session);
-            return hadoopCatalog.loadTable(tableIdentifier);
-        }
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)
@@ -191,7 +131,7 @@ final class IcebergUtil
         return Optional.ofNullable(table.properties().get(TABLE_COMMENT));
     }
 
-    private static String quotedTableName(SchemaTableName name)
+    public static String quotedTableName(SchemaTableName name)
     {
         return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
     }

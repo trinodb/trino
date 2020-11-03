@@ -23,6 +23,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.prestosql.plugin.iceberg.IcebergCatalogType.*;
 import static io.prestosql.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.prestosql.plugin.iceberg.IcebergFileFormat.PARQUET;
 
@@ -32,6 +33,7 @@ public class TestIcebergConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
+                .setCatalogType(HIVE)
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP));
     }
@@ -40,11 +42,13 @@ public class TestIcebergConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("iceberg.catalog-type", "hadoop")
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
+                .setCatalogType(HADOOP)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(HiveCompressionCodec.NONE);
 

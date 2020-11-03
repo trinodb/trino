@@ -28,6 +28,7 @@ import io.prestosql.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
@@ -47,7 +48,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.prestosql.plugin.iceberg.Partition.toMap;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
@@ -70,6 +70,17 @@ public class TableStatisticsMaker
     public static TableStatistics getTableStatistics(TypeManager typeManager, Constraint constraint, IcebergTableHandle tableHandle, Table icebergTable)
     {
         return new TableStatisticsMaker(typeManager, icebergTable).makeTableStatistics(tableHandle, constraint);
+    }
+
+    public final List<IcebergColumnHandle> getColumns(Schema schema)
+    {
+        return schema.columns().stream()
+                .map(column -> new IcebergColumnHandle(
+                        column.fieldId(),
+                        column.name(),
+                        toPrestoType(column.type(), typeManager),
+                        Optional.ofNullable(column.doc())))
+                .collect(toImmutableList());
     }
 
     private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle, Constraint constraint)
@@ -102,7 +113,7 @@ public class TableStatisticsMaker
                 .collect(toImmutableList());
 
         List<Type> icebergPartitionTypes = partitionTypes(partitionFields, idToTypeMapping);
-        List<IcebergColumnHandle> columnHandles = getColumns(icebergTable.schema(), typeManager);
+        List<IcebergColumnHandle> columnHandles = getColumns(icebergTable.schema());
         Map<Integer, IcebergColumnHandle> idToColumnHandle = columnHandles.stream()
                 .collect(toUnmodifiableMap(IcebergColumnHandle::getId, identity()));
 

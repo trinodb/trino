@@ -54,6 +54,6 @@ public class IcebergMetadataFactory
 
     public IcebergMetadata create()
     {
-        return new IcebergMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
+        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
     }
 }
