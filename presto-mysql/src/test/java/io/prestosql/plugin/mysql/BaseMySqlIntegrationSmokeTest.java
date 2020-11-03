@@ -309,6 +309,16 @@ abstract class BaseMySqlIntegrationSmokeTest
         assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
                 .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
                 .isFullyPushedDown();
+
+        execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
+        execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
+
+        // varbinary equality
+        assertThat(query("SELECT x, y FROM tpch.binary_test WHERE y = from_base64('AFCBhLrkidtNTZcA9Ru3hw==')"))
+                .matches("VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))")
+                .isFullyPushedDown();
+
+        execute("DROP TABLE tpch.binary_test");
     }
 
     private AutoCloseable withTable(String tableName, String tableDefinition)

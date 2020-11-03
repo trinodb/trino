@@ -67,7 +67,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.jdbc.SQLError.SQL_STATE_ER_TABLE_EXISTS_ERROR;
 import static com.mysql.jdbc.SQLError.SQL_STATE_SYNTAX_ERROR;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.ColumnMapping.FULL_PUSHDOWN;
@@ -83,6 +82,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerColumnMappi
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampWriteFunctionUsingSqlTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -251,7 +251,7 @@ public class MySqlClient
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
-                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)), varbinaryWriteFunction(), FULL_PUSHDOWN));
+                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
         }
 
         // TODO add explicit mappings

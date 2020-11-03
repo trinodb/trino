@@ -42,6 +42,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -379,7 +380,22 @@ public class TestMySqlTypeMapping
     @Test
     public void testVarbinary()
     {
-        varbinaryTestCases(binaryDataType())
+        varbinaryTestCases(mysqlBinaryDataType("varbinary(50)"))
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        binaryTestCases(mysqlBinaryDataType("binary(50)"))
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases(mysqlBinaryDataType("tinyblob"))
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases(mysqlBinaryDataType("blob"))
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases(mysqlBinaryDataType("mediumblob"))
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases(mysqlBinaryDataType("longblob"))
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases(varbinaryDataType())
@@ -388,13 +404,24 @@ public class TestMySqlTypeMapping
 
     private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
     {
-        return DataTypeTest.create()
+        return DataTypeTest.create(true)
                 .addRoundTrip(varbinaryDataType, "hello".getBytes(UTF_8))
                 .addRoundTrip(varbinaryDataType, "Piękna łąka w 東京都".getBytes(UTF_8))
                 .addRoundTrip(varbinaryDataType, "Bag full of 💰".getBytes(UTF_16LE))
                 .addRoundTrip(varbinaryDataType, null)
                 .addRoundTrip(varbinaryDataType, new byte[] {})
                 .addRoundTrip(varbinaryDataType, new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, -7, 54, 122, -89, 0, 0, 0});
+    }
+
+    private DataTypeTest binaryTestCases(DataType<byte[]> varbinaryDataType)
+    {
+        return DataTypeTest.create(true)
+                .addRoundTrip(varbinaryDataType, Arrays.copyOf("hello".getBytes(UTF_8), 50))
+                .addRoundTrip(varbinaryDataType, Arrays.copyOf("Piękna łąka w 東京都".getBytes(UTF_8), 50))
+                .addRoundTrip(varbinaryDataType, Arrays.copyOf("Bag full of 💰".getBytes(UTF_16LE), 50))
+                .addRoundTrip(varbinaryDataType, null)
+                .addRoundTrip(varbinaryDataType, new byte[50])
+                .addRoundTrip(varbinaryDataType, Arrays.copyOf(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, -7, 54, 122, -89, 0, 0, 0}, 50));
     }
 
     @DataProvider
@@ -604,10 +631,10 @@ public class TestMySqlTypeMapping
         return dataType("double precision", DoubleType.DOUBLE, Object::toString);
     }
 
-    private static DataType<byte[]> binaryDataType()
+    private static DataType<byte[]> mysqlBinaryDataType(String insertType)
     {
         return dataType(
-                "varbinary(50)",
+                insertType,
                 VARBINARY,
                 bytes -> "X'" + base16().encode(bytes) + "'",
                 DataType::binaryLiteral,
