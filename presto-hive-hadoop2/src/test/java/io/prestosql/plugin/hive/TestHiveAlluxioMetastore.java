@@ -309,4 +309,10 @@ public class TestHiveAlluxioMetastore
     {
         // Alluxio metastore does not support create operations
     }
+
+    @Override
+    public void testCreateEmptyTableStaging()
+    {
+        // Alluxio metastore does not support create operations
+    }
 }

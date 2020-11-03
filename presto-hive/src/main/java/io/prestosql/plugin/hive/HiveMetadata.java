@@ -877,7 +877,7 @@ public class HiveMetadata
         }
         else {
             external = false;
-            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, Optional.empty());
+            LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, Optional.empty(), false);
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
         }
 
@@ -1325,7 +1325,7 @@ public class HiveMetadata
                 .collect(toList());
         checkPartitionTypesSupported(partitionColumns);
 
-        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, externalLocation);
+        LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, externalLocation, true);
 
         boolean transactional = isTransactional(tableMetadata.getProperties()).orElse(false);
         AcidTransaction transaction = transactional ? forCreateTable() : NO_ACID_TRANSACTION;

@@ -53,7 +53,7 @@ public class HiveLocationService
     }
 
     @Override
-    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
+    public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation, boolean withData)
     {
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
         Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
@@ -64,7 +64,7 @@ public class HiveLocationService
         }
 
         // TODO detect when existing table's location is a on a different file system than the temporary directory
-        if (shouldUseTemporaryDirectory(session, context, targetPath, externalLocation)) {
+        if (withData && shouldUseTemporaryDirectory(session, context, targetPath, externalLocation)) {
             Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, false, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }

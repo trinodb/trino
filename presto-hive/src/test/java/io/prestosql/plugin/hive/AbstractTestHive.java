@@ -247,6 +247,7 @@ import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.createDirectory;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
+import static io.prestosql.plugin.hive.util.HiveWriteUtils.pathExists;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -2207,7 +2208,7 @@ public abstract class AbstractTestHive
         try {
             try (Transaction transaction = newTransaction()) {
                 LocationService locationService = getLocationService();
-                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
+                LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty(), false);
                 targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore()
@@ -2540,6 +2541,59 @@ public abstract class AbstractTestHive
     }
 
     @Test
+    public void testCreateEmptyTableStaging()
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            SchemaTableName temporaryCreateEmptyTable = temporaryTable("create_empty_staging");
+            try {
+                List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+                try (Transaction transaction = newTransaction()) {
+                    ConnectorSession session = newSession();
+                    String tableOwner = session.getUser();
+                    String schemaName = temporaryCreateEmptyTable.getSchemaName();
+                    String tableName = temporaryCreateEmptyTable.getTableName();
+                    LocationService locationService = getLocationService();
+                    LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(),
+                            session,
+                            schemaName,
+                            tableName,
+                            Optional.empty(),
+                            false);
+                    Path writePath = locationService.getQueryWriteInfo(locationHandle).getWritePath();
+                    Path targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+                    Table.Builder tableBuilder = Table.builder()
+                            .setDatabaseName(schemaName)
+                            .setTableName(tableName)
+                            .setOwner(tableOwner)
+                            .setTableType(TableType.MANAGED_TABLE.name())
+                            .setParameters(ImmutableMap.of(
+                                    PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
+                                    PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                            .setDataColumns(columns)
+                            .setPartitionColumns(ImmutableList.of());
+                    tableBuilder.getStorageBuilder()
+                            .setLocation(targetPath.toString())
+                            .setStorageFormat(StorageFormat.create(storageFormat.getSerDe(), storageFormat.getInputFormat(), storageFormat.getOutputFormat()))
+                            .setBucketProperty(Optional.empty())
+                            .setSerdeParameters(ImmutableMap.of());
+                    PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
+                    transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+                    transaction.commit();
+
+                    HdfsContext context = new HdfsContext(session, schemaName, tableName);
+                    if (locationHandle.getWriteMode() == STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
+                        assertFalse(pathExists(context, hdfsEnvironment, writePath),
+                                "temp staging directory " + writePath.toString() + " exists");
+                    }
+                }
+            }
+            finally {
+                dropTable(temporaryCreateEmptyTable);
+            }
+        }
+    }
+
+    @Test
     public void testViewCreation()
     {
         SchemaTableName temporaryCreateView = temporaryTable("create_view");
@@ -2783,7 +2837,7 @@ public abstract class AbstractTestHive
             String tableOwner = session.getUser();
             String schemaName = schemaTableName.getSchemaName();
             String tableName = schemaTableName.getTableName();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
+            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty(), false);
             Path targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
             //create table whose storage format is null
             Table.Builder tableBuilder = Table.builder()
@@ -4730,7 +4784,7 @@ public abstract class AbstractTestHive
             String tableName = schemaTableName.getTableName();
 
             LocationService locationService = getLocationService();
-            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
+            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty(), false);
             targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
 
             Table.Builder tableBuilder = Table.builder()
