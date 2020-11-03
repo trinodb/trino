@@ -836,6 +836,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/5463", match = "Expected row count to be <4>, but was <6>")
     public void testFilesForAbortedTransactionsIgnored()
             throws Exception
     {
