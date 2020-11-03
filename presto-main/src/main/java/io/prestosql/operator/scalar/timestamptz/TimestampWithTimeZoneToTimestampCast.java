@@ -25,7 +25,6 @@ import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.roundToNearest;
 import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
@@ -56,17 +55,21 @@ public final class TimestampWithTimeZoneToTimestampCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("timestamp(sourcePrecision) with time zone") LongTimestampWithTimeZone timestamp)
     {
+        // Extract
         long epochMillis = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
                 .getZone()
                 .convertUTCToLocal(timestamp.getEpochMillis());
         int picosOfMilli = timestamp.getPicosOfMilli();
 
+        // Convert to micros
         long epochMicros = toEpochMicros(epochMillis, picosOfMilli);
-        if (targetPrecision < 6) {
-            return round(epochMicros, (int) (6 - targetPrecision));
-        }
+        int picosOfMicro = picosOfMilli % PICOSECONDS_PER_MICROSECOND;
 
-        if (roundToNearest(timestamp.getPicosOfMilli(), PICOSECONDS_PER_MILLISECOND) == PICOSECONDS_PER_MILLISECOND) {
+        // Round
+        if (targetPrecision < 6) {
+            epochMicros = round(epochMicros, (int) (6 - targetPrecision));
+        }
+        else if (roundToNearest(picosOfMicro, PICOSECONDS_PER_MICROSECOND) == PICOSECONDS_PER_MICROSECOND) {
             epochMicros++;
         }
 
@@ -90,21 +93,21 @@ public final class TimestampWithTimeZoneToTimestampCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("timestamp(sourcePrecision) with time zone") LongTimestampWithTimeZone timestamp)
     {
+        // Extract
         long epochMillis = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
                 .getZone()
                 .convertUTCToLocal(timestamp.getEpochMillis());
+        int picosOfMilli = timestamp.getPicosOfMilli();
 
-        long epochMicros;
-        int picosOfMicro;
-        if (targetPrecision <= 6) {
-            epochMicros = toEpochMicros(epochMillis, timestamp.getPicosOfMilli());
-            epochMicros = round(epochMicros, (int) (6 - targetPrecision));
+        // Convert to micros
+        long epochMicros = toEpochMicros(epochMillis, picosOfMilli);
+        int picosOfMicro = picosOfMilli % PICOSECONDS_PER_MICROSECOND;
+
+        // Round
+        picosOfMicro = (int) round(picosOfMicro, (int) (12 - targetPrecision));
+        if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
+            epochMicros++;
             picosOfMicro = 0;
-        }
-        else {
-            int picosOfMilli = timestamp.getPicosOfMilli();
-            epochMicros = toEpochMicros(epochMillis, picosOfMilli);
-            picosOfMicro = (int) round(picosOfMilli % PICOSECONDS_PER_MICROSECOND, (int) (12 - targetPrecision));
         }
 
         return new LongTimestamp(epochMicros, picosOfMicro);

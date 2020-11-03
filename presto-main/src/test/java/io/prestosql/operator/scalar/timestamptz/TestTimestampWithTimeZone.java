@@ -1328,6 +1328,32 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678912 Asia/Kathmandu' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:56.12345678912'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789123 Asia/Kathmandu' AS TIMESTAMP(12))")).matches("TIMESTAMP '2020-05-01 12:34:56.123456789123'");
 
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9 UTC' AS TIMESTAMP(1))")).matches("TIMESTAMP '2020-05-01 12:34:56.9'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99 UTC' AS TIMESTAMP(2))")).matches("TIMESTAMP '2020-05-01 12:34:56.99'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999 UTC' AS TIMESTAMP(3))")).matches("TIMESTAMP '2020-05-01 12:34:56.999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999 UTC' AS TIMESTAMP(4))")).matches("TIMESTAMP '2020-05-01 12:34:56.9999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999 UTC' AS TIMESTAMP(5))")).matches("TIMESTAMP '2020-05-01 12:34:56.99999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999 UTC' AS TIMESTAMP(6))")).matches("TIMESTAMP '2020-05-01 12:34:56.999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999999 UTC' AS TIMESTAMP(7))")).matches("TIMESTAMP '2020-05-01 12:34:56.9999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999999 UTC' AS TIMESTAMP(8))")).matches("TIMESTAMP '2020-05-01 12:34:56.99999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999 UTC' AS TIMESTAMP(9))")).matches("TIMESTAMP '2020-05-01 12:34:56.999999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999999999 UTC' AS TIMESTAMP(10))")).matches("TIMESTAMP '2020-05-01 12:34:56.9999999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999999999 UTC' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:56.99999999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999999 UTC' AS TIMESTAMP(12))")).matches("TIMESTAMP '2020-05-01 12:34:56.999999999999'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9 Asia/Kathmandu' AS TIMESTAMP(1))")).matches("TIMESTAMP '2020-05-01 12:34:56.9'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99 Asia/Kathmandu' AS TIMESTAMP(2))")).matches("TIMESTAMP '2020-05-01 12:34:56.99'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999 Asia/Kathmandu' AS TIMESTAMP(3))")).matches("TIMESTAMP '2020-05-01 12:34:56.999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999 Asia/Kathmandu' AS TIMESTAMP(4))")).matches("TIMESTAMP '2020-05-01 12:34:56.9999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999 Asia/Kathmandu' AS TIMESTAMP(5))")).matches("TIMESTAMP '2020-05-01 12:34:56.99999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999 Asia/Kathmandu' AS TIMESTAMP(6))")).matches("TIMESTAMP '2020-05-01 12:34:56.999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999999 Asia/Kathmandu' AS TIMESTAMP(7))")).matches("TIMESTAMP '2020-05-01 12:34:56.9999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999999 Asia/Kathmandu' AS TIMESTAMP(8))")).matches("TIMESTAMP '2020-05-01 12:34:56.99999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999 Asia/Kathmandu' AS TIMESTAMP(9))")).matches("TIMESTAMP '2020-05-01 12:34:56.999999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999999999 Asia/Kathmandu' AS TIMESTAMP(10))")).matches("TIMESTAMP '2020-05-01 12:34:56.9999999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999999999 Asia/Kathmandu' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:56.99999999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999999 Asia/Kathmandu' AS TIMESTAMP(12))")).matches("TIMESTAMP '2020-05-01 12:34:56.999999999999'");
+
         // source < target
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu' AS TIMESTAMP(1))")).matches("TIMESTAMP '2020-05-01 12:34:56.0'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu' AS TIMESTAMP(2))")).matches("TIMESTAMP '2020-05-01 12:34:56.00'");
@@ -1510,6 +1536,19 @@ public class TestTimestampWithTimeZone
 
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111 Asia/Kathmandu' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:56.11111111111'");
 
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.4 Asia/Kathmandu' AS TIMESTAMP(0))")).matches("TIMESTAMP '2020-05-01 12:34:56'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.94 Asia/Kathmandu' AS TIMESTAMP(1))")).matches("TIMESTAMP '2020-05-01 12:34:56.9'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.994 Asia/Kathmandu' AS TIMESTAMP(2))")).matches("TIMESTAMP '2020-05-01 12:34:56.99'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9994 Asia/Kathmandu' AS TIMESTAMP(3))")).matches("TIMESTAMP '2020-05-01 12:34:56.999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99994 Asia/Kathmandu' AS TIMESTAMP(4))")).matches("TIMESTAMP '2020-05-01 12:34:56.9999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999994 Asia/Kathmandu' AS TIMESTAMP(5))")).matches("TIMESTAMP '2020-05-01 12:34:56.99999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999994 Asia/Kathmandu' AS TIMESTAMP(6))")).matches("TIMESTAMP '2020-05-01 12:34:56.999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999994 Asia/Kathmandu' AS TIMESTAMP(7))")).matches("TIMESTAMP '2020-05-01 12:34:56.9999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999994 Asia/Kathmandu' AS TIMESTAMP(8))")).matches("TIMESTAMP '2020-05-01 12:34:56.99999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999999994 Asia/Kathmandu' AS TIMESTAMP(9))")).matches("TIMESTAMP '2020-05-01 12:34:56.999999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999999994 Asia/Kathmandu' AS TIMESTAMP(10))")).matches("TIMESTAMP '2020-05-01 12:34:56.9999999999'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999994 Asia/Kathmandu' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:56.99999999999'");
+
         // source > target, round up
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5 Asia/Kathmandu' AS TIMESTAMP(0))")).matches("TIMESTAMP '2020-05-01 12:34:57'");
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55 Asia/Kathmandu' AS TIMESTAMP(0))")).matches("TIMESTAMP '2020-05-01 12:34:57'");
@@ -1600,6 +1639,19 @@ public class TestTimestampWithTimeZone
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(10))")).matches("TIMESTAMP '2020-05-01 12:34:56.5555555556'");
 
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555 Asia/Kathmandu' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:56.55555555556'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5 Asia/Kathmandu' AS TIMESTAMP(0))")).matches("TIMESTAMP '2020-05-01 12:34:57'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.95 Asia/Kathmandu' AS TIMESTAMP(1))")).matches("TIMESTAMP '2020-05-01 12:34:57.0'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.995 Asia/Kathmandu' AS TIMESTAMP(2))")).matches("TIMESTAMP '2020-05-01 12:34:57.00'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9995 Asia/Kathmandu' AS TIMESTAMP(3))")).matches("TIMESTAMP '2020-05-01 12:34:57.000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99995 Asia/Kathmandu' AS TIMESTAMP(4))")).matches("TIMESTAMP '2020-05-01 12:34:57.0000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999995 Asia/Kathmandu' AS TIMESTAMP(5))")).matches("TIMESTAMP '2020-05-01 12:34:57.00000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999995 Asia/Kathmandu' AS TIMESTAMP(6))")).matches("TIMESTAMP '2020-05-01 12:34:57.000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999995 Asia/Kathmandu' AS TIMESTAMP(7))")).matches("TIMESTAMP '2020-05-01 12:34:57.0000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999995 Asia/Kathmandu' AS TIMESTAMP(8))")).matches("TIMESTAMP '2020-05-01 12:34:57.00000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.9999999995 Asia/Kathmandu' AS TIMESTAMP(9))")).matches("TIMESTAMP '2020-05-01 12:34:57.000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.99999999995 Asia/Kathmandu' AS TIMESTAMP(10))")).matches("TIMESTAMP '2020-05-01 12:34:57.0000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.999999999995 Asia/Kathmandu' AS TIMESTAMP(11))")).matches("TIMESTAMP '2020-05-01 12:34:57.00000000000'");
     }
 
     @Test
