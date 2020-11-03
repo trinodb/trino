@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
 import static java.util.Objects.requireNonNull;
 
@@ -124,7 +123,6 @@ public class LocalDispatchQueryFactory
             }
             catch (Throwable e) {
                 stateMachine.transitionToFailed(e);
-                queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(e));
                 throw e;
             }
         });
