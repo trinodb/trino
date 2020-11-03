@@ -55,6 +55,16 @@ public class TestFlakyAnnotationVerifier
         assertThat(findMethodsWithFlakyAndNoTestAnnotation(TestGrandChildChildJustFlakyChildNoDeclaration.class))
                 .extracting(Method::getName)
                 .contains("test");
+        assertThat(findMethodsWithFlakyAndNoTestAnnotation(TestNotTestMethodWithFlaky.class))
+                .extracting(Method::getName)
+                .contains("test");
+    }
+
+    private static class TestNotTestMethodWithFlaky
+    {
+        @Flaky(issue = "Blah", match = "Blah")
+        @ReportUnannotatedMethods.Suppress
+        public void test() {}
     }
 
     private static class TestParentJustTest
