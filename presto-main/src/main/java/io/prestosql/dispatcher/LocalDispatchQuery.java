@@ -87,9 +87,15 @@ public class LocalDispatchQuery
         });
 
         stateMachine.addStateChangeListener(state -> {
-            if (state.isDone()) {
+            if (state == QueryState.FAILED) {
+                // if query is failed and dispatching was not finished yet, marking dispatching as failed
                 submitted.set(FAILED);
                 queryExecutionFuture.cancel(true);
+            }
+
+            if (state.ordinal() > QueryState.DISPATCHING.ordinal()) {
+                // we went past dispatching phase; warking submitted as successful
+                submitted.set(DISPATCHED);
             }
         });
     }
@@ -131,6 +137,9 @@ public class LocalDispatchQuery
             if (stateMachine.transitionToDispatching()) {
                 try {
                     querySubmitter.accept(queryExecution);
+                    // query should be already marked as dispatched by now as querySubmitter should push queryState past DISPATCHING and
+                    // trigger callback registered in LocalDispatchQuery(). Leaving submitted.set(DISPATCHED) here for extra safety in case querySubmitter
+                    // became asynchronous.
                     submitted.set(DISPATCHED);
                 }
                 catch (Throwable t) {
