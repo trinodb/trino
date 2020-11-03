@@ -38,9 +38,9 @@ import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static java.lang.Math.floorMod;
 
 @ScalarOperator(CAST)
-public final class TimestampWithTimeZoneToTimeWithTimezoneCast
+public final class TimestampWithTimeZoneToTimeWithTimeZoneCast
 {
-    private TimestampWithTimeZoneToTimeWithTimezoneCast() {}
+    private TimestampWithTimeZoneToTimeWithTimeZoneCast() {}
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("time(targetPrecision) with time zone")

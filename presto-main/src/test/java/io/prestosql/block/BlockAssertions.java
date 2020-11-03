@@ -414,7 +414,7 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createTimestampsWithTimezoneBlock(Long... values)
+    public static Block createTimestampsWithTimeZoneBlock(Long... values)
     {
         BlockBuilder builder = TIMESTAMP_WITH_TIME_ZONE.createFixedSizeBlockBuilder(values.length);
         for (long value : values) {

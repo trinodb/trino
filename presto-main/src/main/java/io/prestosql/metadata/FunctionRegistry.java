@@ -180,14 +180,14 @@ import io.prestosql.operator.scalar.timestamp.LastDayOfMonth;
 import io.prestosql.operator.scalar.timestamp.LocalTimestamp;
 import io.prestosql.operator.scalar.timestamp.SequenceIntervalDayToSecond;
 import io.prestosql.operator.scalar.timestamp.SequenceIntervalYearToMonth;
-import io.prestosql.operator.scalar.timestamp.TimeWithTimezoneToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.TimeWithTimeZoneToTimestampCast;
 import io.prestosql.operator.scalar.timestamp.TimestampOperators;
 import io.prestosql.operator.scalar.timestamp.TimestampToDateCast;
 import io.prestosql.operator.scalar.timestamp.TimestampToJsonCast;
 import io.prestosql.operator.scalar.timestamp.TimestampToTimeCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToTimeWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimeWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamp.TimestampToTimestampCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToTimestampWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.prestosql.operator.scalar.timestamp.ToIso8601;
 import io.prestosql.operator.scalar.timestamp.ToUnixTime;
@@ -200,10 +200,10 @@ import io.prestosql.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimeZoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimezoneToTimestampCast;
 import io.prestosql.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timetz.CurrentTime;
 import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneOperators;
@@ -615,15 +615,15 @@ public class FunctionRegistry
                 .scalar(TimestampOperators.TimestampMinusTimestamp.class)
                 .scalar(TimestampToTimestampCast.class)
                 .scalar(TimestampToTimeCast.class)
-                .scalar(TimestampToTimeWithTimezoneCast.class)
-                .scalar(TimestampToTimestampWithTimezoneCast.class)
+                .scalar(TimestampToTimeWithTimeZoneCast.class)
+                .scalar(TimestampToTimestampWithTimeZoneCast.class)
                 .scalar(TimestampToDateCast.class)
                 .scalar(TimestampToVarcharCast.class)
                 .scalar(TimestampToJsonCast.class)
                 .scalar(DateToTimestampCast.class)
                 .scalar(TimeToTimestampCast.class)
-                .scalar(TimeWithTimezoneToTimestampCast.class)
-                .scalar(TimestampWithTimezoneToTimestampCast.class)
+                .scalar(TimeWithTimeZoneToTimestampCast.class)
+                .scalar(TimestampWithTimeZoneToTimestampCast.class)
                 .scalar(VarcharToTimestampCast.class)
                 .scalar(LocalTimestamp.class)
                 .scalar(DateTrunc.class)
@@ -689,7 +689,7 @@ public class FunctionRegistry
                 .scalar(TimestampWithTimeZoneToDateCast.class)
                 .scalar(TimestampWithTimeZoneToTimeCast.class)
                 .scalar(TimestampWithTimeZoneToTimestampWithTimeZoneCast.class)
-                .scalar(TimestampWithTimeZoneToTimeWithTimezoneCast.class)
+                .scalar(TimestampWithTimeZoneToTimeWithTimeZoneCast.class)
                 .scalar(TimestampWithTimeZoneToVarcharCast.class)
                 .scalar(TimeToTimestampWithTimeZoneCast.class)
                 .scalar(TimeWithTimeZoneToTimestampWithTimeZoneCast.class)
