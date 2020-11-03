@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.snowflake;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testng.services.Flaky;
+import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
@@ -29,6 +30,7 @@ public class TestSnowflakeDynamicFiltering
     }
 
     @Override
+    @Test
     @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "java.lang.AssertionError: .*expected:<2> to be greater than <2>")
     public void testDynamicFiltering()
     {
@@ -36,6 +38,7 @@ public class TestSnowflakeDynamicFiltering
     }
 
     @Override
+    @Test
     @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "java.lang.AssertionError: expected \\[3] but found \\[\\d]")
     public void testDynamicFilteringWithLimit()
     {
