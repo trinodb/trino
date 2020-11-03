@@ -104,15 +104,16 @@ public class FlakyAnnotationVerifier
 
     private static Optional<Method> getSuperMethod(Method method)
     {
-        Class<?> declaringClass = method.getDeclaringClass().getSuperclass();
-        while (declaringClass != null) {
-            try {
-                return Optional.of(declaringClass.getDeclaredMethod(method.getName(), method.getParameterTypes()));
+        // Simplistic override detection; this is not correct in presence of generics and bridge methods.
+        try {
+            Class<?> superclass = method.getDeclaringClass().getSuperclass();
+            if (superclass == null) {
+                return Optional.empty();
             }
-            catch (NoSuchMethodException e) {
-                declaringClass = declaringClass.getSuperclass();
-            }
+            return Optional.of(superclass.getMethod(method.getName(), method.getParameterTypes()));
         }
-        return Optional.empty();
+        catch (NoSuchMethodException e) {
+            return Optional.empty();
+        }
     }
 }
