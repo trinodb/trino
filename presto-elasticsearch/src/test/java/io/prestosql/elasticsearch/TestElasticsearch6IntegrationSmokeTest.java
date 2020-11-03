@@ -13,6 +13,14 @@
  */
 package io.prestosql.elasticsearch;
 
+import com.google.common.collect.ImmutableMap;
+import org.apache.http.entity.ContentType;
+import org.apache.http.nio.entity.NStringEntity;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.Test;
+
+import java.io.IOException;
+
 import static java.lang.String.format;
 
 public class TestElasticsearch6IntegrationSmokeTest
@@ -21,6 +29,22 @@ public class TestElasticsearch6IntegrationSmokeTest
     public TestElasticsearch6IntegrationSmokeTest()
     {
         super("docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0");
+    }
+
+    @Test
+    public void testIndexWithMappingsButNoProperties()
+            throws IOException
+    {
+        String indexName = "test_empty_index_with_mappings_no_properties";
+
+        @Language("JSON")
+        String mappings = "{\"mappings\": " +
+                "  {\"foo\": { \"dynamic\" : \"strict\" } }" +
+                "}";
+        client.getLowLevelClient()
+                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
+
+        assertTableDoesNotExist(indexName);
     }
 
     @Override
