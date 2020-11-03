@@ -1,7 +1,7 @@
 {
-  "tableName": "all_datatypes_csv",
+  "tableName": "read_all_datatypes_csv",
   "schemaName": "product_tests",
-  "topicName": "all_datatypes_csv",
+  "topicName": "read_all_datatypes_csv",
   "message": {
     "dataFormat": "csv",
     "fields": [

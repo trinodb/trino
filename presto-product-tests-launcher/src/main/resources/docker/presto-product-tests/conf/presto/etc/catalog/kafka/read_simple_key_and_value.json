@@ -1,7 +1,7 @@
 {
-  "tableName": "simple_key_and_value",
+  "tableName": "read_simple_key_and_value",
   "schemaName": "product_tests",
-  "topicName": "simple_key_and_value",
+  "topicName": "read_simple_key_and_value",
   "message": {
     "dataFormat": "csv",
     "fields": [

@@ -1,7 +1,7 @@
 {
-  "tableName": "structural_datatype_avro",
+  "tableName": "read_structural_datatype_avro",
   "schemaName": "product_tests",
-  "topicName": "structural_datatype_avro",
+  "topicName": "read_structural_datatype_avro",
   "message": {
     "dataFormat": "avro",
     "dataSchema": "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc",

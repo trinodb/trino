@@ -1,7 +1,7 @@
 {
-  "tableName": "all_datatypes_raw",
+  "tableName": "read_all_datatypes_raw",
   "schemaName": "product_tests",
-  "topicName": "all_datatypes_raw",
+  "topicName": "read_all_datatypes_raw",
   "message": {
     "dataFormat": "raw",
     "fields": [
