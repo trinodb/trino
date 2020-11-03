@@ -33,9 +33,9 @@ import static io.prestosql.type.DateTimes.toEpochMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)
-public final class TimestampWithTimezoneToTimestampCast
+public final class TimestampWithTimeZoneToTimestampCast
 {
-    private TimestampWithTimezoneToTimestampCast() {}
+    private TimestampWithTimeZoneToTimestampCast() {}
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("timestamp(targetPrecision)")

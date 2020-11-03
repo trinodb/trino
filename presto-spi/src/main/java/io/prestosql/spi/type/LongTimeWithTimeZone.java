@@ -15,7 +15,7 @@ package io.prestosql.spi.type;
 
 import java.util.Objects;
 
-import static io.prestosql.spi.type.TimeWithTimezoneTypes.normalize;
+import static io.prestosql.spi.type.TimeWithTimeZoneTypes.normalize;
 
 public final class LongTimeWithTimeZone
         implements Comparable<LongTimeWithTimeZone>

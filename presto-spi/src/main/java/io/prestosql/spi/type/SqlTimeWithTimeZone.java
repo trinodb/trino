@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Objects;
 
 import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
-import static io.prestosql.spi.type.TimeWithTimezoneTypes.normalizePicos;
+import static io.prestosql.spi.type.TimeWithTimeZoneTypes.normalizePicos;
 import static io.prestosql.spi.type.Timestamps.MINUTES_PER_HOUR;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
