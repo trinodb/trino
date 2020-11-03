@@ -151,7 +151,7 @@ public class OracleClient
             .put(REAL, WriteMapping.longMapping("binary_float", oracleRealWriteFunction()))
             .put(VARBINARY, WriteMapping.sliceMapping("blob", varbinaryWriteFunction()))
             .put(DATE, WriteMapping.longMapping("date", oracleDateWriteFunction()))
-            .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimezoneWriteFunction()))
+            .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimeZoneWriteFunction()))
             .build();
 
     @Inject
@@ -404,11 +404,11 @@ public class OracleClient
                             timestamp.toInstant().toEpochMilli(),
                             timestamp.getZone().getId());
                 },
-                oracleTimestampWithTimezoneWriteFunction(),
+                oracleTimestampWithTimeZoneWriteFunction(),
                 OracleClient::fullPushdownIfSupported);
     }
 
-    public static LongWriteFunction oracleTimestampWithTimezoneWriteFunction()
+    public static LongWriteFunction oracleTimestampWithTimeZoneWriteFunction()
     {
         return (statement, index, encodedTimeWithZone) -> {
             Instant time = Instant.ofEpochMilli(unpackMillisUtc(encodedTimeWithZone));
