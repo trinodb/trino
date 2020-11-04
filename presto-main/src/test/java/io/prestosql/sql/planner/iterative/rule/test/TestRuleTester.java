@@ -18,6 +18,8 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.Rule.Context;
+import io.prestosql.sql.planner.iterative.Rule.Result;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
@@ -25,6 +27,7 @@ import org.testng.annotations.Test;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestRuleTester
@@ -33,7 +36,11 @@ public class TestRuleTester
     public void testReportWrongMatch()
     {
         try (RuleTester tester = defaultRuleTester()) {
-            RuleAssert ruleAssert = tester.assertThat(new DummyReplaceNodeRule())
+            RuleAssert ruleAssert = tester.assertThat(
+                    rule(
+                            "testReportWrongMatch rule",
+                            Pattern.typeOf(PlanNode.class),
+                            (node, captures, context) -> Result.ofPlanNode(node.replaceChildren(node.getSources()))))
                     .on(p ->
                             p.project(
                                     Assignments.of(p.symbol("y"), expression("x")),
@@ -48,19 +55,36 @@ public class TestRuleTester
         }
     }
 
-    private static class DummyReplaceNodeRule
-            implements Rule<PlanNode>
+    private static <T> Rule<T> rule(String name, Pattern<T> pattern, RuleApplyImplementation<T> apply)
     {
-        @Override
-        public Pattern<PlanNode> getPattern()
+        requireNonNull(name, "name is null");
+        requireNonNull(pattern, "pattern is null");
+        requireNonNull(apply, "apply is null");
+        return new Rule<T>()
         {
-            return Pattern.typeOf(PlanNode.class);
-        }
+            @Override
+            public String toString()
+            {
+                return name;
+            }
 
-        @Override
-        public Result apply(PlanNode node, Captures captures, Context context)
-        {
-            return Result.ofPlanNode(node.replaceChildren(node.getSources()));
-        }
+            @Override
+            public Pattern<T> getPattern()
+            {
+                return pattern;
+            }
+
+            @Override
+            public Result apply(T node, Captures captures, Context context)
+            {
+                return apply.apply(node, captures, context);
+            }
+        };
+    }
+
+    @FunctionalInterface
+    private interface RuleApplyImplementation<T>
+    {
+        Result apply(T node, Captures captures, Context context);
     }
 }
