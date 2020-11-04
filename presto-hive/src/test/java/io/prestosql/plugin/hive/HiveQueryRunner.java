@@ -114,9 +114,9 @@ public final class HiveQueryRunner
         }
 
         @Override
-        public Builder setSingleExtraProperty(String key, String value)
+        public Builder addExtraProperty(String key, String value)
         {
-            return (Builder) super.setSingleExtraProperty(key, value);
+            return (Builder) super.addExtraProperty(key, value);
         }
 
         public Builder setHiveProperties(Map<String, String> hiveProperties)

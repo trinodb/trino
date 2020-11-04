@@ -104,7 +104,7 @@ public class TestQueryManager
     public void testQueryCpuLimit()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-cpu-time", "1ms").build()) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().addExtraProperty("query.max-cpu-time", "1ms").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
@@ -117,7 +117,7 @@ public class TestQueryManager
     @Test(timeOut = 60_000L)
     public void testQueryScanExceeded() throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-scan-physical-bytes", "0B").build()) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().addExtraProperty("query.max-scan-physical-bytes", "0B").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT * FROM system.runtime.nodes");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
