@@ -180,6 +180,7 @@ import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarAggregat
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import io.prestosql.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
+import io.prestosql.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.prestosql.sql.planner.iterative.rule.UnwrapCastInComparison;
@@ -525,7 +526,12 @@ public class PlanOptimizers
                 new CheckSubqueryNodesAreRewritten(),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
-                        new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)));
+                        new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new TransformFilteringSemiJoinToInnerJoin()))); // must run after PredicatePushDown
 
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 ruleStats,

@@ -71,6 +71,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.SystemSessionProperties.DISTRIBUTED_SORT;
+import static io.prestosql.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.prestosql.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -449,6 +450,7 @@ public class TestLogicalPlanner
                                                         tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
 
         assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S",
                                 project(
@@ -527,14 +529,14 @@ public class TestLogicalPlanner
         // same IN query used for left, right and complex condition
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey IN (SELECT 1) AND (o1.orderkey IN (SELECT 1) OR o1.orderkey IN (SELECT 1))"),
+                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey NOT IN (SELECT 1) AND (o1.orderkey NOT IN (SELECT 1) OR o1.orderkey NOT IN (SELECT 1))"),
                         SemiJoinNode.class::isInstance),
                 1);
 
         // one subquery used for "1 IN (SELECT 1)", one subquery used for "2 IN (SELECT 1)"
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT 1 IN (SELECT 1), 2 IN (SELECT 1) WHERE 1 IN (SELECT 1)"),
+                        plan("SELECT 1 NOT IN (SELECT 1), 2 NOT IN (SELECT 1) WHERE 1 NOT IN (SELECT 1)"),
                         SemiJoinNode.class::isInstance),
                 2);
     }
@@ -1100,8 +1102,30 @@ public class TestLogicalPlanner
     public void testRemoveAggregationInSemiJoin()
     {
         assertPlanDoesNotContain(
-                "SELECT custkey FROM orders WHERE custkey IN (SELECT distinct custkey FROM customer)",
+                "SELECT custkey FROM orders WHERE custkey NOT IN (SELECT distinct custkey FROM customer)",
                 AggregationNode.class);
+    }
+
+    @Test
+    public void testFilteringSemiJoinRewriteToInnerJoin()
+    {
+        assertPlan(
+                "SELECT custkey FROM orders WHERE custkey IN (SELECT custkey FROM customer)",
+                any(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("CUSTOMER_CUSTKEY", "ORDER_CUSTKEY")),
+                                project(
+                                        aggregation(
+                                                singleGroupingSet("CUSTOMER_CUSTKEY"),
+                                                ImmutableMap.of(),
+                                                ImmutableMap.of(),
+                                                Optional.empty(),
+                                                FINAL,
+                                                anyTree(
+                                                        tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDER_CUSTKEY", "custkey"))))));
     }
 
     @Test
@@ -1525,7 +1549,7 @@ public class TestLogicalPlanner
     public void testSizeBasedSemiJoin()
     {
         // both local.sf100000.nation and local.sf100000.orders don't provide stats, therefore no reordering happens
-        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey IN (SELECT nationkey FROM local.\"sf42.5\".nation)",
+        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey NOT IN (SELECT nationkey FROM local.\"sf42.5\".nation)",
                 automaticJoinDistribution(),
                 output(
                         anyTree(
@@ -1536,7 +1560,7 @@ public class TestLogicalPlanner
                                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")))))));
 
         // values node provides stats
-        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey IN (SELECT t.a FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a))",
+        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey NOT IN (SELECT t.a FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a))",
                 automaticJoinDistribution(),
                 output(
                         anyTree(
@@ -1570,6 +1594,13 @@ public class TestLogicalPlanner
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .build();
+    }
+
+    private Session noSemiJoinRewrite()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                 .build();
     }
 }
