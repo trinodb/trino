@@ -138,13 +138,22 @@ public class MockConnector
         }
 
         @Override
-        public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
+        public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+                ConnectorSession session,
+                ConnectorTableHandle handle,
+                List<ConnectorExpression> projections,
+                Map<String, ColumnHandle> assignments)
         {
             return applyProjection.apply(session, handle, projections, assignments);
         }
 
         @Override
-        public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(ConnectorSession session, ConnectorTableHandle handle, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
+        public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+                ConnectorSession session,
+                ConnectorTableHandle handle,
+                long topNCount,
+                List<SortItem> sortItems,
+                Map<String, ColumnHandle> assignments)
         {
             return applyTopN.apply(session, handle, topNCount, sortItems, assignments);
         }
