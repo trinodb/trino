@@ -297,8 +297,6 @@ public final class KuduTableProperties
     {
         Map<String, Object> properties = new HashMap<>();
 
-        LinkedHashMap<String, ColumnDesign> columns = getColumns(table);
-
         PartitionDesign partitionDesign = getPartitionDesign(table);
 
         List<RangePartition> rangePartitionList = getRangePartitionList(table, DEFAULT_DEADLINE);
@@ -583,9 +581,7 @@ public final class KuduTableProperties
             return (Number) obj;
         }
         else if (obj instanceof String) {
-            String s = (String) obj;
-            BigDecimal d = new BigDecimal((String) obj);
-            return d;
+            return new BigDecimal((String) obj);
         }
         else {
             handleInvalidValue(name, type, obj);
