@@ -89,6 +89,7 @@ public class PrestoConnection
     private final URI jdbcUri;
     private final URI httpUri;
     private final String user;
+    private final boolean compressionDisabled;
     private final Map<String, String> extraCredentials;
     private final Optional<String> applicationNamePrefix;
     private final Optional<String> source;
@@ -111,6 +112,7 @@ public class PrestoConnection
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
+        this.compressionDisabled = uri.isCompressionDisabled();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
@@ -720,7 +722,8 @@ public class PrestoConnection
                 ImmutableMap.copyOf(roles),
                 extraCredentials,
                 transactionId.get(),
-                timeout);
+                timeout,
+                compressionDisabled);
 
         return queryExecutor.startQuery(session, sql);
     }
