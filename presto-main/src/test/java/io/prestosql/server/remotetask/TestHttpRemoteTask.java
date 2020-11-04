@@ -97,6 +97,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -226,8 +227,6 @@ public class TestHttpRemoteTask
                 ImmutableSet.of());
         dynamicFilterService.stageCannotScheduleMoreTasks(new StageId(queryId, 1), 1);
 
-        remoteTask.start();
-
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 queryId,
                 ImmutableList.of(
@@ -239,7 +238,10 @@ public class TestHttpRemoteTask
                 symbolAllocator.getTypes());
 
         // make sure initial dynamic filters are collected
-        dynamicFilter.isBlocked().get();
+        CompletableFuture<?> future = dynamicFilter.isBlocked();
+        remoteTask.start();
+        future.get();
+
         assertEquals(
                 dynamicFilter.getCurrentPredicate(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -248,12 +250,13 @@ public class TestHttpRemoteTask
 
         // make sure dynamic filters are not collected for every status update
         assertEventually(
-                new Duration(5, SECONDS),
+                new Duration(15, SECONDS),
                 () -> assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 3L));
+        future = dynamicFilter.isBlocked();
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(
                 2L,
                 ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L))));
-        dynamicFilter.isBlocked().get();
+        future.get();
         assertEquals(
                 dynamicFilter.getCurrentPredicate(),
                 TupleDomain.withColumnDomains(ImmutableMap.of(
