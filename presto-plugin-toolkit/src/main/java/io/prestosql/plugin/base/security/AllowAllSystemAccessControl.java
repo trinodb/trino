@@ -42,7 +42,7 @@ public class AllowAllSystemAccessControl
 {
     public static final String NAME = "allow-all";
 
-    private static final AllowAllSystemAccessControl INSTANCE = new AllowAllSystemAccessControl();
+    public static final AllowAllSystemAccessControl INSTANCE = new AllowAllSystemAccessControl();
 
     public static class Factory
             implements SystemAccessControlFactory
