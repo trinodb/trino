@@ -102,7 +102,10 @@ public class TestRuleTester
             PlanMatchPattern expected = values(List.of("whatever"), List.of());
             assertThatThrownBy(() -> ruleAssert.matches(expected))
                     .isInstanceOf(AssertionError.class)
-                    .hasMessageMatching("testReportNoFireWithTableScan rule did not fire for:(?s:.*)");
+                    .hasMessageMatching("testReportNoFireWithTableScan rule did not fire for:\n" +
+                            "(?s:.*)" +
+                            "\\QEstimates: {rows: 25 (225B), cpu: 225, memory: 0B, network: 0B}\\E\n" +
+                            "(?s:.*)");
         }
     }
 
