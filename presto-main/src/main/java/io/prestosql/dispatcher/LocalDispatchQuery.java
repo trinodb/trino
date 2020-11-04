@@ -42,7 +42,8 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.prestosql.SystemSessionProperties.getRequiredWorkers;
 import static io.prestosql.SystemSessionProperties.getRequiredWorkersMaxWait;
-import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.dispatcher.DispatchQuery.DispatchStatus.DISPATCHED;
+import static io.prestosql.dispatcher.DispatchQuery.DispatchStatus.FAILED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -60,7 +61,7 @@ public class LocalDispatchQuery
     private final Executor queryExecutor;
 
     private final Consumer<QueryExecution> querySubmitter;
-    private final SettableFuture<?> submitted = SettableFuture.create();
+    private final SettableFuture<DispatchStatus> submitted = SettableFuture.create();
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
@@ -87,7 +88,7 @@ public class LocalDispatchQuery
 
         stateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
-                submitted.set(null);
+                submitted.set(FAILED);
                 queryExecutionFuture.cancel(true);
             }
         });
@@ -130,6 +131,7 @@ public class LocalDispatchQuery
             if (stateMachine.transitionToDispatching()) {
                 try {
                     querySubmitter.accept(queryExecution);
+                    submitted.set(DISPATCHED);
                 }
                 catch (Throwable t) {
                     // this should never happen but be safe
@@ -138,7 +140,7 @@ public class LocalDispatchQuery
                     throw t;
                 }
                 finally {
-                    submitted.set(null);
+                    submitted.set(FAILED);
                 }
             }
         });
@@ -157,7 +159,7 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public ListenableFuture<?> getDispatchedFuture()
+    public ListenableFuture<DispatchStatus> getDispatchedFuture()
     {
         return nonCancellationPropagating(submitted);
     }
@@ -169,7 +171,7 @@ public class LocalDispatchQuery
         boolean dispatched = submitted.isDone();
         BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
 
-        if (queryInfo.getState() == FAILED) {
+        if (queryInfo.getState() == QueryState.FAILED) {
             ExecutionFailureInfo failureInfo = stateMachine.getFailureInfo()
                     .orElseGet(() -> toFailure(new PrestoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
             return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
