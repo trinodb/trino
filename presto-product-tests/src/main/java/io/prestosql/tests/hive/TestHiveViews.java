@@ -16,6 +16,7 @@ package io.prestosql.tests.hive;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -28,6 +29,8 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_VIEWS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveViews
         extends HiveProductTest
@@ -100,11 +103,26 @@ public class TestHiveViews
     public void testShowCreateView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_show_view");
-
         onHive().executeQuery("CREATE VIEW hive_show_view AS SELECT * FROM nation");
 
-        // view SQL depends on Hive distribution
-        assertThat(query("SHOW CREATE VIEW hive_show_view")).hasRowsCount(1);
+        String showCreateViewSql = "SHOW CREATE VIEW %s.default.hive_show_view";
+        String expectedResult = "CREATE VIEW %s.default.hive_show_view AS\n" +
+                "SELECT\n" +
+                "  \"n_nationkey\"\n" +
+                ", \"n_name\"\n" +
+                ", \"n_regionkey\"\n" +
+                ", \"n_comment\"\n" +
+                "FROM\n" +
+                "  \"default\".\"nation\"";
+
+        QueryResult actualResult = query(format(showCreateViewSql, "hive"));
+        assertThat(actualResult).hasRowsCount(1);
+        assertEquals((String) actualResult.row(0).get(0), format(expectedResult, "hive"));
+
+        // Verify the translated view sql for a catalog other than "hive", which is configured to the same metastore
+        actualResult = query(format(showCreateViewSql, "hive_with_external_writes"));
+        assertThat(actualResult).hasRowsCount(1);
+        assertEquals((String) actualResult.row(0).get(0), format(expectedResult, "hive_with_external_writes"));
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -151,7 +169,7 @@ public class TestHiveViews
                 row("hive", "test_schema", "presto_test_view", "VIEW"));
 
         assertThat(query("SELECT view_definition FROM information_schema.views WHERE table_schema = 'test_schema' and table_name = 'hive_test_view'")).containsOnly(
-                row("SELECT \"n_nationkey\", \"n_name\", \"n_regionkey\", \"n_comment\"\nFROM \"hive\".\"default\".\"nation\""));
+                row("SELECT \"n_nationkey\", \"n_name\", \"n_regionkey\", \"n_comment\"\nFROM \"default\".\"nation\""));
 
         assertThat(query("DESCRIBE test_schema.hive_test_view"))
                 .contains(row("n_nationkey", "bigint", "", ""));
