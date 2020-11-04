@@ -27,7 +27,7 @@ import java.io.FileOutputStream;
 import java.nio.file.Path;
 import java.util.Map;
 
-import static io.prestosql.plugin.iceberg.IcebergCatalogType.HADOOP;
+import static io.prestosql.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.QueryAssertions.copyTpchTables;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -72,7 +72,7 @@ public final class IcebergQueryRunner
         Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         dataDir.toFile().mkdirs();
 
-        IcebergCatalogType type = HADOOP;
+        IcebergCatalogType type = HIVE;
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
         baseDir.mkdirs();

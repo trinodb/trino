@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
@@ -144,13 +145,19 @@ public class IcebergHadoopMetadata
     @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new UnsupportedOperationException();
+        HadoopCatalog hadoopCatalog = getHadoopCatalog(session);
+        Namespace namespace = Namespace.of(schemaName.getSchemaName());
+        Map<String, String> namespaceMetadata = hadoopCatalog.loadNamespaceMetadata(namespace);
+        return namespaceMetadata.entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey,
+                        e -> e.getValue()));
     }
 
     @Override
     public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new UnsupportedOperationException();
+        return Optional.empty();
     }
 
     @Override
