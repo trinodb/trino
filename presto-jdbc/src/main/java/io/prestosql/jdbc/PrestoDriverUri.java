@@ -46,6 +46,7 @@ import static io.prestosql.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_INFO;
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
+import static io.prestosql.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static io.prestosql.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -195,6 +196,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return SOURCE.getValue(properties);
+    }
+
+    public boolean isCompressionDisabled()
+            throws SQLException
+    {
+        return DISABLE_COMPRESSION.getValue(properties).orElse(false);
     }
 
     public void setupClient(OkHttpClient.Builder builder)
