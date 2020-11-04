@@ -57,7 +57,7 @@
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
         <dep.joda.version>2.10.6</dep.joda.version>
-        <dep.coral.version>1.0.8</dep.coral.version>
+        <dep.coral.version>1.0.12</dep.coral.version>
 
         <!--
           America/Bahia_Banderas has:
