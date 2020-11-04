@@ -50,8 +50,7 @@ public final class PhoenixQueryRunner
     public static DistributedQueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> extraProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
-                .builder(createSession())
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
 
