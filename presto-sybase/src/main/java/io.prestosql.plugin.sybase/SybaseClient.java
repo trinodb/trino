@@ -40,18 +40,18 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -75,14 +75,6 @@ public class SybaseClient
     // Sybase supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     private static final int SYBASE_MAX_LIST_EXPRESSIONS = 500;
 
-    public static final PredicatePushdownController DISABLE_UNSUPPORTED_PUSHDOWN = domain -> {
-        if (domain.getValues().getRanges().getRangeCount() <= SYBASE_MAX_LIST_EXPRESSIONS) {
-            return new PredicatePushdownController.DomainPushdownResult(domain, domain);
-        }
-
-        return new PredicatePushdownController.DomainPushdownResult(Domain.all(domain.getType()), domain);
-    };
-
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
 
     @Inject
@@ -91,7 +83,6 @@ public class SybaseClient
         super(config, "\"", connectionFactory);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, 0, Optional.empty(), Optional.empty());
-        JdbcTypeHandle intTypeHandle = new JdbcTypeHandle(Types.INTEGER, Optional.of("int"), 10, 0, Optional.empty(), Optional.empty());
 
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
@@ -100,16 +91,33 @@ public class SybaseClient
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax())
                         .add(new ImplementSum(SybaseClient::toTypeHandle))
-                        .add(new ImplementSum(SybaseClient::toIntTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
-                        .add(new ImplementAvgInt())
                         .add(new ImplementAvgBigint())
                         .add(new ImplementSybaseDBStdev())
                         .add(new ImplementSybaseDBStddevPop())
                         .add(new ImplementSybaseDBVariance())
                         .add(new ImplementSybaseDBVariancePop())
                         .build());
+    }
+
+    @Override
+    protected Collection<String> listSchemas(Connection connection)
+    {
+        try (ResultSet resultSet = connection.getMetaData().getSchemas()) {
+            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
+            while (resultSet.next()) {
+                String schemaName = resultSet.getString("TABLE_SCHEM");
+                // skip internal schemas
+                if (filterSchema(schemaName)) {
+                    schemaNames.add(schemaName);
+                }
+            }
+            return schemaNames.build();
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -122,11 +130,6 @@ public class SybaseClient
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty(), Optional.empty()));
-    }
-
-    private static Optional<JdbcTypeHandle> toIntTypeHandle(DecimalType decimalType)
-    {
-        return Optional.of(new JdbcTypeHandle(Types.INTEGER, Optional.of("int"), 10, 0, Optional.empty(), Optional.empty()));
     }
 
     private static String singleQuote(String... objects)
@@ -189,24 +192,12 @@ public class SybaseClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        // TODO implement proper type mapping
         return super.toPrestoType(session, connection, typeHandle)
-                .map(columnMapping -> {
-                    if (columnMapping.getType() instanceof IntegerType) {
-                        return new ColumnMapping(
-                                BigintType.BIGINT,
-                                columnMapping.getReadFunction(),
-                                columnMapping.getWriteFunction(),
-                                DISABLE_UNSUPPORTED_PUSHDOWN);
-                    }
-                    else {
-                        return new ColumnMapping(
-                                columnMapping.getType(),
-                                columnMapping.getReadFunction(),
-                                columnMapping.getWriteFunction(),
-                                DISABLE_UNSUPPORTED_PUSHDOWN);
-                    }
-                });
+                .map(columnMapping -> new ColumnMapping(
+                        columnMapping.getType(),
+                        columnMapping.getReadFunction(),
+                        columnMapping.getWriteFunction(),
+                        this::fullPushDownIfPossilble));
     }
 
     @Override
@@ -264,5 +255,13 @@ public class SybaseClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
+    }
+
+    private PredicatePushdownController.DomainPushdownResult fullPushDownIfPossilble(Domain domain)
+    {
+        if (domain.getValues().getRanges().getRangeCount() > SYBASE_MAX_LIST_EXPRESSIONS) {
+            return new PredicatePushdownController.DomainPushdownResult(domain.simplify(), domain);
+        }
+        return new PredicatePushdownController.DomainPushdownResult(domain, Domain.all(domain.getType()));
     }
 }

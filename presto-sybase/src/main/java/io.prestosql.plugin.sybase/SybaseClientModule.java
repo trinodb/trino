@@ -19,13 +19,13 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import com.sybase.jdbc4.jdbc.SybDriver;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import net.sourceforge.jtds.jdbc.Driver;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -45,6 +45,6 @@ public class SybaseClientModule
     @ForBaseJdbc
     public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
-        return new DriverConnectionFactory(new SybDriver(), config, credentialProvider);
+        return new DriverConnectionFactory(new Driver(), config, credentialProvider);
     }
 }
