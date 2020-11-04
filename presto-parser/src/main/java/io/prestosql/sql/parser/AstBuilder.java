@@ -82,6 +82,7 @@ import io.prestosql.sql.tree.FunctionCall.NullTreatment;
 import io.prestosql.sql.tree.GenericDataType;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
+import io.prestosql.sql.tree.GrantOnType;
 import io.prestosql.sql.tree.GrantRoles;
 import io.prestosql.sql.tree.GrantorSpecification;
 import io.prestosql.sql.tree.GroupBy;
@@ -1113,10 +1114,22 @@ class AstBuilder
                     .map(SqlBaseParser.PrivilegeContext::getText)
                     .collect(toList()));
         }
+
+        Optional<GrantOnType> type;
+        if (context.SCHEMA() != null) {
+            type = Optional.of(GrantOnType.SCHEMA);
+        }
+        else if (context.TABLE() != null) {
+            type = Optional.of(GrantOnType.TABLE);
+        }
+        else {
+            type = Optional.empty();
+        }
+
         return new Grant(
                 getLocation(context),
                 privileges,
-                context.TABLE() != null,
+                type,
                 getQualifiedName(context.qualifiedName()),
                 getPrincipalSpecification(context.grantee),
                 context.OPTION() != null);
@@ -1134,11 +1147,23 @@ class AstBuilder
                     .map(SqlBaseParser.PrivilegeContext::getText)
                     .collect(toList()));
         }
+
+        Optional<GrantOnType> type;
+        if (context.SCHEMA() != null) {
+            type = Optional.of(GrantOnType.SCHEMA);
+        }
+        else if (context.TABLE() != null) {
+            type = Optional.of(GrantOnType.TABLE);
+        }
+        else {
+            type = Optional.empty();
+        }
+
         return new Revoke(
                 getLocation(context),
                 context.OPTION() != null,
                 privileges,
-                context.TABLE() != null,
+                type,
                 getQualifiedName(context.qualifiedName()),
                 getPrincipalSpecification(context.grantee));
     }

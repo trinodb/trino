@@ -88,7 +88,7 @@ public class TestReaderProjectionsAdapter
         Optional<ReaderProjections> readerProjections = projectBaseColumns(columns);
         ReaderProjectionsAdapter adapter = new ReaderProjectionsAdapter(columns, readerProjections.get());
         Page inputPage = createPage(ImmutableList.of(inputBlockData), adapter.getInputTypes());
-        Page outputPage = adapter.adaptPage(inputPage).getLoadedPage();
+        adapter.adaptPage(inputPage).getLoadedPage();
 
         // Verify that only the block corresponding to subfield "col.f_row_0.f_bigint_0" should be completely loaded, others are not.
 

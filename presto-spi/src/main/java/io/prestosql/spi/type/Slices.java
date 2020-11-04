@@ -11,10 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.aggregation.arrayagg;
+package io.prestosql.spi.type;
 
-public enum ArrayAggGroupImplementation
+import io.airlift.slice.Slice;
+
+import java.util.Base64;
+
+import static java.util.Objects.requireNonNull;
+
+final class Slices
 {
-    LEGACY,
-    NEW,
+    private Slices() {}
+
+    public static String sliceRepresentation(Slice slice)
+    {
+        requireNonNull(slice, "slice is null");
+        return "base64:" + Base64.getEncoder().encodeToString(slice.getBytes());
+    }
 }

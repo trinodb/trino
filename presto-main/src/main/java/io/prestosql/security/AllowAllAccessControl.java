@@ -216,6 +216,16 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal revokee, boolean grantOption)
+    {
+    }
+
+    @Override
     public void checkCanGrantTablePrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
     }

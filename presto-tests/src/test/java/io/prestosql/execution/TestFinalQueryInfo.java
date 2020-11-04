@@ -74,7 +74,6 @@ public class TestFinalQueryInfo
                     null,
                     null,
                     ZoneId.of("America/Los_Angeles"),
-                    false,
                     Locale.ENGLISH,
                     ImmutableMap.of(),
                     ImmutableMap.of(),

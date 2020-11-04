@@ -74,6 +74,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
@@ -82,6 +83,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
@@ -716,6 +718,28 @@ public class FileBasedSystemAccessControl
                 .orElse(false);
         if (!allowed) {
             denySetCatalogSessionProperty(propertyName);
+        }
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal grantee, boolean grantOption)
+    {
+        if (!canAccessCatalog(context, schema.getCatalogName(), ALL)) {
+            denyGrantSchemaPrivilege(privilege.name(), schema.toString());
+        }
+        if (!isSchemaOwner(context, schema)) {
+            denyGrantSchemaPrivilege(privilege.name(), schema.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal revokee, boolean grantOption)
+    {
+        if (!canAccessCatalog(context, schema.getCatalogName(), ALL)) {
+            denyRevokeSchemaPrivilege(privilege.name(), schema.toString());
+        }
+        if (!isSchemaOwner(context, schema)) {
+            denyRevokeSchemaPrivilege(privilege.name(), schema.toString());
         }
     }
 

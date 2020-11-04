@@ -30,7 +30,6 @@ public class ExchangeClientConfig
 {
     private DataSize maxBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private int concurrentRequestMultiplier = 3;
-    private Duration minErrorDuration = new Duration(1, TimeUnit.MINUTES);
     private Duration maxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
     private int clientThreads = 25;

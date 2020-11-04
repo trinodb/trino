@@ -408,7 +408,7 @@ public final class TypeOperatorDeclaration
 
         private static InvocationConvention parseInvocationConvention(OperatorType operatorType, Class<?> typeJavaType, Method method, Class<?> expectedReturnType)
         {
-            checkArgument(expectedReturnType.isPrimitive(), "Expected return type must be a primitive: " + expectedReturnType);
+            checkArgument(expectedReturnType.isPrimitive(), "Expected return type must be a primitive: %s", expectedReturnType);
 
             InvocationReturnConvention returnConvention = getReturnConvention(expectedReturnType, operatorType, method);
 

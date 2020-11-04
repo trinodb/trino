@@ -21,9 +21,9 @@ import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
 import static java.lang.Math.floorMod;
 
-public final class TimeWithTimezoneTypes
+public final class TimeWithTimeZoneTypes
 {
-    private TimeWithTimezoneTypes() {}
+    private TimeWithTimeZoneTypes() {}
 
     /**
      * Normalize to offset +00:00. The calculation is done modulo 24h

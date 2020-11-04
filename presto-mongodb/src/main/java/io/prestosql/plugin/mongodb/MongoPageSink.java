@@ -24,7 +24,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorPageSink;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
@@ -81,7 +80,6 @@ public class MongoPageSink
         implements ConnectorPageSink
 {
     private final MongoSession mongoSession;
-    private final ConnectorSession session;
     private final SchemaTableName schemaTableName;
     private final List<MongoColumnHandle> columns;
     private final String implicitPrefix;
@@ -89,12 +87,10 @@ public class MongoPageSink
     public MongoPageSink(
             MongoClientConfig config,
             MongoSession mongoSession,
-            ConnectorSession session,
             SchemaTableName schemaTableName,
             List<MongoColumnHandle> columns)
     {
         this.mongoSession = mongoSession;
-        this.session = session;
         this.schemaTableName = schemaTableName;
         this.columns = columns;
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");

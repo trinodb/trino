@@ -86,9 +86,9 @@ Supported Table Types
 Transactional and ACID Tables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When connecting to a Hive metastore version 3.x, the Hive connector supports reading
-from insert-only and ACID tables, with full support for partitioning and bucketing.
-Writing to and creation of transactional tables is not supported.
+When connecting to a Hive metastore version 3.x, the Hive connector supports
+reading from and writing to insert-only and ACID tables, with full support for
+partitioning and bucketing. Row-level deletes are supported for ACID tables.
 
 ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
 are not supported.
@@ -306,6 +306,8 @@ Property Name                                      Description                  
 ``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/${USER}``
                                                    is used for write operations. The ``${USER}`` placeholder
                                                    can be used to use a different location for each user.
+
+``hive.translate-hive-views``                      Enable translation for Hive views. (experimental)            ``false``
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties

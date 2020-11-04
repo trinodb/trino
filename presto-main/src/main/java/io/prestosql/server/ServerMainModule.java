@@ -124,7 +124,6 @@ import io.prestosql.sql.gen.JoinFilterFunctionCompiler;
 import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.planner.CompilerConfig;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.NodePartitioningManager;
@@ -198,9 +197,6 @@ public class ServerMainModule
         configBinder(binder).bindConfig(FeaturesConfig.class);
 
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
-        SqlParserOptions sqlParserOptions = new SqlParserOptions();
-        sqlParserOptions.useEnhancedErrorHandler(serverConfig.isEnhancedErrorReporting());
-        binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 
@@ -212,6 +208,7 @@ public class ServerMainModule
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(GcMonitor.class).withGeneratedName();
 
         // session properties
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);

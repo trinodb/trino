@@ -221,8 +221,10 @@ public class SymbolMapper
                 frame.getType(),
                 frame.getStartType(),
                 frame.getStartValue().map(this::map),
+                frame.getSortKeyCoercedForFrameStartComparison().map(this::map),
                 frame.getEndType(),
                 frame.getEndValue().map(this::map),
+                frame.getSortKeyCoercedForFrameEndComparison().map(this::map),
                 frame.getOriginalStartValue(),
                 frame.getOriginalEndValue());
     }

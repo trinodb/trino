@@ -20,7 +20,9 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DoubleWriteFunction;
+import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.PredicatePushdownController;
@@ -149,7 +151,7 @@ public class OracleClient
             .put(REAL, WriteMapping.longMapping("binary_float", oracleRealWriteFunction()))
             .put(VARBINARY, WriteMapping.sliceMapping("blob", varbinaryWriteFunction()))
             .put(DATE, WriteMapping.longMapping("date", oracleDateWriteFunction()))
-            .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimezoneWriteFunction()))
+            .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimeZoneWriteFunction()))
             .build();
 
     @Inject
@@ -376,7 +378,7 @@ public class OracleClient
     public static LongWriteFunction oracleTimestampWriteFunction()
     {
         return (statement, index, utcMillis) -> {
-            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(epochMicrosToMillisWithRounding(utcMillis)), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
+            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(epochMicrosToMillisWithRounding(utcMillis)), Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("UTC")))));
         };
     }
 
@@ -402,11 +404,11 @@ public class OracleClient
                             timestamp.toInstant().toEpochMilli(),
                             timestamp.getZone().getId());
                 },
-                oracleTimestampWithTimezoneWriteFunction(),
+                oracleTimestampWithTimeZoneWriteFunction(),
                 OracleClient::fullPushdownIfSupported);
     }
 
-    public static LongWriteFunction oracleTimestampWithTimezoneWriteFunction()
+    public static LongWriteFunction oracleTimestampWithTimeZoneWriteFunction()
     {
         return (statement, index, encodedTimeWithZone) -> {
             Instant time = Instant.ofEpochMilli(unpackMillisUtc(encodedTimeWithZone));
@@ -478,5 +480,16 @@ public class OracleClient
             return writeMapping;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        String sql = format(
+                "COMMENT ON COLUMN %s.%s IS '%s'",
+                quoted(handle.getRemoteTableName()),
+                quoted(column.getColumnName()),
+                comment.orElse(""));
+        execute(identity, sql);
     }
 }

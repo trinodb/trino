@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.session;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Table;
 import io.prestosql.spi.session.SessionConfigurationContext;
 import io.prestosql.spi.session.SessionPropertyConfigurationManager;
 
@@ -21,9 +21,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableTable.toImmutableTable;
 
 public abstract class AbstractSessionPropertyManager
         implements SessionPropertyConfigurationManager
@@ -31,9 +31,8 @@ public abstract class AbstractSessionPropertyManager
     @Override
     public final Map<String, String> getSystemSessionProperties(SessionConfigurationContext context)
     {
-        return getSessionProperties(context)
-                .entrySet()
-                .stream()
+        Map<String, String> sessionProperties = getSessionProperties(context);
+        return sessionProperties.entrySet().stream()
                 .filter(property -> !isCatalogSessionProperty(property))
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
@@ -41,26 +40,14 @@ public abstract class AbstractSessionPropertyManager
     @Override
     public final Map<String, Map<String, String>> getCatalogSessionProperties(SessionConfigurationContext context)
     {
-        Map<String, ImmutableMap.Builder<String, String>> catalogsSessionProperties = new HashMap<>();
-        getSessionProperties(context)
-                .entrySet()
-                .stream()
-                .filter(property -> isCatalogSessionProperty(property))
-                .forEach(catalogProperty -> {
-                    String[] property = catalogProperty.getKey().split("\\.", 2);
-                    String propertyCatalog = property[0];
-                    String propertyName = property[1];
-                    catalogsSessionProperties.compute(propertyCatalog, (catalog, properties) -> {
-                        ImmutableMap.Builder<String, String> catalogPropertiesBuilder =
-                                Optional.ofNullable(properties).orElseGet(ImmutableMap::builder);
-                        catalogPropertiesBuilder.put(propertyName, catalogProperty.getValue());
-                        return catalogPropertiesBuilder;
-                    });
-                });
-        return catalogsSessionProperties
-                .entrySet()
-                .stream()
-                .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().build()));
+        Map<String, String> sessionProperties = getSessionProperties(context);
+        Table<String, String, String> catalogsSessionProperties = sessionProperties.entrySet().stream()
+                .filter(AbstractSessionPropertyManager::isCatalogSessionProperty)
+                .collect(toImmutableTable(
+                        catalogProperty -> catalogProperty.getKey().split("\\.", 2)[0],
+                        catalogProperty -> catalogProperty.getKey().split("\\.", 2)[1],
+                        Entry::getValue));
+        return catalogsSessionProperties.rowMap();
     }
 
     protected abstract List<SessionMatchSpec> getSessionMatchSpecs();

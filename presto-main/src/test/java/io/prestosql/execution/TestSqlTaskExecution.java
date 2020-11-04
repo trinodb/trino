@@ -762,7 +762,7 @@ public class TestSqlTaskExecution
             checkState(!overallNoMoreOperators, "noMoreOperators() has been called");
             checkState(!driverGroupsWithNoMoreOperators.contains(driverContext.getLifespan()), "noMoreOperators(lifespan) has been called");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, TestingScanOperator.class.getSimpleName());
-            return new TestingScanOperator(operatorContext, sourceId, driverContext.getLifespan());
+            return new TestingScanOperator(operatorContext, sourceId);
         }
 
         @Override
@@ -798,7 +798,6 @@ public class TestSqlTaskExecution
         {
             private final OperatorContext operatorContext;
             private final PlanNodeId planNodeId;
-            private final Lifespan lifespan;
 
             private final SettableFuture<?> blocked = SettableFuture.create();
 
@@ -808,12 +807,10 @@ public class TestSqlTaskExecution
 
             public TestingScanOperator(
                     OperatorContext operatorContext,
-                    PlanNodeId planNodeId,
-                    Lifespan lifespan)
+                    PlanNodeId planNodeId)
             {
                 this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
                 this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-                this.lifespan = requireNonNull(lifespan, "lifespan is null");
             }
 
             @Override

@@ -84,10 +84,9 @@ public class MultimapAggregationFunction
             Block.class,
             int.class);
     private static final int EXPECTED_ENTRY_SIZE = 100;
-    private final MultimapAggGroupImplementation groupMode;
     private final BlockTypeOperators blockTypeOperators;
 
-    public MultimapAggregationFunction(MultimapAggGroupImplementation groupMode, BlockTypeOperators blockTypeOperators)
+    public MultimapAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
         super(
                 new FunctionMetadata(
@@ -108,7 +107,6 @@ public class MultimapAggregationFunction
                         AGGREGATE),
                 true,
                 true);
-        this.groupMode = requireNonNull(groupMode, "groupMode is null");
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
@@ -149,7 +147,7 @@ public class MultimapAggregationFunction
                 ImmutableList.of(new AccumulatorStateDescriptor(
                         MultimapAggregationState.class,
                         stateSerializer,
-                        new MultimapAggregationStateFactory(keyType, valueType, groupMode))),
+                        new MultimapAggregationStateFactory(keyType, valueType))),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);

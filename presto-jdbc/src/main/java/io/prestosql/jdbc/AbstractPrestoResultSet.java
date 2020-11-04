@@ -86,7 +86,7 @@ abstract class AbstractPrestoResultSet
     private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
     private static final Pattern TIME_WITH_TIME_ZONE_PATTERN = Pattern.compile("" +
             "(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?" +
-            "[ ]?(?<offsetHour>[+-]\\d\\d):(?<offsetMinute>\\d\\d)");
+            "[ ]?(?<sign>[+-])(?<offsetHour>\\d\\d):(?<offsetMinute>\\d\\d)");
 
     private static final long[] POWERS_OF_TEN = {
             1L,
@@ -127,10 +127,10 @@ abstract class AbstractPrestoResultSet
     protected final AtomicBoolean closed = new AtomicBoolean();
     private final Optional<Statement> statement;
 
-    AbstractPrestoResultSet(Optional<Statement> statement, ZoneId resultTimeZone, List<Column> columns, Iterator<List<Object>> results)
+    AbstractPrestoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
-        this.resultTimeZone = DateTimeZone.forID(requireNonNull(resultTimeZone, "resultTimeZone is null").getId());
+        this.resultTimeZone = DateTimeZone.forID(ZoneId.systemDefault().getId());
 
         requireNonNull(columns, "columns is null");
         this.fieldMap = getFieldMap(columns);
@@ -274,7 +274,7 @@ abstract class AbstractPrestoResultSet
             // are not compatible with java.sql.Date.
             LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
             Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
-            calendar.setTimeZone(TimeZone.getTimeZone(localTimeZone.getID()));
+            calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
 
             return new Date(calendar.getTimeInMillis());
         }
@@ -613,7 +613,8 @@ abstract class AbstractPrestoResultSet
             return null;
         }
 
-        return new BigDecimal(String.valueOf(value));
+        return toBigDecimal(String.valueOf(value))
+                .orElseThrow(() -> new SQLException("Value is not a number: " + value));
     }
 
     @Override
@@ -1750,7 +1751,23 @@ abstract class AbstractPrestoResultSet
         if (value instanceof Boolean) {
             return ((Boolean) value) ? 1 : 0;
         }
-        throw new SQLException("Value is not a number: " + value.getClass().getCanonicalName());
+        if (value instanceof String) {
+            Optional<BigDecimal> bigDecimal = toBigDecimal((String) value);
+            if (bigDecimal.isPresent()) {
+                return bigDecimal.get();
+            }
+        }
+        throw new SQLException("Value is not a number: " + value);
+    }
+
+    private static Optional<BigDecimal> toBigDecimal(String value)
+    {
+        try {
+            return Optional.of(new BigDecimal(value));
+        }
+        catch (NumberFormatException ne) {
+            return Optional.empty();
+        }
     }
 
     static SQLException resultsException(QueryStatusInfo results)
@@ -1874,6 +1891,7 @@ abstract class AbstractPrestoResultSet
         int hour = Integer.parseInt(matcher.group("hour"));
         int minute = Integer.parseInt(matcher.group("minute"));
         int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+        int offsetSign = matcher.group("sign").equals("+") ? 1 : -1;
         int offsetHour = Integer.parseInt((matcher.group("offsetHour")));
         int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
 
@@ -1896,9 +1914,15 @@ abstract class AbstractPrestoResultSet
         }
 
         long epochMilli = (hour * 3600 + minute * 60 + second) * MILLISECONDS_PER_SECOND + rescale(fractionValue, precision, 3);
-        epochMilli -= (offsetHour * 60 + offsetMinute) * MILLISECONDS_PER_MINUTE;
+
+        epochMilli -= calculateOffsetMinutes(offsetSign, offsetHour, offsetMinute) * MILLISECONDS_PER_MINUTE;
 
         return new Time(epochMilli);
+    }
+
+    public static int calculateOffsetMinutes(int sign, int offsetHour, int offsetMinute)
+    {
+        return sign * (offsetHour * 60 + offsetMinute);
     }
 
     private static long rescale(long value, int fromPrecision, int toPrecision)
@@ -1939,6 +1963,7 @@ abstract class AbstractPrestoResultSet
 
     private static boolean isValidOffset(int hour, int minute)
     {
-        return (hour == 14 && minute == 0 || hour < 14) && (hour == -14 && minute == 0 || hour > -14) && minute >= 0 && minute <= 59;
+        return (hour == 14 && minute == 0) ||
+                (hour >= 0 && hour < 14 && minute >= 0 && minute <= 59);
     }
 }

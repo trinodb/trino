@@ -18,6 +18,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.NamedTypeSignature;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
@@ -49,7 +50,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
@@ -113,7 +113,7 @@ public final class HiveTypeTranslator
         if (DATE.equals(type)) {
             return HIVE_DATE.getTypeInfo();
         }
-        if (TIMESTAMP_MILLIS.equals(type)) {
+        if (type instanceof TimestampType) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof DecimalType) {

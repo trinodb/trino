@@ -20,7 +20,6 @@ import io.prestosql.parquet.writer.repdef.DefLevelIterables;
 import io.prestosql.parquet.writer.repdef.RepLevelIterable;
 import io.prestosql.parquet.writer.repdef.RepLevelIterables;
 import io.prestosql.parquet.writer.valuewriter.PrimitiveValueWriter;
-import io.prestosql.spi.type.Type;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -56,7 +55,6 @@ public class PrimitiveColumnWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PrimitiveColumnWriter.class).instanceSize();
 
-    private final Type type;
     private final ColumnDescriptor columnDescriptor;
     private final CompressionCodecName compressionCodec;
 
@@ -90,9 +88,8 @@ public class PrimitiveColumnWriter
 
     private final int pageSizeThreshold;
 
-    public PrimitiveColumnWriter(Type type, ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, RunLengthBitPackingHybridEncoder definitionLevelEncoder, RunLengthBitPackingHybridEncoder repetitionLevelEncoder, CompressionCodecName compressionCodecName, int pageSizeThreshold)
+    public PrimitiveColumnWriter(ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, RunLengthBitPackingHybridEncoder definitionLevelEncoder, RunLengthBitPackingHybridEncoder repetitionLevelEncoder, CompressionCodecName compressionCodecName, int pageSizeThreshold)
     {
-        this.type = requireNonNull(type, "type is null");
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
         this.maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
 

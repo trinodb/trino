@@ -211,7 +211,7 @@ public final class MetadataManager
         functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators);
         functionResolver = new FunctionResolver(this);
 
-        this.procedures = new ProcedureRegistry(this);
+        this.procedures = new ProcedureRegistry();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
@@ -770,7 +770,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        catalogMetadata.getMetadata().finishStatisticsCollection(session.toConnectorSession(), tableHandle.getConnectorHandle(), computedStatistics);
+        catalogMetadata.getMetadata().finishStatisticsCollection(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), computedStatistics);
     }
 
     @Override
@@ -1462,6 +1462,26 @@ public final class MetadataManager
     }
 
     @Override
+    public void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.grantSchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee, grantOption);
+    }
+
+    @Override
+    public void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.revokeSchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee, grantOption);
+    }
+
+    @Override
     public List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
@@ -1707,7 +1727,9 @@ public final class MetadataManager
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, argumentTypes);
+                OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, argumentTypes);
+                operatorNotFound.addSuppressed(e);
+                throw operatorNotFound;
             }
             else {
                 throw e;
@@ -1725,7 +1747,9 @@ public final class MetadataManager
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
+                OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
+                operatorNotFound.addSuppressed(e);
+                throw operatorNotFound;
             }
             throw e;
         }

@@ -34,9 +34,9 @@ import static io.prestosql.type.DateTimes.round;
 import static java.lang.Math.floorMod;
 
 @ScalarOperator(CAST)
-public final class TimestampToTimeWithTimezoneCast
+public final class TimestampToTimeWithTimeZoneCast
 {
-    private TimestampToTimeWithTimezoneCast() {}
+    private TimestampToTimeWithTimeZoneCast() {}
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("time(targetPrecision) with time zone")

@@ -53,9 +53,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -160,7 +158,6 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         this.nulls = new boolean[size];
         this.timestampEncoders = new PrestoTimestampEncoder[size];
 
-        Map<Type, PrestoTimestampEncoder<?>> timestampEncodersBuilder = new HashMap<>();
         // initialize data columns
         for (int i = 0; i < columns.size(); i++) {
             HiveColumnHandle column = columns.get(i);

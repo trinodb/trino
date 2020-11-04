@@ -36,7 +36,6 @@ import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.testing.TestingTransactionHandle;
 import io.prestosql.util.FinalizerService;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -140,8 +139,6 @@ public class BenchmarkNodeScheduler
         @Setup
         public void setup()
         {
-            TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
-
             finalizerService.start();
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
 

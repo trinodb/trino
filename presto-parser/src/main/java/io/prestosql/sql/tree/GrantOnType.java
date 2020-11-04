@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.aggregation.histogram;
+package io.prestosql.sql.tree;
 
-public enum HistogramGroupImplementation
+public enum GrantOnType
 {
-    LEGACY, NEW
+    SCHEMA,
+    TABLE,
+    /**/;
 }

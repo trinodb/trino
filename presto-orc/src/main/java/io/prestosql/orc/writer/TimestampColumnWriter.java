@@ -316,15 +316,6 @@ public class TimestampColumnWriter
         statisticsBuilder = statisticsBuilderSupplier.get();
     }
 
-    private void writeTimestampMillis(Block block)
-    {
-        for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
-                writeMillis(type.getLong(block, i));
-            }
-        }
-    }
-
     private void writeTimestampMicros(Block block)
     {
         for (int i = 0; i < block.getPositionCount(); i++) {
@@ -354,6 +345,7 @@ public class TimestampColumnWriter
                 long seconds = timestamp.getEpochMicros() / MICROSECONDS_PER_SECOND;
                 long microsFraction = floorMod(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
                 long nanosFraction = (microsFraction * NANOSECONDS_PER_MICROSECOND) +
+                        // no rounding since the the data has nanosecond precision, at most
                         (timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND);
 
                 long millis = floorDiv(timestamp.getEpochMicros(), MICROSECONDS_PER_MILLISECOND);

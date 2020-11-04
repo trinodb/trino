@@ -27,12 +27,14 @@ import io.prestosql.spi.function.ScalarOperator;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.Chars.compareChars;
 import static io.prestosql.spi.type.Chars.padSpaces;
+import static io.prestosql.spi.type.Slices.sliceRepresentation;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -97,6 +99,15 @@ public final class CharType
         }
 
         Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
+        if (slice.length() > 0) {
+            if (countCodePoints(slice) > length) {
+                throw new IllegalArgumentException(format("Character count exceeds length limit %s: %s", length, sliceRepresentation(slice)));
+            }
+            if (slice.getByte(slice.length() - 1) == ' ') {
+                throw new IllegalArgumentException(format("Value representation has a trailing space: %s", sliceRepresentation(slice)));
+            }
+        }
+
         return padSpaces(slice, length).toStringUtf8();
     }
 

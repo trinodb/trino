@@ -11,10 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.aggregation.multimapagg;
+package io.prestosql.connector;
 
-public enum MultimapAggGroupImplementation
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.Privilege;
+
+import java.util.Set;
+
+public interface Grants<T>
 {
-    LEGACY,
-    NEW,
+    void grant(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption);
+
+    void revoke(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption);
+
+    boolean isAllowed(String user, T objectName, Privilege privilege);
+
+    boolean canGrant(String user, T objectName, Privilege privilege);
 }

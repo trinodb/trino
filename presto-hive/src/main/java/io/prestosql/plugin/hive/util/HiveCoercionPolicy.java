@@ -54,7 +54,11 @@ public final class HiveCoercionPolicy
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
         Type toType = typeManager.getType(toHiveType.getTypeSignature());
         if (fromType instanceof VarcharType) {
-            return toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);
+            return toType instanceof VarcharType ||
+                    toHiveType.equals(HIVE_BYTE) ||
+                    toHiveType.equals(HIVE_SHORT) ||
+                    toHiveType.equals(HIVE_INT) ||
+                    toHiveType.equals(HIVE_LONG);
         }
         if (toType instanceof VarcharType) {
             return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG);

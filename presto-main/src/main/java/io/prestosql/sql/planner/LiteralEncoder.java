@@ -23,11 +23,17 @@ import io.prestosql.block.BlockSerdeUtil;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.scalar.VarbinaryFunctions;
+import io.prestosql.operator.scalar.timestamp.TimestampToVarcharCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.SqlDate;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -41,6 +47,7 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.TimestampLiteral;
 
 import java.util.List;
 
@@ -59,6 +66,7 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.type.DateTimes.parseTimestampWithTimeZone;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -208,6 +216,38 @@ public final class LiteralEncoder
 
         if (type.equals(DATE)) {
             return new GenericLiteral("DATE", new SqlDate(toIntExact((Long) object)).toString());
+        }
+
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            String representation;
+            if (timestampType.isShort()) {
+                representation = TimestampToVarcharCast.cast(timestampType.getPrecision(), (Long) object).toStringUtf8();
+            }
+            else {
+                representation = TimestampToVarcharCast.cast(timestampType.getPrecision(), (LongTimestamp) object).toStringUtf8();
+            }
+            return new TimestampLiteral(representation);
+        }
+
+        if (type instanceof TimestampWithTimeZoneType) {
+            TimestampWithTimeZoneType timestampWithTimeZoneType = (TimestampWithTimeZoneType) type;
+            String representation;
+            if (timestampWithTimeZoneType.isShort()) {
+                representation = TimestampWithTimeZoneToVarcharCast.cast(timestampWithTimeZoneType.getPrecision(), (long) object).toStringUtf8();
+            }
+            else {
+                representation = TimestampWithTimeZoneToVarcharCast.cast(timestampWithTimeZoneType.getPrecision(), (LongTimestampWithTimeZone) object).toStringUtf8();
+            }
+            if (!object.equals(parseTimestampWithTimeZone(timestampWithTimeZoneType.getPrecision(), representation))) {
+                // Certain (point in time, time zone) pairs cannot be represented as a TIMESTAMP literal, as the literal uses local date/time in given time zone.
+                // Thus, during DST backwards change by e.g. 1 hour, the local time is "repeated" twice and thus one local date/time logically corresponds to two
+                // points in time, leaving one of them non-referencable.
+                // TODO (https://github.com/prestosql/presto/issues/5781) consider treating such values as illegal
+            }
+            else {
+                return new TimestampLiteral(representation);
+            }
         }
 
         // There is no automatic built in encoding for this Presto type, so instead the stack type is

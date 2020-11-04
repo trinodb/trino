@@ -375,6 +375,7 @@ class HiveSplitSource
                         internalSplit.getPartitionKeys(),
                         block.getAddresses(),
                         internalSplit.getBucketNumber(),
+                        internalSplit.getStatementId(),
                         internalSplit.isForceLocalScheduling(),
                         internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),

@@ -55,6 +55,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.operator.SyntheticAddress.decodePosition;
@@ -451,6 +452,12 @@ public class PagesIndex
                 hashChannel,
                 Optional.empty(),
                 blockTypeOperators);
+    }
+
+    public PagesIndexComparator createChannelComparator(int leftChannel, int rightChannel)
+    {
+        checkArgument(types.get(leftChannel).equals(types.get(rightChannel)), "comparing channels of different types: %s and %s", types.get(leftChannel), types.get(rightChannel));
+        return new SimpleChannelComparator(leftChannel, rightChannel, blockTypeOperators.getComparisonOperator(types.get(leftChannel)));
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(

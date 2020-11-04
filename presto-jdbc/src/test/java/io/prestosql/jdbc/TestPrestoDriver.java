@@ -42,6 +42,7 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
 import java.util.List;
@@ -79,7 +80,7 @@ import static org.testng.Assert.fail;
 public class TestPrestoDriver
 {
     private static final DateTimeZone ASIA_ORAL_ZONE = DateTimeZone.forID("Asia/Oral");
-    private static final GregorianCalendar ASIA_ORAL_CALENDAR = new GregorianCalendar(ASIA_ORAL_ZONE.toTimeZone());
+    private static final GregorianCalendar ASIA_ORAL_CALENDAR = new GregorianCalendar(TimeZone.getTimeZone(ZoneId.of(ASIA_ORAL_ZONE.getID())));
     private static final String TEST_CATALOG = "test_catalog";
 
     private TestingPrestoServer server;
@@ -602,25 +603,6 @@ public class TestPrestoDriver
                 assertEquals(rs.getString("zone"), "UTC");
                 // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
                 assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
-            }
-        }
-
-        // legacy mode
-        try (Connection connection = DriverManager.getConnection(format("jdbc:presto://%s?useSessionTimeZone=true", server.getAddress()), "test", null)) {
-            try (Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery(sql)) {
-                assertTrue(rs.next());
-                assertEquals(rs.getString("zone"), defaultZoneKey.getId());
-                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
-            }
-
-            connection.unwrap(PrestoConnection.class).setTimeZoneId("UTC");
-            try (Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery(sql)) {
-                assertTrue(rs.next());
-                assertEquals(rs.getString("zone"), "UTC");
-                // the session timezone is used
-                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, DateTimeZone.UTC).getMillis()));
             }
         }
     }

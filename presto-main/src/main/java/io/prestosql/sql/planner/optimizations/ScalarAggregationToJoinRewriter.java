@@ -51,7 +51,6 @@ public class ScalarAggregationToJoinRewriter
     private final Metadata metadata;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
-    private final Lookup lookup;
     private final PlanNodeDecorrelator planNodeDecorrelator;
 
     public ScalarAggregationToJoinRewriter(Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
@@ -59,7 +58,6 @@ public class ScalarAggregationToJoinRewriter
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-        this.lookup = requireNonNull(lookup, "lookup is null");
         this.planNodeDecorrelator = new PlanNodeDecorrelator(metadata, symbolAllocator, lookup);
     }
 

@@ -40,7 +40,9 @@ public final class OracleQueryRunner
             TestingOracleServer server,
             Map<String, String> extraProperties,
             Iterable<TpchTable<?>> tables,
-            boolean connectionPoolEnabled)
+            // TODO(https://github.com/prestosql/presto/issues/5721) use extraConnectorProperties instead individual parameters
+            boolean connectionPoolEnabled,
+            boolean remarksReportingEnabled)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -58,6 +60,7 @@ public final class OracleQueryRunner
             connectorProperties.putIfAbsent("connection-password", TEST_PASS);
             connectorProperties.putIfAbsent("allow-drop-table", "true");
             connectorProperties.putIfAbsent("oracle.connection-pool.enabled", String.valueOf(connectionPoolEnabled));
+            connectorProperties.putIfAbsent("oracle.remarks-reporting.enabled", String.valueOf(remarksReportingEnabled));
 
             queryRunner.installPlugin(new OraclePlugin());
             queryRunner.createCatalog("oracle", "oracle", connectorProperties);
@@ -89,6 +92,7 @@ public final class OracleQueryRunner
                 new TestingOracleServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables(),
+                false,
                 false);
 
         Logger log = Logger.get(OracleQueryRunner.class);

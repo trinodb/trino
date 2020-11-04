@@ -29,6 +29,7 @@ import io.prestosql.spi.PrestoException;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -98,7 +99,7 @@ public class TestProtoUtils
         assertEquals(storage.getSkewed(), s.isSkewed());
         assertEquals(ProtoUtils.fromProto(storage.getStorageFormat()), s.getStorageFormat());
         assertEquals(storage.getLocation(), s.getLocation());
-        assertEquals(ProtoUtils.fromProto(storage.getBucketProperty()), s.getBucketProperty());
+        assertEquals(ProtoUtils.fromProto(table.getParametersMap(), storage.getBucketProperty()), s.getBucketProperty());
         assertEquals(storage.getStorageFormat().getSerdelibParametersMap(), s.getSerdeParameters());
     }
 
@@ -115,7 +116,7 @@ public class TestProtoUtils
     public void testBucketProperty()
     {
         alluxio.grpc.table.layout.hive.HiveBucketProperty.Builder bucketProperty = TestingAlluxioMetastoreObjects.getTestingHiveBucketProperty();
-        Optional<HiveBucketProperty> bp = ProtoUtils.fromProto(bucketProperty.build());
+        Optional<HiveBucketProperty> bp = ProtoUtils.fromProto(TestingAlluxioMetastoreObjects.getTestingTableInfo().getParametersMap(), bucketProperty.build());
         assertTrue(bp.isPresent());
         assertEquals(Collections.singletonList(ProtoUtils.fromProto(TestingAlluxioMetastoreObjects.getTestingSortingColumn().build())),
                 bp.get().getSortedBy());
@@ -129,12 +130,13 @@ public class TestProtoUtils
     {
         alluxio.grpc.table.layout.hive.HiveBucketProperty.Builder bucketProperty = TestingAlluxioMetastoreObjects.getTestingHiveBucketProperty();
         bucketProperty.clearBucketCount();
-        Optional<HiveBucketProperty> bp = ProtoUtils.fromProto(bucketProperty.build());
+        Map<String, String> tableParameters = TestingAlluxioMetastoreObjects.getTestingTableInfo().getParametersMap();
+        Optional<HiveBucketProperty> bp = ProtoUtils.fromProto(tableParameters, bucketProperty.build());
         assertFalse(bp.isPresent());
 
         bucketProperty = TestingAlluxioMetastoreObjects.getTestingHiveBucketProperty();
         bucketProperty.setBucketCount(0);
-        bp = ProtoUtils.fromProto(bucketProperty.build());
+        bp = ProtoUtils.fromProto(tableParameters, bucketProperty.build());
         assertFalse(bp.isPresent());
     }
 
@@ -189,7 +191,7 @@ public class TestProtoUtils
         assertEquals(storage.getSkewed(), s.isSkewed());
         assertEquals(ProtoUtils.fromProto(storage.getStorageFormat()), s.getStorageFormat());
         assertEquals(storage.getLocation(), s.getLocation());
-        assertEquals(ProtoUtils.fromProto(storage.getBucketProperty()), s.getBucketProperty());
+        assertEquals(ProtoUtils.fromProto(partitionInfo.getParametersMap(), storage.getBucketProperty()), s.getBucketProperty());
         assertEquals(storage.getStorageFormat().getSerdelibParametersMap(), s.getSerdeParameters());
     }
 }

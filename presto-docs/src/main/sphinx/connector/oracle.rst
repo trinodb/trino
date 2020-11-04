@@ -20,6 +20,12 @@ properties in the file:
     connection-user=root
     connection-password=secret
 
+.. note::
+    Oracle does not expose metadata comment via ``REMARKS`` column by default
+    in JDBC driver. You can enable it using ``oracle.remarks-reporting.enabled`` config option. See `Additional Oracle Performance Extensions
+    <https://docs.oracle.com/en/database/oracle/oracle-database/19/jjdbc/performance-extensions.html#GUID-96A38C6D-A288-4E0B-9F03-E711C146632B>`_
+    for more details.
+
 By default, the Oracle connector uses connection pooling for performance
 improvement. The below configuration shows the typical default values. To update
 them, change the properties in the catalog configuration file:
@@ -49,7 +55,7 @@ sales.
 Querying Oracle
 ---------------
 
-The Oracle connector provides a schema for every Oracle database. 
+The Oracle connector provides a schema for every Oracle database.
 
 Run ``SHOW SCHEMAS`` to see the available Oracle databases::
 
@@ -159,9 +165,9 @@ For example:
 
 - If ``unsupported-type.handling`` is set to ``FAIL``, then the
   querying of an unsupported table fails.
-- If ``unsupported-type.handling`` is set to ``IGNORE``, 
+- If ``unsupported-type.handling`` is set to ``IGNORE``,
   then you can't see the unsupported types in Presto.
-- If ``unsupported-type.handling`` is set to ``CONVERT_TO_VARCHAR``, 
+- If ``unsupported-type.handling`` is set to ``CONVERT_TO_VARCHAR``,
   then the column is exposed as unbounded ``VARCHAR``.
 
 Presto to Oracle type mapping
@@ -234,13 +240,13 @@ An Oracle ``NUMBER(p, s)`` maps to Presto's ``DECIMAL(p, s)`` except in these
 conditions:
 
 - No precision is specified for the column (example: ``NUMBER`` or
-  ``NUMBER(*)``), unless ``oracle.number.default-scale`` is set. 
-- Scale (``s`` ) is greater than precision. 
-- Precision (``p`` ) is greater than 38. 
+  ``NUMBER(*)``), unless ``oracle.number.default-scale`` is set.
+- Scale (``s`` ) is greater than precision.
+- Precision (``p`` ) is greater than 38.
 - Scale is negative and the difference between ``p`` and ``s`` is greater than
   38, unless ``oracle.number.rounding-mode`` is set to a different value than
-  ``UNNECESSARY``. 
-   
+  ``UNNECESSARY``.
+
 If ``s`` is negative, ``NUMBER(p, s)`` maps to ``DECIMAL(p + s, 0)``.
 
 For Oracle ``NUMBER`` (without precision and scale), you can change
@@ -308,19 +314,19 @@ Type mapping configuration properties
 
     - ``IGNORE``
   * - ``oracle.number.default-scale``
-    - ``number_default_scale``               
-    - Default Presto ``DECIMAL`` scale for Oracle ``NUMBER`` (without precision 
-      and scale) date type. When not set then such column is treated as not 
+    - ``number_default_scale``
+    - Default Presto ``DECIMAL`` scale for Oracle ``NUMBER`` (without precision
+      and scale) date type. When not set then such column is treated as not
       supported.
     - not set
   * - ``oracle.number.rounding-mode``
     - ``number_rounding_mode``
-    - Rounding mode for the Oracle ``NUMBER`` data type. This is useful when 
-      Oracle ``NUMBER`` data type specifies higher scale than is supported in 
+    - Rounding mode for the Oracle ``NUMBER`` data type. This is useful when
+      Oracle ``NUMBER`` data type specifies higher scale than is supported in
       Presto. Possible values are:
 
-      - ``UNNECESSARY`` - Rounding mode to assert that the 
-        requested operation has an exact result, 
+      - ``UNNECESSARY`` - Rounding mode to assert that the
+        requested operation has an exact result,
         hence no rounding is necessary.
       - ``CEILING`` - Rounding mode to round towards
         positive infinity.
@@ -345,7 +351,7 @@ Synonyms
 --------
 
 Based on performance reasons, Presto disables support for Oracle ``SYNONYM``. To
-include ``SYNONYM``, add the following configuration property: 
+include ``SYNONYM``, add the following configuration property:
 
 .. code-block:: none
 

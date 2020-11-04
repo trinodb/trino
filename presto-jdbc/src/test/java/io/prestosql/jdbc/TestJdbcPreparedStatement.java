@@ -617,7 +617,7 @@ public class TestJdbcPreparedStatement
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp));
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, null));
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()));
-        assertParameter(sameInstantInWarsawZone, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone("Europe/Warsaw"))));
+        assertParameter(sameInstantInWarsawZone, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))));
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlTimestamp));
         assertParameter(new Timestamp(sqlDate.getTime()), Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP));
         assertParameter(new Timestamp(sqlTime.getTime()), Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP));

@@ -20,6 +20,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DecimalModule;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
@@ -38,6 +39,7 @@ public class MemSqlClientModule
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MemSqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(MemSqlConfig.class);
+        binder.install(new DecimalModule());
     }
 
     @Provides

@@ -293,6 +293,18 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantSchemaPrivilege(context, privilege, schema, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal revokee, boolean grantOption)
+    {
+        delegate().checkCanRevokeSchemaPrivilege(context, privilege, schema, revokee, grantOption);
+    }
+
+    @Override
     public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean grantOption)
     {
         delegate().checkCanGrantTablePrivilege(context, privilege, table, grantee, grantOption);

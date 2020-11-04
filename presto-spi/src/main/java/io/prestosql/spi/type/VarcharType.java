@@ -28,11 +28,14 @@ import io.prestosql.spi.function.ScalarOperator;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.Slices.sliceRepresentation;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Character.MAX_CODE_POINT;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
 
@@ -126,7 +129,11 @@ public final class VarcharType
             return null;
         }
 
-        return block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
+        Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
+        if (!isUnbounded() && countCodePoints(slice) > length) {
+            throw new IllegalArgumentException(format("Character count exceeds length limit %s: %s", length, sliceRepresentation(slice)));
+        }
+        return slice.toStringUtf8();
     }
 
     @Override

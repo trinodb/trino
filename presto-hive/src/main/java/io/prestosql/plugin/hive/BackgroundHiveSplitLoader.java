@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.Table;
@@ -132,6 +133,7 @@ public class BackgroundHiveSplitLoader
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
     private final Table table;
+    private final AcidTransaction transaction;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringProbeBlockingTimeoutMillis;
@@ -173,6 +175,7 @@ public class BackgroundHiveSplitLoader
 
     public BackgroundHiveSplitLoader(
             Table table,
+            AcidTransaction transaction,
             Iterable<HivePartitionMetadata> partitions,
             TupleDomain<? extends ColumnHandle> compactEffectivePredicate,
             DynamicFilter dynamicFilter,
@@ -190,6 +193,7 @@ public class BackgroundHiveSplitLoader
             Optional<ValidWriteIdList> validWriteIds)
     {
         this.table = table;
+        this.transaction = requireNonNull(transaction, "tranaction is null");
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.dynamicFilter = dynamicFilter;
         this.dynamicFilteringProbeBlockingTimeoutMillis = dynamicFilteringProbeBlockingTimeout.toMillis();
@@ -396,7 +400,8 @@ public class BackgroundHiveSplitLoader
                         Optional.empty(),
                         getMaxInitialSplitSize(session),
                         isForceLocalScheduling(session),
-                        s3SelectPushdownEnabled);
+                        s3SelectPushdownEnabled,
+                        transaction);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
                 if (stopped) {
                     return COMPLETED_FUTURE;
@@ -435,7 +440,8 @@ public class BackgroundHiveSplitLoader
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
-                s3SelectPushdownEnabled);
+                s3SelectPushdownEnabled,
+                transaction);
 
         // To support custom input formats, we want to call getSplits()
         // on the input format to obtain file splits.

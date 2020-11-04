@@ -197,6 +197,7 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.SortItem.Ordering;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.FunctionType;
@@ -286,6 +287,8 @@ import static io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
 import static io.prestosql.util.Reflection.constructorMethodHandle;
 import static io.prestosql.util.SpatialJoinUtils.ST_CONTAINS;
 import static io.prestosql.util.SpatialJoinUtils.ST_DISTANCE;
@@ -950,20 +953,43 @@ public class LocalExecutionPlanner
             ImmutableList.Builder<Symbol> windowFunctionOutputSymbolsBuilder = ImmutableList.builder();
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Optional<Integer> frameStartChannel = Optional.empty();
+                Optional<Integer> sortKeyChannelForStartComparison = Optional.empty();
                 Optional<Integer> frameEndChannel = Optional.empty();
+                Optional<Integer> sortKeyChannelForEndComparison = Optional.empty();
+                Optional<Integer> sortKeyChannel = Optional.empty();
+                Optional<Ordering> ordering = Optional.empty();
 
                 Frame frame = entry.getValue().getFrame();
                 if (frame.getStartValue().isPresent()) {
                     frameStartChannel = Optional.of(source.getLayout().get(frame.getStartValue().get()));
                 }
+                if (frame.getSortKeyCoercedForFrameStartComparison().isPresent()) {
+                    sortKeyChannelForStartComparison = Optional.of(source.getLayout().get(frame.getSortKeyCoercedForFrameStartComparison().get()));
+                }
                 if (frame.getEndValue().isPresent()) {
                     frameEndChannel = Optional.of(source.getLayout().get(frame.getEndValue().get()));
                 }
+                if (frame.getSortKeyCoercedForFrameEndComparison().isPresent()) {
+                    sortKeyChannelForEndComparison = Optional.of(source.getLayout().get(frame.getSortKeyCoercedForFrameEndComparison().get()));
+                }
+                if (node.getOrderingScheme().isPresent()) {
+                    sortKeyChannel = Optional.of(sortChannels.get(0));
+                    ordering = Optional.of(sortOrder.get(0).isAscending() ? ASCENDING : DESCENDING);
+                }
 
-                FrameInfo frameInfo = new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel);
+                FrameInfo frameInfo = new FrameInfo(
+                        frame.getType(),
+                        frame.getStartType(),
+                        frameStartChannel,
+                        sortKeyChannelForStartComparison,
+                        frame.getEndType(),
+                        frameEndChannel,
+                        sortKeyChannelForEndComparison,
+                        sortKeyChannel,
+                        ordering);
 
                 WindowNode.Function function = entry.getValue();
-                ResolvedFunction resolvedFunction = entry.getValue().getResolvedFunction();
+                ResolvedFunction resolvedFunction = function.getResolvedFunction();
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
                 for (Expression argument : function.getArguments()) {
                     if (!(argument instanceof LambdaExpression)) {

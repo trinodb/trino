@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -82,6 +83,12 @@ public class HiveBasicStatistics
     public OptionalLong getOnDiskDataSizeInBytes()
     {
         return onDiskDataSizeInBytes;
+    }
+
+    public HiveBasicStatistics withAdjustedRowCount(long adjustment)
+    {
+        checkArgument(rowCount.isPresent(), "rowCount isn't present");
+        return new HiveBasicStatistics(fileCount, OptionalLong.of(rowCount.getAsLong() + adjustment), inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
     }
 
     @Override

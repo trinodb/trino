@@ -107,7 +107,7 @@ import static io.prestosql.block.BlockAssertions.createRowBlock;
 import static io.prestosql.block.BlockAssertions.createShortDecimalsBlock;
 import static io.prestosql.block.BlockAssertions.createSlicesBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
-import static io.prestosql.block.BlockAssertions.createTimestampsWithTimezoneBlock;
+import static io.prestosql.block.BlockAssertions.createTimestampsWithTimeZoneBlock;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -161,7 +161,7 @@ public final class FunctionAssertions
             createLongsBlock(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
             createStringsBlock("%el%"),
             createStringsBlock((String) null),
-            createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
+            createTimestampsWithTimeZoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
             createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)),
             createIntsBlock(1234),
             TEST_ROW_DATA,

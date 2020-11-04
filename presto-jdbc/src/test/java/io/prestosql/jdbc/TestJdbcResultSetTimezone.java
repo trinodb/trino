@@ -215,7 +215,7 @@ public class TestJdbcResultSetTimezone
         assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp));
         assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, null));
         assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()));
-        assertParameter(sameInstantInWarsawZone, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone("Europe/Warsaw"))));
+        assertParameter(sameInstantInWarsawZone, sessionTimezoneId, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))));
         assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTimestamp));
         assertParameter(new Timestamp(sqlDate.getTime()), sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP));
         assertParameter(new Timestamp(sqlTime.getTime()), sessionTimezoneId, (ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP));
@@ -272,7 +272,7 @@ public class TestJdbcResultSetTimezone
 
     private Calendar getCalendar()
     {
-        return Calendar.getInstance(TimeZone.getTimeZone(OTHER_TIMEZONE));
+        return Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of(OTHER_TIMEZONE)));
     }
 
     private ZoneId getZoneId()

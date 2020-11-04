@@ -43,12 +43,14 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -76,7 +78,7 @@ public class IcebergOrcFileWriter
             OrcWriteValidation.OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        super(orcDataSink, rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, writeLegacyVersion, fileInputColumnIndexes, metadata, validationInputFactory, validationMode, stats);
+        super(orcDataSink, NO_ACID_TRANSACTION, false, OptionalInt.empty(), rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, writeLegacyVersion, fileInputColumnIndexes, metadata, validationInputFactory, validationMode, stats);
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         orcColumns = fileColumnOrcTypes;
     }

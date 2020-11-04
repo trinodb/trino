@@ -16,10 +16,8 @@ package io.prestosql.operator.aggregation;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.GroupByIdBlock;
 import io.prestosql.operator.aggregation.groupby.GroupByAggregationTestUtils;
-import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -72,10 +70,6 @@ public class BenchmarkGroupedTypedHistogram
         //        @Param({"1", "5", "50"})
         @Param("32") // size of entries--we have no idea here, could be 8 long (common in anecdotal) or longer strings
         private int rowSize;
-        @Param("0.5f") // found slight benefit over 0.75, the canonical starting point
-        private float mainFillRatio;
-        @Param("0.5f") // found slight benefit over 0.75, the canonical starting point
-        private float valueStoreFillRatio;
         // these must be manually set in each class now; the mechanism to change and test was removed; the enum was kept in case we want to revisit. Retesting showed linear was superior
         //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
 //        @Param({"LINEAR"}) // found to be best, by about 10-15%
@@ -83,9 +77,6 @@ public class BenchmarkGroupedTypedHistogram
 //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
 //        @Param({"LINEAR"}) // found to best
 //        private ProbeType valueStoreProbeType;
-//        //        @Param({"NEW"})
-        @Param({"NEW", "LEGACY"})
-        private HistogramGroupImplementation histogramGroupImplementation;
 
         private final Random random = new Random();
         private Page[] pages;
@@ -124,8 +115,7 @@ public class BenchmarkGroupedTypedHistogram
                 groupByIdBlocks[j] = groupByIdBlock;
             }
 
-            InternalAggregationFunction aggregationFunction =
-                    getInternalAggregationFunctionVarChar(histogramGroupImplementation);
+            InternalAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
             groupedAccumulator = createGroupedAccumulator(aggregationFunction);
         }
 
@@ -152,16 +142,10 @@ public class BenchmarkGroupedTypedHistogram
         return groupedAccumulator;
     }
 
-    private static InternalAggregationFunction getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
+    private static InternalAggregationFunction getInternalAggregationFunctionVarChar()
     {
-        Metadata metadata = getMetadata(groupMode);
+        Metadata metadata = createTestMetadataManager();
         return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(VARCHAR)));
-    }
-
-    private static Metadata getMetadata(HistogramGroupImplementation groupMode)
-    {
-        return createTestMetadataManager(new FeaturesConfig()
-                .setHistogramGroupImplementation(groupMode));
     }
 
     public static void main(String[] args)

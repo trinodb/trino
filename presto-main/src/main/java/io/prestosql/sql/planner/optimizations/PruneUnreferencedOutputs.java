@@ -130,7 +130,7 @@ public class PruneUnreferencedOutputs
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, types, typeAnalyzer, symbolAllocator, session), plan, ImmutableSet.of());
+        return SimplePlanRewriter.rewriteWith(new Rewriter(metadata, types, session), plan, ImmutableSet.of());
     }
 
     private static class Rewriter
@@ -138,16 +138,12 @@ public class PruneUnreferencedOutputs
     {
         private final Metadata metadata;
         private final TypeProvider types;
-        private final TypeAnalyzer typeAnalyzer;
-        private final SymbolAllocator symbolAllocator;
         private final Session session;
 
-        public Rewriter(Metadata metadata, TypeProvider types, TypeAnalyzer typeAnalyzer, SymbolAllocator symbolAllocator, Session session)
+        public Rewriter(Metadata metadata, TypeProvider types, Session session)
         {
             this.metadata = metadata;
             this.types = types;
-            this.typeAnalyzer = typeAnalyzer;
-            this.symbolAllocator = symbolAllocator;
             this.session = session;
         }
 

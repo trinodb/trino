@@ -102,6 +102,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -122,7 +123,6 @@ import static org.testng.Assert.fail;
 public class TestBackgroundHiveSplitLoader
 {
     private static final int BUCKET_COUNT = 2;
-    private static final int TIMESTAMP_PRECISION = 3;
 
     private static final String SAMPLE_PATH = "hdfs://VOL1:9000/db_name/table_name/000000_0";
     private static final String SAMPLE_PATH_FILTERED = "hdfs://VOL1:9000/db_name/table_name/000000_1";
@@ -321,7 +321,7 @@ public class TestBackgroundHiveSplitLoader
                 PARTITIONED_TABLE,
                 Optional.of(
                         new HiveBucketHandle(
-                                getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER, TIMESTAMP_PRECISION),
+                                getRegularColumnHandles(PARTITIONED_TABLE, TYPE_MANAGER, HiveTimestampPrecision.MILLISECONDS),
                                 BUCKETING_V1,
                                 BUCKET_COUNT,
                                 BUCKET_COUNT)));
@@ -499,6 +499,7 @@ public class TestBackgroundHiveSplitLoader
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
+                NO_ACID_TRANSACTION,
                 () -> new Iterator<>()
                 {
                     private boolean threw;
@@ -870,6 +871,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 table,
+                NO_ACID_TRANSACTION,
                 hivePartitionMetadatas,
                 compactEffectivePredicate,
                 dynamicFilter,
@@ -900,6 +902,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
+                NO_ACID_TRANSACTION,
                 hivePartitionMetadatas,
                 TupleDomain.none(),
                 DynamicFilter.EMPTY,
@@ -924,6 +927,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
+                NO_ACID_TRANSACTION,
                 createPartitionMetadataWithOfflinePartitions(),
                 TupleDomain.all(),
                 DynamicFilter.EMPTY,

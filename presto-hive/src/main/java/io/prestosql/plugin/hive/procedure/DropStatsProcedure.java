@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -129,7 +130,8 @@ public class DropStatsProcedure
                         new HiveIdentity(session.getIdentity()),
                         schema,
                         table,
-                        stats -> PartitionStatistics.empty());
+                        stats -> PartitionStatistics.empty(),
+                        NO_ACID_TRANSACTION);
             }
             else {
                 // the table is partitioned; remove stats for every partition

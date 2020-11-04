@@ -32,6 +32,7 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.ReaderProjections;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -60,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 
@@ -78,7 +80,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
-import static io.prestosql.plugin.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isParquetIgnoreStatistics;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.ReaderProjections.projectSufficientColumns;
@@ -123,7 +125,10 @@ public class ParquetPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();
@@ -144,7 +149,7 @@ public class ParquetPageSourceFactory
                 session.getUser(),
                 timeZone,
                 stats,
-                options.withFailOnCorruptedStatistics(isFailOnCorruptedParquetStatistics(session))
+                options.withIgnoreStatistics(isParquetIgnoreStatistics(session))
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))));
     }
 
@@ -205,12 +210,14 @@ public class ParquetPageSourceFactory
             }
 
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate, fileSchema, useColumnNames);
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics()
+                    ? TupleDomain.all()
+                    : getParquetTupleDomain(descriptorsByPath, effectivePredicate, fileSchema, useColumnNames);
 
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
-                if (predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, options.isFailOnCorruptedStatistics())) {
+                if (predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain)) {
                     blocks.add(block);
                 }
             }
