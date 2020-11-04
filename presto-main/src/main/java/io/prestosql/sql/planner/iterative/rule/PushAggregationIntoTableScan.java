@@ -35,8 +35,8 @@ import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.AggregationNode.GroupingSetDescriptor;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Expression;
@@ -109,27 +109,36 @@ public class PushAggregationIntoTableScan
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
-        TableScanNode tableScan = captures.get(TABLE_SCAN);
+        return pushAggregationIntoTableScan(metadata, context, captures.get(TABLE_SCAN), node.getAggregations(), node.getGroupingSets().getGroupingKeys())
+                .map(Rule.Result::ofPlanNode)
+                .orElseGet(Rule.Result::empty);
+    }
+
+    public static Optional<PlanNode> pushAggregationIntoTableScan(
+            Metadata metadata,
+            Context context,
+            TableScanNode tableScan,
+            Map<Symbol, AggregationNode.Aggregation> aggregations,
+            List<Symbol> groupingKeys)
+    {
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Entry::getValue));
 
-        List<Entry<Symbol, AggregationNode.Aggregation>> aggregations = node.getAggregations()
+        List<Entry<Symbol, AggregationNode.Aggregation>> aggregationsList = aggregations
                 .entrySet().stream()
                 .collect(toImmutableList());
 
-        List<AggregateFunction> aggregateFunctions = aggregations.stream()
+        List<AggregateFunction> aggregateFunctions = aggregationsList.stream()
                 .map(Entry::getValue)
                 .map(aggregation -> toAggregateFunction(context, aggregation))
                 .collect(toImmutableList());
 
-        List<Symbol> aggregationOutputSymbols = aggregations.stream()
+        List<Symbol> aggregationOutputSymbols = aggregationsList.stream()
                 .map(Entry::getKey)
                 .collect(toImmutableList());
 
-        GroupingSetDescriptor groupingSets = node.getGroupingSets();
-
-        List<ColumnHandle> groupByColumns = groupingSets.getGroupingKeys().stream()
+        List<ColumnHandle> groupByColumns = groupingKeys.stream()
                 .map(groupByColumn -> assignments.get(groupByColumn.getName()))
                 .collect(toImmutableList());
 
@@ -141,7 +150,7 @@ public class PushAggregationIntoTableScan
                 ImmutableList.of(groupByColumns));
 
         if (aggregationPushdownResult.isEmpty()) {
-            return Result.empty();
+            return Optional.empty();
         }
 
         AggregationApplicationResult<TableHandle> result = aggregationPushdownResult.get();
@@ -176,7 +185,7 @@ public class PushAggregationIntoTableScan
         ImmutableBiMap<Symbol, ColumnHandle> scanAssignments = newScanAssignments.build();
         ImmutableBiMap<ColumnHandle, Symbol> columnHandleToSymbol = scanAssignments.inverse();
         // projections assignmentBuilder should have both agg and group by so we add all the group bys as symbol references
-        groupingSets.getGroupingKeys()
+        groupingKeys
                 .forEach(groupBySymbol -> {
                     // if the connector returned a new mapping from oldColumnHandle to newColumnHandle, groupBy needs to point to
                     // new columnHandle's symbol reference, otherwise it will continue pointing at oldColumnHandle.
@@ -185,7 +194,7 @@ public class PushAggregationIntoTableScan
                     assignmentBuilder.put(groupBySymbol, columnHandleToSymbol.get(groupByColumnHandle).toSymbolReference());
                 });
 
-        return Result.ofPlanNode(
+        return Optional.of(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
                         TableScanNode.newInstance(
