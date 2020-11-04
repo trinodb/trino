@@ -122,6 +122,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String ITERATIVE_COLUMN_PRUNING = "iterative_rule_based_column_pruning";
+    public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite-filtering-semi-join-to-inner-join";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
@@ -541,6 +542,11 @@ public final class SystemSessionProperties
                         ITERATIVE_COLUMN_PRUNING,
                         "Use iterative rules to prune unreferenced columns",
                         featuresConfig.isIterativeRuleBasedColumnPruning(),
+                        false),
+                booleanProperty(
+                        FILTERING_SEMI_JOIN_TO_INNER,
+                        "Rewrite semi join in filtering context to inner join",
+                        featuresConfig.isRewriteFilteringSemiJoinToInnerJoin(),
                         false),
                 integerProperty(
                         REQUIRED_WORKERS_COUNT,
@@ -987,6 +993,11 @@ public final class SystemSessionProperties
     public static boolean isIterativeRuleBasedColumnPruning(Session session)
     {
         return session.getSystemProperty(ITERATIVE_COLUMN_PRUNING, Boolean.class);
+    }
+
+    public static boolean isRewriteFilteringSemiJoinToInnerJoin(Session session)
+    {
+        return session.getSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, Boolean.class);
     }
 
     public static int getRequiredWorkers(Session session)
