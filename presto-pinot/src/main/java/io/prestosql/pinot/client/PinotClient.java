@@ -60,17 +60,18 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
-import static io.prestosql.pinot.PinotMetrics.doWithRetries;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.pinot.common.config.TableNameBuilder.extractRawTableName;
@@ -482,5 +483,25 @@ public class PinotClient
             indices[i] = columnIndices.get(columnHandles.get(i).getColumnName());
         }
         return new ResultsIterator(resultTable, indices);
+    }
+
+    public static <T> T doWithRetries(int retries, Function<Integer, T> caller)
+    {
+        PinotException firstError = null;
+        checkState(retries > 0, "Invalid num of retries %d", retries);
+        for (int i = 0; i < retries; ++i) {
+            try {
+                return caller.apply(i);
+            }
+            catch (PinotException e) {
+                if (firstError == null) {
+                    firstError = e;
+                }
+                if (!e.isRetriable()) {
+                    throw e;
+                }
+            }
+        }
+        throw firstError;
     }
 }
