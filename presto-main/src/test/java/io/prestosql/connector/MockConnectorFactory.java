@@ -84,8 +84,8 @@ public class MockConnectorFactory
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
-        this.getColumns = getColumns;
-        this.applyProjection = applyProjection;
+        this.getColumns = requireNonNull(getColumns, "getColumns is null");
+        this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
@@ -132,13 +132,22 @@ public class MockConnectorFactory
     @FunctionalInterface
     public interface ApplyProjection
     {
-        Optional<ProjectionApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
+        Optional<ProjectionApplicationResult<ConnectorTableHandle>> apply(
+                ConnectorSession session,
+                ConnectorTableHandle handle,
+                List<ConnectorExpression> projections,
+                Map<String, ColumnHandle> assignments);
     }
 
     @FunctionalInterface
     public interface ApplyTopN
     {
-        Optional<TopNApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments);
+        Optional<TopNApplicationResult<ConnectorTableHandle>> apply(
+                ConnectorSession session,
+                ConnectorTableHandle handle,
+                long topNCount,
+                List<SortItem> sortItems,
+                Map<String, ColumnHandle> assignments);
     }
 
     @FunctionalInterface
