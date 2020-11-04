@@ -16,13 +16,21 @@ package io.prestosql.sql.planner.iterative.rule.test;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.spi.connector.TestingColumnHandle;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.Rule.Context;
 import io.prestosql.sql.planner.iterative.Rule.Result;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -52,6 +60,49 @@ public class TestRuleTester
             assertThatThrownBy(() -> ruleAssert.matches(expected))
                     .isInstanceOf(AssertionError.class)
                     .hasMessageMatching("(?s)Plan does not match, expected .* but found .*");
+        }
+    }
+
+    @Test
+    public void testReportNoFire()
+    {
+        try (RuleTester tester = defaultRuleTester()) {
+            RuleAssert ruleAssert = tester.assertThat(
+                    rule(
+                            "testReportNoFire rule",
+                            Pattern.typeOf(PlanNode.class),
+                            (node, captures, context) -> Result.empty()))
+                    .on(p ->
+                            p.values(
+                                    List.of(p.symbol("x")),
+                                    List.of(List.of(expression("1")))));
+
+            PlanMatchPattern expected = values(List.of("whatever"), List.of());
+            assertThatThrownBy(() -> ruleAssert.matches(expected))
+                    .isInstanceOf(AssertionError.class)
+                    .hasMessageMatching("testReportNoFire rule did not fire for:(?s:.*)");
+        }
+    }
+
+    @Test
+    public void testReportNoFireWithTableScan()
+    {
+        try (RuleTester tester = defaultRuleTester()) {
+            RuleAssert ruleAssert = tester.assertThat(
+                    rule(
+                            "testReportNoFireWithTableScan rule",
+                            Pattern.typeOf(PlanNode.class),
+                            (node, captures, context) -> Result.empty()))
+                    .on(p ->
+                            p.tableScan(
+                                    new TableHandle(tester.getCurrentConnectorId(), new TpchTableHandle("nation", 1.0), TestingTransactionHandle.create(), Optional.empty()),
+                                    List.of(p.symbol("x")),
+                                    Map.of(p.symbol("x"), new TestingColumnHandle("column"))));
+
+            PlanMatchPattern expected = values(List.of("whatever"), List.of());
+            assertThatThrownBy(() -> ruleAssert.matches(expected))
+                    .isInstanceOf(AssertionError.class)
+                    .hasMessageMatching("testReportNoFireWithTableScan rule did not fire for:(?s:.*)");
         }
     }
 
