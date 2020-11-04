@@ -42,11 +42,18 @@ pre.literal-block {
 
 a.copybtn {
     opacity: 1.0;
-    width: 1.5em;
-    height: 1.5em;
+    width: 1.1em;
+    height: 1.1em;
+    top: .4em;
+    right: .4em;
+}
+
+.highlight {
+    padding: 1em 0.5em;
 }
 
 .copybtn:hover {
-    opacity: 0.6 !important;
+    opacity: 0.3 !important;
     cursor: pointer;
 }
+
