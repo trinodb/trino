@@ -107,6 +107,18 @@ public final class HiveQueryRunner
             super(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
         }
 
+        @Override
+        public Builder setExtraProperties(Map<String, String> extraProperties)
+        {
+            return (Builder) super.setExtraProperties(extraProperties);
+        }
+
+        @Override
+        public Builder setSingleExtraProperty(String key, String value)
+        {
+            return (Builder) super.setSingleExtraProperty(key, value);
+        }
+
         public Builder setHiveProperties(Map<String, String> hiveProperties)
         {
             this.hiveProperties = ImmutableMap.copyOf(requireNonNull(hiveProperties, "hiveProperties is null"));
@@ -294,9 +306,9 @@ public final class HiveQueryRunner
         }
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setBaseDataDir(baseDataDir)
                 .build();
         Thread.sleep(10);

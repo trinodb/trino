@@ -63,11 +63,11 @@ public class TestHiveDynamicPartitionPruning
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setInitialTables(getTables())
-                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering-probe-blocking-timeout", "1h"))
                 // Reduced partitioned join limit for large DF to enable DF min/max collection with ENABLE_LARGE_DYNAMIC_FILTERS
                 .setSingleExtraProperty("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
                 .setSingleExtraProperty("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
+                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering-probe-blocking-timeout", "1h"))
+                .setInitialTables(getTables())
                 .build();
     }
 
