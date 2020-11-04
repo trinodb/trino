@@ -1419,9 +1419,9 @@
                     <configuration>
                         <!-- Include only required properties to speed up build (https://github.com/git-commit-id/git-commit-id-maven-plugin/issues/462) -->
                         <includeOnlyProperties>
-                            <includeOnlyProperty>^git.build.time$</includeOnlyProperty>
-                            <includeOnlyProperty>^git.commit.id$</includeOnlyProperty>
-                            <includeOnlyProperty>^git.commit.id.describe$</includeOnlyProperty>
+                            <includeOnlyProperty>\Qgit.build.time</includeOnlyProperty>
+                            <includeOnlyProperty>\Qgit.commit.id</includeOnlyProperty>
+                            <includeOnlyProperty>\Qgit.commit.id.describe</includeOnlyProperty>
                         </includeOnlyProperties>
                     </configuration>
                 </plugin>
