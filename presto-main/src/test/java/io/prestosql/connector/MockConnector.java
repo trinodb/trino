@@ -14,6 +14,8 @@
 package io.prestosql.connector;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Connector;
@@ -63,6 +65,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final MockConnectorFactory.ApplyProjection applyProjection;
+    private final MockConnectorFactory.ApplyAggregation applyAggregation;
     private final MockConnectorFactory.ApplyTopN applyTopN;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
@@ -77,6 +80,7 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             MockConnectorFactory.ApplyProjection applyProjection,
+            MockConnectorFactory.ApplyAggregation applyAggregation,
             MockConnectorFactory.ApplyTopN applyTopN,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
@@ -90,6 +94,7 @@ public class MockConnector
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
+        this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
@@ -145,6 +150,17 @@ public class MockConnector
                 Map<String, ColumnHandle> assignments)
         {
             return applyProjection.apply(session, handle, projections, assignments);
+        }
+
+        @Override
+        public Optional<AggregationApplicationResult<ConnectorTableHandle>> applyAggregation(
+                ConnectorSession session,
+                ConnectorTableHandle handle,
+                List<AggregateFunction> aggregates,
+                Map<String, ColumnHandle> assignments,
+                List<List<ColumnHandle>> groupingSets)
+        {
+            return applyAggregation.apply(session, handle, aggregates, assignments, groupingSets);
         }
 
         @Override
