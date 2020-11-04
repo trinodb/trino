@@ -269,6 +269,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s.*)could only be replicated to 0 nodes instead of minReplication")
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
