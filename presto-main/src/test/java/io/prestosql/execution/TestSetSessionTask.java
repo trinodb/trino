@@ -136,8 +136,8 @@ public class TestSetSessionTask
     @Test
     public void testSetSession()
     {
-        testSetSession(new StringLiteral("baz"), "baz");
-        testSetSession(
+        testSetSession("bar", new StringLiteral("baz"), "baz");
+        testSetSession("bar",
                 new FunctionCallBuilder(metadata)
                         .setName(QualifiedName.of("concat"))
                         .addArgument(VARCHAR, new StringLiteral("ban"))
@@ -149,11 +149,11 @@ public class TestSetSessionTask
     @Test
     public void testSetSessionWithValidation()
     {
-        testSetSessionWithValidation(new LongLiteral("0"), "0");
-        testSetSessionWithValidation(new LongLiteral("2"), "2");
+        testSetSession("positive_property", new LongLiteral("0"), "0");
+        testSetSession("positive_property", new LongLiteral("2"), "2");
 
         try {
-            testSetSessionWithValidation(new LongLiteral("-1"), "-1");
+            testSetSession("positive_property", new LongLiteral("-1"), "-1");
             fail();
         }
         catch (PrestoException e) {
@@ -165,7 +165,7 @@ public class TestSetSessionTask
     public void testSetSessionWithInvalidEnum()
     {
         try {
-            testSetSessionWithEnum(new StringLiteral("XL"), "XL");
+            testSetSession("size_property", new StringLiteral("XL"), "XL");
             fail();
         }
         catch (PrestoException e) {
@@ -185,19 +185,9 @@ public class TestSetSessionTask
         testSetSessionWithParameters("bar", functionCall, "banana", ImmutableList.of(new StringLiteral("ana")));
     }
 
-    private void testSetSession(Expression expression, String expectedValue)
+    private void testSetSession(String property, Expression expression, String expectedValue)
     {
-        testSetSessionWithParameters("bar", expression, expectedValue, emptyList());
-    }
-
-    private void testSetSessionWithValidation(Expression expression, String expectedValue)
-    {
-        testSetSessionWithParameters("positive_property", expression, expectedValue, emptyList());
-    }
-
-    private void testSetSessionWithEnum(Expression expression, String expectedValue)
-    {
-        testSetSessionWithParameters("size_property", expression, expectedValue, emptyList());
+        testSetSessionWithParameters(property, expression, expectedValue, emptyList());
     }
 
     private void testSetSessionWithParameters(String property, Expression expression, String expectedValue, List<Expression> parameters)
