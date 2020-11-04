@@ -114,6 +114,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushDeleteIntoConnector;
+import io.prestosql.sql.planner.iterative.rule.PushDistinctLimitIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughFilter;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughJoin;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughProject;
@@ -538,6 +539,7 @@ public class PlanOptimizers
                         .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
                         .add(new PushSampleIntoTableScan(metadata))
                         .add(new PushAggregationIntoTableScan(metadata))
+                        .add(new PushDistinctLimitIntoTableScan(metadata))
                         .build());
         builder.add(pushIntoTableScanOptimizer);
         builder.add(new UnaliasSymbolReferences(metadata));
