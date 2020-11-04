@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
+import static io.prestosql.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static io.prestosql.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
@@ -33,6 +34,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestPrestoDriverUri
@@ -203,6 +205,17 @@ public class TestPrestoDriverUri
 
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(HTTP_PROXY.getKey()), "localhost:5678");
+    }
+
+    @Test
+    public void testUriWithoutCompression()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?disableCompression=true");
+        assertTrue(parameters.isCompressionDisabled());
+
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(DISABLE_COMPRESSION.getKey()), "true");
     }
 
     @Test
