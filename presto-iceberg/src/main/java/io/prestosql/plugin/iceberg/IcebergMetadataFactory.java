@@ -28,6 +28,7 @@ public class IcebergMetadataFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
+    private IcebergCatalogType type = IcebergCatalogType.HIVE;
 
     @Inject
     public IcebergMetadataFactory(
@@ -54,6 +55,16 @@ public class IcebergMetadataFactory
 
     public IcebergMetadata create()
     {
-        return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
+        if (type == IcebergCatalogType.HIVE) {
+            return new IcebergHiveMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
+        }
+        else {
+            return new IcebergHadoopMetadata(hdfsEnvironment, typeManager, commitTaskCodec);
+        }
+    }
+
+    public void setCatalogType(IcebergCatalogType type)
+    {
+        this.type = type;
     }
 }

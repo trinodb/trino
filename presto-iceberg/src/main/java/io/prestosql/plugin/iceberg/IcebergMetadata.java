@@ -50,7 +50,9 @@ import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
@@ -77,13 +79,16 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
+import static io.prestosql.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.prestosql.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getTableComment;
+import static io.prestosql.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.prestosql.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.prestosql.plugin.iceberg.TableType.DATA;
 import static io.prestosql.plugin.iceberg.TypeConverter.toIcebergType;
@@ -93,17 +98,18 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 
 public abstract class IcebergMetadata
         implements ConnectorMetadata
 {
-    protected final HdfsEnvironment hdfsEnvironment;
-    protected final TypeManager typeManager;
+    private final HdfsEnvironment hdfsEnvironment;
+    private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
 
     private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
 
-    protected Transaction transaction;
+    private Transaction transaction;
 
     public IcebergMetadata(
             HdfsEnvironment hdfsEnvironment,
@@ -132,7 +138,7 @@ public abstract class IcebergMetadata
     public abstract List<String> listSchemaNames(ConnectorSession session);
 
     @Override
-    public abstract  Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName);
+    public abstract Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName);
 
     @Override
     public abstract Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName);
@@ -154,10 +160,9 @@ public abstract class IcebergMetadata
                     snapshotId,
                     TupleDomain.all());
         }
-        catch(TableNotFoundException | UnknownTableTypeException e){
+        catch (TableNotFoundException | UnknownTableTypeException e) {
             return null;
         }
-
     }
 
     @Override
@@ -170,9 +175,11 @@ public abstract class IcebergMetadata
     protected final Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         IcebergTableName name = IcebergTableName.from(tableName.getTableName());
-
+        // The given tableName can container system specific strings like orders$files
         try {
-            org.apache.iceberg.Table table = getIcebergTable(session, tableName);
+            // The IcebergTableName refer to the actual table "orders", we use it to create a SchemaTableName to lookup the iceberg table
+            SchemaTableName realTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableName());
+            org.apache.iceberg.Table table = getIcebergTable(session, realTableName);
 
             SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
             switch (name.getTableType()) {
@@ -195,7 +202,7 @@ public abstract class IcebergMetadata
             }
             return Optional.empty();
         }
-        catch (TableNotFoundException | UnknownTableTypeException e){
+        catch (TableNotFoundException | UnknownTableTypeException e) {
             return Optional.empty();
         }
     }
@@ -279,8 +286,40 @@ public abstract class IcebergMetadata
     @Override
     public abstract void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment);
 
+    protected abstract Transaction newCreateTableTransaction(ConnectorSession session, SchemaTableName schemaTableName, Schema schema, PartitionSpec partitionSpec, String targetPath, ImmutableMap<String, String> newTableProperties);
+
     @Override
-    public abstract ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout);
+    public final ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    {
+        SchemaTableName schemaTableName = tableMetadata.getTable();
+        String schemaName = schemaTableName.getSchemaName();
+        String tableName = schemaTableName.getTableName();
+
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
+        FileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
+        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        if (tableMetadata.getComment().isPresent()) {
+            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+
+        ImmutableMap<String, String> newTableProperties = propertiesBuilder.build();
+
+        String targetPath = getTableLocation(tableMetadata.getProperties());
+
+        Schema schema = toIcebergSchema(tableMetadata.getColumns());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+
+        transaction = newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, newTableProperties);
+
+        return new IcebergWritableTableHandle(
+                schemaName,
+                tableName,
+                SchemaParser.toJson(transaction.table().schema()),
+                PartitionSpecParser.toJson(transaction.table().spec()),
+                getColumns(transaction.table().schema(), typeManager),
+                transaction.table().location(),
+                fileFormat);
+    }
 
     @Override
     public final Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
@@ -305,7 +344,6 @@ public abstract class IcebergMetadata
                 getDataPath(icebergTable.location()),
                 getFileFormat(icebergTable));
     }
-
 
     @Override
     public final Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
@@ -422,7 +460,7 @@ public abstract class IcebergMetadata
                 .collect(toImmutableList());
     }
 
-    protected final static Schema toIcebergSchema(List<ColumnMetadata> columns)
+    protected static Schema toIcebergSchema(List<ColumnMetadata> columns)
     {
         List<NestedField> icebergColumns = new ArrayList<>();
         for (ColumnMetadata column : columns) {
@@ -468,7 +506,7 @@ public abstract class IcebergMetadata
             // TODO: it should be possible to return number of deleted records
             return OptionalLong.empty();
         }
-        catch(TableNotFoundException | UnknownTableTypeException e){
+        catch (TableNotFoundException | UnknownTableTypeException e) {
             return OptionalLong.empty();
         }
     }
@@ -545,5 +583,4 @@ public abstract class IcebergMetadata
                 .map(id -> IcebergUtil.resolveSnapshotId(table, id))
                 .or(() -> Optional.ofNullable(table.currentSnapshot()).map(Snapshot::snapshotId)));
     }
-
 }

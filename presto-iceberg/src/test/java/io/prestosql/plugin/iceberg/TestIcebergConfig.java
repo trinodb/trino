@@ -23,7 +23,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.plugin.hive.HiveCompressionCodec.GZIP;
-import static io.prestosql.plugin.iceberg.IcebergCatalogType.*;
+import static io.prestosql.plugin.iceberg.IcebergCatalogType.HADOOP;
+import static io.prestosql.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.prestosql.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.prestosql.plugin.iceberg.IcebergFileFormat.PARQUET;
 

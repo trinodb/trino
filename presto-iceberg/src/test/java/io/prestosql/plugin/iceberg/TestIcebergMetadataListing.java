@@ -122,6 +122,6 @@ public class TestIcebergMetadataListing
     public void testTableValidation()
     {
         assertQuerySucceeds("SELECT * FROM iceberg.test_schema.iceberg_table1");
-        assertQueryFails("SELECT * FROM iceberg.test_schema.hive_table", "Table 'iceberg.test_schema.hive_table' does not exist");
+        assertQueryFails("SELECT * FROM iceberg.test_schema.hive_table", "line 1:15: Table 'iceberg.test_schema.hive_table' does not exist");
     }
 }

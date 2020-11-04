@@ -16,7 +16,6 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;

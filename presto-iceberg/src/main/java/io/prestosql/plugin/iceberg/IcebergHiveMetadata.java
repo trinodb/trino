@@ -25,11 +25,8 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.spi.connector.ConnectorNewTableLayout;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -37,14 +34,11 @@ import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
-import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
-import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SchemaParser;
-import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.Transaction;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -55,13 +49,8 @@ import java.util.Optional;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.prestosql.plugin.iceberg.IcebergSchemaProperties.getSchemaLocation;
-import static io.prestosql.plugin.iceberg.IcebergTableProperties.getFileFormat;
-import static io.prestosql.plugin.iceberg.IcebergTableProperties.getPartitioning;
-import static io.prestosql.plugin.iceberg.IcebergTableProperties.getTableLocation;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
 import static io.prestosql.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static io.prestosql.plugin.iceberg.IcebergUtil.quotedTableName;
-import static io.prestosql.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static java.util.Objects.requireNonNull;
@@ -69,13 +58,13 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
-import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
 public class IcebergHiveMetadata
         extends IcebergMetadata
 {
     private final HiveMetastore metastore;
+    private final HdfsEnvironment hdfsEnvironment;
 
     public IcebergHiveMetadata(
             HiveMetastore metastore,
@@ -85,6 +74,7 @@ public class IcebergHiveMetadata
     {
         super(hdfsEnvironment, typeManager, commitTaskCodec);
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -98,21 +88,11 @@ public class IcebergHiveMetadata
             throw new UnknownTableTypeException(schemaTableName);
         }
 
-        SchemaTableName schemaTableName1 = hiveTable.get().getSchemaTableName();
-        if(!schemaTableName1.equals(schemaTableName)){
-            System.out.println("HERE");
-        }
-
-//        if (metastore.getTable(new HiveIdentity(session), schemaTableName.getSchemaName(), schemaTableName.getTableName()).isEmpty()) {
-//            throw new TableNotFoundException(schemaTableName);
-//        }
-//
         HdfsContext hdfsContext = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         HiveIdentity identity = new HiveIdentity(session);
         TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         return new BaseTable(operations, quotedTableName(schemaTableName));
     }
-
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
@@ -142,10 +122,9 @@ public class IcebergHiveMetadata
         throw new SchemaNotFoundException(schemaName.getSchemaName());
     }
 
-
-
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName) {
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    {
         return schemaName.map(Collections::singletonList)
                 .orElseGet(metastore::getAllDatabases)
                 .stream()
@@ -202,7 +181,6 @@ public class IcebergHiveMetadata
         metastore.setDatabaseOwner(new HiveIdentity(session), source, HivePrincipal.from(principal));
     }
 
-
     @Override
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
@@ -218,22 +196,17 @@ public class IcebergHiveMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public Transaction newCreateTableTransaction(ConnectorSession session, SchemaTableName schemaTableName, Schema schema, PartitionSpec partitionSpec, String targetPath, ImmutableMap<String, String> newTableProperties)
     {
-        SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
-
-        Schema schema = toIcebergSchema(tableMetadata.getColumns());
-
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
 
         Database database = metastore.getDatabase(schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
         HiveIdentity identity = new HiveIdentity(session);
-        String targetPath = getTableLocation(tableMetadata.getProperties());
+
         if (targetPath == null) {
             targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
         }
@@ -243,27 +216,10 @@ public class IcebergHiveMetadata
             throw new TableAlreadyExistsException(schemaTableName);
         }
 
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
-        FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
-        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
-        if (tableMetadata.getComment().isPresent()) {
-            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
-        }
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, newTableProperties);
 
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, propertiesBuilder.build());
-
-        transaction = createTableTransaction(tableName, operations, metadata);
-
-        return new IcebergWritableTableHandle(
-                schemaName,
-                tableName,
-                SchemaParser.toJson(metadata.schema()),
-                PartitionSpecParser.toJson(metadata.spec()),
-                getColumns(metadata.schema(), typeManager),
-                targetPath,
-                fileFormat);
+        return createTableTransaction(tableName, operations, metadata);
     }
-
 
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -278,7 +234,4 @@ public class IcebergHiveMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         metastore.renameTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), newTable.getSchemaName(), newTable.getTableName());
     }
-
-
-
 }
