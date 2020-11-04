@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.iterative.rule.test;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -24,22 +25,26 @@ import org.testng.annotations.Test;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestRuleTester
 {
-    @Test(expectedExceptions = AssertionError.class, expectedExceptionsMessageRegExp = "Plan does not match, expected .* but found .*")
+    @Test
     public void testReportWrongMatch()
     {
         try (RuleTester tester = defaultRuleTester()) {
-            tester.assertThat(new DummyReplaceNodeRule())
+            RuleAssert ruleAssert = tester.assertThat(new DummyReplaceNodeRule())
                     .on(p ->
                             p.project(
                                     Assignments.of(p.symbol("y"), expression("x")),
                                     p.values(
                                             ImmutableList.of(p.symbol("x")),
-                                            ImmutableList.of(ImmutableList.of(expression("1"))))))
-                    .matches(
-                            values(ImmutableList.of("different"), ImmutableList.of()));
+                                            ImmutableList.of(ImmutableList.of(expression("1"))))));
+
+            PlanMatchPattern expected = values(ImmutableList.of("different"), ImmutableList.of());
+            assertThatThrownBy(() -> ruleAssert.matches(expected))
+                    .isInstanceOf(AssertionError.class)
+                    .hasMessageMatching("(?s)Plan does not match, expected .* but found .*");
         }
     }
 
