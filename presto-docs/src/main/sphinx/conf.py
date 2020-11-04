@@ -62,7 +62,7 @@ def get_version():
 
 needs_sphinx = '3.0'
 
-extensions = ['myst_parser', 'backquote', 'download', 'issue']
+extensions = ['myst_parser', 'backquote', 'download', 'issue', 'sphinx_copybutton']
 
 templates_path = ['templates']
 
@@ -80,6 +80,8 @@ exclude_patterns = ['_build']
 highlight_language = 'sql'
 
 default_role = 'backquote'
+
+copybutton_image_path = 'copy-icon.svg'
 
 rst_epilog = """
 .. |presto_server_release| replace:: ``presto-server-{release}``

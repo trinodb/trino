@@ -35,3 +35,18 @@ pre.literal-block {
         margin-left: 61rem;
     }
 }
+
+.o-tooltip--left:after {
+    font-size: 0.6rem;
+}
+
+a.copybtn {
+    opacity: 1.0;
+    width: 1.5em;
+    height: 1.5em;
+}
+
+.copybtn:hover {
+    opacity: 0.6 !important;
+    cursor: pointer;
+}
