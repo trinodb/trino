@@ -20,9 +20,14 @@ import io.prestosql.execution.QueryTracker.TrackedQuery;
 public interface DispatchQuery
         extends TrackedQuery, ManagedQueryExecution
 {
+    enum DispatchStatus
+    {
+        FAILED, DISPATCHED
+    }
+
     void recordHeartbeat();
 
-    ListenableFuture<?> getDispatchedFuture();
+    ListenableFuture<DispatchStatus> getDispatchedFuture();
 
     DispatchInfo getDispatchInfo();
 
