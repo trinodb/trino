@@ -284,7 +284,6 @@ public class TestHiveCoercion
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
         String floatToDoubleType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "DOUBLE" : "REAL";
-        String floatToDecimalVal = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "12345.12345" : "12345.12300";
         String decimalToFloatVal = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "12345.12345" : "12345.124";
 
         query(format(
