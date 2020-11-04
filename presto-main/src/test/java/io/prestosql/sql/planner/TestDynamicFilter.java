@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.prestosql.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
@@ -500,6 +501,7 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S",
                                 project(
@@ -540,6 +542,7 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0) AND orderkey > 0",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S",
                                 project(
@@ -557,6 +560,7 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT part.partkey FROM part WHERE part.partkey IN " +
                         "(SELECT lineitem.partkey FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders))",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S0",
                                 project(
@@ -580,6 +584,7 @@ public class TestDynamicFilter
         assertPlan(
                 "WITH t AS (SELECT lineitem.partkey + 1000 partkey FROM lineitem) " +
                         "SELECT t.partkey FROM t WHERE t.partkey IN (SELECT part.partkey FROM part)",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S0",
                                 project(
@@ -608,5 +613,12 @@ public class TestDynamicFilter
                 return new MatchResult(DynamicFilters.extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().size() == numberOfDynamicFilters);
             }
         };
+    }
+
+    private Session noSemiJoinRewrite()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
+                .build();
     }
 }

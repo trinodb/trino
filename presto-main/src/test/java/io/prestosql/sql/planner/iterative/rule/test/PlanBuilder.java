@@ -91,6 +91,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.testing.TestingHandle;
+import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingMetadata.TestingTableHandle;
 import io.prestosql.testing.TestingTransactionHandle;
 
@@ -480,6 +481,17 @@ public class PlanBuilder
     {
         NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
         return new CorrelatedJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
+    }
+
+    public TableScanNode tableScan(List<Symbol> symbols, boolean forDelete)
+    {
+        return new TableScanNode(
+                idAllocator.getNextId(),
+                new TableHandle(new CatalogName("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
+                symbols,
+                symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingMetadata.TestingColumnHandle(symbol.getName()))),
+                TupleDomain.all(),
+                forDelete);
     }
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
