@@ -28,6 +28,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
+import static io.prestosql.block.BlockAssertions.createBlockOfReals;
 import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.block.BlockAssertions.createIntsBlock;
@@ -42,6 +43,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -226,6 +228,94 @@ public class TestMinMaxByAggregation
                 "hi",
                 createStringsBlock("zz", "hi", null, "a"),
                 createDoublesBlock(0.0, 1.0, null, -1.0));
+
+        assertAggregation(
+                function,
+                "c",
+                createStringsBlock("a", "b", "c"),
+                createDoublesBlock(Double.NaN, 1.0, 2.0));
+
+        assertAggregation(
+                function,
+                "c",
+                createStringsBlock("a", "b", "c"),
+                createDoublesBlock(1.0, Double.NaN, 2.0));
+
+        assertAggregation(
+                function,
+                "b",
+                createStringsBlock("a", "b", "c"),
+                createDoublesBlock(1.0, 2.0, Double.NaN));
+    }
+
+    @Test
+    public void testMinRealVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, REAL)));
+        assertAggregation(
+                function,
+                "z",
+                createStringsBlock("z", "a", "x", "b"),
+                createBlockOfReals(1.0f, 2.0f, 2.0f, 3.0f));
+
+        assertAggregation(
+                function,
+                "a",
+                createStringsBlock("zz", "hi", "bb", "a"),
+                createBlockOfReals(0.0f, 1.0f, 2.0f, -1.0f));
+
+        assertAggregation(
+                function,
+                "b",
+                createStringsBlock("a", "b", "c"),
+                createBlockOfReals(Float.NaN, 1.0f, 2.0f));
+
+        assertAggregation(
+                function,
+                "a",
+                createStringsBlock("a", "b", "c"),
+                createBlockOfReals(1.0f, Float.NaN, 2.0f));
+
+        assertAggregation(
+                function,
+                "a",
+                createStringsBlock("a", "b", "c"),
+                createBlockOfReals(1.0f, 2.0f, Float.NaN));
+    }
+
+    @Test
+    public void testMaxRealVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, REAL)));
+        assertAggregation(
+                function,
+                "a",
+                createStringsBlock("z", "a", null),
+                createBlockOfReals(1.0f, 2.0f, null));
+
+        assertAggregation(
+                function,
+                "hi",
+                createStringsBlock("zz", "hi", null, "a"),
+                createBlockOfReals(0.0f, 1.0f, null, -1.0f));
+
+        assertAggregation(
+                function,
+                "c",
+                createStringsBlock("a", "b", "c"),
+                createBlockOfReals(Float.NaN, 1.0f, 2.0f));
+
+        assertAggregation(
+                function,
+                "c",
+                createStringsBlock("a", "b", "c"),
+                createBlockOfReals(1.0f, Float.NaN, 2.0f));
+
+        assertAggregation(
+                function,
+                "b",
+                createStringsBlock("a", "b", "c"),
+                createBlockOfReals(1.0f, 2.0f, Float.NaN));
     }
 
     @Test
