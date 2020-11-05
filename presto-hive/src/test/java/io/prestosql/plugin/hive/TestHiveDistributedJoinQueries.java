@@ -18,7 +18,6 @@ import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.operator.OperatorStats;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.testing.AbstractTestJoinQueries;
-import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
@@ -59,8 +58,7 @@ public class TestHiveDistributedJoinQueries
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 session,
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 123.4567");
         assertEquals(result.getResult().getRowCount(), 0);

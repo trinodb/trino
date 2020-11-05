@@ -17,7 +17,6 @@ import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
@@ -71,13 +70,12 @@ public class TestLateMaterializationQueries
 
     private void assertLazyQuery(@Language("SQL") String sql)
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+        QueryManager queryManager = getDistributedQueryRunner().getCoordinator().getQueryManager();
 
-        ResultWithQueryId<MaterializedResult> workProcessorResultResultWithQueryId = queryRunner.executeWithQueryId(lateMaterialization(), sql);
+        ResultWithQueryId<MaterializedResult> workProcessorResultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(lateMaterialization(), sql);
         QueryInfo workProcessorQueryInfo = queryManager.getFullQueryInfo(workProcessorResultResultWithQueryId.getQueryId());
 
-        ResultWithQueryId<MaterializedResult> noWorkProcessorResultResultWithQueryId = queryRunner.executeWithQueryId(noLateMaterialization(), sql);
+        ResultWithQueryId<MaterializedResult> noWorkProcessorResultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(noLateMaterialization(), sql);
         QueryInfo noWorkProcessorQueryInfo = queryManager.getFullQueryInfo(noWorkProcessorResultResultWithQueryId.getQueryId());
 
         // ensure results are correct

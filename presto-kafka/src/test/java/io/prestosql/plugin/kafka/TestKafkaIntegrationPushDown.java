@@ -108,19 +108,18 @@ public class TestKafkaIntegrationPushDown
     public void testPartitionPushDown() throws ExecutionException, InterruptedException
     {
         createMessages(topicNamePartition);
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1",
                 topicNamePartition);
 
-        ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), MESSAGE_NUM / 2);
+        ResultWithQueryId<MaterializedResult> queryResult = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+        assertEquals(getQueryInfo(getDistributedQueryRunner(), queryResult).getQueryStats().getProcessedInputPositions(), MESSAGE_NUM / 2);
     }
 
     @Test
     public void testOffsetPushDown() throws ExecutionException, InterruptedException
     {
         createMessages(topicNameOffset);
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         String sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10",
                 topicNameOffset);
 
@@ -144,7 +143,7 @@ public class TestKafkaIntegrationPushDown
     public void testTimestampCreateTimeModePushDown() throws ExecutionException, InterruptedException
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameCreateTime);
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         // ">= startTime" insure including index 2, "< endTime"  insure excluding index 4;
         String sql = format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
                 topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime());
@@ -172,7 +171,7 @@ public class TestKafkaIntegrationPushDown
     public void testTimestampLogAppendModePushDown() throws ExecutionException, InterruptedException
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameLogAppend);
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         // ">= startTime" insure including index 2, "< endTime"  insure excluding index 4;
         String sql = format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
                 topicNameLogAppend, recordMessage.getStartTime(), recordMessage.getEndTime());

@@ -16,7 +16,6 @@ package io.prestosql.plugin.oracle;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.ResultWithQueryId;
 import io.prestosql.testing.sql.SqlExecutor;
@@ -262,17 +261,16 @@ public abstract class BaseTestOracleDistributedQueries
         // Replace tablename to fetch max size naming on oracle
         String tableName = "written_stats_" + System.currentTimeMillis();
         String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
         assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
 
         sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
-        resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+        queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);

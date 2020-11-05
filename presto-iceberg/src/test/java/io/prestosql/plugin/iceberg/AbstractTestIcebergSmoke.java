@@ -27,7 +27,6 @@ import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
@@ -1276,7 +1275,7 @@ public abstract class AbstractTestIcebergSmoke
 
     private TableStatistics getTableStatistics(String tableName, Constraint constraint)
     {
-        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
         QualifiedObjectName qualifiedName = QualifiedObjectName.valueOf(tableName);
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .execute(getSession(), session -> {
