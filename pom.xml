@@ -61,6 +61,10 @@
         <dep.joda.version>2.10.6</dep.joda.version>
         <dep.coral.version>1.0.12</dep.coral.version>
 
+        <dep.guice.version>5.0.0-BETA-1</dep.guice.version>
+
+        <dep.guice.version>5.0.0-BETA-1</dep.guice.version>
+
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -752,6 +756,12 @@
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
                 <version>1.29</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.inject.extensions</groupId>
+                        <artifactId>guice-multibindings</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
