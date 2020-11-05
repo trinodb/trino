@@ -2026,6 +2026,30 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testSetOperationNonComparableTypes()
+    {
+        assertFails("(VALUES approx_set(1)) INTERSECT DISTINCT (VALUES approx_set(2))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in INTERSECT");
+
+        assertFails("(VALUES approx_set(1)) INTERSECT ALL (VALUES approx_set(2))")
+                .hasErrorCode(NOT_SUPPORTED);
+
+        assertFails("(VALUES approx_set(1)) EXCEPT DISTINCT (VALUES approx_set(2))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in EXCEPT");
+
+        assertFails("(VALUES approx_set(1)) EXCEPT ALL (VALUES approx_set(2))")
+                .hasErrorCode(NOT_SUPPORTED);
+
+        assertFails("(VALUES approx_set(1)) UNION DISTINCT (VALUES approx_set(2))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in UNION DISTINCT");
+
+        analyze("(VALUES approx_set(1)) UNION ALL (VALUES approx_set(2))");
+    }
+
+    @Test
     public void testGroupByComplexExpressions()
     {
         assertFails("SELECT IF(a IS NULL, 1, 0) FROM t1 GROUP BY b")
