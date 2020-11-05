@@ -15,7 +15,6 @@ package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import org.joda.time.DateTimeZone;
@@ -23,7 +22,6 @@ import org.testng.annotations.Test;
 
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.metadata.CompressionKind.LZ4;
@@ -33,8 +31,6 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOrcLz4
 {
-    private static final DataSize SIZE = DataSize.of(1, MEGABYTE);
-
     @Test
     public void testReadLz4()
             throws Exception

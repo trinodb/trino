@@ -39,8 +39,6 @@ import static org.testng.Assert.assertEquals;
 
 public class TestShardPredicate
 {
-    private static final boolean bucketed = false;
-
     @Test
     public void testSimpleShardUuidPredicate()
     {
