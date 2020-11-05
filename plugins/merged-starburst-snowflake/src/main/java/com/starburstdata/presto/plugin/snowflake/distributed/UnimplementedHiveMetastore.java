@@ -150,6 +150,12 @@ class UnimplementedHiveMetastore
     }
 
     @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
         throw new UnsupportedOperationException();
