@@ -140,8 +140,6 @@ public final class ModelUtils
 
         int hyperparameterLength = slice.getInt(HYPERPARAMETER_LENGTH_OFFSET);
 
-        byte[] hyperparameterBytes = slice.getBytes(HYPERPARAMETERS_OFFSET, hyperparameterLength);
-
         int dataLengthOffset = HYPERPARAMETERS_OFFSET + hyperparameterLength;
         long dataLength = slice.getLong(dataLengthOffset);
 
