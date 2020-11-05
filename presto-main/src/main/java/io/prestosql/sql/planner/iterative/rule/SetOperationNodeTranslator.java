@@ -29,10 +29,7 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SetOperationNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.tree.Cast;
-import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.GenericLiteral;
-import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
@@ -42,7 +39,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -50,13 +46,11 @@ import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
 
 public class SetOperationNodeTranslator
 {
     private static final String MARKER = "marker";
-    private static final Literal GENERIC_LITERAL = new GenericLiteral("BIGINT", "1");
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final ResolvedFunction countAggregation;
@@ -81,13 +75,11 @@ public class SetOperationNodeTranslator
         List<Symbol> outputs = node.getOutputSymbols();
         UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
-        // add count aggregations and filter rows where any of the counts is >= 1
+        // add count aggregations
         List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
         AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
-        List<Expression> presentExpression = aggregationOutputs.stream()
-                .map(symbol -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), GENERIC_LITERAL))
-                .collect(toImmutableList());
-        return new TranslationResult(aggregation, presentExpression);
+
+        return new TranslationResult(aggregation, aggregationOutputs);
     }
 
     private List<Symbol> allocateSymbols(int count, String nameHint, Type type)
@@ -166,12 +158,12 @@ public class SetOperationNodeTranslator
     public static class TranslationResult
     {
         private final PlanNode planNode;
-        private final List<Expression> presentExpressions;
+        private final List<Symbol> countSymbols;
 
-        public TranslationResult(PlanNode planNode, List<Expression> presentExpressions)
+        public TranslationResult(PlanNode planNode, List<Symbol> countSymbols)
         {
             this.planNode = requireNonNull(planNode, "AggregationNode is null");
-            this.presentExpressions = ImmutableList.copyOf(requireNonNull(presentExpressions, "AggregationOutputs is null"));
+            this.countSymbols = ImmutableList.copyOf(requireNonNull(countSymbols, "countSymbols is null"));
         }
 
         public PlanNode getPlanNode()
@@ -179,9 +171,9 @@ public class SetOperationNodeTranslator
             return this.planNode;
         }
 
-        public List<Expression> getPresentExpressions()
+        public List<Symbol> getCountSymbols()
         {
-            return presentExpressions;
+            return countSymbols;
         }
     }
 }

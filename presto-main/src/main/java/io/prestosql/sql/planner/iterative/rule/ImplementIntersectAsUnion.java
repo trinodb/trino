@@ -21,9 +21,14 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.IntersectNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.GenericLiteral;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.planner.plan.Patterns.intersect;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -78,10 +83,15 @@ public class ImplementIntersectAsUnion
         SetOperationNodeTranslator translator = new SetOperationNodeTranslator(metadata, context.getSymbolAllocator(), context.getIdAllocator());
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlan(node);
 
+        // intersect predicate: the row must be present in every source
+        Expression predicate = and(result.getCountSymbols().stream()
+                .map(symbol -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), new GenericLiteral("BIGINT", "1")))
+                .collect(toImmutableList()));
+
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
-                        new FilterNode(context.getIdAllocator().getNextId(), result.getPlanNode(), and(result.getPresentExpressions())),
+                        new FilterNode(context.getIdAllocator().getNextId(), result.getPlanNode(), predicate),
                         Assignments.identity(node.getOutputSymbols())));
     }
 }
