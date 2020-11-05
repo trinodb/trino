@@ -392,7 +392,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testJoinWithPartitionFilterOnPartionedTable()
+    public void testJoinWithPartitionFilterOnPartitionedTable()
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
