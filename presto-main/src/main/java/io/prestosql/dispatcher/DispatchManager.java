@@ -72,7 +72,7 @@ public class DispatchManager
 
     private final int maxQueryLength;
 
-    private final Executor queryExecutor;
+    private final Executor dispatchExecutor;
 
     private final QueryTracker<DispatchQuery> queryTracker;
 
@@ -105,7 +105,7 @@ public class DispatchManager
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
-        this.queryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
+        this.dispatchExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
     }
@@ -143,7 +143,7 @@ public class DispatchManager
         checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
 
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
-        queryExecutor.execute(() -> {
+        dispatchExecutor.execute(() -> {
             try {
                 createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
             }
@@ -205,7 +205,7 @@ public class DispatchManager
             boolean queryAdded = queryCreated(dispatchQuery);
             if (queryAdded && !dispatchQuery.isDone()) {
                 try {
-                    resourceGroupManager.submit(dispatchQuery, selectionContext, queryExecutor);
+                    resourceGroupManager.submit(dispatchQuery, selectionContext, dispatchExecutor);
                 }
                 catch (Throwable e) {
                     // dispatch query has already been registered, so just fail it directly
