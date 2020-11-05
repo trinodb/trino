@@ -61,6 +61,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.DoubleStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -562,25 +563,18 @@ public class MetastoreHiveStatisticsProvider
         if (convertedValues.stream().noneMatch(OptionalDouble::isPresent)) {
             return Optional.empty();
         }
-        List<Double> values = convertedValues.stream()
+        double[] values = convertedValues.stream()
                 .peek(convertedValue -> checkState(convertedValue.isPresent(), "convertedValue is missing"))
-                .map(OptionalDouble::getAsDouble)
-                .collect(toImmutableList());
+                .mapToDouble(OptionalDouble::getAsDouble)
+                .toArray();
+        verify(values.length != 0, "No values");
 
-        verify(!values.isEmpty());
-
-        double min = values.get(0);
-        double max = values.get(0);
-
-        for (Double value : values) {
-            if (value > max) {
-                max = value;
-            }
-            if (value < min) {
-                min = value;
-            }
+        if (DoubleStream.of(values).anyMatch(Double::isNaN)) {
+            return Optional.empty();
         }
 
+        double min = DoubleStream.of(values).min().orElseThrow();
+        double max = DoubleStream.of(values).max().orElseThrow();
         return Optional.of(new DoubleRange(min, max));
     }
 
