@@ -209,9 +209,7 @@ public abstract class BaseTestJdbcResultSet
                                 + HOURS.toMillis(1) /* because there was offset shift on 1970-01-01 in America/Bahia_Banderas */);
                 assertEquals(rs.getObject(column), someBogusValue); // TODO this should represent TIME '01:39:07 +01:00'
                 assertThatThrownBy(() -> rs.getDate(column))
-                        .isInstanceOf(
-                    .class)
-                        // TODO (https://github.com/prestosql/presto/issues/5313) wrong message
+                        .isInstanceOf(SQLException.class)
                         .hasMessage(serverSupportsVariablePrecisionTimeWithTimeZone()
                                 ? "Invalid date from server: 01:39:07+01:00"
                                 : "Invalid date from server: 01:39:07.000 +01:00");
@@ -232,7 +230,6 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column), someBogusValue); // TODO this should represent TIME '00:39:07 +01:00'
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
-                        // TODO (https://github.com/prestosql/presto/issues/5313) wrong message
                         .hasMessage(serverSupportsVariablePrecisionTimeWithTimeZone()
                                 ? "Invalid date from server: 00:39:07+01:00"
                                 : "Invalid date from server: 00:39:07.000 +01:00");
