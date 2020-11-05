@@ -33,11 +33,11 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_O
 import static java.util.Objects.requireNonNull;
 
 /**
- * Converts EXCEPT queries into UNION ALL..GROUP BY...WHERE
+ * Converts EXCEPT DISTINCT queries into UNION ALL..GROUP BY...WHERE
  * E.g.:
  * <pre>
  *     SELECT a FROM foo
- *     EXCEPT
+ *     EXCEPT DISTINCT
  *     SELECT x FROM bar
  * </pre>
  * =>
@@ -61,13 +61,13 @@ import static java.util.Objects.requireNonNull;
  *     WHERE foo_count >= 1 AND bar_count = 0;
  * </pre>
  */
-public class ImplementExceptAsUnion
+public class ImplementExceptDistinctAsUnion
         implements Rule<ExceptNode>
 {
     private static final Pattern<ExceptNode> PATTERN = except();
     private final Metadata metadata;
 
-    public ImplementExceptAsUnion(Metadata metadata)
+    public ImplementExceptDistinctAsUnion(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }

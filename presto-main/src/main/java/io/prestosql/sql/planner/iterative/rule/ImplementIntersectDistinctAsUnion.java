@@ -32,11 +32,11 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_O
 import static java.util.Objects.requireNonNull;
 
 /**
- * Converts INTERSECT queries into UNION ALL..GROUP BY...WHERE
+ * Converts INTERSECT DISTINCT queries into UNION ALL..GROUP BY...WHERE
  * E.g.:
  * <pre>
  *     SELECT a FROM foo
- *     INTERSECT
+ *     INTERSECT DISTINCT
  *     SELECT x FROM bar
  * </pre>
  * =>
@@ -60,13 +60,13 @@ import static java.util.Objects.requireNonNull;
  *     WHERE foo_count >= 1 AND bar_count >= 1;
  * </pre>
  */
-public class ImplementIntersectAsUnion
+public class ImplementIntersectDistinctAsUnion
         implements Rule<IntersectNode>
 {
     private static final Pattern<IntersectNode> PATTERN = intersect();
     private final Metadata metadata;
 
-    public ImplementIntersectAsUnion(Metadata metadata)
+    public ImplementIntersectDistinctAsUnion(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }

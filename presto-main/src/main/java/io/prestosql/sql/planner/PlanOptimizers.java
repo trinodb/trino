@@ -47,9 +47,9 @@ import io.prestosql.sql.planner.iterative.rule.ExtractDereferencesFromFilterAbov
 import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.prestosql.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.prestosql.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
-import io.prestosql.sql.planner.iterative.rule.ImplementExceptAsUnion;
+import io.prestosql.sql.planner.iterative.rule.ImplementExceptDistinctAsUnion;
 import io.prestosql.sql.planner.iterative.rule.ImplementFilteredAggregations;
-import io.prestosql.sql.planner.iterative.rule.ImplementIntersectAsUnion;
+import io.prestosql.sql.planner.iterative.rule.ImplementIntersectDistinctAsUnion;
 import io.prestosql.sql.planner.iterative.rule.ImplementLimitWithTies;
 import io.prestosql.sql.planner.iterative.rule.ImplementOffset;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
@@ -475,8 +475,8 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new ImplementIntersectAsUnion(metadata),
-                                new ImplementExceptAsUnion(metadata))),
+                                new ImplementIntersectDistinctAsUnion(metadata),
+                                new ImplementExceptDistinctAsUnion(metadata))),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 columnPruningOptimizer,
                 inlineProjections,
