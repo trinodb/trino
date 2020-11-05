@@ -17,7 +17,6 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.AssertTrue;
@@ -31,8 +30,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 
 public class LdapConfig
 {
-    private static final Logger log = Logger.get(LdapConfig.class);
-
     private String ldapUrl;
     private boolean allowInsecure;
     private File trustCertificate;
