@@ -18,7 +18,6 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.ProcedureRegistry;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.ProcedureTester;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingProcedures;
@@ -56,7 +55,7 @@ public class TestProcedureCall
     @BeforeClass
     public void setUp()
     {
-        TestingPrestoServer coordinator = ((DistributedQueryRunner) getQueryRunner()).getCoordinator();
+        TestingPrestoServer coordinator = getDistributedQueryRunner().getCoordinator();
         tester = coordinator.getProcedureTester();
 
         // register procedures in the bogus testing catalog

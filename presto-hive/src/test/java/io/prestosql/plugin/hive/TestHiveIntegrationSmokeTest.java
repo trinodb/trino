@@ -2982,7 +2982,7 @@ public class TestHiveIntegrationSmokeTest
     private TableMetadata getTableMetadata(String catalog, String schema, String tableName)
     {
         Session session = getSession();
-        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
 
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
@@ -2996,7 +2996,7 @@ public class TestHiveIntegrationSmokeTest
     private Object getHiveTableProperty(String tableName, Function<HiveTableHandle, Object> propertyGetter)
     {
         Session session = getSession();
-        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
 
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
@@ -4309,7 +4309,7 @@ public class TestHiveIntegrationSmokeTest
 
         // to account for the fact that ORC stats are stored at millisecond precision and Presto rounds timestamps,
         // we filter by timestamps that differ from the actual value by at least 1ms, to observe pruning
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
                 session,
                 format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < %s", formatTimestamp(value.minusNanos(MILLISECONDS.toNanos(1)))));
@@ -5382,7 +5382,7 @@ public class TestHiveIntegrationSmokeTest
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Session session = getSession();
-                Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
                 String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
@@ -7033,7 +7033,7 @@ public class TestHiveIntegrationSmokeTest
 
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
     {
-        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
