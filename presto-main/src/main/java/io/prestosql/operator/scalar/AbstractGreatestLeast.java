@@ -24,7 +24,6 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
@@ -65,8 +64,8 @@ import static io.prestosql.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Failures.checkCondition;
+import static io.prestosql.util.MinMaxCompare.getMinMaxCompare;
 import static io.prestosql.util.Reflection.methodHandle;
-import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
@@ -74,10 +73,7 @@ import static java.util.stream.Collectors.joining;
 public abstract class AbstractGreatestLeast
         extends SqlScalarFunction
 {
-    private static final MethodHandle MIN_FUNCTION = methodHandle(AbstractGreatestLeast.class, "min", long.class);
-    private static final MethodHandle MAX_FUNCTION = methodHandle(AbstractGreatestLeast.class, "max", long.class);
-
-    private final MethodHandle comparisonResultAdapter;
+    private final boolean min;
 
     protected AbstractGreatestLeast(boolean min, String description)
     {
@@ -95,7 +91,7 @@ public abstract class AbstractGreatestLeast
                 true,
                 description,
                 SCALAR));
-        this.comparisonResultAdapter = min ? MIN_FUNCTION : MAX_FUNCTION;
+        this.min = min;
     }
 
     @Override
@@ -112,8 +108,7 @@ public abstract class AbstractGreatestLeast
         Type type = functionBinding.getTypeVariable("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
 
-        MethodHandle compareMethod = functionDependencies.getOperatorInvoker(COMPARISON, ImmutableList.of(type, type), Optional.empty()).getMethodHandle();
-        compareMethod = filterReturnValue(compareMethod, comparisonResultAdapter);
+        MethodHandle compareMethod = getMinMaxCompare(functionDependencies, type, Optional.empty(), min);
 
         List<Class<?>> javaTypes = IntStream.range(0, functionBinding.getArity())
                 .mapToObj(i -> wrap(type.getJavaType()))
@@ -191,17 +186,5 @@ public abstract class AbstractGreatestLeast
         body.append(value.ret());
 
         return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(getClass().getClassLoader()));
-    }
-
-    @UsedByGeneratedCode
-    public static boolean min(long comparisonResult)
-    {
-        return comparisonResult < 0;
-    }
-
-    @UsedByGeneratedCode
-    public static boolean max(long comparisonResult)
-    {
-        return comparisonResult > 0;
     }
 }

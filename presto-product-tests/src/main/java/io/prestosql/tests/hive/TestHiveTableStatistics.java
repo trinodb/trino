@@ -1389,7 +1389,7 @@ public class TestHiveTableStatistics
                             : row("c_minmax", null, 2., 0.33333333333, null, "-1234567.9", "576234.56"),
                     row("c_inf", null, 2., 0.33333333333, null, null, null), // -15, +inf
                     row("c_ninf", null, 2., 0.33333333333, null, null, null), // -inf, 45
-                    row("c_nan", null, 2., 0.33333333333, null, null, null), // 12345., NaN
+                    row("c_nan", null, 2., 0.33333333333, null, "12345.0", "12345.0"), // NaN is ignored by min/max
                     row("c_nzero", null, 2., 0.33333333333, null, "-47.0", "0.0"),
                     row(null, null, null, null, 3., null, null));
 
