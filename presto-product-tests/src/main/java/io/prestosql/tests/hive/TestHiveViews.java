@@ -137,6 +137,40 @@ public class TestHiveViews
         assertThat(query("SELECT COUNT(*) FROM hive_lateral_view")).contains(row(0));
     }
 
+    /**
+     * Test view containing IF, IN, LIKE, BETWEEN, CASE, COALESCE, operators, delimited and non-delimited columns, an inline comment
+     */
+    @Test(groups = HIVE_VIEWS)
+    public void testRichSqlSyntax()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS view_with_rich_syntax");
+        onHive().executeQuery("CREATE VIEW view_with_rich_syntax AS " +
+                "SELECT \n" +
+                "   `n_nationkey`, \n" + // grave accent
+                "   n_name, \n" + // no grave accent
+                "   `n_regionkey` AS `n_regionkey`, \n" + // alias
+                "   n_regionkey BETWEEN 1 AND 2 AS region_between_1_2, \n" + // BETWEEN, boolean
+                "   IF(`n`.`n_name` IN ('ALGERIA', 'ARGENTINA'), 1, 0) AS `starts_with_a`, \n" +
+                "   IF(`n`.`n_name` != 'PERU', 1, 0) `not_peru`, \n" + // no "AS" here
+                "   IF(`n`.`n_name` LIKE '%N%', 1, 0) `CONTAINS_N`, \n" + // LIKE, uppercase column name
+                // TODO (https://github.com/prestosql/presto/issues/5837) "   CASE n_regionkey WHEN 0 THEN 'Africa' WHEN 1 THEN 'America' END region_name, \n" + // simple CASE
+                "   CASE WHEN n_name = \"BRAZIL\" THEN 'is BRAZIL' WHEN n_name = \"ALGERIA\" THEN 'is ALGERIA' ELSE \"\" END is_something,\n" + // searched CASE, double quote string literals
+                "   COALESCE(IF(n_name LIKE 'A%', NULL, n_name), 'A%') AS coalesced_name, \n" + // coalesce
+                "   `n`.`n_nationkey` + `n_nationkey` + n.n_nationkey + n_nationkey + 10000 - -1 AS arithmetic--some comment without leading space \n" +
+                "FROM `default`.`nation` AS `n`");
+        assertThat(query("" +
+                "SELECT n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contains_n, is_something, coalesced_name, arithmetic " +
+                "FROM view_with_rich_syntax " +
+                "WHERE n_regionkey < 3 AND (n_nationkey < 5 OR n_nationkey IN (12, 17))"))
+                .containsOnly(
+                        row(0, "ALGERIA", false, 1, 1, 0, "is ALGERIA", "A%", 10001),
+                        row(1, "ARGENTINA", true, 1, 1, 1, "", "A%", 10005),
+                        row(2, "BRAZIL", true, 0, 1, 0, "is BRAZIL", "BRAZIL", 10009),
+                        row(3, "CANADA", true, 0, 1, 1, "", "CANADA", 10013),
+                        row(12, "JAPAN", true, 0, 1, 1, "", "JAPAN", 10049),
+                        row(17, "PERU", true, 0, 0, 0, "", "PERU", 10069));
+    }
+
     @Test(groups = HIVE_VIEWS)
     public void testIdentifierThatStartWithDigit()
     {
