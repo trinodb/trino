@@ -22,14 +22,14 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.NotExpression;
+import io.prestosql.sql.tree.GenericLiteral;
 
-import java.util.List;
-
-import static com.google.common.collect.Iterables.getFirst;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.planner.plan.Patterns.except;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -84,13 +84,12 @@ public class ImplementExceptAsUnion
         SetOperationNodeTranslator translator = new SetOperationNodeTranslator(metadata, context.getSymbolAllocator(), context.getIdAllocator());
         SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlan(node);
 
+        // except predicate: the row must be present in the first source and absent in all the other sources
         ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-        List<Expression> presentExpression = result.getPresentExpressions();
-        predicatesBuilder.add(getFirst(presentExpression, null));
-        for (int i = 1; i < presentExpression.size(); i++) {
-            predicatesBuilder.add(new NotExpression(presentExpression.get(i)));
+        predicatesBuilder.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, result.getCountSymbols().get(0).toSymbolReference(), new GenericLiteral("BIGINT", "1")));
+        for (int i = 1; i < node.getSources().size(); i++) {
+            predicatesBuilder.add(new ComparisonExpression(EQUAL, result.getCountSymbols().get(i).toSymbolReference(), new GenericLiteral("BIGINT", "0")));
         }
-
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
