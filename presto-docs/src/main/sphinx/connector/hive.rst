@@ -447,6 +447,51 @@ Property Name                                        Description
                                                      defaults to ``20``.
 ==================================================== ============================================================
 
+Performance Tuning Configuration Properties
+-------------------------------------------
+
+The following table describes performance tuning properties for the Hive
+connector.
+
+.. warning::
+
+   Performance tuning configuration properties are considered expert-level
+   features. Altering these properties from their default values is likely to
+   cause instability and performance degradation.
+
+.. list-table::
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - Property name
+      - Description
+      - Default value
+    * - ``hive.max-outstanding-splits``
+      - The target number of buffered splits for each table scan in a query,
+        before the scheduler tries to pause.
+      - ``1000``
+    * - ``hive.max-splits-per-second``
+      - The maximum number of splits generated per second per table scan. This
+        can be used to reduce the load on the storage system. By default, there
+        is no limit, which results in Presto maximizing the parallelization of
+        data access.
+      - 
+    * - ``hive.max-initial-splits``
+      - For each table scan, the coordinator first assigns file sections of up
+        to ``max-initial-split-size``. After ``max-initial-splits`` have been
+        assigned, ``max-split-size`` is used for the remaining splits.
+      - ``200``
+    * - ``hive.max-initial-split-size``
+      - The size of a single file section assigned to a worker until
+        ``max-initial-splits`` have been assigned. Smaller splits results in
+        more parallelism, which gives a boost to smaller queries.
+      - ``32 MB``
+    * - ``hive.max-split-size``
+      - The largest size of a single file section assigned to a worker. Smaller
+        splits result in more parallelism and thus can decrease latency, but
+        also have more overhead and increase load on the system.
+      - ``64 MB``
+
 Google Cloud Storage Configuration
 ----------------------------------
 
