@@ -73,58 +73,63 @@ public class AvroRowEncoder
         return type instanceof VarcharType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
 
+    private String currentColumnMapping()
+    {
+        return columnHandles.get(currentColumnIndex).getMapping();
+    }
+
     @Override
     protected void appendNullValue()
     {
-        record.put(columnHandles.get(currentColumnIndex).getName(), null);
+        record.put(currentColumnMapping(), null);
     }
 
     @Override
     protected void appendLong(long value)
     {
-        record.put(columnHandles.get(currentColumnIndex).getName(), value);
+        record.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendInt(int value)
     {
-        record.put(columnHandles.get(currentColumnIndex).getName(), value);
+        record.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendShort(short value)
     {
-        record.put(columnHandles.get(currentColumnIndex).getName(), value);
+        record.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendByte(byte value)
     {
-        record.put(columnHandles.get(currentColumnIndex).getName(), value);
+        record.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendDouble(double value)
     {
-        record.put(columnHandles.get(currentColumnIndex).getName(), value);
+        record.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendFloat(float value)
     {
-        record.put(columnHandles.get(currentColumnIndex).getName(), value);
+        record.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendBoolean(boolean value)
     {
-        record.put(columnHandles.get(currentColumnIndex).getName(), value);
+        record.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendString(String value)
     {
-        record.put(columnHandles.get(currentColumnIndex).getName(), value);
+        record.put(currentColumnMapping(), value);
     }
 
     @Override
