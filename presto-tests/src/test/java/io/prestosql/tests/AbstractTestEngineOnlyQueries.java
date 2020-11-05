@@ -1887,6 +1887,146 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testMinMaxFloatingPointNaN()
+    {
+        // double with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES CAST(NaN() AS DOUBLE), DOUBLE '5.5', DOUBLE '3.3') t (x)",
+                "VALUES (CAST(3.3 AS DOUBLE), CAST(5.5 AS DOUBLE))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES DOUBLE '5.5', CAST(NaN() AS DOUBLE), DOUBLE '3.3') t (x)",
+                "VALUES (CAST(3.3 AS DOUBLE), CAST(5.5 AS DOUBLE))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES DOUBLE '5.5', DOUBLE '3.3', CAST(NaN() AS DOUBLE)) t (x)",
+                "VALUES (CAST(3.3 AS DOUBLE), CAST(5.5 AS DOUBLE))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES CAST(NaN() AS DOUBLE)) t (x)",
+                "VALUES (CAST(sqrt(-1) AS DOUBLE), CAST(sqrt(-1) AS DOUBLE))");
+
+        // real with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES CAST(NaN() AS REAL), REAL '5.5', REAL '3.3') t (x)",
+                "VALUES (CAST(3.3 AS REAL), CAST(5.5 AS REAL))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES REAL '5.5', CAST(NaN() AS REAL), REAL '3.3') t (x)",
+                "VALUES (CAST(3.3 AS REAL), CAST(5.5 AS REAL))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES REAL '5.5', REAL '3.3', CAST(NaN() AS REAL)) t (x)",
+                "VALUES (CAST(3.3 AS REAL), CAST(5.5 AS REAL))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES CAST(NaN() AS REAL)) t (x)",
+                "VALUES (CAST(sqrt(-1) AS REAL), CAST(sqrt(-1) AS REAL))");
+    }
+
+    @Test
+    public void testMinMaxNFloatingPointNaN()
+    {
+        // double with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "CAST(NaN() AS DOUBLE), DOUBLE '5.5', DOUBLE '3.3', DOUBLE '4.4') t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS DOUBLE), CAST(4.4 AS DOUBLE)], " +
+                        "ARRAY[CAST(5.5 AS DOUBLE), CAST(4.4 AS DOUBLE)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "DOUBLE '5.5', CAST(NaN() AS DOUBLE), DOUBLE '3.3', DOUBLE '4.4') t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS DOUBLE), CAST(4.4 AS DOUBLE)], " +
+                        "ARRAY[CAST(5.5 AS DOUBLE), CAST(4.4 AS DOUBLE)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "DOUBLE '5.5', DOUBLE '3.3', DOUBLE '4.4', CAST(NaN() AS DOUBLE)) t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS DOUBLE), CAST(4.4 AS DOUBLE)], " +
+                        "ARRAY[CAST(5.5 AS DOUBLE), CAST(4.4 AS DOUBLE)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "DOUBLE '8.8', CAST(NaN() AS DOUBLE)) t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(8.8 AS DOUBLE), CAST(sqrt(-1) AS DOUBLE)], " +
+                        "ARRAY[CAST(8.8 AS DOUBLE), CAST(sqrt(-1) AS DOUBLE)])");
+
+        // real with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "CAST(NaN() AS REAL), REAL '5.5', REAL '3.3', REAL '4.4') t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS REAL), CAST(4.4 AS REAL)], " +
+                        "ARRAY[CAST(5.5 AS REAL), CAST(4.4 AS REAL)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "REAL '5.5', CAST(NaN() AS REAL), REAL '3.3', REAL '4.4') t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS REAL), CAST(4.4 AS REAL)], " +
+                        "ARRAY[CAST(5.5 AS REAL), CAST(4.4 AS REAL)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "REAL '5.5', REAL '3.3', REAL '4.4', CAST(NaN() AS REAL)) t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS REAL), CAST(4.4 AS REAL)], " +
+                        "ARRAY[CAST(5.5 AS REAL), CAST(4.4 AS REAL)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "REAL '8.8', CAST(NaN() AS REAL)) t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(8.8 AS REAL), CAST(sqrt(-1) AS REAL)], " +
+                        "ARRAY[CAST(8.8 AS REAL), CAST(sqrt(-1) AS REAL)])");
+    }
+
+    @Test
+    public void testMinMaxByFloatingPointNaN()
+    {
+        // double with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', CAST(NaN() AS DOUBLE)), " +
+                        "('b', DOUBLE '5.5'), " +
+                        "('c', DOUBLE '3.3')) t (x, y)",
+                "VALUES ('c', 'b')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', DOUBLE '5.5'), " +
+                        "('b', CAST(NaN() AS DOUBLE)), " +
+                        "('c', DOUBLE '3.3')) t (x, y)",
+                "VALUES ('c', 'a')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', DOUBLE '5.5'), " +
+                        "('b', DOUBLE '3.3'), " +
+                        "('c', CAST(NaN() AS DOUBLE))) t (x, y)",
+                "VALUES ('b', 'a')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', CAST(NaN() AS DOUBLE))) t (x, y)",
+                "VALUES ('a', 'a')");
+
+        // real with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', CAST(NaN() AS REAL)), " +
+                        "('b', REAL '5.5'), " +
+                        "('c', REAL '3.3')) t (x, y)",
+                "VALUES ('c', 'b')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', REAL '5.5'), " +
+                        "('b', CAST(NaN() AS REAL)), " +
+                        "('c', REAL '3.3')) t (x, y)",
+                "VALUES ('c', 'a')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', REAL '5.5'), " +
+                        "('b', REAL '3.3'), " +
+                        "('c', CAST(NaN() AS REAL))) t (x, y)",
+                "VALUES ('b', 'a')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', CAST(NaN() AS REAL))) t (x, y)",
+                "VALUES ('a', 'a')");
+    }
+
+    @Test
     public void testOutputInEnforceSingleRow()
     {
         assertQuery("SELECT count(*) FROM (SELECT (SELECT 1))");
