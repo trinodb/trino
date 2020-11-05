@@ -349,7 +349,27 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testNaNPartition()
     {
+        // Only NaN partition
         assertUpdate("DROP TABLE IF EXISTS test_nan_partition");
+        assertUpdate("CREATE TABLE test_nan_partition(a varchar, d double) WITH (partitioned_by = ARRAY['d'])");
+        assertUpdate("INSERT INTO test_nan_partition VALUES ('b', nan())", 1);
+
+        assertQuery(
+                "SELECT a, d, regexp_replace(\"$path\", '.*(/[^/]*/[^/]*/)[^/]*', '...$1...') FROM test_nan_partition",
+                "VALUES ('b', SQRT(-1), '.../test_nan_partition/d=NaN/...')"); // SQRT(-1) is H2's recommended way to obtain NaN
+        assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x");
+        assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x OR rand() = 42");
+        assertQueryReturnsEmptyResult("SELECT * FROM test_nan_partition t1 JOIN test_nan_partition t2 ON t1.d = t2.d");
+        assertQuery(
+                "SHOW STATS FOR test_nan_partition",
+                "VALUES " +
+                        "('a', 1, 1, 0, null, null, null), " +
+                        "('d', null, 1, 0, null, null, null), " +
+                        "(null, null, null, null, 1, null, null)");
+
+        assertUpdate("DROP TABLE IF EXISTS test_nan_partition");
+
+        // NaN partition and other partitions
         assertUpdate("CREATE TABLE test_nan_partition(a varchar, d double) WITH (partitioned_by = ARRAY['d'])");
         assertUpdate("INSERT INTO test_nan_partition VALUES ('a', 42e0), ('b', nan())", 2);
 
@@ -358,13 +378,15 @@ public class TestHiveIntegrationSmokeTest
                 "VALUES " +
                         "  ('a', 42, '.../test_nan_partition/d=42.0/...'), " +
                         "  ('b', SQRT(-1), '.../test_nan_partition/d=NaN/...')"); // SQRT(-1) is H2's recommended way to obtain NaN
-
         assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x");
         assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x OR rand() = 42");
-
+        assertQuery("SELECT * FROM test_nan_partition t1 JOIN test_nan_partition t2 ON t1.d = t2.d", "VALUES ('a', 42, 'a', 42)");
         assertQuery(
-                "SELECT * FROM test_nan_partition t1 JOIN test_nan_partition t2 ON t1.d = t2.d",
-                "VALUES ('a', 42, 'a', 42)");
+                "SHOW STATS FOR test_nan_partition",
+                "VALUES " +
+                        "('a', 2, 1, 0, null, null, null), " +
+                        "('d', null, 2, 0, null, null, null), " +
+                        "(null, null, null, null, 2, null, null)");
 
         assertUpdate("DROP TABLE test_nan_partition");
     }
