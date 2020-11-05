@@ -41,20 +41,20 @@ import static org.testng.Assert.assertTrue;
 public class TestSybaseIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    protected TestingSybaseServer memSqlServer;
+    protected TestingSybaseServer sybaseServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        memSqlServer = new TestingSybaseServer();
-        return createSybaseQueryRunner(memSqlServer, CUSTOMER, NATION, ORDERS, REGION);
+        sybaseServer = new TestingSybaseServer();
+        return createSybaseQueryRunner(sybaseServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        memSqlServer.close();
+        sybaseServer.close();
     }
 
     @Test
@@ -251,7 +251,7 @@ public class TestSybaseIntegrationSmokeTest
     @Test
     public void testNativeLargeIn()
     {
-        memSqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 300_000));
+        sybaseServer.execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 300_000));
     }
 
     /**
@@ -263,7 +263,7 @@ public class TestSybaseIntegrationSmokeTest
         String longInClauses = range(0, 30)
                 .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
                 .collect(joining(" OR "));
-        memSqlServer.execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+        sybaseServer.execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
     }
 
     private String getLongInClause(int start, int length)
@@ -276,6 +276,6 @@ public class TestSybaseIntegrationSmokeTest
 
     private void execute(String sql)
     {
-        memSqlServer.execute(sql);
+        sybaseServer.execute(sql);
     }
 }

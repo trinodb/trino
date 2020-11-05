@@ -85,20 +85,20 @@ public class TestSybaseTypeMapping
 {
     private static final String CHARACTER_SET_UTF8 = "CHARACTER SET utf8";
 
-    protected TestingSybaseServer memSqlServer;
+    protected TestingSybaseServer sybaseServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        memSqlServer = new TestingSybaseServer();
-        return createSybaseQueryRunner(memSqlServer);
+        sybaseServer = new TestingSybaseServer();
+        return createSybaseQueryRunner(sybaseServer);
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        memSqlServer.close();
+        sybaseServer.close();
     }
 
     @Test
@@ -213,7 +213,7 @@ public class TestSybaseTypeMapping
     public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
     {
         try (TestTable testTable = new TestTable(
-                memSqlServer::execute,
+                sybaseServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(65,25))",
                 asList("1234567890123456789012345678901234567890.123456789", "-1234567890123456789012345678901234567890.123456789"))) {
@@ -244,7 +244,7 @@ public class TestSybaseTypeMapping
     public void testDecimalExceedingPrecisionMaxWithNonExceedingIntegerValues()
     {
         try (TestTable testTable = new TestTable(
-                memSqlServer::execute,
+                sybaseServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 "(d_col decimal(60,20))",
                 asList("123456789012345678901234567890.123456789012345", "-123456789012345678901234567890.123456789012345"))) {
@@ -299,7 +299,7 @@ public class TestSybaseTypeMapping
     public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
         try (TestTable testTable = new TestTable(
-                memSqlServer::execute,
+                sybaseServer::execute,
                 "tpch.test_exceeding_max_decimal",
                 format("(d_col decimal(%d,%d))", typePrecision, typeScale),
                 asList("12.01", "-12.01", "123", "-123", "1.12345678", "-1.12345678"))) {
@@ -540,7 +540,7 @@ public class TestSybaseTypeMapping
 
     private void testUnsupportedDataType(String databaseDataType)
     {
-        SqlExecutor jdbcSqlExecutor = memSqlServer::execute;
+        SqlExecutor jdbcSqlExecutor = sybaseServer::execute;
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(supported_column varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
@@ -569,7 +569,7 @@ public class TestSybaseTypeMapping
 
     private DataSetup memSqlCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(memSqlServer::execute, tableNamePrefix);
+        return new CreateAndInsertDataSetup(sybaseServer::execute, tableNamePrefix);
     }
 
     private static DataType<LocalDate> memSqlDateDataType(Function<LocalDate, String> toLiteral)

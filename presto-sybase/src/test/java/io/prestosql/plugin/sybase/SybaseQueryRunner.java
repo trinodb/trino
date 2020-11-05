@@ -73,7 +73,7 @@ public class SybaseQueryRunner
     private static Session createSession()
     {
         return testSessionBuilder()
-                .setCatalog("memsql")
+                .setCatalog("sybase")
                 .setSchema(TPCH_SCHEMA)
                 .build();
     }

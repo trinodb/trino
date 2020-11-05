@@ -34,20 +34,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestSybaseCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private TestingSybaseServer memSqlServer;
+    private TestingSybaseServer sybaseServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        memSqlServer = new TestingSybaseServer();
-        return createSybaseQueryRunner(memSqlServer, ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
+        sybaseServer = new TestingSybaseServer();
+        return createSybaseQueryRunner(sybaseServer, ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        memSqlServer.close();
+        sybaseServer.close();
     }
 
     @Test
@@ -171,6 +171,6 @@ public class TestSybaseCaseInsensitiveMapping
 
     private void execute(String sql)
     {
-        memSqlServer.execute(sql);
+        sybaseServer.execute(sql);
     }
 }

@@ -31,7 +31,7 @@ public class TestingSybaseServer
 
     public static final String DEFAULT_TAG = "memsql/cluster-in-a-box:centos-7.1.4-516dfe4088-1.9.6-1.6.1";
 
-    public static final Integer MEMSQL_PORT = 3306;
+    public static final Integer SYBASE_DEFAULT_PORT = 5000;
 
     public TestingSybaseServer()
     {
@@ -47,13 +47,13 @@ public class TestingSybaseServer
     @Override
     public Set<Integer> getLivenessCheckPortNumbers()
     {
-        return ImmutableSet.of(getMappedPort(MEMSQL_PORT));
+        return ImmutableSet.of(getMappedPort(SYBASE_DEFAULT_PORT));
     }
 
     @Override
     protected void configure()
     {
-        addExposedPort(MEMSQL_PORT);
+        addExposedPort(SYBASE_DEFAULT_PORT);
 //        addEnv("LICENSE_KEY", MEM_SQL_LICENSE);
         addEnv("START_AFTER_INIT", "true");
         setStartupAttempts(3);
@@ -80,7 +80,7 @@ public class TestingSybaseServer
     @Override
     public String getJdbcUrl()
     {
-        return "jdbc:jtds:sybase://" + getContainerIpAddress() + ":" + getMappedPort(MEMSQL_PORT);
+        return "jdbc:jtds:sybase://" + getContainerIpAddress() + ":" + getMappedPort(SYBASE_DEFAULT_PORT);
     }
 
     @Override

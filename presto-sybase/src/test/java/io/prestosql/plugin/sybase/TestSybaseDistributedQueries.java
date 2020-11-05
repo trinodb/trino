@@ -29,19 +29,19 @@ import static io.prestosql.plugin.sybase.SybaseQueryRunner.createSybaseQueryRunn
 public class TestSybaseDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    protected TestingSybaseServer memSqlServer;
+    protected TestingSybaseServer sybaseServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        memSqlServer = new TestingSybaseServer();
+        sybaseServer = new TestingSybaseServer();
         closeAfterClass(() -> {
-            memSqlServer.close();
-            memSqlServer = null;
+            sybaseServer.close();
+            sybaseServer = null;
         });
         return createSybaseQueryRunner(
-                memSqlServer,
+                sybaseServer,
                 ImmutableMap.<String, String>builder()
                         // caching here speeds up tests highly, caching is not used in smoke tests
                         .put("metadata.cache-ttl", "10m")
@@ -140,6 +140,6 @@ public class TestSybaseDistributedQueries
 
     protected SqlExecutor createJdbcSqlExecutor()
     {
-        return memSqlServer::execute;
+        return sybaseServer::execute;
     }
 }
