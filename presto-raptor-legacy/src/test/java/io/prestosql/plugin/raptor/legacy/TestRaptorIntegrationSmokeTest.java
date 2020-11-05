@@ -422,7 +422,8 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/1977",
+    @Flaky(
+            issue = "https://github.com/prestosql/presto/issues/1977",
             match = "(?s)AssertionError.*query.*SELECT count\\(DISTINCT \"\\$shard_uuid\"\\) FROM orders_bucketed.*Actual rows.*\\[\\d\\d\\].*Expected rows.*\\[100\\]")
     public void testCreateBucketedTable()
     {
