@@ -58,6 +58,7 @@ public class TestEventListener
         extends AbstractTestQueryFramework
 {
     private static final int SPLITS_PER_NODE = 3;
+    private static final String IGNORE_EVENT_MARKER = "-- ignore_generated_event";
     private final EventsBuilder generatedEvents = new EventsBuilder();
     private EventsAwaitingQueries queries;
 
