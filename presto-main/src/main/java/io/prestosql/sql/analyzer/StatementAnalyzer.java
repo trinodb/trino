@@ -1614,13 +1614,13 @@ class StatementAnalyzer
                     .map(relation -> process(relation, scope).getRelationType().withOnlyVisibleFields())
                     .collect(toImmutableList());
 
+            String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
             Type[] outputFieldTypes = childrenTypes.get(0).getVisibleFields().stream()
                     .map(Field::getType)
                     .toArray(Type[]::new);
             for (RelationType relationType : childrenTypes) {
                 int outputFieldSize = outputFieldTypes.length;
                 int descFieldSize = relationType.getVisibleFields().size();
-                String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
                 if (outputFieldSize != descFieldSize) {
                     throw semanticException(
                             TYPE_MISMATCH,
@@ -1644,6 +1644,19 @@ class StatementAnalyzer
                                 descFieldType.getDisplayName());
                     }
                     outputFieldTypes[i] = commonSuperType.get();
+                }
+            }
+
+            if (node instanceof Intersect || node instanceof Except || node instanceof Union && node.isDistinct()) {
+                for (Type type : outputFieldTypes) {
+                    if (!type.isComparable()) {
+                        StringBuilder message = new StringBuilder(format("Type %s is not comparable and therefore cannot be used in ", type));
+                        message.append(setOperationName);
+                        if (node instanceof Union) {
+                            message.append(" DISTINCT");
+                        }
+                        throw semanticException(TYPE_MISMATCH, node, message.toString());
+                    }
                 }
             }
 
