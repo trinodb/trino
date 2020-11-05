@@ -28,18 +28,18 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.union;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 
-public class TestImplementExceptAsUnion
+public class TestImplementIntersectDistinctAsUnion
         extends BaseRuleTest
 {
     @Test
     public void test()
     {
-        tester().assertThat(new ImplementExceptAsUnion(tester().getMetadata()))
+        tester().assertThat(new ImplementIntersectDistinctAsUnion(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
                     Symbol c = p.symbol("c");
-                    return p.except(
+                    return p.intersect(
                             ImmutableListMultimap.<Symbol, Symbol>builder()
                                     .put(c, a)
                                     .put(c, b)
