@@ -126,7 +126,7 @@ public class TestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
-    public void testUnsupportedLateralViews()
+    public void testLateralViewExplode()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_lateral_view");
         onHive().executeQuery("DROP TABLE IF EXISTS pageAds");
