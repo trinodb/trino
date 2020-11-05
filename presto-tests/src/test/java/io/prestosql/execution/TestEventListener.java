@@ -34,11 +34,11 @@ import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.spi.resourcegroups.QueryType;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -55,25 +55,24 @@ import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestEventListener
+        extends AbstractTestQueryFramework
 {
     private static final int SPLITS_PER_NODE = 3;
     private final EventsBuilder generatedEvents = new EventsBuilder();
-
-    private DistributedQueryRunner queryRunner;
-    private Session session;
     private EventsAwaitingQueries queries;
 
-    @BeforeClass
-    private void setUp()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        session = testSessionBuilder()
+        Session session = testSessionBuilder()
                 .setSystemProperty("task_concurrency", "1")
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .setClientInfo("{\"clientVersion\":\"testVersion\"}")
                 .build();
-        queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
@@ -95,7 +94,10 @@ public class TestEventListener
         queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
         queryRunner.getCoordinator().getResourceGroupManager().get()
                 .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
+
         queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
+
+        return queryRunner;
     }
 
     private String getResourceFilePath(String fileName)
@@ -103,17 +105,10 @@ public class TestEventListener
         return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
-    @AfterClass(alwaysRun = true)
-    private void tearDown()
-    {
-        queryRunner.close();
-        queryRunner = null;
-    }
-
     private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
             throws Exception
     {
-        return queries.runQueryAndWaitForEvents(sql, numEventsExpected, session);
+        return queries.runQueryAndWaitForEvents(sql, numEventsExpected, getSession());
     }
 
     @Test
@@ -316,7 +311,7 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), 0); // Prepare has no splits
 
         // Add prepared statement to a new session to eliminate any impact on other tests in this suite.
-        Session sessionWithPrepare = Session.builder(session).addPreparedStatement("stmt", selectQuery).build();
+        Session sessionWithPrepare = Session.builder(getSession()).addPreparedStatement("stmt", selectQuery).build();
 
         // We expect the following events
         // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
@@ -355,7 +350,7 @@ public class TestEventListener
         MaterializedResult result = runQueryAndWaitForEvents("SELECT 1 FROM lineitem", expectedEvents);
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        QueryStats queryStats = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
+        QueryStats queryStats = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
         assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
@@ -365,7 +360,7 @@ public class TestEventListener
         runQueryAndWaitForEvents("SELECT COUNT(1) FROM lineitem", expectedEvents);
         queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        queryStats = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
+        queryStats = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
         assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
