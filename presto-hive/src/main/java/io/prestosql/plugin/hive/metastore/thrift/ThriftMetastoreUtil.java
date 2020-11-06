@@ -971,9 +971,12 @@ public final class ThriftMetastoreUtil
         if (type.equals(BOOLEAN)) {
             return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
         }
-        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP_MILLIS)) {
-            // TODO https://github.com/prestosql/presto/issues/37 support non-legacy TIMESTAMP
+        if (isNumericType(type) || type.equals(DATE)) {
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
+        }
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp MIN_VALUE, MAX_VALUE
+            return ImmutableSet.of(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
         if (type instanceof VarcharType || type instanceof CharType) {
             // TODO Collect MIN,MAX once it is used by the optimizer
