@@ -590,7 +590,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return new IcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
     }

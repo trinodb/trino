@@ -94,6 +94,7 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
+import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
@@ -1106,6 +1107,18 @@ public class PlanPrinter
         {
             addNode(node, "Delete", format("[%s]", node.getTarget()));
 
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitUpdate(UpdateNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(node, format("Update[%s]", node.getTarget()));
+            int index = 0;
+            for (String columnName : node.getTarget().getUpdatedColumns()) {
+                nodeOutput.appendDetailsLine("%s := %s", columnName, node.getColumnValueAndRowIdSymbols().get(index).getName());
+                index++;
+            }
             return processChildren(node, context);
         }
 

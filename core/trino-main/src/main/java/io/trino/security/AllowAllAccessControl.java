@@ -194,6 +194,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName)
     {
     }

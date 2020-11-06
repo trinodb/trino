@@ -112,6 +112,8 @@ import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
+import io.trino.sql.tree.Update;
+import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.With;
@@ -1254,6 +1256,32 @@ public final class SqlFormatter
 
             process(node.getQuery(), indent);
 
+            return null;
+        }
+
+        @Override
+        protected Void visitUpdate(Update node, Integer indent)
+        {
+            builder.append("UPDATE ")
+                    .append(node.getTable().getName())
+                    .append(" SET");
+            int setCounter = node.getAssignments().size() - 1;
+            for (UpdateAssignment assignment : node.getAssignments()) {
+                builder.append("\n")
+                        .append(indentString(indent + 1))
+                        .append(assignment.getName().getValue())
+                        .append(" = ")
+                        .append(formatExpression(assignment.getValue()));
+                if (setCounter > 0) {
+                    builder.append(",");
+                }
+                setCounter--;
+            }
+            if (node.getWhere().isPresent()) {
+                builder.append("\n")
+                        .append(indentString(indent))
+                        .append("WHERE ").append(formatExpression(node.getWhere().get()));
+            }
             return null;
         }
 

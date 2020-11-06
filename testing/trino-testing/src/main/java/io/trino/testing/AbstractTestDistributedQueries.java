@@ -609,7 +609,7 @@ public abstract class AbstractTestDistributedQueries
 
         if (!supportsDelete()) {
             assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders WITH NO DATA", 0);
-            assertQueryFails("DELETE FROM " + tableName, "This connector does not support updates or deletes");
+            assertQueryFails("DELETE FROM " + tableName, "This connector does not support deletes");
             assertUpdate("DROP TABLE " + tableName);
             return;
         }

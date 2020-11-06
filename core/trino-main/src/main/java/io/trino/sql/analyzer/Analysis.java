@@ -30,6 +30,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
@@ -183,6 +184,7 @@ public class Analysis
     private Optional<Insert> insert = Optional.empty();
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
+    private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
 
     // for describe input and describe output
     private final boolean isDescribe;
@@ -691,6 +693,16 @@ public class Analysis
     public Optional<Insert> getInsert()
     {
         return insert;
+    }
+
+    public void setUpdatedColumns(List<ColumnMetadata> updatedColumns)
+    {
+        this.updatedColumns = Optional.of(updatedColumns);
+    }
+
+    public Optional<List<ColumnMetadata>> getUpdatedColumns()
+    {
+        return updatedColumns;
     }
 
     public void setRefreshMaterializedView(RefreshMaterializedViewAnalysis refreshMaterializedView)

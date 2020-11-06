@@ -59,6 +59,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
 import io.trino.sql.tree.Analyze;
@@ -82,6 +83,7 @@ import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.Update;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
 
@@ -250,12 +252,15 @@ public class LogicalPlanner
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
             return createInsertPlan(analysis, (Insert) statement);
         }
-        else if (statement instanceof RefreshMaterializedView) {
+        if (statement instanceof RefreshMaterializedView) {
             checkState(analysis.getRefreshMaterializedView().isPresent(), "RefreshMaterializedViewAnalysis handle is missing");
             return createRefreshMaterializedViewPlan(analysis);
         }
-        else if (statement instanceof Delete) {
+        if (statement instanceof Delete) {
             return createDeletePlan(analysis, (Delete) statement);
+        }
+        if (statement instanceof Update) {
+            return createUpdatePlan(analysis, (Update) statement);
         }
         if (statement instanceof Query) {
             return createRelationPlan(analysis, (Query) statement);
@@ -635,6 +640,22 @@ public class LogicalPlanner
                 idAllocator.getNextId(),
                 deleteNode,
                 deleteNode.getTarget(),
+                symbolAllocator.newSymbol("rows", BIGINT),
+                Optional.empty(),
+                Optional.empty());
+
+        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
+    }
+
+    private RelationPlan createUpdatePlan(Analysis analysis, Update node)
+    {
+        UpdateNode updateNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of())
+                .plan(node);
+
+        TableFinishNode commitNode = new TableFinishNode(
+                idAllocator.getNextId(),
+                updateNode,
+                updateNode.getTarget(),
                 symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());

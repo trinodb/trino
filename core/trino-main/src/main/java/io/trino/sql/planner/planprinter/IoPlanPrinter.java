@@ -45,6 +45,7 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
 
@@ -653,6 +654,13 @@ public class IoPlanPrinter
             }
             else if (writerTarget instanceof DeleteTarget) {
                 DeleteTarget target = (DeleteTarget) writerTarget;
+                context.setOutputTable(new CatalogSchemaTableName(
+                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getSchemaTableName().getSchemaName(),
+                        target.getSchemaTableName().getTableName()));
+            }
+            else if (writerTarget instanceof UpdateTarget) {
+                UpdateTarget target = (UpdateTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogName().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),

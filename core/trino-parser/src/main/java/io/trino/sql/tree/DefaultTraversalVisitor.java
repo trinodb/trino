@@ -619,6 +619,24 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitUpdate(Update node, C context)
+    {
+        process(node.getTable(), context);
+        node.getAssignments().forEach(value -> process(value, context));
+        node.getWhere().ifPresent(where -> process(where, context));
+
+        return null;
+    }
+
+    @Override
+    protected Void visitUpdateAssignment(UpdateAssignment node, C context)
+    {
+        process(node.getName(), context);
+        process(node.getValue(), context);
+        return null;
+    }
+
+    @Override
     protected Void visitCreateTableAsSelect(CreateTableAsSelect node, C context)
     {
         process(node.getQuery(), context);

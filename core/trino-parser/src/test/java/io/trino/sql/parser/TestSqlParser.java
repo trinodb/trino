@@ -157,6 +157,8 @@ import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
+import io.trino.sql.tree.Update;
+import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.WindowDefinition;
@@ -2804,6 +2806,36 @@ public class TestSqlParser
                                                 Optional.empty()))),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty()));
+    }
+
+    public void testUpdate()
+    {
+        assertStatement("" +
+                        "UPDATE foo_table\n" +
+                        "    SET bar = 23, baz = 3.1415E0, bletch = 'barf'\n" +
+                        "WHERE (nothing = 'fun')",
+                new Update(
+                        new NodeLocation(1, 1),
+                        table(QualifiedName.of("foo_table")),
+                        ImmutableList.of(
+                                new UpdateAssignment(new Identifier("bar"), new LongLiteral("23")),
+                                new UpdateAssignment(new Identifier("baz"), new DoubleLiteral("3.1415")),
+                                new UpdateAssignment(new Identifier("bletch"), new StringLiteral("barf"))),
+                        Optional.of(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("nothing"), new StringLiteral("fun")))));
+    }
+
+    @Test
+    public void testWherelessUpdate()
+    {
+        assertStatement("" +
+                        "UPDATE foo_table\n" +
+                        "    SET bar = 23",
+                new Update(
+                        new NodeLocation(1, 1),
+                        table(QualifiedName.of("foo_table")),
+                        ImmutableList.of(
+                                new UpdateAssignment(new Identifier("bar"), new LongLiteral("23"))),
                         Optional.empty()));
     }
 

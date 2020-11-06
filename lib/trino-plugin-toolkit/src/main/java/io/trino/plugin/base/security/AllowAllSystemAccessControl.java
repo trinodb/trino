@@ -241,6 +241,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
     }
