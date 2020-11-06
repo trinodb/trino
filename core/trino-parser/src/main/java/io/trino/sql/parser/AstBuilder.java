@@ -186,6 +186,8 @@ import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
+import io.trino.sql.tree.Update;
+import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Use;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WhenClause;
@@ -435,6 +437,22 @@ class AstBuilder
                 getLocation(context),
                 new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
                 visitIfPresent(context.booleanExpression(), Expression.class));
+    }
+
+    @Override
+    public Node visitUpdate(SqlBaseParser.UpdateContext context)
+    {
+        return new Update(
+                getLocation(context),
+                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                visit(context.updateAssignment(), UpdateAssignment.class),
+                visitIfPresent(context.booleanExpression(), Expression.class));
+    }
+
+    @Override
+    public Node visitUpdateAssignment(SqlBaseParser.UpdateAssignmentContext context)
+    {
+        return new UpdateAssignment((Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
     }
 
     @Override

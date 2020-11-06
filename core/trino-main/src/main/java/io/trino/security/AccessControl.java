@@ -268,6 +268,13 @@ public interface AccessControl
     void checkCanDeleteFromTable(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to update the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanUpdateTableColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames);
+
+    /**
      * Check if identity is allowed to create the specified view.
      *
      * @throws AccessDeniedException if not allowed

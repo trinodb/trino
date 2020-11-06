@@ -23,6 +23,9 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableMetadata;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.sql.NodeUtils;
@@ -41,11 +44,15 @@ import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
+import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.UnionNode;
+import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
@@ -74,6 +81,7 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
+import io.trino.sql.tree.Update;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.type.TypeCoercion;
 
@@ -469,6 +477,87 @@ class QueryPlanner
                 symbolAllocator.newSymbol("fragment", VARBINARY));
 
         return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteTarget(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, outputs);
+    }
+
+    public UpdateNode plan(Update node)
+    {
+        Table table = node.getTable();
+        TableHandle handle = analysis.getTableHandle(table);
+
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+        Map<String, ColumnHandle> columnMap = metadata.getColumnHandles(session, handle);
+        List<ColumnMetadata> dataColumns = tableMetadata.getMetadata().getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .collect(toImmutableList());
+
+        List<String> targetColumnNames = node.getAssignments().stream()
+                .map(assignment -> assignment.getName().getValue())
+                .collect(toImmutableList());
+
+        // Create lists of columnnames and SET expressions, in table column order
+        ImmutableList.Builder<String> updatedColumnNamesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ColumnHandle> updatedColumnHandlesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
+        for (ColumnMetadata columnMetadata : dataColumns) {
+            String name = columnMetadata.getName();
+            int index = targetColumnNames.indexOf(name);
+            if (index >= 0) {
+                updatedColumnNamesBuilder.add(name);
+                updatedColumnHandlesBuilder.add(requireNonNull(columnMap.get(name), "columnMap didn't contain name"));
+                orderedColumnValuesBuilder.add(node.getAssignments().get(index).getValue());
+            }
+        }
+        List<String> updatedColumnNames = updatedColumnNamesBuilder.build();
+        List<ColumnHandle> updatedColumnHandles = updatedColumnHandlesBuilder.build();
+        List<Expression> orderedColumnValues = orderedColumnValuesBuilder.build();
+
+        // create table scan
+        RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+                .process(table, null);
+
+        PlanBuilder builder = newPlanBuilder(relationPlan, analysis, lambdaDeclarationToSymbolMap);
+
+        if (node.getWhere().isPresent()) {
+            builder = filter(builder, node.getWhere().get(), node);
+        }
+
+        builder = builder.appendProjections(orderedColumnValues, symbolAllocator, idAllocator);
+
+        PlanAndMappings planAndMappings = coerce(builder, orderedColumnValues, analysis, idAllocator, symbolAllocator, typeCoercion);
+        builder = planAndMappings.getSubPlan();
+
+        ImmutableList.Builder<Symbol> updatedColumnValuesBuilder = ImmutableList.builder();
+        orderedColumnValues.forEach(columnValue -> updatedColumnValuesBuilder.add(planAndMappings.get(columnValue)));
+        Symbol rowId = builder.translate(analysis.getRowIdField(table));
+        updatedColumnValuesBuilder.add(rowId);
+
+        List<Symbol> outputs = ImmutableList.of(
+                symbolAllocator.newSymbol("partialrows", BIGINT),
+                symbolAllocator.newSymbol("fragment", VARBINARY));
+
+        Optional<PlanNodeId> tableScanId = getIdForLeftTableScan(relationPlan.getRoot());
+        checkArgument(tableScanId.isPresent(), "tableScanId not present");
+
+        // create update node
+        return new UpdateNode(
+                idAllocator.getNextId(),
+                builder.getRoot(),
+                new UpdateTarget(handle, metadata.getTableMetadata(session, handle).getTable(), updatedColumnNames, updatedColumnHandles),
+                rowId,
+                updatedColumnValuesBuilder.build(),
+                outputs);
+    }
+
+    private Optional<PlanNodeId> getIdForLeftTableScan(PlanNode node)
+    {
+        if (node instanceof TableScanNode) {
+            return Optional.of(node.getId());
+        }
+        List<PlanNode> sources = node.getSources();
+        if (sources.isEmpty()) {
+            return Optional.empty();
+        }
+        return getIdForLeftTableScan(sources.get(0));
     }
 
     private static List<Symbol> computeOutputs(PlanBuilder builder, List<Expression> outputExpressions)

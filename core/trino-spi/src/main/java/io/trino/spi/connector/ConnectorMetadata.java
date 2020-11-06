@@ -486,9 +486,19 @@ public interface ConnectorMetadata
      * These IDs will be passed to the {@code deleteRows()} method of the
      * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
      */
-    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates or deletes");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Get the column handle that will generate row IDs for the update operation.
+     * These IDs will be passed to the {@code updateRows() method of the
+     * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
+     */
+    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
     }
 
     /**
@@ -507,6 +517,31 @@ public interface ConnectorMetadata
     default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Do whatever is necessary to start an UPDATE query, returning the {@link ConnectorTableHandle}
+     * instance that will be passed to split generation, and to the {@link #finishUpdate} method.
+     * @param session The session in which to start the update operation.
+     * @param tableHandle A ConnectorTableHandle for the table to be updated.
+     * @param updatedColumns A list of the ColumnHandles of columns that will be updated by this UPDATE
+     * operation, in table column order.
+     * @return a ConnectorTableHandle that will be passed to split generation, and to the
+     * {@link #finishUpdate} method.
+     */
+    default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
+    }
+
+    /**
+     * Finish an update query
+     *
+     * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
+     */
+    default void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
     }
 
     /**

@@ -289,9 +289,14 @@ public interface Metadata
             List<TableHandle> sourceTableHandles);
 
     /**
-     * Get the row ID column handle used with UpdatablePageSource.
+     * Get the row ID column handle used with UpdatablePageSource#deleteRows.
      */
-    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle);
+    ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle);
+
+    /**
+     * Get the row ID column handle used with UpdatablePageSource#updateRows.
+     */
+    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
 
     /**
      * @return whether delete without table scan is supported
@@ -317,6 +322,16 @@ public interface Metadata
      * Finish delete query
      */
     void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Begin update query
+     */
+    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
+
+    /**
+     * Finish update query
+     */
+    void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Returns a connector id for the specified catalog name.
