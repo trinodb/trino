@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
-import com.github.dockerjava.api.DockerClient;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
@@ -32,8 +31,6 @@ import picocli.CommandLine.ExitCode;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -153,13 +150,8 @@ public final class EnvironmentUp
 
         private static void killContainersReaperContainer()
         {
-            try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
-                log.info("Killing the testcontainers reaper container (Ryuk) so that environment can stay alive");
-                ContainerUtil.killContainersReaperContainer(dockerClient);
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            log.info("Killing the testcontainers reaper container (Ryuk) so that environment can stay alive");
+            ContainerUtil.killContainersReaperContainer(DockerClientFactory.lazyClient());
         }
     }
 }
