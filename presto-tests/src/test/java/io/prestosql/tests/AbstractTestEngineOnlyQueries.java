@@ -3120,6 +3120,52 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testCorrelationSymbolMapping()
+    {
+        // Corelation symbol of ApplyNode mapped in UnaliasSymbolReferences
+        assertQuery("WITH T AS ( " +
+                "SELECT name, min(regionkey) AS key " +
+                "FROM nation " +
+                "GROUP BY name " +
+                ") " +
+                "SELECT a.name " +
+                "FROM T a " +
+                "JOIN T b ON a.name = b.name " +
+                "AND EXISTS (SELECT * FROM T c WHERE b.name = c.name)");
+
+        assertQuery("WITH T AS ( " +
+                "SELECT name, min(regionkey) AS key " +
+                "FROM nation " +
+                "GROUP BY name " +
+                ") " +
+                "SELECT a.name " +
+                "FROM T a " +
+                "JOIN T b ON a.name = b.name " +
+                "AND 4 IN (SELECT key FROM T c WHERE b.name = c.name)");
+
+        assertQuery("WITH T AS ( " +
+                "SELECT name, min(regionkey) AS key " +
+                "FROM nation " +
+                "GROUP BY name " +
+                ") " +
+                "SELECT a.name " +
+                "FROM T a " +
+                "JOIN T b ON a.name = b.name " +
+                "AND 4 > ALL (SELECT key FROM T c WHERE b.name = c.name)");
+
+        // Corelation symbol of CorrelatedJoinNode mapped in UnaliasSymbolReferences
+        assertQuery("WITH T AS ( " +
+                "SELECT name, min(regionkey) AS key " +
+                "FROM nation " +
+                "GROUP BY name " +
+                ") " +
+                "SELECT a.name " +
+                "FROM T a " +
+                "JOIN T b ON a.name = b.name " +
+                "AND 4 = (SELECT key FROM T c WHERE b.name = c.name)");
+    }
+
+    @Test
     public void testGrouping()
     {
         assertQuery(
