@@ -71,7 +71,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.floorDiv;
@@ -306,12 +305,10 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()));
         }
-        else if (type.equals(TIMESTAMP_MILLIS)) {
-            result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
-        }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()));
         }
+        // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -424,12 +421,10 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(getDateValue(session, type, min), getDateValue(session, type, max)));
         }
-        else if (type.equals(TIMESTAMP_MILLIS)) {
-            result.setIntegerStatistics(new IntegerStatistics(getTimestampValue(min), getTimestampValue(max)));
-        }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(session, type, min), getDecimalValue(session, type, max)));
         }
+        // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
