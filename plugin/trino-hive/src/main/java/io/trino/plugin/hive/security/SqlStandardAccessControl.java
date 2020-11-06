@@ -45,6 +45,7 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DEL
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isRoleApplicable;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isRoleEnabled;
@@ -85,6 +86,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoleAuthorizationDescriptors;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
+import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
@@ -292,6 +294,14 @@ public class SqlStandardAccessControl
     {
         if (!checkTablePermission(context, tableName, DELETE, false)) {
             denyDeleteTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+        if (!checkTablePermission(context, tableName, UPDATE, false)) {
+            denyUpdateTableColumns(tableName.toString(), updatedColumns);
         }
     }
 

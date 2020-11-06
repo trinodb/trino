@@ -223,6 +223,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumns)
+    {
+    }
+
+    @Override
     public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
     }
