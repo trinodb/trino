@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.pinot.query;
+package io.prestosql.pinot;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
-import io.prestosql.pinot.PinotColumnHandle;
-import io.prestosql.pinot.TestPinotQueryBase;
+import io.prestosql.pinot.query.AggregationExpression;
+import io.prestosql.pinot.query.DynamicTable;
+import io.prestosql.pinot.query.OrderByExpression;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
