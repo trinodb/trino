@@ -14,22 +14,16 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.TypeManager;
-import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableOperations;
 
 import java.util.List;
 import java.util.Locale;
@@ -40,6 +34,7 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.prestosql.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static java.lang.String.format;
@@ -59,12 +54,9 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table getIcebergTable(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
+    public static boolean useMetastore(ConnectorSession session)
     {
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-        HiveIdentity identity = new HiveIdentity(session);
-        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, table.getSchemaName(), table.getTableName());
-        return new BaseTable(operations, quotedTableName(table));
+        return IcebergSessionProperties.getCatalogType(session) == HIVE;
     }
 
     public static long resolveSnapshotId(Table table, long snapshotId)
@@ -124,7 +116,7 @@ final class IcebergUtil
         return Optional.ofNullable(table.properties().get(TABLE_COMMENT));
     }
 
-    private static String quotedTableName(SchemaTableName name)
+    public static String quotedTableName(SchemaTableName name)
     {
         return quotedName(name.getSchemaName()) + "." + quotedName(name.getTableName());
     }

@@ -1,0 +1,85 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+trigger:
+- iceberg_hadoop_catalog
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  imageRepository: "cccs/prestosql/presto"
+  containerRegistry: "cruchimera"
+  dockerfilePath: "$(Build.sourcesDirectory)/cccs"
+  buildId: "$(Build.BuildId)"
+  branch: "$(Build.SourceBranchName)"
+
+jobs:
+- job: BuilMavenArtifact
+  timeoutInMinutes: 0
+  steps:
+  - task: Maven@3
+    inputs:
+      mavenPomFile: 'pom.xml'
+      mavenOptions: '-Xmx3072m -DskipTests'
+      javaHomeOption: 'JDKVersion'
+      jdkVersionOption: '1.11'
+      jdkArchitectureOption: 'x64'
+      publishJUnitResults: false
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+      goals: 'package'
+      options: '-DskipTests'
+  - bash: |
+      mkdir $(Build.SourcesDirectory)/publish
+      mv $(Build.SourcesDirectory)/presto-iceberg/target/presto-iceberg-346-SNAPSHOT.jar $(Build.SourcesDirectory)/publish/
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: "$(Build.SourcesDirectory)/publish/"
+      ArtifactName: "presto-iceberg"
+      publishLocation: "Container"
+- job: BuildDockerImage
+  dependsOn: BuilMavenArtifact
+  steps:
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'presto-iceberg'
+        downloadPath: '$(Build.SourcesDirectory)/cccs'
+    - bash: |
+        mv $(Build.SourcesDirectory)/cccs/presto-iceberg/* $(Build.SourcesDirectory)/cccs/
+      displayName: "Move downloaded artifact to expected location."
+    - bash: |
+        COMMIT=$(Build.SourceVersion)
+        COMMIT_SHORT=${COMMIT:0:8}
+        echo commit: $COMMIT
+        echo commitShort: $COMMIT_SHORT
+        echo "##vso[task.setvariable variable=commitShort]$COMMIT_SHORT"
+      displayName: "Extract commit short sha."
+    - task: Docker@2
+      displayName: "Build presto docker image."
+      inputs:
+        containerRegistry: $(containerRegistry)
+        repository: $(imageRepository)
+        command: "buildAndPush"
+        tags: |
+          latest
+          $(branch)_$(buildId)_$(commitShort)
+          $(branch)
+          $(buildId)
+    - task: Docker@2
+      displayName: "Build presto docker image."
+      inputs:
+        containerRegistry: cranalyticalplatform
+        repository: $(imageRepository)
+        command: "buildAndPush"
+        tags: |
+          latest
+          $(branch)_$(buildId)_$(commitShort)
+          $(branch)
+          $(buildId)
+
+
+

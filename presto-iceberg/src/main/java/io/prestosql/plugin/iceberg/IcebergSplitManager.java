@@ -16,7 +16,6 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
@@ -30,7 +29,6 @@ import org.apache.iceberg.TableScan;
 import javax.inject.Inject;
 
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getIcebergTable;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -60,8 +58,7 @@ public class IcebergSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        HiveMetastore metastore = transactionManager.get(transaction).getMetastore();
-        Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        Table icebergTable = transactionManager.get(transaction).getIcebergTable(session, table.getSchemaTableName());
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(table.getPredicate()))

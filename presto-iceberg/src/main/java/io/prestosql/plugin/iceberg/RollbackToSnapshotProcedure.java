@@ -15,7 +15,6 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.procedure.Procedure;
@@ -26,7 +25,6 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.plugin.iceberg.IcebergUtil.getIcebergTable;
 import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -70,8 +68,7 @@ public class RollbackToSnapshotProcedure
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
         IcebergMetadata metadata = metadataFactory.create();
-        HiveMetastore metastore = metadata.getMetastore();
-        Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, clientSession, schemaTableName);
+        Table icebergTable = metadata.getIcebergTable(clientSession, schemaTableName);
         icebergTable.rollback().toSnapshotId(snapshotId).commit();
     }
 }

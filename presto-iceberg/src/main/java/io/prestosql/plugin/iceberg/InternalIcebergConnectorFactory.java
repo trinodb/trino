@@ -93,6 +93,10 @@ public final class InternalIcebergConnectorFactory
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             Set<Procedure> procedures = injector.getInstance((Key<Set<Procedure>>) Key.get(Types.setOf(Procedure.class)));
 
+            String strType = config.getOrDefault("iceberg.catalog-type", "hive").toUpperCase();
+            IcebergCatalogType type = IcebergCatalogType.valueOf(strType);
+            metadataFactory.setCatalogType(type);
+
             return new IcebergConnector(
                     lifeCycleManager,
                     transactionManager,
