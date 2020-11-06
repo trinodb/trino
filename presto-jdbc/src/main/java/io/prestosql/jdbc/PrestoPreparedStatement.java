@@ -532,7 +532,9 @@ public class PrestoPreparedStatement
     public ParameterMetaData getParameterMetaData()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "getParameterMetaData");
+        try (Statement statement = connection().createStatement(); ResultSet resultSet = statement.executeQuery("DESCRIBE INPUT " + statementName)) {
+            return new PrestoParameterMetaData(getParamerters(resultSet));
+        }
     }
 
     @Override
@@ -875,6 +877,26 @@ public class PrestoPreparedStatement
     private static String typedNull(String prestoType)
     {
         return format("CAST(NULL AS %s)", prestoType);
+    }
+
+    private static List<ColumnInfo> getParamerters(ResultSet resultSet)
+            throws SQLException
+    {
+        ImmutableList.Builder<ColumnInfo> builder = ImmutableList.builder();
+        while (resultSet.next()) {
+            ClientTypeSignature clientTypeSignature = getClientTypeSignatureFromTypeString(resultSet.getString("Type"));
+            ColumnInfo.Builder columnInfoBuilder = new ColumnInfo.Builder()
+                    .setCatalogName("")
+                    .setSchemaName("")
+                    .setTableName("")
+                    .setColumnLabel(resultSet.getString("Position"))
+                    .setColumnName(resultSet.getString("Position"))
+                    .setColumnTypeSignature(clientTypeSignature)
+                    .setNullable(ColumnInfo.Nullable.UNKNOWN);
+            setTypeInfo(columnInfoBuilder, clientTypeSignature);
+            builder.add(columnInfoBuilder.build());
+        }
+        return builder.build();
     }
 
     private static List<ColumnInfo> getDescribeOutputColumnInfoList(ResultSet resultSet)
