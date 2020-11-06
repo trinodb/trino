@@ -14,6 +14,7 @@
 package io.prestosql.execution.scheduler;
 
 import com.google.common.io.Files;
+import com.google.common.io.Resources;
 import io.airlift.testing.TempFile;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
@@ -34,8 +35,8 @@ public class TestFileBasedNetworkTopology
     @BeforeClass
     public void setup()
     {
-        topologyFile = new File(getClass().getResource("topology.txt").getFile());
-        topologyNewFile = new File(getClass().getResource("topology-new.txt").getFile());
+        topologyFile = new File(Resources.getResource(getClass(), "topology.txt").getFile());
+        topologyNewFile = new File(Resources.getResource(getClass(), "topology-new.txt").getFile());
     }
 
     @Test
