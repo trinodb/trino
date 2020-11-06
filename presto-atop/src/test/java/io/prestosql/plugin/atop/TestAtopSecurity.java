@@ -14,6 +14,7 @@
 package io.prestosql.plugin.atop;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.prestosql.Session;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
@@ -38,7 +39,7 @@ public class TestAtopSecurity
             throws IOException
     {
         Path atopExecutable = Files.createTempFile(null, null);
-        String path = this.getClass().getResource("security.json").getPath();
+        String path = Resources.getResource(getClass(), "security.json").getPath();
         queryRunner = createQueryRunner(ImmutableMap.of("atop.security", "file", "security.config-file", path, "atop.executable-path", atopExecutable.toString()), TestingAtopFactory.class);
     }
 

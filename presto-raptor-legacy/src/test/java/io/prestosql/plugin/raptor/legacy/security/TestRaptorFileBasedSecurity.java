@@ -14,6 +14,7 @@
 package io.prestosql.plugin.raptor.legacy.security;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.prestosql.Session;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.QueryRunner;
@@ -32,7 +33,7 @@ public class TestRaptorFileBasedSecurity
     public void setUp()
             throws Exception
     {
-        String path = this.getClass().getResource("security.json").getPath();
+        String path = Resources.getResource(getClass(), "security.json").getPath();
         queryRunner = createRaptorQueryRunner(
                 ImmutableMap.of(),
                 true,

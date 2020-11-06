@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.prestosql.Session;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.QueryRunner;
@@ -33,7 +34,7 @@ public class TestHiveFileBasedSecurity
     public void setUp()
             throws Exception
     {
-        String path = this.getClass().getResource("security.json").getPath();
+        String path = Resources.getResource(getClass(), "security.json").getPath();
         queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of(
                         "hive.security", "file",
