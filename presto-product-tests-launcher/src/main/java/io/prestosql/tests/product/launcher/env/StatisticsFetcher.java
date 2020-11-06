@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.MemoryStatsConfig;
 import com.github.dockerjava.api.model.StatisticNetworksConfig;
 import com.github.dockerjava.api.model.Statistics;
@@ -53,8 +52,8 @@ public class StatisticsFetcher
             return lastStats.get();
         }
 
-        try (DockerClient client = DockerClientFactory.lazyClient(); InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>()) {
-            client.statsCmd(container.getContainerId()).exec(callback);
+        try (InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>()) {
+            DockerClientFactory.lazyClient().statsCmd(container.getContainerId()).exec(callback);
 
             return lastStats.getAndUpdate(previousStats -> toStats((Statistics) executor.get(callback::awaitResult), previousStats));
         }
