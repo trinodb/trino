@@ -148,11 +148,11 @@ public class TaskOutputOperator
 
     private List<SerializedPage> splitAndSerializePage(Page page)
     {
-        List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-        ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(split.size());
+        List<Page> splits = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(splits.size());
         try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
-            for (Page p : split) {
-                builder.add(serde.serialize(context, p));
+            for (Page split : splits) {
+                builder.add(serde.serialize(context, split));
             }
         }
         return builder.build();

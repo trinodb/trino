@@ -70,8 +70,8 @@ public final class BufferTestUtils
         checkArgument(!pages.isEmpty(), "pages is empty");
         ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(pages.size());
         try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
-            for (Page p : pages) {
-                builder.add(PAGES_SERDE.serialize(context, p));
+            for (Page page : pages) {
+                builder.add(PAGES_SERDE.serialize(context, page));
             }
         }
         return new BufferResult(
