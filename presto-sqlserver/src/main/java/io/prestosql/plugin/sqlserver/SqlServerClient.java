@@ -13,7 +13,9 @@
  */
 package io.prestosql.plugin.sqlserver;
 
+import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
@@ -24,6 +26,7 @@ import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.RemoteTableName;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
@@ -38,6 +41,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
@@ -45,6 +49,8 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
@@ -84,6 +90,8 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampColumnMap
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.prestosql.plugin.sqlserver.SqlServerTableProperties.DATA_COMPRESSION;
+import static io.prestosql.plugin.sqlserver.SqlServerTableProperties.getDataCompression;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -98,6 +106,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.stream.Collectors.joining;
 
@@ -349,6 +358,32 @@ public class SqlServerClient
         return true;
     }
 
+    @Override
+    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        return format(
+                "CREATE TABLE %s (%s) %s",
+                quoted(remoteTableName),
+                join(", ", columns),
+                getDataCompression(tableMetadata.getProperties())
+                        .map(dataCompression -> format("WITH (DATA_COMPRESSION = %s)", dataCompression))
+                        .orElse(""));
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            return getTableDataCompression(handle, tableHandle)
+                    .map(dataCompression -> ImmutableMap.<String, Object>of(DATA_COMPRESSION, dataCompression))
+                    .orElseGet(ImmutableMap::of);
+        }
+        catch (SQLException exception) {
+            throw new PrestoException(JDBC_ERROR, exception);
+        }
+    }
+
     private static String singleQuote(String... objects)
     {
         return singleQuote(DOT_JOINER.join(objects));
@@ -386,5 +421,20 @@ public class SqlServerClient
                 statement.setBytes(index, null);
             }
         };
+    }
+
+    private static Optional<DataCompression> getTableDataCompression(Handle handle, JdbcTableHandle table)
+    {
+        return handle.createQuery("" +
+                "SELECT data_compression_desc FROM sys.partitions p " +
+                "INNER JOIN sys.tables t ON p.object_id = t.object_id " +
+                "INNER JOIN sys.indexes i ON t.object_id = i.object_id " +
+                "WHERE SCHEMA_NAME(t.schema_id) = :schema AND t.name = :table_name AND i.type IN (0,1) " +
+                "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
+                .bind("schema", table.getSchemaName())
+                .bind("table_name", table.getTableName())
+                .mapTo(String.class)
+                .findOne()
+                .flatMap(dataCompression -> Enums.getIfPresent(DataCompression.class, dataCompression).toJavaUtil());
     }
 }
