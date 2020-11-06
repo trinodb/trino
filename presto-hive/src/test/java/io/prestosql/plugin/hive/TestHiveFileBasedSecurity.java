@@ -23,6 +23,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.File;
+
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tpch.TpchTable.NATION;
 
@@ -34,7 +36,7 @@ public class TestHiveFileBasedSecurity
     public void setUp()
             throws Exception
     {
-        String path = Resources.getResource(getClass(), "security.json").getPath();
+        String path = new File(Resources.getResource(getClass(), "security.json").toURI()).getPath();
         queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of(
                         "hive.security", "file",
