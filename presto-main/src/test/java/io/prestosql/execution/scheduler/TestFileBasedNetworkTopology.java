@@ -34,9 +34,10 @@ public class TestFileBasedNetworkTopology
 
     @BeforeClass
     public void setup()
+            throws Exception
     {
-        topologyFile = new File(Resources.getResource(getClass(), "topology.txt").getFile());
-        topologyNewFile = new File(Resources.getResource(getClass(), "topology-new.txt").getFile());
+        topologyFile = new File(Resources.getResource(getClass(), "topology.txt").toURI());
+        topologyNewFile = new File(Resources.getResource(getClass(), "topology-new.txt").toURI());
     }
 
     @Test
