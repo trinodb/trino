@@ -28,12 +28,14 @@ import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import static com.google.common.io.Resources.getResource;
+import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -44,11 +46,12 @@ public class TestPasswordAuthentication
     private static final String USER = "elastic_user";
     private static final String PASSWORD = "123456";
 
-    private final ElasticsearchServer elasticsearch;
-    private final RestHighLevelClient client;
-    private final QueryAssertions assertions;
+    private ElasticsearchServer elasticsearch;
+    private RestHighLevelClient client;
+    private QueryAssertions assertions;
 
-    public TestPasswordAuthentication()
+    @BeforeClass
+    public void setUp()
             throws Exception
     {
         // We use 7.8.0 because security became a non-commercial feature in recent versions
@@ -79,9 +82,14 @@ public class TestPasswordAuthentication
     public final void destroy()
             throws IOException
     {
-        assertions.close();
-        elasticsearch.stop();
-        client.close();
+        closeAll(
+                () -> assertions.close(),
+                () -> elasticsearch.stop(),
+                () -> client.close());
+
+        assertions = null;
+        elasticsearch = null;
+        client = null;
     }
 
     @Test
