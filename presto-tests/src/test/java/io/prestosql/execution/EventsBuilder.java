@@ -44,9 +44,10 @@ class EventsBuilder
     public EventsBuilder(Predicate<QueryMetadata> queryFilter)
     {
         this.queryFilter = requireNonNull(queryFilter, "filter is null");
+        reset(0);
     }
 
-    public synchronized void initialize(int numEvents)
+    public synchronized void reset(int numEvents)
     {
         queryCreatedEvents = ImmutableList.builder();
         queryCompletedEvents = ImmutableList.builder();

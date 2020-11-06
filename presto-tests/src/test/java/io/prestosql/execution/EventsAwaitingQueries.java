@@ -46,7 +46,7 @@ class EventsAwaitingQueries
     MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession, Optional<String> expectedExceptionRegEx)
             throws Exception
     {
-        eventsBuilder.initialize(numEventsExpected);
+        eventsBuilder.reset(numEventsExpected);
         MaterializedResult result = null;
         try {
             result = queryRunner.execute(alternateSession, sql);
