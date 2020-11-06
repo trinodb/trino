@@ -24,7 +24,7 @@ jobs:
         java-version:
           - 11
           - 15
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Free Disk Space
         run: |
@@ -50,7 +50,7 @@ jobs:
 
   error-prone-checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
