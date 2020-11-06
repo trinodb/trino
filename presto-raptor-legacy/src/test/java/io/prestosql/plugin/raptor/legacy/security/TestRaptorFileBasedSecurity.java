@@ -22,6 +22,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.File;
+
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
@@ -33,7 +35,7 @@ public class TestRaptorFileBasedSecurity
     public void setUp()
             throws Exception
     {
-        String path = Resources.getResource(getClass(), "security.json").getPath();
+        String path = new File(Resources.getResource(getClass(), "security.json").toURI()).getPath();
         queryRunner = createRaptorQueryRunner(
                 ImmutableMap.of(),
                 true,
