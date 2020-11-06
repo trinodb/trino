@@ -88,7 +88,9 @@ Transactional and ACID tables
 
 When connecting to a Hive metastore version 3.x, the Hive connector supports
 reading from and writing to insert-only and ACID tables, with full support for
-partitioning and bucketing. Row-level deletes are supported for ACID tables.
+partitioning and bucketing. Row-level DELETE is supported for ACID tables,
+as well as SQL UPDATE.  UPDATE of partition key columns and bucket columns is
+not supported.
 
 ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
 are not supported.
@@ -873,6 +875,11 @@ Hive connector limitations
 --------------------------
 
 * :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
+* :doc:`/sql/delete` applied to non-transactional tables is only supported if the ``WHERE`` clause matches entire partitions.
+  Transactional Hive tables with format ORC support "row-by-row" deletion, in which the ``WHERE`` clause may match arbitrary
+  sets of rows.
+* :doc:`/sql/update` is only supported for transactional Hive tables with format ORC.  ``UPDATE`` of partition or bucket
+  columns is not supported.
 
 
 Hive 3 related limitations

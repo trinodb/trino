@@ -199,6 +199,26 @@ public class HiveTableHandle
                 transaction);
     }
 
+    public HiveTableHandle withUpdateProcessor(AcidTransaction transaction, HiveUpdateProcessor updateProcessor)
+    {
+        requireNonNull(updateProcessor, "updatedColumns is null");
+        return new HiveTableHandle(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                dataColumns,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                bucketHandle,
+                bucketFilter,
+                analyzePartitionValues,
+                analyzeColumnNames,
+                constraintColumns,
+                transaction);
+    }
+
     @JsonProperty
     public String getSchemaName()
     {
@@ -295,6 +315,18 @@ public class HiveTableHandle
     public boolean isAcidDelete()
     {
         return transaction.isDelete();
+    }
+
+    @JsonIgnore
+    public boolean isAcidUpdate()
+    {
+        return transaction.isUpdate();
+    }
+
+    @JsonIgnore
+    public Optional<HiveUpdateProcessor> getUpdateProcessor()
+    {
+        return transaction.getUpdateProcessor();
     }
 
     @JsonIgnore

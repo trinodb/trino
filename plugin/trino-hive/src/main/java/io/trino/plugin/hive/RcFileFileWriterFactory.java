@@ -100,7 +100,8 @@ public class RcFileFileWriterFactory
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
-            boolean useAcidSchema)
+            boolean useAcidSchema,
+            WriterKind writerKind)
     {
         if (!RCFileOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();

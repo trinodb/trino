@@ -33,6 +33,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
+import io.trino.plugin.hive.HiveUpdateProcessor;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidSchema;
@@ -94,6 +95,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnable
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
+import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
 import static io.trino.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -400,6 +402,13 @@ public class OrcPageSourceFactory
                 else {
                     columnAdaptations.add(ColumnAdaptation.rowIdColumn());
                 }
+            }
+            else if (transaction.isUpdate()) {
+                HiveUpdateProcessor updateProcessor = transaction.getUpdateProcessor().orElseThrow(() -> new IllegalArgumentException("updateProcessor not present"));
+                List<HiveColumnHandle> dependencyColumns = projections.stream()
+                        .filter(HiveColumnHandle::isBaseColumn)
+                        .collect(toImmutableList());
+                columnAdaptations.add(updatedRowColumns(updateProcessor, dependencyColumns));
             }
 
             return new OrcPageSource(
