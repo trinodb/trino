@@ -16,6 +16,7 @@ package io.trino.metadata;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
@@ -64,11 +65,13 @@ import io.trino.sql.tree.QualifiedName;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.function.OperatorType.CAST;
+import static java.util.Objects.requireNonNull;
 
 public interface Metadata
 {
@@ -598,4 +601,62 @@ public interface Metadata
      * This method is called after security checks against the original table.
      */
     Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle);
+
+    /**
+     * Redirect to another table or view. Returns the original table name if the redirection doesn't happen.
+     */
+    QualifiedObjectName redirectTable(Session session, QualifiedObjectName tableName, WarningCollector warningCollector);
+
+    /**
+     * Redirect to another pair of source and target names. Returns original table names if the redirection doesn't happen.
+     */
+    RenameRedirection redirectTableRename(Session session, QualifiedObjectName sourceTableName, QualifiedObjectName targetTableName, WarningCollector warningCollector);
+
+    class RenameRedirection
+    {
+        private final QualifiedObjectName sourceTableName;
+        private final QualifiedObjectName targetTableName;
+
+        public RenameRedirection(QualifiedObjectName sourceTableName, QualifiedObjectName targetTableName)
+        {
+            this.sourceTableName = requireNonNull(sourceTableName, "sourceTableName is null");
+            this.targetTableName = requireNonNull(targetTableName, "targetTableName is null");
+        }
+
+        public QualifiedObjectName getSourceTableName()
+        {
+            return sourceTableName;
+        }
+
+        public QualifiedObjectName getTargetTableName()
+        {
+            return targetTableName;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (obj == this) {
+                return true;
+            }
+            if ((obj == null) || (getClass() != obj.getClass())) {
+                return false;
+            }
+            RenameRedirection o = (RenameRedirection) obj;
+            return Objects.equals(sourceTableName, o.sourceTableName) &&
+                    Objects.equals(targetTableName, o.targetTableName);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(sourceTableName, targetTableName);
+        }
+
+        @Override
+        public String toString()
+        {
+            return "Rename(" + sourceTableName + "=>" + targetTableName + ")";
+        }
+    }
 }

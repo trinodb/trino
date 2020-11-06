@@ -162,7 +162,7 @@ final class ShowQueriesRewrite
             WarningCollector warningCollector,
             StatsCalculator statsCalculator)
     {
-        return (Statement) new Visitor(metadata, parser, session, accessControl).process(node, null);
+        return (Statement) new Visitor(metadata, parser, session, accessControl, warningCollector).process(node, null);
     }
 
     private static class Visitor
@@ -172,13 +172,15 @@ final class ShowQueriesRewrite
         private final Session session;
         private final SqlParser sqlParser;
         private final AccessControl accessControl;
+        private final WarningCollector warningCollector;
 
-        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, AccessControl accessControl)
+        public Visitor(Metadata metadata, SqlParser sqlParser, Session session, AccessControl accessControl, WarningCollector warningCollector)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.session = requireNonNull(session, "session is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
         @Override
@@ -234,7 +236,7 @@ final class ShowQueriesRewrite
 
             Optional<QualifiedName> tableName = showGrants.getTableName();
             if (tableName.isPresent()) {
-                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
+                QualifiedObjectName qualifiedTableName = metadata.redirectTable(session, createQualifiedObjectName(session, showGrants, tableName.get()), warningCollector);
 
                 if (metadata.getView(session, qualifiedTableName).isEmpty() &&
                         metadata.getTableHandle(session, qualifiedTableName).isEmpty()) {
@@ -380,7 +382,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
+            QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, showColumns, showColumns.getTable()), warningCollector);
             if (metadata.getCatalogHandle(session, tableName.getCatalogName()).isEmpty()) {
                 throw semanticException(CATALOG_NOT_FOUND, showColumns, "Catalog '%s' does not exist", tableName.getCatalogName());
             }
@@ -456,7 +458,7 @@ final class ShowQueriesRewrite
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
             if (node.getType() == VIEW) {
-                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                QualifiedObjectName objectName = metadata.redirectTable(session, createQualifiedObjectName(session, node, node.getName()), warningCollector);
 
                 if (metadata.getMaterializedView(session, objectName).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
@@ -477,14 +479,14 @@ final class ShowQueriesRewrite
                 Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
                 Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
 
-                accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
 
                 String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, viewDefinition.get().getComment(), Optional.empty())).trim();
                 return singleValueQuery("Create View", sql);
             }
 
             if (node.getType() == MATERIALIZED_VIEW) {
-                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                QualifiedObjectName objectName = metadata.redirectTable(session, createQualifiedObjectName(session, node, node.getName()), warningCollector);
                 Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
@@ -500,7 +502,7 @@ final class ShowQueriesRewrite
                 Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
                 Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
 
-                accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), objectName);
 
                 String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
                         query, false, false, new ArrayList<>(), viewDefinition.get().getComment())).trim();
@@ -508,7 +510,7 @@ final class ShowQueriesRewrite
             }
 
             if (node.getType() == TABLE) {
-                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                QualifiedObjectName objectName = metadata.redirectTable(session, createQualifiedObjectName(session, node, node.getName()), warningCollector);
                 Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
                 if (viewDefinition.isPresent()) {

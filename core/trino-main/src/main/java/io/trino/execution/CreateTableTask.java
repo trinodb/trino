@@ -96,16 +96,16 @@ public class CreateTableTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters);
+        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters, warningCollector);
     }
 
     @VisibleForTesting
-    ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getName()), warningCollector);
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isPresent()) {
             if (!statement.isNotExists()) {
@@ -161,7 +161,7 @@ public class CreateTableTask
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
-                QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
+                QualifiedObjectName likeTableName = metadata.redirectTable(session, createQualifiedObjectName(session, statement, likeClause.getTableName()), warningCollector);
                 if (metadata.getCatalogHandle(session, likeTableName.getCatalogName()).isEmpty()) {
                     throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", likeTableName.getCatalogName());
                 }

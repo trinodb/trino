@@ -58,7 +58,7 @@ public class RenameColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getTable()), warningCollector);
         Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
         if (tableHandleOptional.isEmpty()) {
             if (!statement.isTableExists()) {

@@ -52,7 +52,7 @@ public class DropViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName name = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getName()), warningCollector);
 
         Optional<ConnectorViewDefinition> view = metadata.getView(session, name);
         if (view.isEmpty()) {

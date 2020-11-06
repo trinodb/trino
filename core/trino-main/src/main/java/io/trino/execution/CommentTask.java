@@ -60,7 +60,7 @@ public class CommentTask
         Session session = stateMachine.getSession();
 
         if (statement.getType() == Comment.Type.TABLE) {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+            QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getName()), warningCollector);
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
             if (tableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
@@ -76,7 +76,7 @@ public class CommentTask
                 throw semanticException(MISSING_TABLE, statement, "Table must be specified");
             }
 
-            QualifiedObjectName tableName = createQualifiedObjectName(session, statement, prefix.get());
+            QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, statement, prefix.get()), warningCollector);
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
             if (tableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);

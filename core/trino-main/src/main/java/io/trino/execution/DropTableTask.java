@@ -52,7 +52,7 @@ public class DropTableTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getTableName()), warningCollector);
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {

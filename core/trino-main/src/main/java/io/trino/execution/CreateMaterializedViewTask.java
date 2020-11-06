@@ -86,7 +86,7 @@ public class CreateMaterializedViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName name = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getName()), warningCollector);
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);

@@ -81,7 +81,7 @@ public class CreateViewTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName name = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getName()), warningCollector);
 
         accessControl.checkCanCreateView(session.toSecurityContext(), name);
 

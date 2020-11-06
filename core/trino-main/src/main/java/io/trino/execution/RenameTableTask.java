@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.Metadata.RenameRedirection;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
@@ -56,6 +57,10 @@ public class RenameTableTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
+        RenameRedirection renameRedirection = metadata.redirectTableRename(session, tableName, target, warningCollector);
+        tableName = renameRedirection.getSourceTableName();
+        target = renameRedirection.getTargetTableName();
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {
             if (!statement.isExists()) {
@@ -64,7 +69,6 @@ public class RenameTableTask
             return immediateFuture(null);
         }
 
-        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }

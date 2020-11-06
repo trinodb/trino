@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -354,7 +355,10 @@ public class InformationSchemaMetadata
                     .flatMap(prefix -> tables.get().stream()
                             .filter(this::isLowerCase)
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> !isColumnsEnumeratingTable(informationSchemaTable) || metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
+                    .filter(objectName -> !isColumnsEnumeratingTable(informationSchemaTable) ||
+                            // TODO: Add a functional warning collector
+                            metadata.getTableHandle(session, metadata.redirectTable(session, objectName, WarningCollector.NOOP)).isPresent() ||
+                            metadata.getView(session, metadata.redirectTable(session, objectName, WarningCollector.NOOP)).isPresent())
                     .filter(objectName -> predicate.isEmpty() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .collect(toImmutableSet());

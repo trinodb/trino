@@ -18,6 +18,7 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -38,7 +39,10 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.GetViewsResult;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.ListTableColumnsResult;
+import io.trino.spi.connector.ListTablePrivilegesResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SampleType;
@@ -66,6 +70,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -267,6 +272,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.listTableColumns(session, prefix);
+        }
+    }
+
+    @Override
+    public Stream<ListTableColumnsResult> listTableColumnsStream(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listTableColumnsStream(session, prefix);
         }
     }
 
@@ -517,6 +530,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Stream<GetViewsResult> getViewsStream(ConnectorSession session, Optional<String> schemaName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getViewsStream(session, schemaName);
+        }
+    }
+
+    @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -717,6 +738,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Stream<ListTablePrivilegesResult> listTablePrivilegesStream(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listTablePrivilegesStream(session, prefix);
+        }
+    }
+
+    @Override
     public boolean usesLegacyTableLayouts()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -835,6 +864,22 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.applyTableScanRedirect(session, tableHandle);
+        }
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.redirectTable(session, tableName);
+        }
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectTableRename(ConnectorSession session, SchemaTableName sourceTableName, SchemaTableName targetTableName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.redirectTableRename(session, sourceTableName, targetTableName);
         }
     }
 }

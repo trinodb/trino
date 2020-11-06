@@ -65,7 +65,7 @@ public class GrantTask
             executeGrantOnSchema(stateMachine.getSession(), statement, metadata, accessControl);
         }
         else {
-            executeGrantOnTable(stateMachine.getSession(), statement, metadata, accessControl);
+            executeGrantOnTable(stateMachine.getSession(), statement, metadata, accessControl, warningCollector);
         }
         return immediateFuture(null);
     }
@@ -86,9 +86,9 @@ public class GrantTask
         metadata.grantSchemaPrivileges(session, schemaName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
     }
 
-    private void executeGrantOnTable(Session session, Grant statement, Metadata metadata, AccessControl accessControl)
+    private void executeGrantOnTable(Session session, Grant statement, Metadata metadata, AccessControl accessControl, WarningCollector warningCollector)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getName()), warningCollector);
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);

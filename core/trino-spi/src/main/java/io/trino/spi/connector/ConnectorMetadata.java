@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -221,6 +222,15 @@ public interface ConnectorMetadata
     default Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyMap();
+    }
+
+    /**
+     * Gets the metadata for all columns that match the specified table prefix. For redirected tables, returns a {@link ListTableColumnsResult}
+     * with an Optional.empty() field value in the stream.
+     */
+    default Stream<ListTableColumnsResult> listTableColumnsStream(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return listTableColumns(session, prefix).entrySet().stream().map(entry -> new ListTableColumnsResult(entry.getKey(), Optional.of(entry.getValue())));
     }
 
     /**
@@ -562,6 +572,15 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets the definitions of views, possibly filtered by schema. For redirected tables, returns a {@link GetViewsResult}
+     * with an Optional.empty() field value in the stream.
+     */
+    default Stream<GetViewsResult> getViewsStream(ConnectorSession session, Optional<String> schemaName)
+    {
+        return getViews(session, schemaName).entrySet().stream().map(entry -> new GetViewsResult(entry.getKey(), Optional.of(entry.getValue())));
+    }
+
+    /**
      * Gets the view data for the specified view name.
      */
     default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
@@ -747,6 +766,15 @@ public interface ConnectorMetadata
     default List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyList();
+    }
+
+    /**
+     * List the table privileges granted to the specified grantee for the tables that have the specified prefix considering the selected session role.
+     * For redirected tables, returns a {@link GetViewsResult} with an Optional.empty() field value in the stream.
+     */
+    default Stream<ListTablePrivilegesResult> listTablePrivilegesStream(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return listTablePrivileges(session, prefix).stream().map(grantInfo -> new ListTablePrivilegesResult(grantInfo.getSchemaTableName(), Optional.of(grantInfo)));
     }
 
     /**
@@ -1055,6 +1083,48 @@ public interface ConnectorMetadata
     }
 
     default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Redirects to another table or view which may or may not be in the same catalog.
+     * <p>
+     * This method is called whenever the engine references a table or view name, including both accessing and creating one. Connectors are
+     * expected to return {@link Optional#empty()} if the redirection doesn't happen. The engine calls this method in an iterative manner,
+     * i.e., using the redirected name as the argument for the next call, until an {@link Optional#empty()} is returned. A
+     * {@link StandardWarningCode#TABLE_REDIRECTION} warning is raised every time a redirection happens. Access control checks are performed
+     * on the final table, i.e., the end of the redirection chain. Whether a table is a view or not is also determined by the final table.
+     * E.g., suppose table a.b.c is redirected to x.y.z, it's a view if and only if x.y.z is a view.
+     * </p>
+     * <em>Caveats</em>:
+     * <li>
+     * If you choose to implement this method, you should consider implementing {@link #listTableColumnsStream}, {@link #getViewsStream},
+     * {@link #listTablePrivilegesStream}, too. Please review their doc for expected behaviors on redirected tables. They are called to answer
+     * information schema queries. You should also consider implementing {@link #redirectTableRename}, which is used to redirect rename targets.
+     * </li>
+     * <li>
+     * Be careful if you implement redirection to another catalog. Different catalogs have different sets of roles. In other words, GRANT/REVOKE
+     * queries may break due to the non-existence of certain roles in the new catalog. Different connectors may have different table properties,
+     * system tables, hidden columns, type support, etc., too.
+     * </li>
+     */
+    default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Redirects the target table or view name of a rename operation to another one which may or may not be in the same catalog.
+     * <p>
+     * This method is called before the engine tries to rename a table or view. Connectors are expected to return {@link Optional#empty()} if
+     * the redirection doesn't happen. The engine calls this method and {@link #redirectTable} to redirect both source and target tables in an
+     * iterative manner, until both methods return {@link Optional#empty()}. A {@link StandardWarningCode#TABLE_REDIRECTION} warning is raised
+     * every time a redirection happens. Access control checks are performed on the final table,  i.e., the end of the redirection chain.
+     * </p>
+     * <em>Caveats</em>: See {@link #redirectTable}'s documentation for caveats of implementing table redirection.
+     */
+    default Optional<CatalogSchemaTableName> redirectTableRename(ConnectorSession session, SchemaTableName sourceTableName, SchemaTableName targetTableName)
     {
         return Optional.empty();
     }

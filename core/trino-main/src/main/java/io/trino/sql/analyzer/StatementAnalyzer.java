@@ -371,7 +371,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitInsert(Insert insert, Optional<Scope> scope)
         {
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
+            QualifiedObjectName targetTable = metadata.redirectTable(session, createQualifiedObjectName(session, insert, insert.getTarget()), warningCollector);
 
             if (metadata.getMaterializedView(session, targetTable).isPresent()) {
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
@@ -466,7 +466,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitRefreshMaterializedView(RefreshMaterializedView refreshMaterializedView, Optional<Scope> scope)
         {
-            QualifiedObjectName name = createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName());
+            QualifiedObjectName name = metadata.redirectTable(session, createQualifiedObjectName(session, refreshMaterializedView, refreshMaterializedView.getName()), warningCollector);
             Optional<ConnectorMaterializedViewDefinition> optionalView = metadata.getMaterializedView(session, name);
 
             if (optionalView.isEmpty()) {
@@ -479,7 +479,7 @@ class StatementAnalyzer
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Storage Table '%s' for materialized view '%s' does not exist", storageName, name);
             }
 
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, refreshMaterializedView, storageName.get());
+            QualifiedObjectName targetTable = metadata.redirectTable(session, createQualifiedObjectName(session, refreshMaterializedView, storageName.get()), warningCollector);
 
             // analyze the query that creates the data
             Query query = parseView(optionalView.get().getOriginalSql(), name, refreshMaterializedView);
@@ -589,7 +589,7 @@ class StatementAnalyzer
         protected Scope visitDelete(Delete node, Optional<Scope> scope)
         {
             Table table = node.getTable();
-            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, table, table.getName()), warningCollector);
             if (metadata.getView(session, tableName).isPresent()) {
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
@@ -633,7 +633,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
+            QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, node, node.getTableName()), warningCollector);
             analysis.setUpdateType("ANALYZE", tableName, Optional.empty());
 
             // verify the target table exists and it's not a view
@@ -678,7 +678,7 @@ class StatementAnalyzer
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
             // turn this into a query that has a new table writer node on top.
-            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName targetTable = metadata.redirectTable(session, createQualifiedObjectName(session, node, node.getName()), warningCollector);
             analysis.setUpdateType("CREATE TABLE", targetTable, Optional.empty());
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -772,7 +772,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
-            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName viewName = metadata.redirectTable(session, createQualifiedObjectName(session, node, node.getName()), warningCollector);
             analysis.setUpdateType("CREATE VIEW", viewName, Optional.empty());
 
             // analyze the query that creates the view
@@ -957,7 +957,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
         {
-            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName viewName = metadata.redirectTable(session, createQualifiedObjectName(session, node, node.getName()), warningCollector);
             analysis.setUpdateType("CREATE MATERIALIZED VIEW", viewName, Optional.empty());
 
             if (node.isReplace() && node.isNotExists()) {
@@ -1192,7 +1192,7 @@ class StatementAnalyzer
                 }
             }
 
-            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
+            QualifiedObjectName name = metadata.redirectTable(session, createQualifiedObjectName(session, table, table.getName()), warningCollector);
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
             Optional<TableHandle> tableHandle = Optional.empty();
 
@@ -1202,7 +1202,8 @@ class StatementAnalyzer
                     // If materialized view is current, answer the query using the storage table
                     Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(name);
                     if (storageName.isPresent()) {
-                        tableHandle = metadata.getTableHandle(session, createQualifiedObjectName(session, table, storageName.get()));
+                        tableHandle = metadata.getTableHandle(session,
+                                metadata.redirectTable(session, createQualifiedObjectName(session, table, storageName.get()), warningCollector));
                     }
                 }
                 else {
@@ -1360,7 +1361,7 @@ class StatementAnalyzer
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView) {
                 CreateView viewStatement = (CreateView) statement;
-                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
+                QualifiedObjectName viewNameFromStatement = metadata.redirectTable(session, createQualifiedObjectName(session, viewStatement, viewStatement.getName()), warningCollector);
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
                 }
@@ -1413,7 +1414,7 @@ class StatementAnalyzer
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateMaterializedView) {
                 CreateMaterializedView viewStatement = (CreateMaterializedView) statement;
-                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
+                QualifiedObjectName viewNameFromStatement = metadata.redirectTable(session, createQualifiedObjectName(session, viewStatement, viewStatement.getName()), warningCollector);
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive materialized view");
                 }

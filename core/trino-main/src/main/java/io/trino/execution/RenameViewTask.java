@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.Metadata.RenameRedirection;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -56,12 +57,15 @@ public class RenameViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
+        RenameRedirection renameRedirection = metadata.redirectTableRename(session, viewName, target, warningCollector);
+        viewName = renameRedirection.getSourceTableName();
+        target = renameRedirection.getTargetTableName();
         Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, viewName);
         if (viewDefinition.isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
         }
 
-        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
         if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
             throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }

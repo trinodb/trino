@@ -57,7 +57,7 @@ public class SetViewAuthorizationTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName viewName = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getSource()), warningCollector);
         CatalogName catalogName = metadata.getCatalogHandle(session, viewName.getCatalogName())
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + viewName.getCatalogName()));
         metadata.getView(session, viewName)

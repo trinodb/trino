@@ -57,7 +57,7 @@ public class SetTableAuthorizationTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName tableName = metadata.redirectTable(session, createQualifiedObjectName(session, statement, statement.getSource()), warningCollector);
 
         CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
