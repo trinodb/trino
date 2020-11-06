@@ -18,8 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.pinot.client.PinotHostMapper;
-import io.prestosql.pinot.util.TestingPinotCluster;
-import io.prestosql.pinot.util.TestingPinotHostMapper;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
