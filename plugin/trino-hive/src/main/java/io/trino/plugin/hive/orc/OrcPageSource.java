@@ -22,6 +22,8 @@ import io.trino.orc.OrcRecordReader;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveUpdateProcessor;
 import io.trino.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -226,6 +228,11 @@ public class OrcPageSource
         {
             return new OriginalFileRowIdAdaptation(startingRowId, bucketId);
         }
+
+        static ColumnAdaptation updatedRowColumns(HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
+        {
+            return new UpdatedRowAdaptation(updateProcessor, dependencyColumns);
+        }
     }
 
     private static class NullColumn
@@ -325,6 +332,30 @@ public class OrcPageSource
                             sourcePage.getBlock(BUCKET_CHANNEL),
                     }));
             return rowBlock;
+        }
+    }
+
+    /**
+     * This ColumnAdaptation creates a RowBlock column containing the three
+     * ACID columms - - originalTransaction, rowId, bucket - - and
+     * all the columns not changed by the UPDATE statement.
+     */
+    private static final class UpdatedRowAdaptation
+            implements ColumnAdaptation
+    {
+        private final HiveUpdateProcessor updateProcessor;
+        private final List<Integer> nonUpdatedSourceChannels;
+
+        public UpdatedRowAdaptation(HiveUpdateProcessor updateProcessor, List<HiveColumnHandle> dependencyColumns)
+        {
+            this.updateProcessor = updateProcessor;
+            this.nonUpdatedSourceChannels = updateProcessor.makeNonUpdatedSourceChannels(dependencyColumns);
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        {
+            return updateProcessor.createUpdateRowBlock(sourcePage, nonUpdatedSourceChannels, maskDeletedRowsFunction);
         }
     }
 

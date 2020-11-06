@@ -470,7 +470,8 @@ public class HiveWriterFactory
                     session,
                     bucketNumber,
                     transaction,
-                    useAcidSchema);
+                    useAcidSchema,
+                    WriterKind.INSERT);
 
             if (fileWriter.isPresent()) {
                 hiveFileWriter = fileWriter.get();
