@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-import com.github.dockerjava.api.DockerClient;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.ClassPath;
@@ -22,7 +21,6 @@ import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import org.testcontainers.DockerClientFactory;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
@@ -49,13 +47,10 @@ public final class Environments
     public static void pruneContainers()
     {
         log.info("Shutting down previous containers");
-        try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
+        try {
             killContainers(
-                    dockerClient,
+                    DockerClientFactory.lazyClient(),
                     listContainersCmd -> listContainersCmd.withLabelFilter(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
         catch (RuntimeException e) {
             log.warn("Could not prune containers correctly: %s", getStackTraceAsString(e));
@@ -65,13 +60,10 @@ public final class Environments
     public static void pruneNetworks()
     {
         log.info("Removing previous networks");
-        try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
+        try {
             removeNetworks(
-                    dockerClient,
+                    DockerClientFactory.lazyClient(),
                     listNetworksCmd -> listNetworksCmd.withNameFilter(PRODUCT_TEST_LAUNCHER_NETWORK));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
         catch (RuntimeException e) {
             log.warn("Could not prune networks correctly: %s", getStackTraceAsString(e));
