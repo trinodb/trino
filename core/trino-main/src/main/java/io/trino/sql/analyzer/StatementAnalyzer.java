@@ -158,6 +158,8 @@ import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
+import io.trino.sql.tree.Update;
+import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Use;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.Window;
@@ -177,6 +179,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -186,6 +189,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -314,14 +318,20 @@ class StatementAnalyzer
 
     public Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
-        return new Visitor(outerQueryScope, warningCollector, false)
+        return new Visitor(outerQueryScope, warningCollector, Optional.empty())
                 .process(node, Optional.empty());
     }
 
-    public Scope analyzeForUpdate(Table table, Optional<Scope> outerQueryScope)
+    public Scope analyzeForUpdate(Table table, Optional<Scope> outerQueryScope, UpdateKind updateKind)
     {
-        return new Visitor(outerQueryScope, warningCollector, true)
+        return new Visitor(outerQueryScope, warningCollector, Optional.of(updateKind))
                 .process(table, Optional.empty());
+    }
+
+    private enum UpdateKind
+    {
+        DELETE,
+        UPDATE;
     }
 
     /**
@@ -334,13 +344,13 @@ class StatementAnalyzer
     {
         private final Optional<Scope> outerQueryScope;
         private final WarningCollector warningCollector;
-        private final boolean isUpdateQuery;
+        private final Optional<UpdateKind> updateKind;
 
-        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector, boolean isUpdateQuery)
+        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector, Optional<UpdateKind> updateKind)
         {
             this.outerQueryScope = requireNonNull(outerQueryScope, "outerQueryScope is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-            this.isUpdateQuery = isUpdateQuery;
+            this.updateKind = requireNonNull(updateKind, "updateKind is null");
         }
 
         @Override
@@ -625,7 +635,7 @@ class StatementAnalyzer
                     warningCollector,
                     CorrelationSupport.ALLOWED);
 
-            Scope tableScope = analyzer.analyzeForUpdate(table, scope);
+            Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.DELETE);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
             analysis.setUpdateType("DELETE", tableName, Optional.of(table));
@@ -1251,13 +1261,31 @@ class StatementAnalyzer
                 analysis.setColumn(field, columnHandle);
             }
 
-            if (isUpdateQuery) {
+            if (updateKind.isPresent()) {
                 // Add the row id field
-                ColumnHandle column = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get());
-                Type type = metadata.getColumnMetadata(session, tableHandle.get(), column).getType();
+                ColumnHandle rowIdColumnHandle;
+                switch (updateKind.get()) {
+                    case DELETE:
+                        rowIdColumnHandle = metadata.getDeleteRowIdColumnHandle(session, tableHandle.get());
+                        break;
+                    case UPDATE:
+                        List<ColumnMetadata> updatedColumnMetadata = analysis.getUpdatedColumns()
+                                .orElseThrow(() -> new VerifyException("updated columns not set"));
+                        Set<String> updatedColumnNames = updatedColumnMetadata.stream().map(ColumnMetadata::getName).collect(toImmutableSet());
+                        List<ColumnHandle> updatedColumns = columnHandles.entrySet().stream()
+                                .filter(entry -> updatedColumnNames.contains(entry.getKey()))
+                                .map(Map.Entry::getValue)
+                                .collect(toImmutableList());
+                        rowIdColumnHandle = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("Unknown UpdateKind " + updateKind.get());
+                }
+
+                Type type = metadata.getColumnMetadata(session, tableHandle.get(), rowIdColumnHandle).getType();
                 Field field = Field.newUnqualified(Optional.empty(), type);
                 fields.add(field);
-                analysis.setColumn(field, column);
+                analysis.setColumn(field, rowIdColumnHandle);
             }
 
             List<Field> outputFields = fields.build();
@@ -1266,7 +1294,7 @@ class StatementAnalyzer
 
             Scope tableScope = createAndAssignScope(table, scope, outputFields);
 
-            if (isUpdateQuery) {
+            if (updateKind.isPresent()) {
                 FieldReference reference = new FieldReference(outputFields.size() - 1);
                 analyzeExpression(reference, tableScope);
                 analysis.setRowIdField(table, reference);
@@ -1796,6 +1824,105 @@ class StatementAnalyzer
             }
 
             return output;
+        }
+
+        @Override
+        protected Scope visitUpdate(Update update, Optional<Scope> scope)
+        {
+            Table table = update.getTable();
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            if (metadata.getView(session, tableName).isPresent()) {
+                throw semanticException(NOT_SUPPORTED, update, "Updating through views is not supported");
+            }
+
+            TableHandle handle = metadata.getTableHandle(session, tableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
+
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+
+            List<ColumnMetadata> allColumns = tableMetadata.getColumns();
+            Map<String, ColumnMetadata> columns = allColumns.stream()
+                    .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
+
+            for (UpdateAssignment assignment : update.getAssignments()) {
+                String columnName = assignment.getName().getValue();
+                if (!columns.containsKey(columnName)) {
+                    throw semanticException(COLUMN_NOT_FOUND, assignment.getName(), "The UPDATE SET target column %s doesn't exist", columnName);
+                }
+            }
+
+            Set<String> assignmentTargets = update.getAssignments().stream()
+                    .map(assignment -> assignment.getName().getValue())
+                    .collect(toImmutableSet());
+            accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, assignmentTargets);
+
+            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, update, "Updating a table with a row filter is not supported");
+            }
+
+            // TODO: how to deal with connectors that need to see the pre-image of rows to perform the update without
+            //       flowing that data through the masking logic
+            for (ColumnMetadata tableColumn : allColumns) {
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, update, "Updating a table with column masks is not supported");
+                }
+            }
+
+            List<ColumnMetadata> updatedColumns = allColumns.stream()
+                    .filter(column -> assignmentTargets.contains(column.getName()))
+                    .collect(toImmutableList());
+            analysis.setUpdateType("UPDATE", tableName, Optional.of(table));
+            analysis.setUpdatedColumns(updatedColumns);
+
+            // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks
+            StatementAnalyzer analyzer = new StatementAnalyzer(
+                    analysis,
+                    metadata,
+                    sqlParser,
+                    groupProvider,
+                    new AllowAllAccessControl(),
+                    session,
+                    warningCollector,
+                    CorrelationSupport.ALLOWED);
+
+            Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.UPDATE);
+            update.getWhere().ifPresent(where -> analyzeWhere(update, tableScope, where));
+
+            ImmutableList.Builder<ExpressionAnalysis> analysesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Type> expressionTypesBuilder = ImmutableList.builder();
+            for (UpdateAssignment assignment : update.getAssignments()) {
+                Expression expression = assignment.getValue();
+                ExpressionAnalysis analysis = analyzeExpression(expression, tableScope);
+                analysesBuilder.add(analysis);
+                expressionTypesBuilder.add(analysis.getType(expression));
+            }
+            List<ExpressionAnalysis> analyses = analysesBuilder.build();
+            List<Type> expressionTypes = expressionTypesBuilder.build();
+
+            List<Type> tableTypes = update.getAssignments().stream()
+                    .map(assignment -> requireNonNull(columns.get(assignment.getName().getValue())))
+                    .map(ColumnMetadata::getType)
+                    .collect(toImmutableList());
+
+            if (!typesMatchForInsert(tableTypes, expressionTypes)) {
+                throw semanticException(TYPE_MISMATCH,
+                        update,
+                        "UPDATE table column types don't match SET expressions: Table: [%s], Expressions: [%s]",
+                        Joiner.on(", ").join(tableTypes),
+                        Joiner.on(", ").join(expressionTypes));
+            }
+
+            for (int index = 0; index < expressionTypes.size(); index++) {
+                Expression expression = update.getAssignments().get(index).getValue();
+                Type expressionType = expressionTypes.get(index);
+                Type targetType = tableTypes.get(index);
+                if (!targetType.equals(expressionType)) {
+                    analysis.addCoercion(expression, targetType, typeCoercion.isTypeOnlyCoercion(expressionType, targetType));
+                }
+                analysis.recordSubqueries(update, analyses.get(index));
+            }
+
+            return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
         }
 
         private Scope analyzeJoinUsing(Join node, List<Identifier> columns, Optional<Scope> scope, Scope left, Scope right)

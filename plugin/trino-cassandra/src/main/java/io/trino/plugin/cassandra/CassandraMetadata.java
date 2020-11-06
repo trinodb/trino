@@ -373,7 +373,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return new CassandraColumnHandle("$update_row_id", 0, CassandraType.TEXT, false, false, false, true);
     }

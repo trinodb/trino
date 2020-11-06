@@ -141,6 +141,9 @@ statement
     | DESCRIBE INPUT identifier                                        #describeInput
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
+    | UPDATE qualifiedName
+        SET updateAssignment (',' updateAssignment)*
+        (WHERE where=booleanExpression)?                               #update
     ;
 
 query
@@ -469,6 +472,9 @@ frameBound
     | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame
     ;
 
+updateAssignment
+    : identifier '=' expression
+    ;
 
 explainOption
     : FORMAT value=(TEXT | GRAPHVIZ | JSON)                 #explainFormat
@@ -560,7 +566,7 @@ nonReserved
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
     | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | USE | USER
+    | UNBOUNDED | UNCOMMITTED | UPDATE | USE | USER
     | VALIDATE | VERBOSE | VIEW
     | WINDOW | WITHOUT | WORK | WRITE
     | YEAR
@@ -755,6 +761,7 @@ UNBOUNDED: 'UNBOUNDED';
 UNCOMMITTED: 'UNCOMMITTED';
 UNION: 'UNION';
 UNNEST: 'UNNEST';
+UPDATE: 'UPDATE';
 USE: 'USE';
 USER: 'USER';
 USING: 'USING';
