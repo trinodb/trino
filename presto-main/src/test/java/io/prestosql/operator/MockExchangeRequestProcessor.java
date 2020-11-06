@@ -27,7 +27,6 @@ import io.airlift.units.DataSize;
 import io.prestosql.client.PrestoHeaders;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.PagesSerde;
-import io.prestosql.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.spi.Page;
 
@@ -166,9 +165,7 @@ public class MockExchangeRequestProcessor
         public synchronized void addPage(Page page)
         {
             checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
-            try (PagesSerdeContext context = PAGES_SERDE.newContext()) {
-                serializedPages.add(PAGES_SERDE.serialize(context, page));
-            }
+            serializedPages.add(PAGES_SERDE.serialize(PAGES_SERDE.newContext(), page));
         }
 
         public BufferResult getPages(long sequenceId, DataSize maxSize)

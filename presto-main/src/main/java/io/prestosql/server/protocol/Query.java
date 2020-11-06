@@ -504,7 +504,8 @@ class Query
                 .withExceptionConsumer(this::handleSerializationException)
                 .withColumnsAndTypes(columns, types);
 
-        try (PagesSerdeContext context = serde.newContext()) {
+        try {
+            PagesSerdeContext context = serde.newContext();
             long bytes = 0;
             while (bytes < targetResultBytes) {
                 SerializedPage serializedPage = exchangeClient.pollPage();

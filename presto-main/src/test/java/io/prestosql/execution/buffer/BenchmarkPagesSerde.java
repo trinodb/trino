@@ -65,10 +65,9 @@ public class BenchmarkPagesSerde
     {
         Page[] pages = data.dataPages;
         PagesSerde serde = data.serde;
-        try (PagesSerdeContext context = serde.newContext()) {
-            for (int i = 0; i < pages.length; i++) {
-                blackhole.consume(serde.serialize(context, pages[i]));
-            }
+        PagesSerdeContext context = serde.newContext();
+        for (int i = 0; i < pages.length; i++) {
+            blackhole.consume(serde.serialize(context, pages[i]));
         }
     }
 
@@ -77,10 +76,9 @@ public class BenchmarkPagesSerde
     {
         SerializedPage[] serializedPages = data.serializedPages;
         PagesSerde serde = data.serde;
-        try (PagesSerdeContext context = serde.newContext()) {
-            for (int i = 0; i < serializedPages.length; i++) {
-                blackhole.consume(serde.deserialize(context, serializedPages[i]));
-            }
+        PagesSerdeContext context = serde.newContext();
+        for (int i = 0; i < serializedPages.length; i++) {
+            blackhole.consume(serde.deserialize(context, serializedPages[i]));
         }
     }
 
@@ -92,11 +90,10 @@ public class BenchmarkPagesSerde
         data.initialize();
         SerializedPage[] serializedPages = data.serializedPages;
         PagesSerde serde = data.serde;
-        try (PagesSerdeContext context = serde.newContext()) {
-            // Sanity test by deserializing and checking against the original pages
-            for (int i = 0; i < serializedPages.length; i++) {
-                assertPageEquals(BenchmarkData.TYPES, serde.deserialize(context, serializedPages[i]), data.dataPages[i]);
-            }
+        PagesSerdeContext context = serde.newContext();
+        // Sanity test by deserializing and checking against the original pages
+        for (int i = 0; i < serializedPages.length; i++) {
+            assertPageEquals(BenchmarkData.TYPES, serde.deserialize(context, serializedPages[i]), data.dataPages[i]);
         }
     }
 
@@ -138,10 +135,9 @@ public class BenchmarkPagesSerde
         private SerializedPage[] createSerializedPages()
         {
             SerializedPage[] result = new SerializedPage[dataPages.length];
-            try (PagesSerdeContext context = serde.newContext()) {
-                for (int i = 0; i < result.length; i++) {
-                    result[i] = serde.serialize(context, dataPages[i]);
-                }
+            PagesSerdeContext context = serde.newContext();
+            for (int i = 0; i < result.length; i++) {
+                result[i] = serde.serialize(context, dataPages[i]);
             }
             return result;
         }

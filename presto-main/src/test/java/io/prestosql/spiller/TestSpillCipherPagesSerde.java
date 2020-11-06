@@ -44,23 +44,22 @@ public class TestSpillCipherPagesSerde
         PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerdeForSpill(Optional.of(cipher));
         List<Type> types = ImmutableList.of(VARCHAR);
         Page emptyPage = new Page(VARCHAR.createBlockBuilder(null, 0).build());
-        try (PagesSerdeContext context = serde.newContext()) {
-            assertPageEquals(types, serde.deserialize(serde.serialize(context, emptyPage)), emptyPage);
+        PagesSerdeContext context = serde.newContext();
+        assertPageEquals(types, serde.deserialize(serde.serialize(context, emptyPage)), emptyPage);
 
-            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 2);
-            VARCHAR.writeString(blockBuilder, "hello");
-            VARCHAR.writeString(blockBuilder, "world");
-            Page helloWorldPage = new Page(blockBuilder.build());
+        BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 2);
+        VARCHAR.writeString(blockBuilder, "hello");
+        VARCHAR.writeString(blockBuilder, "world");
+        Page helloWorldPage = new Page(blockBuilder.build());
 
-            SerializedPage serialized = serde.serialize(context, helloWorldPage);
-            assertPageEquals(types, serde.deserialize(serialized), helloWorldPage);
-            assertTrue(serialized.isEncrypted(), "page should be encrypted");
+        SerializedPage serialized = serde.serialize(context, helloWorldPage);
+        assertPageEquals(types, serde.deserialize(serialized), helloWorldPage);
+        assertTrue(serialized.isEncrypted(), "page should be encrypted");
 
-            cipher.close();
+        cipher.close();
 
-            assertFailure(() -> serde.serialize(context, helloWorldPage), "Spill cipher already closed");
-            assertFailure(() -> serde.deserialize(context, serialized), "Spill cipher already closed");
-        }
+        assertFailure(() -> serde.serialize(context, helloWorldPage), "Spill cipher already closed");
+        assertFailure(() -> serde.deserialize(context, serialized), "Spill cipher already closed");
     }
 
     private static void assertFailure(ThrowingRunnable runnable, String expectedErrorMessage)

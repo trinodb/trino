@@ -451,20 +451,19 @@ public class PartitionedOutputOperator
 
         public void flush(boolean force)
         {
-            try (PagesSerdeContext context = serde.newContext()) {
-                // add all full pages to output buffer
-                for (int partition = 0; partition < pageBuilders.length; partition++) {
-                    PageBuilder partitionPageBuilder = pageBuilders[partition];
-                    if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
-                        Page pagePartition = partitionPageBuilder.build();
-                        partitionPageBuilder.reset();
+            PagesSerdeContext context = serde.newContext();
+            // add all full pages to output buffer
+            for (int partition = 0; partition < pageBuilders.length; partition++) {
+                PageBuilder partitionPageBuilder = pageBuilders[partition];
+                if (!partitionPageBuilder.isEmpty() && (force || partitionPageBuilder.isFull())) {
+                    Page pagePartition = partitionPageBuilder.build();
+                    partitionPageBuilder.reset();
 
-                        operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
+                    operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
 
-                        outputBuffer.enqueue(partition, splitAndSerializePage(context, pagePartition));
-                        pagesAdded.incrementAndGet();
-                        rowsAdded.addAndGet(pagePartition.getPositionCount());
-                    }
+                    outputBuffer.enqueue(partition, splitAndSerializePage(context, pagePartition));
+                    pagesAdded.incrementAndGet();
+                    rowsAdded.addAndGet(pagePartition.getPositionCount());
                 }
             }
         }

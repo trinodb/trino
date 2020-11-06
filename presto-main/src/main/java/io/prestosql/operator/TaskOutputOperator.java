@@ -151,10 +151,9 @@ public class TaskOutputOperator
     {
         List<Page> splits = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(splits.size());
-        try (PagesSerdeContext context = serde.newContext()) {
-            for (Page split : splits) {
-                builder.add(serde.serialize(context, split));
-            }
+        PagesSerdeContext context = serde.newContext();
+        for (Page split : splits) {
+            builder.add(serde.serialize(context, split));
         }
         return builder.build();
     }

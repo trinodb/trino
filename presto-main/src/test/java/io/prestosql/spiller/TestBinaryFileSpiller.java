@@ -138,13 +138,12 @@ public class TestBinaryFileSpiller
         long spilledBytes = 0;
 
         assertEquals(memoryContext.getBytes(), 0);
-        try (PagesSerdeContext context = pagesSerde.newContext()) {
-            for (List<Page> spill : spills) {
-                spilledBytes += spill.stream()
-                        .mapToLong(page -> pagesSerde.serialize(context, page).getSizeInBytes())
-                        .sum();
-                spiller.spill(spill.iterator()).get();
-            }
+        PagesSerdeContext context = pagesSerde.newContext();
+        for (List<Page> spill : spills) {
+            spilledBytes += spill.stream()
+                    .mapToLong(page -> pagesSerde.serialize(context, page).getSizeInBytes())
+                    .sum();
+            spiller.spill(spill.iterator()).get();
         }
         assertEquals(spillerStats.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
         // At this point, the buffers should still be accounted for in the memory context, because

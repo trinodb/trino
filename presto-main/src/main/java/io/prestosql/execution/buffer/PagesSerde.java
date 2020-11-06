@@ -122,9 +122,7 @@ public class PagesSerde
 
     public Page deserialize(SerializedPage serializedPage)
     {
-        try (PagesSerdeContext context = newContext()) {
-            return deserialize(context, serializedPage);
-        }
+        return deserialize(newContext(), serializedPage);
     }
 
     public Page deserialize(PagesSerdeContext context, SerializedPage serializedPage)
@@ -174,7 +172,6 @@ public class PagesSerde
     }
 
     public static final class PagesSerdeContext
-            implements AutoCloseable
     {
         //  Limit retained buffers to 4x the default max page size
         private static final int MAX_BUFFER_RETAINED_SIZE = DEFAULT_MAX_PAGE_SIZE_IN_BYTES * 4;
@@ -184,18 +181,9 @@ public class PagesSerde
         //  based on length so that they can be used for compression or encryption, maximizing reuse opportunities
         private byte[] largerBuffer;
         private byte[] smallerBuffer;
-        private boolean closed;
-
-        private void checkNotClosed()
-        {
-            if (closed) {
-                throw new IllegalStateException("PagesSerdeContext is already closed");
-            }
-        }
 
         private DynamicSliceOutput acquireSliceOutput(int estimatedSize)
         {
-            checkNotClosed();
             if (sliceOutput != null && sliceOutput.writableBytes() >= estimatedSize) {
                 DynamicSliceOutput result = this.sliceOutput;
                 this.sliceOutput = null;
@@ -207,9 +195,6 @@ public class PagesSerde
 
         private void releaseSliceOutput(DynamicSliceOutput sliceOutput)
         {
-            if (closed) {
-                return;
-            }
             sliceOutput.reset();
             if (sliceOutput.writableBytes() <= MAX_BUFFER_RETAINED_SIZE) {
                 this.sliceOutput = sliceOutput;
@@ -218,7 +203,6 @@ public class PagesSerde
 
         private byte[] acquireBuffer(int size)
         {
-            checkNotClosed();
             byte[] result;
             //  Check the smallest buffer first
             if (smallerBuffer != null && smallerBuffer.length >= size) {
@@ -238,7 +222,7 @@ public class PagesSerde
         private void releaseBuffer(byte[] buffer)
         {
             int size = buffer.length;
-            if (closed || size > MAX_BUFFER_RETAINED_SIZE) {
+            if (size > MAX_BUFFER_RETAINED_SIZE) {
                 return;
             }
             if (largerBuffer == null) {
@@ -251,15 +235,6 @@ public class PagesSerde
             else if (smallerBuffer == null || size >= smallerBuffer.length) {
                 smallerBuffer = buffer;
             }
-        }
-
-        @Override
-        public void close()
-        {
-            closed = true;
-            sliceOutput = null;
-            smallerBuffer = null;
-            largerBuffer = null;
         }
     }
 }
