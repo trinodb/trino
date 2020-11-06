@@ -45,6 +45,7 @@ import io.prestosql.execution.StageId;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.operator.ExchangeClient;
@@ -503,7 +504,7 @@ class Query
                 .withExceptionConsumer(this::handleSerializationException)
                 .withColumnsAndTypes(columns, types);
 
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
+        try (PagesSerdeContext context = serde.newContext()) {
             long bytes = 0;
             while (bytes < targetResultBytes) {
                 SerializedPage serializedPage = exchangeClient.pollPage();

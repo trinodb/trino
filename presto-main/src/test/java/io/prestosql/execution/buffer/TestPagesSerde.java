@@ -16,6 +16,7 @@ package io.prestosql.execution.buffer;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
+import io.prestosql.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -111,7 +112,7 @@ public class TestPagesSerde
     public void testClosedContext()
     {
         PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerde();
-        PagesSerde.PagesSerdeContext context = serde.newContext();
+        PagesSerdeContext context = serde.newContext();
         context.close();
 
         try {

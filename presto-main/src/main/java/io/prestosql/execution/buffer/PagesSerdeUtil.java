@@ -19,6 +19,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import io.prestosql.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -125,7 +126,7 @@ public final class PagesSerdeUtil
     public static long writePages(PagesSerde serde, SliceOutput sliceOutput, Iterator<Page> pages)
     {
         long size = 0;
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
+        try (PagesSerdeContext context = serde.newContext()) {
             while (pages.hasNext()) {
                 Page page = pages.next();
                 writeSerializedPage(sliceOutput, serde.serialize(context, page));
@@ -144,7 +145,7 @@ public final class PagesSerdeUtil
             extends AbstractIterator<Page>
     {
         private final PagesSerde serde;
-        private final PagesSerde.PagesSerdeContext context;
+        private final PagesSerdeContext context;
         private final SliceInput input;
 
         PageReader(PagesSerde serde, SliceInput input)

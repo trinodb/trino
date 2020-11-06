@@ -24,6 +24,7 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.spi.Page;
 
@@ -76,7 +77,7 @@ public class TestingExchangeHttpClientHandler
             headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
             headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
             SerializedPage serializedPage;
-            try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
+            try (PagesSerdeContext context = PAGES_SERDE.newContext()) {
                 serializedPage = PAGES_SERDE.serialize(context, page);
             }
             DynamicSliceOutput output = new DynamicSliceOutput(256);

@@ -15,6 +15,7 @@ package io.prestosql.spiller;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.execution.buffer.TestingPagesSerdeFactory;
 import io.prestosql.spi.Page;
@@ -43,7 +44,7 @@ public class TestSpillCipherPagesSerde
         PagesSerde serde = new TestingPagesSerdeFactory().createPagesSerdeForSpill(Optional.of(cipher));
         List<Type> types = ImmutableList.of(VARCHAR);
         Page emptyPage = new Page(VARCHAR.createBlockBuilder(null, 0).build());
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
+        try (PagesSerdeContext context = serde.newContext()) {
             assertPageEquals(types, serde.deserialize(serde.serialize(context, emptyPage)), emptyPage);
 
             BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 2);

@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.block.BlockAssertions;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.prestosql.operator.PageAssertions;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
@@ -69,7 +70,7 @@ public final class BufferTestUtils
     {
         checkArgument(!pages.isEmpty(), "pages is empty");
         ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(pages.size());
-        try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
+        try (PagesSerdeContext context = PAGES_SERDE.newContext()) {
             for (Page page : pages) {
                 builder.add(PAGES_SERDE.serialize(context, page));
             }
@@ -89,7 +90,7 @@ public final class BufferTestUtils
 
     static SerializedPage serializePage(Page page)
     {
-        try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
+        try (PagesSerdeContext context = PAGES_SERDE.newContext()) {
             return PAGES_SERDE.serialize(context, page);
         }
     }
