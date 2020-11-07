@@ -15,6 +15,7 @@ package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.jdbc.PrestoArray;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
@@ -27,19 +28,25 @@ import io.prestosql.tempto.fulfillment.table.TableDefinition;
 import io.prestosql.tempto.fulfillment.table.TableHandle;
 import io.prestosql.tempto.fulfillment.table.TableInstance;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestosql.tempto.query.QueryExecutor;
 import io.prestosql.tempto.query.QueryResult;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.JDBCType;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.IntStream;
+import java.util.Set;
+import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
@@ -49,18 +56,24 @@ import static io.prestosql.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_COERCION;
 import static io.prestosql.tests.TestGroups.JDBC;
+import static io.prestosql.tests.hive.TestHiveCoercion.ColumnContext.columnContext;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.DECIMAL;
 import static java.sql.JDBCType.DOUBLE;
+import static java.sql.JDBCType.FLOAT;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.JAVA_OBJECT;
 import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
+import static java.sql.JDBCType.STRUCT;
 import static java.sql.JDBCType.VARCHAR;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveCoercion
         extends HiveProductTest
@@ -201,9 +214,6 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionTextFile()
     {
-        if (getHiveVersionMajor() >= 3) {
-            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
-        }
         doTestHiveCoercion(HIVE_COERCION_TEXTFILE);
     }
 
@@ -211,9 +221,6 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionOrc()
     {
-        if (getHiveVersionMajor() >= 3) {
-            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
-        }
         doTestHiveCoercion(HIVE_COERCION_ORC);
     }
 
@@ -221,9 +228,6 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionRcText()
     {
-        if (getHiveVersionMajor() >= 3) {
-            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
-        }
         doTestHiveCoercion(HIVE_COERCION_RCTEXT);
     }
 
@@ -231,9 +235,6 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionRcBinary()
     {
-        if (getHiveVersionMajor() >= 3) {
-            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
-        }
         doTestHiveCoercion(HIVE_COERCION_RCBINARY);
     }
 
@@ -241,9 +242,6 @@ public class TestHiveCoercion
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionParquet()
     {
-        if (getHiveVersionMajor() >= 3) {
-            throw new SkipException("Hive 3 forbids certain coercions, we should still test remaining"); // TODO (https://github.com/prestosql/presto/issues/1218)
-        }
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
     }
 
@@ -339,96 +337,255 @@ public class TestHiveCoercion
         alterTableColumnTypes(tableName);
         assertProperAlteredTableSchema(tableName);
 
-        QueryResult queryResult = query("SELECT * FROM " + tableName);
-        assertColumnTypes(queryResult, tableName);
-        List<Row> expectedRows = ImmutableList.of(
-                row(
-                        rowBuilder()
-                                .addField("keep", "as is")
-                                .addField("ti2si", (short) -1)
-                                .addField("si2int", 100)
-                                .addField("int2bi", 2323L)
-                                .addField("bi2vc", "12345")
-                                .build(),
-                        ImmutableList.of(rowBuilder()
-                                .addField("ti2int", 2)
-                                .addField("si2bi", -101L)
-                                .addField("bi2vc", "12345")
-                                .build()),
-                        ImmutableMap.of(2, rowBuilder()
-                                .addField("ti2bi", -3L)
-                                .addField("int2bi", 2323L)
-                                .addField("float2double", 0.5)
-                                .addField("add", null)
-                                .build()),
-                        -1,
-                        2,
-                        -3L,
-                        100,
-                        -101L,
-                        2323L,
-                        "12345",
-                        0.5,
-                        //0.5,
-                        new BigDecimal("12345678.1200"),
-                        new BigDecimal("12345678.1200"),
-                        new BigDecimal("12345678.12"),
-                        new BigDecimal("12345678.12345612345600"),
-                        //new BigDecimal(floatToDecimalVal),
-                        //new BigDecimal("12345.12345"),
-                        Float.parseFloat(decimalToFloatVal),
-                        12345.12345,
-                        "abc",
-                        "ab",
-                        1),
-                row(
-                        rowBuilder()
-                                .addField("keep", null)
-                                .addField("ti2si", (short) 1)
-                                .addField("si2int", -100)
-                                .addField("int2bi", -2323L)
-                                .addField("bi2vc", "-12345")
-                                .build(),
-                        ImmutableList.of(rowBuilder()
-                                .addField("ti2int", -2)
-                                .addField("si2bi", 101L)
-                                .addField("bi2vc", "-12345")
-                                .build()),
-                        ImmutableMap.of(-2, rowBuilder()
-                                .addField("ti2bi", null)
-                                .addField("int2bi", -2323L)
-                                .addField("float2double", -1.5)
-                                .addField("add", null)
-                                .build()),
-                        1,
-                        -2,
-                        null,
-                        -100,
-                        101L,
-                        -2323L,
-                        "-12345",
-                        -1.5,
-                        //-1.5,
-                        new BigDecimal("-12345678.1200"),
-                        new BigDecimal("-12345678.1200"),
-                        new BigDecimal("-12345678.12"),
-                        new BigDecimal("-12345678.12345612345600"),
-                        //new BigDecimal("-" + floatToDecimalVal),
-                        //new BigDecimal("-12345.12345"),
-                        -Float.parseFloat(decimalToFloatVal),
-                        -12345.12345,
-                        "\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0",
-                        "\uD83D\uDCB0\uD83D\uDCB0",
-                        1));
+        List<String> prestoReadColumns = ImmutableList.of(
+                "row_to_row",
+                "list_to_list",
+                "map_to_map",
+                "tinyint_to_smallint",
+                "tinyint_to_int",
+                "tinyint_to_bigint",
+                "smallint_to_int",
+                "smallint_to_bigint",
+                "int_to_bigint",
+                "bigint_to_varchar",
+                "float_to_double",
+                // "double_to_float",
+                "shortdecimal_to_shortdecimal",
+                "shortdecimal_to_longdecimal",
+                "longdecimal_to_shortdecimal",
+                "longdecimal_to_longdecimal",
+                // "float_to_decimal",
+                // "double_to_decimal",
+                "decimal_to_float",
+                "decimal_to_double",
+                "varchar_to_bigger_varchar",
+                "varchar_to_smaller_varchar",
+                "id");
 
-        // test structural values (tempto can't handle map and row)
-        assertEqualsIgnoreOrder(queryResult.column(1), column(expectedRows, 1), "row_to_row field is not equal");
-        assertEqualsIgnoreOrder(extract(queryResult.column(2)), column(expectedRows, 2), "list_to_list field is not equal");
-        assertEqualsIgnoreOrder(queryResult.column(3), column(expectedRows, 3), "map_to_map field is not equal");
+        Function<Engine, Map<String, List<Object>>> expected = engine -> {
+            return ImmutableMap.<String, List<Object>>builder()
+                    .put("row_to_row", Arrays.asList(
+                            engine == Engine.PRESTO ?
+                                    rowBuilder()
+                                            .addField("keep", "as is")
+                                            .addField("ti2si", (short) -1)
+                                            .addField("si2int", 100)
+                                            .addField("int2bi", 2323L)
+                                            .addField("bi2vc", "12345")
+                                            .build() :
+                                    // TODO: Compare structures for hive executor instead of serialized representation
+                                    "{\"keep\":\"as is\",\"ti2si\":-1,\"si2int\":100,\"int2bi\":2323,\"bi2vc\":\"12345\"}",
+                            engine == Engine.PRESTO ?
+                                    rowBuilder()
+                                            .addField("keep", null)
+                                            .addField("ti2si", (short) 1)
+                                            .addField("si2int", -100)
+                                            .addField("int2bi", -2323L)
+                                            .addField("bi2vc", "-12345")
+                                            .build() :
+                                    "{\"keep\":null,\"ti2si\":1,\"si2int\":-100,\"int2bi\":-2323,\"bi2vc\":\"-12345\"}"))
+                    .put("list_to_list", Arrays.asList(
+                            engine == Engine.PRESTO ?
+                                    ImmutableList.of(rowBuilder()
+                                            .addField("ti2int", 2)
+                                            .addField("si2bi", -101L)
+                                            .addField("bi2vc", "12345")
+                                            .build()) :
+                                    "[{\"ti2int\":2,\"si2bi\":-101,\"bi2vc\":\"12345\"}]",
+                            engine == Engine.PRESTO ?
+                                    ImmutableList.of(rowBuilder()
+                                            .addField("ti2int", -2)
+                                            .addField("si2bi", 101L)
+                                            .addField("bi2vc", "-12345")
+                                            .build()) :
+                                    "[{\"ti2int\":-2,\"si2bi\":101,\"bi2vc\":\"-12345\"}]"))
+                    .put("map_to_map", Arrays.asList(
+                            engine == Engine.PRESTO ?
+                                    ImmutableMap.of(2, rowBuilder()
+                                            .addField("ti2bi", -3L)
+                                            .addField("int2bi", 2323L)
+                                            .addField("float2double", 0.5)
+                                            .addField("add", null)
+                                            .build()) :
+                                    "{2:{\"ti2bi\":-3,\"int2bi\":2323,\"float2double\":0.5,\"add\":null}}",
+                            engine == Engine.PRESTO ?
+                                    ImmutableMap.of(-2, rowBuilder()
+                                            .addField("ti2bi", null)
+                                            .addField("int2bi", -2323L)
+                                            .addField("float2double", -1.5)
+                                            .addField("add", null)
+                                            .build()) :
+                                    "{-2:{\"ti2bi\":null,\"int2bi\":-2323,\"float2double\":-1.5,\"add\":null}}"))
+                    .put("tinyint_to_smallint", Arrays.asList(
+                            -1,
+                            1))
+                    .put("tinyint_to_int", Arrays.asList(
+                            2,
+                            -2))
+                    .put("tinyint_to_bigint", Arrays.asList(
+                            -3L,
+                            null))
+                    .put("smallint_to_int", Arrays.asList(
+                            100,
+                            -100))
+                    .put("smallint_to_bigint", Arrays.asList(
+                            -101L,
+                            101L))
+                    .put("int_to_bigint", Arrays.asList(
+                            2323L,
+                            -2323L))
+                    .put("bigint_to_varchar", Arrays.asList(
+                            "12345",
+                            "-12345"))
+                    .put("float_to_double", Arrays.asList(
+                            0.5,
+                            -1.5))
+                    // .put("double_to_float", Arrays.asList(0.5, -1.5))
+                    .put("shortdecimal_to_shortdecimal", Arrays.asList(
+                            new BigDecimal("12345678.1200"),
+                            new BigDecimal("-12345678.1200")))
+                    .put("shortdecimal_to_longdecimal", Arrays.asList(
+                            new BigDecimal("12345678.1200"),
+                            new BigDecimal("-12345678.1200")))
+                    .put("longdecimal_to_shortdecimal", Arrays.asList(
+                            new BigDecimal("12345678.12"),
+                            new BigDecimal("-12345678.12")))
+                    .put("longdecimal_to_longdecimal", Arrays.asList(
+                            new BigDecimal("12345678.12345612345600"),
+                            new BigDecimal("-12345678.12345612345600")))
+                    // .put("float_to_decimal", Arrays.asList(new BigDecimal(floatToDecimalVal), new BigDecimal("-" + floatToDecimalVal)))
+                    // .put("double_to_decimal", Arrays.asList(new BigDecimal("12345.12345"), new BigDecimal("-12345.12345")))
+                    .put("decimal_to_float", Arrays.asList(
+                            Float.parseFloat(decimalToFloatVal),
+                            -Float.parseFloat(decimalToFloatVal)))
+                    .put("decimal_to_double", Arrays.asList(
+                            12345.12345,
+                            -12345.12345))
+                    .put("varchar_to_bigger_varchar", Arrays.asList(
+                            "abc",
+                            "\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0"))
+                    .put("varchar_to_smaller_varchar", Arrays.asList(
+                            "ab",
+                            "\uD83D\uDCB0\uD83D\uDCB0"))
+                    .put("id", Arrays.asList(
+                            1,
+                            1))
+                    .build();
+        };
 
-        // test primitive values
-        int[] indexesOfPrimitives = IntStream.rangeClosed(4, expectedRows.get(0).getValues().size()).toArray();
-        assertThat(queryResult.project(indexesOfPrimitives)).containsOnly(project(expectedRows, indexesOfPrimitives));
+        Map<String, List<Object>> expectedPrestoResults = expected.apply(Engine.PRESTO);
+        assertEquals(ImmutableSet.copyOf(prestoReadColumns), expectedPrestoResults.keySet());
+        String prestoSelectQuery = format("SELECT %s FROM %s", String.join(", ", prestoReadColumns), tableName);
+        assertQueryResults(Engine.PRESTO, prestoSelectQuery, expectedPrestoResults, prestoReadColumns, 2, tableName);
+
+        // For Hive, remove unsupported columns for the current file format and hive version
+        List<String> hiveReadColumns = removeUnsupportedColumnsForHive(prestoReadColumns, tableName);
+        Map<String, List<Object>> expectedHiveResults = expected.apply(Engine.HIVE);
+        String hiveSelectQuery = format("SELECT %s FROM %s", String.join(", ", hiveReadColumns), tableName);
+        assertQueryResults(Engine.HIVE, hiveSelectQuery, expectedHiveResults, hiveReadColumns, 2, tableName);
+    }
+
+    private List<String> removeUnsupportedColumnsForHive(List<String> columns, String tableName)
+    {
+        // TODO: assert exceptions being thrown for each column
+        Map<ColumnContext, String> expectedExceptions = ImmutableMap.<ColumnContext, String>builder()
+                // 1.1
+                // Parquet
+                .put(columnContext("1.1", "parquet", "row_to_row"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("1.1", "parquet", "list_to_list"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("1.1", "parquet", "map_to_map"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("1.1", "parquet", "tinyint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("1.1", "parquet", "smallint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("1.1", "parquet", "int_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                // Rcbinary
+                .put(columnContext("1.1", "rcbinary", "row_to_row"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryStruct")
+                .put(columnContext("1.1", "rcbinary", "list_to_list"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray")
+                .put(columnContext("1.1", "rcbinary", "map_to_map"), "java.util.HashMap cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryMap")
+                //
+                // 1.2
+                // Orc
+                .put(columnContext("1.2", "orc", "map_to_map"), "Unknown encoding kind: DIRECT_V2")
+                // Parquet
+                .put(columnContext("1.2", "parquet", "list_to_list"), "java.lang.UnsupportedOperationException: Cannot inspect java.util.ArrayList")
+                // Rcbinary
+                .put(columnContext("1.2", "rcbinary", "row_to_row"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryStruct")
+                .put(columnContext("1.2", "rcbinary", "list_to_list"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray")
+                .put(columnContext("1.2", "rcbinary", "map_to_map"), "java.util.HashMap cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryMap")
+                //
+                // 3.1
+                // Parquet
+                .put(columnContext("3.1", "parquet", "row_to_row"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                .put(columnContext("3.1", "parquet", "list_to_list"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("3.1", "parquet", "map_to_map"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("3.1", "parquet", "tinyint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ByteWritable")
+                .put(columnContext("3.1", "parquet", "smallint_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.hive.serde2.io.ShortWritable")
+                .put(columnContext("3.1", "parquet", "int_to_bigint"), "org.apache.hadoop.io.LongWritable cannot be cast to org.apache.hadoop.io.IntWritable")
+                // Rcbinary
+                .put(columnContext("3.1", "rcbinary", "row_to_row"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryStruct")
+                .put(columnContext("3.1", "rcbinary", "list_to_list"), "java.util.ArrayList cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray")
+                .put(columnContext("3.1", "rcbinary", "map_to_map"), "java.util.LinkedHashMap cannot be cast to org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryMap")
+
+                .build();
+
+        String hiveVersion = getHiveVersionMajor() + "." + getHiveVersionMinor();
+        Set<String> unsupportedColumns = expectedExceptions.keySet().stream()
+                .filter(context -> context.getHiveVersion().equals(hiveVersion) && tableName.contains(context.getFormat()))
+                .map(ColumnContext::getColumn)
+                .collect(toImmutableSet());
+
+        return columns.stream()
+                .filter(column -> !unsupportedColumns.contains(column))
+                .collect(toImmutableList());
+    }
+
+    private void assertQueryResults(
+            Engine engine,
+            String query,
+            Map<String, List<Object>> expected,
+            List<String> columns,
+            int rowCount,
+            String tableName)
+    {
+        QueryResult actual = execute(engine, query);
+
+        ImmutableList.Builder<Row> rowsBuilder = ImmutableList.builder();
+        for (int row = 0; row < rowCount; row++) {
+            List<Object> currentRow = new ArrayList<>();    // Avoid ImmutableList to allow nulls
+
+            for (int column = 0; column < columns.size(); column++) {
+                String columnName = columns.get(column);
+                checkArgument(expected.containsKey(columnName), "columnName should be present in expected results");
+                currentRow.add(expected.get(columnName).get(row));
+            }
+
+            rowsBuilder.add(new Row(currentRow));
+        }
+
+        List<Row> expectedRows = rowsBuilder.build();
+        assertColumnTypes(actual, tableName, engine, columns);
+
+        for (int sqlIndex = 1; sqlIndex <= columns.size(); sqlIndex++) {
+            String column = columns.get(sqlIndex - 1);
+
+            if (column.equals("row_to_row") || column.equals("map_to_map")) {
+                assertEqualsIgnoreOrder(
+                        actual.column(sqlIndex),
+                        column(expectedRows, sqlIndex),
+                        format("%s field is not equal", column));
+                continue;
+            }
+
+            if (column.equals("list_to_list")) {
+                assertEqualsIgnoreOrder(
+                        engine == Engine.PRESTO ? extract(actual.column(sqlIndex)) : actual.column(sqlIndex),
+                        column(expectedRows, sqlIndex),
+                        "list_to_list field is not equal");
+                continue;
+            }
+
+            // test primitive values
+            assertThat(actual.project(sqlIndex)).containsOnly(project(expectedRows, sqlIndex));
+        }
     }
 
     private void assertProperAlteredTableSchema(String tableName)
@@ -461,34 +618,48 @@ public class TestHiveCoercion
                 row("id", "bigint"));
     }
 
-    private void assertColumnTypes(QueryResult queryResult, String tableName)
+    private void assertColumnTypes(
+            QueryResult queryResult,
+            String tableName,
+            Engine engine,
+            List<String> columns)
     {
-        JDBCType floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? DOUBLE : REAL;
+        JDBCType floatType;
+        if (engine == Engine.PRESTO) {
+            floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? DOUBLE : REAL;
+        }
+        else {
+            floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? DOUBLE : FLOAT;
+        }
 
-        assertThat(queryResult).hasColumns(
-                JAVA_OBJECT, // row
-                ARRAY, // list
-                JAVA_OBJECT, // map
-                SMALLINT,
-                INTEGER,
-                BIGINT,
-                INTEGER,
-                BIGINT,
-                BIGINT,
-                VARCHAR,
-                DOUBLE,
-                //floatType,
-                DECIMAL,
-                DECIMAL,
-                DECIMAL,
-                DECIMAL,
-                //DECIMAL,
-                //DECIMAL,
-                floatType,
-                DOUBLE,
-                VARCHAR,
-                VARCHAR,
-                BIGINT);
+        Map<String, JDBCType> expectedTypes = ImmutableMap.<String, JDBCType>builder()
+                .put("row_to_row", engine == Engine.PRESTO ? JAVA_OBJECT : STRUCT)   // row
+                .put("list_to_list", ARRAY) // list
+                .put("map_to_map", JAVA_OBJECT) // map
+                .put("tinyint_to_smallint", SMALLINT)
+                .put("tinyint_to_int", INTEGER)
+                .put("tinyint_to_bigint", BIGINT)
+                .put("smallint_to_int", INTEGER)
+                .put("smallint_to_bigint", BIGINT)
+                .put("int_to_bigint", BIGINT)
+                .put("bigint_to_varchar", VARCHAR)
+                .put("float_to_double", DOUBLE)
+                //.put( "double_to_float", floatType)
+                .put("shortdecimal_to_shortdecimal", DECIMAL)
+                .put("shortdecimal_to_longdecimal", DECIMAL)
+                .put("longdecimal_to_shortdecimal", DECIMAL)
+                .put("longdecimal_to_longdecimal", DECIMAL)
+                //.put("float_to_decimal", DECIMAL)
+                //.put("double_to_decimal", DECIMAL)
+                .put("decimal_to_float", floatType)
+                .put("decimal_to_double", DOUBLE)
+                .put("varchar_to_bigger_varchar", VARCHAR)
+                .put("varchar_to_smaller_varchar", VARCHAR)
+                .put("id", BIGINT)
+                .build();
+
+        assertThat(queryResult)
+                .hasColumns(columns.stream().map(expectedTypes::get).collect(toImmutableList()));
     }
 
     private static void alterTableColumnTypes(String tableName)
@@ -579,5 +750,83 @@ public class TestHiveCoercion
         return arrays.stream()
                 .map(prestoArray -> Arrays.asList((Object[]) prestoArray.getArray()))
                 .collect(toImmutableList());
+    }
+
+    static class ColumnContext
+    {
+        private final String hiveVersion;
+        private final String format;
+        private final String column;
+
+        public ColumnContext(String hiveVersion, String format, String column)
+        {
+            this.hiveVersion = requireNonNull(hiveVersion, "hiveVersion is null");
+            this.format = requireNonNull(format, "format is null");
+            this.column = requireNonNull(column, "column is null");
+        }
+
+        public static ColumnContext columnContext(String version, String format, String column)
+        {
+            return new ColumnContext(version, format, column);
+        }
+
+        public String getHiveVersion()
+        {
+            return hiveVersion;
+        }
+
+        public String getFormat()
+        {
+            return format;
+        }
+
+        public String getColumn()
+        {
+            return column;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnContext that = (ColumnContext) o;
+            return Objects.equals(hiveVersion, that.hiveVersion) &&
+                    Objects.equals(format, that.format) &&
+                    Objects.equals(column, that.column);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(hiveVersion, format, column);
+        }
+    }
+
+    private enum Engine
+    {
+        HIVE,
+        PRESTO
+    }
+
+    private static QueryResult execute(Engine engine, String sql, QueryExecutor.QueryParam... params)
+    {
+        return executorFor(engine).executeQuery(sql, params);
+    }
+
+    private static QueryExecutor executorFor(Engine engine)
+    {
+        switch (engine) {
+            case HIVE:
+                return onHive();
+            case PRESTO:
+                return onPresto();
+            default:
+                throw new IllegalStateException("Unknown enum value " + engine);
+        }
     }
 }
