@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
+import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -37,6 +38,7 @@ import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -355,6 +357,19 @@ public class TestMongoIntegrationSmokeTest
         assertQuery("SELECT count(*) FROM test.null_predicates WHERE value IS NOT NULL", "SELECT 1");
 
         assertUpdate("DROP TABLE test.null_predicates");
+    }
+
+    @Test
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
+
+        // Make sure LIMIT 0 returns empty result because cursor.limit(0) means no limit in MongoDB
+        assertThat(query("SELECT name FROM nation LIMIT 0")).returnsEmptyResult();
+
+        // MongoDB doesn't support limit number greater than integer max
+        assertThat(query("SELECT name FROM nation LIMIT 2147483647")).isFullyPushedDown();
+        assertThat(query("SELECT name FROM nation LIMIT 2147483648")).isNotFullyPushedDown(LimitNode.class);
     }
 
     private void assertOneNotNullResult(String query)
