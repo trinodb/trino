@@ -105,6 +105,33 @@ public class TestBigQueryIntegrationSmokeTest
                 "VALUES (1)");
     }
 
+    @Test(description = "regression test for https://github.com/prestosql/presto/issues/5635")
+    public void testCountAggregationView()
+    {
+        BigQuery client = createBigQueryClient();
+
+        String tableName = "test.count_aggregation_table";
+        String viewName = "test.count_aggregation_view";
+
+        executeBigQuerySql(client, "DROP TABLE IF EXISTS " + tableName);
+        executeBigQuerySql(client, "DROP VIEW IF EXISTS " + viewName);
+        executeBigQuerySql(client, "CREATE TABLE " + tableName + " (a INT64, b INT64, c INT64)");
+        executeBigQuerySql(client, "INSERT INTO " + tableName + " VALUES (1, 2, 3), (4, 5, 6)");
+        executeBigQuerySql(client, "CREATE VIEW " + viewName + " AS SELECT * FROM " + tableName);
+
+        assertQuery(
+                "SELECT count(*) FROM " + viewName,
+                "VALUES (2)");
+
+        assertQuery(
+                "SELECT count(*) FROM " + viewName + " WHERE a = 1",
+                "VALUES (1)");
+
+        assertQuery(
+                "SELECT count(a) FROM " + viewName + " WHERE b = 2",
+                "VALUES (1)");
+    }
+
     private static void executeBigQuerySql(BigQuery bigquery, String query)
     {
         QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(query)
