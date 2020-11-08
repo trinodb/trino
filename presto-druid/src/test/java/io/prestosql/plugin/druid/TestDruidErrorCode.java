@@ -14,27 +14,21 @@
 package io.prestosql.plugin.druid;
 
 import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.ErrorCodeSupplier;
-import io.prestosql.spi.ErrorType;
+import org.testng.annotations.Test;
 
+import static io.prestosql.plugin.druid.DruidErrorCode.DRUID_DDL_NOT_SUPPORTED;
+import static io.prestosql.plugin.druid.DruidErrorCode.DRUID_DML_NOT_SUPPORTED;
 import static io.prestosql.spi.ErrorType.EXTERNAL;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
 
-public enum DruidErrorCode
-        implements ErrorCodeSupplier
+public class TestDruidErrorCode
 {
-    DRUID_DDL_NOT_SUPPORTED(0, EXTERNAL),
-    DRUID_DML_NOT_SUPPORTED(1, EXTERNAL);
-
-    private final ErrorCode errorCode;
-
-    DruidErrorCode(int code, ErrorType type)
+    @Test
+    public void testErrorCodeEquals()
     {
-        errorCode = new ErrorCode(code + 0x0510_0000, name(), type);
-    }
-
-    @Override
-    public ErrorCode toErrorCode()
-    {
-        return errorCode;
+        assertEquals(DRUID_DDL_NOT_SUPPORTED.toErrorCode(),
+                new ErrorCode(0x0510_0000, DRUID_DDL_NOT_SUPPORTED.name(), EXTERNAL));
+        assertEquals(DRUID_DML_NOT_SUPPORTED.toErrorCode(),
+                new ErrorCode(1 + 0x0510_0000, DRUID_DML_NOT_SUPPORTED.name(), EXTERNAL));
     }
 }
