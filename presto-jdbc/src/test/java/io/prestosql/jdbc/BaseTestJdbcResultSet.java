@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -130,7 +131,7 @@ public abstract class BaseTestJdbcResultSet
             long outsideOfDoubleExactRange = 9223372036854775774L;
             //noinspection ConstantConditions
             verify((long) (double) outsideOfDoubleExactRange - outsideOfDoubleExactRange != 0, "outsideOfDoubleExactRange should not be exact-representable as a double");
-            checkRepresentation(connectedStatement.getStatement(), String.format("DECIMAL '%s'",
+            checkRepresentation(connectedStatement.getStatement(), format("DECIMAL '%s'",
                     outsideOfDoubleExactRange), Types.DECIMAL,
                     (rs, column) -> {
                         assertEquals(rs.getObject(column), new BigDecimal("9223372036854775774"));

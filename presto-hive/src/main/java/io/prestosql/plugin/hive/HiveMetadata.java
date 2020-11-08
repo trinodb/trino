@@ -2139,7 +2139,7 @@ public class HiveMetadata
                             .collect(Collectors.joining(","));
                     throw new PrestoException(
                             StandardErrorCode.QUERY_REJECTED,
-                            String.format("Filter required on %s.%s for at least one partition column: %s ", handle.getSchemaName(), handle.getTableName(), partitionColumnNames));
+                            format("Filter required on %s.%s for at least one partition column: %s ", handle.getSchemaName(), handle.getTableName(), partitionColumnNames));
                 }
             }
         }

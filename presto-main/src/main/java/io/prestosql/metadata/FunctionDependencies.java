@@ -33,6 +33,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.metadata.Signature.isOperatorName;
 import static io.prestosql.metadata.Signature.unmangleOperator;
 import static io.prestosql.spi.function.OperatorType.CAST;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -320,7 +321,7 @@ public class FunctionDependencies
         @Override
         public String toString()
         {
-            return String.format("cast(%s, %s)", fromType, toType);
+            return format("cast(%s, %s)", fromType, toType);
         }
     }
 }

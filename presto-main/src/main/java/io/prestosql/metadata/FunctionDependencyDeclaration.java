@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionDependencyDeclaration
@@ -351,7 +352,7 @@ public class FunctionDependencyDeclaration
         @Override
         public String toString()
         {
-            return String.format("cast(%s, %s)", fromType, toType);
+            return format("cast(%s, %s)", fromType, toType);
         }
     }
 }

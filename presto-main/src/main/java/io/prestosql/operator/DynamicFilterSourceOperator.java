@@ -42,6 +42,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -195,7 +196,7 @@ public class DynamicFilterSourceOperator
                     blockTypeOperators.getHashCodeOperator(type),
                     blockBuilders[channelIndex],
                     EXPECTED_BLOCK_BUILDER_SIZE,
-                    String.format("DynamicFilterSourceOperator_%s_%d", planNodeId, channelIndex),
+                    format("DynamicFilterSourceOperator_%s_%d", planNodeId, channelIndex),
                     true);
         }
 
