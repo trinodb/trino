@@ -108,8 +108,7 @@ public class TestKafkaIntegrationPushDown
     public void testPartitionPushDown() throws ExecutionException, InterruptedException
     {
         createMessages(topicNamePartition);
-        String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1",
-                topicNamePartition);
+        String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1", topicNamePartition);
 
         ResultWithQueryId<MaterializedResult> queryResult = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
         assertEquals(getQueryInfo(getDistributedQueryRunner(), queryResult).getQueryStats().getProcessedInputPositions(), MESSAGE_NUM / 2);
@@ -120,20 +119,17 @@ public class TestKafkaIntegrationPushDown
     {
         createMessages(topicNameOffset);
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        String sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10",
-                topicNameOffset);
+        String sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset between 2 and 10", topicNameOffset);
 
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 18);
 
-        sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10",
-                topicNameOffset);
+        sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset > 2 and _partition_offset < 10", topicNameOffset);
 
         queryResult = queryRunner.executeWithQueryId(getSession(), sql);
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 14);
 
-        sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3",
-                topicNameOffset);
+        sql = format("SELECT count(*) FROM default.%s WHERE _partition_offset = 3", topicNameOffset);
 
         queryResult = queryRunner.executeWithQueryId(getSession(), sql);
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 2);
@@ -145,8 +141,11 @@ public class TestKafkaIntegrationPushDown
         RecordMessage recordMessage = createTimestampTestMessages(topicNameCreateTime);
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         // ">= startTime" insure including index 2, "< endTime"  insure excluding index 4;
-        String sql = format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
-                topicNameCreateTime, recordMessage.getStartTime(), recordMessage.getEndTime());
+        String sql = format(
+                "SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
+                topicNameCreateTime,
+                recordMessage.getStartTime(),
+                recordMessage.getEndTime());
 
         // timestamp_upper_bound_force_push_down_enabled default as false.
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
@@ -173,8 +172,11 @@ public class TestKafkaIntegrationPushDown
         RecordMessage recordMessage = createTimestampTestMessages(topicNameLogAppend);
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         // ">= startTime" insure including index 2, "< endTime"  insure excluding index 4;
-        String sql = format("SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
-                topicNameLogAppend, recordMessage.getStartTime(), recordMessage.getEndTime());
+        String sql = format(
+                "SELECT count(*) FROM default.%s WHERE _timestamp >= timestamp '%s' and _timestamp < timestamp '%s'",
+                topicNameLogAppend,
+                recordMessage.getStartTime(),
+                recordMessage.getEndTime());
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(getSession(), sql);
 
         String debugDumpString = buildDebugDumpString(topicNameLogAppend, recordMessage, queryRunner, sql, queryResult);
@@ -209,7 +211,8 @@ public class TestKafkaIntegrationPushDown
         sb.append("test sql result:").append("\n").append(buildResultsDebugDumpString(queryResult.getResult()));
 
         // dump data in kafka
-        sql = format("SELECT _partition_id,_partition_offset,_timestamp FROM default.%s WHERE _partition_offset between %s and %s order by _partition_id, _timestamp",
+        sql = format(
+                "SELECT _partition_id,_partition_offset,_timestamp FROM default.%s WHERE _partition_offset between %s and %s order by _partition_id, _timestamp",
                 topic,
                 recordMessage.getStartOffset(),
                 recordMessage.getStartOffset() + MESSAGE_NUM);
