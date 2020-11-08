@@ -28,6 +28,8 @@ import alluxio.grpc.table.layout.hive.Storage;
 import alluxio.grpc.table.layout.hive.StorageFormat;
 import alluxio.shaded.client.com.google.protobuf.ByteString;
 
+import static java.lang.String.format;
+
 public final class TestingAlluxioMetastoreObjects
 {
     private TestingAlluxioMetastoreObjects() {}
@@ -62,7 +64,7 @@ public final class TestingAlluxioMetastoreObjects
                 .setDbName(DATABASE_NAME)
                 .setTableName(TABLE_NAME)
                 .addValues("1")
-                .setPartitionName(String.format("%s=1", COLUMN_NAME))
+                .setPartitionName(format("%s=1", COLUMN_NAME))
                 .setStorage(getTestingStorage())
                 .addDataCols(getTestingFieldSchema());
     }

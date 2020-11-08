@@ -410,7 +410,7 @@ public class TestParquetDecimalScaling
 
     private static String generateTableName(String testCase, int precision, int scale)
     {
-        return String.format("%s_%d_%d_%d", testCase, precision, scale, ThreadLocalRandom.current().nextInt(1, MAX_VALUE));
+        return format("%s_%d_%d_%d", testCase, precision, scale, ThreadLocalRandom.current().nextInt(1, MAX_VALUE));
     }
 
     protected static class ParquetDecimalInsert

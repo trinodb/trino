@@ -102,7 +102,7 @@ public class DataTypeTest
         for (int i = 0; i < inputs.size(); i++) {
             Input<?> input = inputs.get(i);
             if (input.isUseInWhereClause()) {
-                String debugQuery = String.format("SELECT col_%d FROM %s WHERE col_%d IS NOT DISTINCT FROM %s", i, testTable.getName(), i, input.toPrestoLiteral());
+                String debugQuery = format("SELECT col_%d FROM %s WHERE col_%d IS NOT DISTINCT FROM %s", i, testTable.getName(), i, input.toPrestoLiteral());
                 log.info("Querying input: %d (expected type: %s, expectedResult: %s) using: %s", i, expectedTypes.get(i), expectedResults.get(i), debugQuery);
                 MaterializedResult debugRows = prestoExecutor.execute(session, debugQuery);
                 checkResults(expectedTypes.subList(i, i + 1), expectedResults.subList(i, i + 1), debugRows);

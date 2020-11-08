@@ -318,7 +318,7 @@ public final class DateTimes
         builder.append(yearToSecondFormatter.format(dateTime));
         if (precision > 0) {
             builder.append(".");
-            builder.append(String.format("%0" + precision + "d", rescale(picoFraction, 12, precision)));
+            builder.append(format("%0" + precision + "d", rescale(picoFraction, 12, precision)));
         }
 
         zoneIdFormatter.accept(builder);

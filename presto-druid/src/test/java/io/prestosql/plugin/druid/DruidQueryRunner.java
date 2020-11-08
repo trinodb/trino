@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 
 public class DruidQueryRunner
 {
@@ -60,14 +61,14 @@ public class DruidQueryRunner
     public static void copyAndIngestTpchData(MaterializedResult rows, TestingDruidServer testingDruidServer, String druidDatasource)
             throws IOException, InterruptedException
     {
-        String tsvFileLocation = String.format("%s/%s.tsv", testingDruidServer.getHostWorkingDirectory(), druidDatasource);
+        String tsvFileLocation = format("%s/%s.tsv", testingDruidServer.getHostWorkingDirectory(), druidDatasource);
         writeDataAsTsv(rows, tsvFileLocation);
         testingDruidServer.ingestData(druidDatasource, getIngestionSpecFileName(druidDatasource), tsvFileLocation);
     }
 
     private static String getIngestionSpecFileName(String datasource)
     {
-        return String.format("druid-tpch-ingest-%s.json", datasource);
+        return format("druid-tpch-ingest-%s.json", datasource);
     }
 
     private static Session createSession()

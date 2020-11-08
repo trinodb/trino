@@ -49,6 +49,7 @@ import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodHandles.filterReturnValue;
@@ -206,7 +207,7 @@ public class TypeOperators
                 }
             }
 
-            throw new PrestoException(FUNCTION_NOT_FOUND, String.format(
+            throw new PrestoException(FUNCTION_NOT_FOUND, format(
                     "%s %s operator can not be adapted to convention (%s). Available implementations: %s",
                     operatorConvention.getType(),
                     operatorConvention.getOperatorType(),

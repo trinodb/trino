@@ -592,7 +592,7 @@ public class HiveWriterFactory
     private static Path createHiveBucketPath(Path subdirPath, int bucketToUse, Map<String, String> tableParameters)
     {
         String nameFormat = isInsertOnlyTable(tableParameters) ? "%05d_0" : "bucket_%05d";
-        return new Path(subdirPath, String.format(nameFormat, bucketToUse));
+        return new Path(subdirPath, format(nameFormat, bucketToUse));
     }
 
     private void validateSchema(Optional<String> partitionName, Properties schema)
