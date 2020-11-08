@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,14 +28,24 @@ public class QueryInputMetadata
     private final String table;
     private final List<String> columns;
     private final Optional<Object> connectorInfo;
+    private final OptionalLong physicalInputBytes;
+    private final OptionalLong physicalInputRows;
 
-    public QueryInputMetadata(String catalogName, String schema, String table, List<String> columns, Optional<Object> connectorInfo)
+    public QueryInputMetadata(String catalogName,
+            String schema,
+            String table,
+            List<String> columns,
+            Optional<Object> connectorInfo,
+            OptionalLong physicalInputBytes,
+            OptionalLong physicalInputRows)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.connectorInfo = requireNonNull(connectorInfo, "connectorInfo is null");
+        this.physicalInputBytes = requireNonNull(physicalInputBytes, "physicalInputBytes is null");
+        this.physicalInputRows = requireNonNull(physicalInputRows, "physicalInputRows is null");
     }
 
     @JsonProperty
@@ -65,5 +76,17 @@ public class QueryInputMetadata
     public Optional<Object> getConnectorInfo()
     {
         return connectorInfo;
+    }
+
+    @JsonProperty
+    public OptionalLong getPhysicalInputBytes()
+    {
+        return physicalInputBytes;
+    }
+
+    @JsonProperty
+    public OptionalLong getPhysicalInputRows()
+    {
+        return physicalInputRows;
     }
 }
