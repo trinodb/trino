@@ -15,6 +15,8 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.prestosql.sql.planner.plan.PlanFragmentId;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -28,10 +30,17 @@ public class TestInput
     @Test
     public void testRoundTrip()
     {
-        Input expected = new Input("connectorId", "schema", "table", Optional.empty(), ImmutableList.of(
-                new Column("column1", "string"),
-                new Column("column2", "string"),
-                new Column("column3", "string")));
+        Input expected = new Input(
+                "connectorId",
+                "schema",
+                "table",
+                Optional.empty(),
+                ImmutableList.of(
+                        new Column("column1", "string"),
+                        new Column("column2", "string"),
+                        new Column("column3", "string")),
+                new PlanFragmentId("fragment"),
+                new PlanNodeId("plan-node"));
 
         String json = codec.toJson(expected);
         Input actual = codec.fromJson(json);
