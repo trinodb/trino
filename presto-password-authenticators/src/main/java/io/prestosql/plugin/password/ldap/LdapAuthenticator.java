@@ -88,6 +88,12 @@ public class LdapAuthenticator
                         : this::authenticateWithUserBind));
     }
 
+    @VisibleForTesting
+    void invalidateCache()
+    {
+        authenticationCache.invalidateAll();
+    }
+
     @Override
     public Principal createAuthenticatedPrincipal(String user, String password)
     {
