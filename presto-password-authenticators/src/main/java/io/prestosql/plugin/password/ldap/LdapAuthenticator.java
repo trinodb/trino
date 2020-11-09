@@ -19,6 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.security.pem.PemReader;
@@ -48,9 +49,11 @@ import java.security.Principal;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.password.jndi.JndiUtils.createDirContext;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -143,7 +146,13 @@ public class LdapAuthenticator
             String userDistinguishedName = createUserDistinguishedName(user);
             if (groupAuthorizationSearchPattern.isPresent()) {
                 // user password is also validated as user DN and password is used for querying LDAP
-                checkGroupMembership(user, userDistinguishedName, credential.getPassword());
+                String searchBase = userBaseDistinguishedName.orElseThrow();
+                String groupSearch = replaceUser(groupAuthorizationSearchPattern.get(), user);
+                if (!isGroupMember(searchBase, groupSearch, userDistinguishedName, credential.getPassword())) {
+                    String message = format("User [%s] not a member of an authorized group", user);
+                    log.debug(message);
+                    throw new AccessDeniedException(message);
+                }
             }
             else {
                 validatePassword(userDistinguishedName, credential.getPassword());
@@ -164,7 +173,7 @@ public class LdapAuthenticator
             throw new AccessDeniedException("Username contains a special LDAP character");
         }
         try {
-            String userDistinguishedName = validateGroupMembership(user, bindDistinguishedName.get(), bindPassword.get());
+            String userDistinguishedName = lookupUserDistinguishedName(user);
             validatePassword(userDistinguishedName, credential.getPassword());
             log.debug("Authentication successful for user [%s]", user);
         }
@@ -177,33 +186,17 @@ public class LdapAuthenticator
 
     private String createUserDistinguishedName(String user)
     {
-        return replaceUser(userBindSearchPattern.get(), user);
+        return replaceUser(userBindSearchPattern.orElseThrow(), user);
     }
 
-    private String validateGroupMembership(String user, String contextUserDistinguishedName, String contextPassword)
+    private boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)
             throws NamingException
     {
         DirContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
         try {
-            return validateGroupMembership(user, context);
-        }
-        finally {
-            context.close();
-        }
-    }
-
-    private void checkGroupMembership(String user, String contextUserDistinguishedName, String contextPassword)
-            throws NamingException
-    {
-        DirContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
-        try {
-            NamingEnumeration<SearchResult> search = searchGroupMembership(user, context);
+            NamingEnumeration<SearchResult> search = searchContext(searchBase, groupSearch, context);
             try {
-                if (!search.hasMore()) {
-                    String message = format("User [%s] not a member of an authorized group", user);
-                    log.debug(message);
-                    throw new AccessDeniedException(message);
-                }
+                return search.hasMore();
             }
             finally {
                 search.close();
@@ -230,42 +223,53 @@ public class LdapAuthenticator
         return SPECIAL_CHARACTERS.matchesAnyOf(user);
     }
 
-    private String validateGroupMembership(String user, DirContext context)
+    private String lookupUserDistinguishedName(String user)
             throws NamingException
     {
-        NamingEnumeration<SearchResult> search = searchGroupMembership(user, context);
+        String searchBase = userBaseDistinguishedName.orElseThrow();
+        String searchFilter = replaceUser(groupAuthorizationSearchPattern.orElseThrow(), user);
+        Set<String> userDistinguishedNames = lookupUserDistinguishedName(searchBase, searchFilter, bindDistinguishedName.orElseThrow(), bindPassword.orElseThrow());
+        if (userDistinguishedNames.isEmpty()) {
+            String message = format("User [%s] not a member of an authorized group", user);
+            log.debug(message);
+            throw new AccessDeniedException(message);
+        }
+        if (userDistinguishedNames.size() > 1) {
+            String message = format("Multiple group membership results for user [%s]: %s", user, userDistinguishedNames);
+            log.debug(message);
+            throw new AccessDeniedException(message);
+        }
+        return getOnlyElement(userDistinguishedNames);
+    }
+
+    private Set<String> lookupUserDistinguishedName(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
+            throws NamingException
+    {
+        DirContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
         try {
-            if (!search.hasMore()) {
-                String message = format("User [%s] not a member of an authorized group", user);
-                log.debug(message);
-                throw new AccessDeniedException(message);
-            }
-
-            String userDistinguishedName = search.next().getNameInNamespace();
-            while (search.hasMore()) {
-                String nextUserDistinguishedName = search.next().getNameInNamespace();
-                if (!userDistinguishedName.equals(nextUserDistinguishedName)) {
-                    log.debug("Multiple group membership results for user [%s] with different distinguished names: [%s], [%s]", user, userDistinguishedName, nextUserDistinguishedName);
-                    throw new AccessDeniedException(format("Multiple group membership results for user [%s] with different distinguished names", user));
+            ImmutableSet.Builder<String> distinguishedNames = ImmutableSet.builder();
+            NamingEnumeration<SearchResult> search = searchContext(searchBase, searchFilter, context);
+            try {
+                while (search.hasMore()) {
+                    distinguishedNames.add(search.next().getNameInNamespace());
                 }
+                return distinguishedNames.build();
             }
-
-            log.debug("Group membership validated for user [%s]", user);
-            return userDistinguishedName;
+            finally {
+                search.close();
+            }
         }
         finally {
-            search.close();
+            context.close();
         }
     }
 
-    private NamingEnumeration<SearchResult> searchGroupMembership(String user, DirContext context)
+    private static NamingEnumeration<SearchResult> searchContext(String searchBase, String searchFilter, DirContext context)
             throws NamingException
     {
-        String userBase = userBaseDistinguishedName.get();
-        String searchFilter = replaceUser(groupAuthorizationSearchPattern.get(), user);
         SearchControls searchControls = new SearchControls();
         searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-        return context.search(userBase, searchFilter, searchControls);
+        return context.search(searchBase, searchFilter, searchControls);
     }
 
     private void validatePassword(String userDistinguishedName, String password)
