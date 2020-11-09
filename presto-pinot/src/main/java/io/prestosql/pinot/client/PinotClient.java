@@ -74,7 +74,7 @@ import static io.prestosql.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.pinot.common.config.TableNameBuilder.extractRawTableName;
+import static org.apache.pinot.spi.utils.builder.TableNameBuilder.extractRawTableName;
 
 public class PinotClient
 {
