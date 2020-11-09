@@ -54,7 +54,7 @@
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
         <dep.tempto.version>181</dep.tempto.version>
-        <dep.gcs.version>2.0.0</dep.gcs.version>
+        <dep.gcs.version>2.1.5</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
         <dep.testcontainers.version>1.15.0-rc2</dep.testcontainers.version>
         <dep.docker-java.version>3.2.5</dep.docker-java.version>
@@ -950,6 +950,7 @@
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
                 <version>hadoop2-${dep.gcs.version}</version>
+                <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
                         <groupId>log4j</groupId>
@@ -959,25 +960,39 @@
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpclient</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpcore</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.code.gson</groupId>
+                        <artifactId>gson</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.http-client</groupId>
+                        <artifactId>google-http-client</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-context</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.cloud.bigdataoss</groupId>
+                        <artifactId>gcsio</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.flogger</groupId>
+                        <artifactId>flogger-system-backend</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.cloud.bigdataoss</groupId>
+                        <artifactId>util-hadoop</artifactId>
+                    </exclusion>
                 </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.cloud.bigdataoss</groupId>
-                <artifactId>gcsio</artifactId>
-                <version>${dep.gcs.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.cloud.bigdataoss</groupId>
-                <artifactId>util</artifactId>
-                <version>${dep.gcs.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.cloud.bigdataoss</groupId>
-                <artifactId>util-hadoop</artifactId>
-                <version>hadoop2-${dep.gcs.version}</version>
             </dependency>
 
             <dependency>
@@ -1432,6 +1447,30 @@
                     <groupId>pl.project13.maven</groupId>
                     <artifactId>git-commit-id-plugin</artifactId>
                     <version>4.0.0</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <exceptions combine.children="append">
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>com.google.cloud.bigdataoss</groupId>
+                                        <artifactId>gcs-connector</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.httpcomponents</groupId>
+                                        <artifactId>httpclient</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>mozilla/public-suffix-list.txt</resource>
+                                </resources>
+                            </exception>
+                        </exceptions>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>
