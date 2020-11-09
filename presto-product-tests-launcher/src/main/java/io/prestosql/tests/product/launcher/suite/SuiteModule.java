@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
 
+import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.prestosql.tests.product.launcher.suite.Suites.nameForSuiteClass;
 import static java.util.Objects.requireNonNull;
@@ -35,10 +36,10 @@ public final class SuiteModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(SuiteFactory.class);
+        binder.bind(SuiteFactory.class).in(SINGLETON);
 
         MapBinder<String, Suite> suites = newMapBinder(binder, String.class, Suite.class);
-        Suites.findSuitesByPackageName(BASE_SUITES_PACKAGE).forEach(clazz -> suites.addBinding(nameForSuiteClass(clazz)).to(clazz));
+        Suites.findSuitesByPackageName(BASE_SUITES_PACKAGE).forEach(clazz -> suites.addBinding(nameForSuiteClass(clazz)).to(clazz).in(SINGLETON));
 
         binder.install(additionalSuites);
     }
