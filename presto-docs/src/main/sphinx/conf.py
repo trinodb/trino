@@ -62,7 +62,7 @@ def get_version():
 
 needs_sphinx = '2.0'
 
-extensions = ['myst_parser', 'backquote', 'download', 'issue']
+extensions = ['myst_parser', 'backquote', 'download', 'issue', 'sphinxext.opengraph']
 
 templates_path = ['templates']
 
@@ -113,6 +113,16 @@ html_theme_options = {
     'repo_name': 'Presto',
     'version_json': '../versions.json',
 }
+
+base_url='https://prestosql.io'
+ogp_site_url='%s/docs/current/' % (base_url)
+ogp_site_name='%s %s Documentation' % (project, release)
+ogp_image='https://raw.githubusercontent.com/prestosql/presto/master/presto-docs/src/main/resources/logo/web/main/black/Presto_Logo_BlackBG-01.svg'
+
+ogp_custom_meta_tags=[
+    '<meta name="twitter:card" content="summary_large_image">',
+    '<meta name="twitter:site" content="prestosql">'
+]
 
 html_css_files = [
     'presto.css',
