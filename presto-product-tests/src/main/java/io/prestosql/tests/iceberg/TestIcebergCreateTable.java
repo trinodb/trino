@@ -15,6 +15,7 @@ package io.prestosql.tests.iceberg;
 
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.query.QueryExecutor;
+import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -27,6 +28,7 @@ public class TestIcebergCreateTable
         extends ProductTest
 {
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
     public void testCreateTable()
     {
         QueryExecutor queryExecutor = onPresto();
@@ -47,6 +49,7 @@ public class TestIcebergCreateTable
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
     public void testCreateTableAsSelect()
     {
         QueryExecutor queryExecutor = onPresto();
