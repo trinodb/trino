@@ -16,10 +16,9 @@ package io.prestosql.tests.cli;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestosql.cli.Presto;
+import io.airlift.log.Logger;
 import io.prestosql.tempto.ProductTest;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -31,12 +30,11 @@ import static java.util.Arrays.asList;
 public class PrestoCliLauncher
         extends ProductTest
 {
+    private static final Logger log = Logger.get(PrestoCliLauncher.class);
+
     protected static final long TIMEOUT = 300 * 1000; // 30 secs per test
-    protected static final String EXIT_COMMAND = "exit";
     protected final List<String> nationTableInteractiveLines;
     protected final List<String> nationTableBatchLines;
-    private static final String CLASSPATH = System.getProperty("java.class.path");
-    private static final String JAVA_BIN = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
 
     @Inject
     @Named("databases.presto.host")
@@ -78,9 +76,12 @@ public class PrestoCliLauncher
 
     protected ProcessBuilder getProcessBuilder(List<String> arguments)
     {
-        return new ProcessBuilder(ImmutableList.<String>builder()
-                .add(JAVA_BIN, "-Xmx50m", "-cp", CLASSPATH, Presto.class.getCanonicalName())
+        List<String> command = ImmutableList.<String>builder()
+                .add("/docker/presto-cli")
                 .addAll(arguments)
-                .build());
+                .build();
+
+        log.info("Running command %s", command);
+        return new ProcessBuilder(command);
     }
 }

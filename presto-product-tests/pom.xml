@@ -20,11 +20,6 @@
     <dependencies>
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-cli</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
             <artifactId>presto-hive</artifactId>
             <exclusions>
                 <exclusion>
