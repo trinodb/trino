@@ -45,7 +45,7 @@ import static org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT;
 public class TestingPinotCluster
         implements Closeable
 {
-    private static final String BASE_IMAGE = "apachepinot/pinot:github_final_demo";
+    private static final String BASE_IMAGE = "apachepinot/pinot:0.5.0";
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";
     private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
     private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
