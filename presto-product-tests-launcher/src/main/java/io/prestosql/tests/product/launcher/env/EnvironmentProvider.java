@@ -18,7 +18,6 @@ import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 
 import java.util.List;
-import java.util.stream.StreamSupport;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -46,20 +45,14 @@ public abstract class EnvironmentProvider
                 .add(environmentConfig)
                 .build();
 
-        compose(extenders).extendEnvironment(builder);
-        return builder;
-    }
-
-    static EnvironmentExtender compose(Iterable<EnvironmentExtender> extenders)
-    {
-        String extendersNames = StreamSupport.stream(extenders.spliterator(), false)
+        String extendersNames = extenders.stream()
                 .map(Object::getClass)
                 .map(Class::getSimpleName)
                 .collect(joining(", "));
 
-        return builder -> {
-            log.info("Building environment %s with extenders: %s", builder.getEnvironmentName(), extendersNames);
-            extenders.forEach(extender -> extender.extendEnvironment(builder));
-        };
+        log.info("Building environment %s with extenders: %s", builder.getEnvironmentName(), extendersNames);
+
+        extenders.forEach(extender -> extender.extendEnvironment(builder));
+        return builder;
     }
 }
