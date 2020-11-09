@@ -27,6 +27,7 @@ import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
 
+import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
 import static java.util.Objects.requireNonNull;
@@ -49,21 +50,21 @@ public final class EnvironmentModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(PortBinder.class);
-        binder.bind(EnvironmentFactory.class);
-        binder.bind(EnvironmentConfigFactory.class);
-        binder.bind(Standard.class);
-        binder.bind(Hadoop.class);
-        binder.bind(HadoopKerberos.class);
-        binder.bind(HadoopKerberosKms.class);
-        binder.bind(Kafka.class);
+        binder.bind(PortBinder.class).in(SINGLETON);
+        binder.bind(EnvironmentFactory.class).in(SINGLETON);
+        binder.bind(EnvironmentConfigFactory.class).in(SINGLETON);
+        binder.bind(Standard.class).in(SINGLETON);
+        binder.bind(Hadoop.class).in(SINGLETON);
+        binder.bind(HadoopKerberos.class).in(SINGLETON);
+        binder.bind(HadoopKerberosKms.class).in(SINGLETON);
+        binder.bind(Kafka.class).in(SINGLETON);
         binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
-        Environments.findByBasePackage(BASE_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz));
+        Environments.findByBasePackage(BASE_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz).in(SINGLETON));
 
         MapBinder<String, EnvironmentConfig> environmentConfigs = newMapBinder(binder, String.class, EnvironmentConfig.class);
-        Environments.findConfigsByBasePackage(BASE_CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz));
+        Environments.findConfigsByBasePackage(BASE_CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
 
         binder.install(additionalEnvironments);
     }
