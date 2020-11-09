@@ -31,7 +31,7 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class HadoopKerberos
         implements EnvironmentExtender
 {
-    private final DockerFiles dockerFiles;
+    private final DockerFiles.ResourceProvider configDir;
     private final PortBinder portBinder;
 
     private final String hadoopBaseImage;
@@ -43,7 +43,7 @@ public class HadoopKerberos
             PortBinder portBinder,
             EnvironmentConfig environmentConfig)
     {
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("common/hadoop-kerberos/");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
         hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
@@ -62,11 +62,11 @@ public class HadoopKerberos
             portBinder.exposePort(container, 7778);
             container
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
-                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop-kerberos/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
         });
         builder.configureContainer(TESTS, container -> {
             container.setDockerImageName(dockerImageName);
-            container.withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-kerberos.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
+            container.withCopyFileToContainer(forHostPath(configDir.getPath("tempto-configuration.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
     }
 }
