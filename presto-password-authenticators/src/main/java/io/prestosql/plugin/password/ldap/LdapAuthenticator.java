@@ -30,6 +30,7 @@ import javax.inject.Inject;
 import javax.naming.NamingException;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -49,7 +50,7 @@ public class LdapAuthenticator
 
     private final LdapAuthenticatorClient client;
 
-    private final Optional<String> userBindSearchPattern;
+    private final List<String> userBindSearchPatterns;
     private final Optional<String> groupAuthorizationSearchPattern;
     private final Optional<String> userBaseDistinguishedName;
     private final Optional<String> bindDistinguishedName;
@@ -62,7 +63,7 @@ public class LdapAuthenticator
     {
         this.client = requireNonNull(client, "client is null");
 
-        this.userBindSearchPattern = Optional.ofNullable(ldapConfig.getUserBindSearchPattern());
+        this.userBindSearchPatterns = ldapConfig.getUserBindSearchPatterns();
         this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapConfig.getGroupAuthorizationSearchPattern());
         this.userBaseDistinguishedName = Optional.ofNullable(ldapConfig.getUserBaseDistinguishedName());
         this.bindDistinguishedName = Optional.ofNullable(ldapConfig.getBindDistingushedName());
@@ -78,7 +79,7 @@ public class LdapAuthenticator
                 bindDistinguishedName.isEmpty() || groupAuthorizationSearchPattern.isPresent(),
                 "Group authorization search pattern must be provided when bind distinguished name is used");
         checkArgument(
-                bindDistinguishedName.isPresent() || userBindSearchPattern.isPresent(),
+                bindDistinguishedName.isPresent() || !userBindSearchPatterns.isEmpty(),
                 "Either user bind search pattern or bind distinguished name must be provided");
 
         this.authenticationCache = CacheBuilder.newBuilder()
@@ -112,28 +113,32 @@ public class LdapAuthenticator
         if (containsSpecialCharacters(user)) {
             throw new AccessDeniedException("Username contains a special LDAP character");
         }
-        try {
-            String userDistinguishedName = createUserDistinguishedName(user);
-            if (groupAuthorizationSearchPattern.isPresent()) {
-                // user password is also validated as user DN and password is used for querying LDAP
-                String searchBase = userBaseDistinguishedName.orElseThrow();
-                String groupSearch = replaceUser(groupAuthorizationSearchPattern.get(), user);
-                if (!client.isGroupMember(searchBase, groupSearch, userDistinguishedName, credential.getPassword())) {
-                    String message = format("User [%s] not a member of an authorized group", user);
-                    log.debug(message);
-                    throw new AccessDeniedException(message);
+        Exception lastException = new RuntimeException();
+        for (String userBindSearchPattern : userBindSearchPatterns) {
+            try {
+                String userDistinguishedName = replaceUser(userBindSearchPattern, user);
+                if (groupAuthorizationSearchPattern.isPresent()) {
+                    // user password is also validated as user DN and password is used for querying LDAP
+                    String searchBase = userBaseDistinguishedName.orElseThrow();
+                    String groupSearch = replaceUser(groupAuthorizationSearchPattern.get(), user);
+                    if (!client.isGroupMember(searchBase, groupSearch, userDistinguishedName, credential.getPassword())) {
+                        String message = format("User [%s] not a member of an authorized group", user);
+                        log.debug(message);
+                        throw new AccessDeniedException(message);
+                    }
                 }
+                else {
+                    client.validatePassword(userDistinguishedName, credential.getPassword());
+                }
+                log.debug("Authentication successful for user [%s]", user);
+                return new BasicPrincipal(user);
             }
-            else {
-                client.validatePassword(userDistinguishedName, credential.getPassword());
+            catch (NamingException e) {
+                lastException = e;
             }
-            log.debug("Authentication successful for user [%s]", user);
         }
-        catch (NamingException e) {
-            log.debug(e, "Authentication failed for user [%s], %s", user, e.getMessage());
-            throw new RuntimeException("Authentication error");
-        }
-        return new BasicPrincipal(user);
+        log.debug(lastException, "Authentication failed for user [%s], %s", user, lastException.getMessage());
+        throw new RuntimeException("Authentication error");
     }
 
     private Principal authenticateWithBindDistinguishedName(Credential credential)
@@ -152,11 +157,6 @@ public class LdapAuthenticator
             throw new RuntimeException("Authentication error");
         }
         return new BasicPrincipal(credential.getUser());
-    }
-
-    private String createUserDistinguishedName(String user)
-    {
-        return replaceUser(userBindSearchPattern.orElseThrow(), user);
     }
 
     /**

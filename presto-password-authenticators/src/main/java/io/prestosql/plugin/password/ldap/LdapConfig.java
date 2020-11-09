@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.password.ldap;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
@@ -24,16 +26,18 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
 import java.io.File;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.Objects.requireNonNull;
 
 public class LdapConfig
 {
     private String ldapUrl;
     private boolean allowInsecure;
     private File trustCertificate;
-    private String userBindSearchPattern;
+    private List<String> userBindSearchPatterns = ImmutableList.of();
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
     private String bindDistinguishedName;
@@ -89,16 +93,26 @@ public class LdapConfig
         return this;
     }
 
-    public String getUserBindSearchPattern()
+    @NotNull
+    public List<String> getUserBindSearchPatterns()
     {
-        return userBindSearchPattern;
+        return userBindSearchPatterns;
+    }
+
+    public LdapConfig setUserBindSearchPatterns(List<String> userBindSearchPatterns)
+    {
+        this.userBindSearchPatterns = requireNonNull(userBindSearchPatterns, "userBindSearchPatterns is null");
+        return this;
     }
 
     @Config("ldap.user-bind-pattern")
     @ConfigDescription("Custom user bind pattern. Example: ${USER}@example.com")
-    public LdapConfig setUserBindSearchPattern(String userBindSearchPattern)
+    public LdapConfig setUserBindSearchPatterns(String userBindSearchPatterns)
     {
-        this.userBindSearchPattern = userBindSearchPattern;
+        this.userBindSearchPatterns = Splitter.on(":")
+                .trimResults()
+                .omitEmptyStrings()
+                .splitToList(userBindSearchPatterns);
         return this;
     }
 

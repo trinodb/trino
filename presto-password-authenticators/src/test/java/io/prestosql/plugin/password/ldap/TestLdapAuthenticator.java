@@ -44,13 +44,38 @@ public class TestLdapAuthenticator
         LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
                 client,
                 new LdapConfig()
-                        .setUserBindSearchPattern("${USER}@example.com"));
+                        .setUserBindSearchPatterns("${USER}@example.com"));
 
         assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))
                 .isInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
                 .isInstanceOf(RuntimeException.class);
         assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+    }
+
+    @Test
+    public void testMultipleBindPattern()
+    {
+        TestLdapAuthenticatorClient client = new TestLdapAuthenticatorClient();
+
+        LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
+                client,
+                new LdapConfig()
+                        .setUserBindSearchPatterns("${USER}@example.com:${USER}@alt.example.com"));
+
+        client.addCredentials("alice@example.com", "alice-pass");
+        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+        ldapAuthenticator.invalidateCache();
+
+        client.addCredentials("bob@alt.example.com", "bob-pass");
+        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("bob", "bob-pass"), new BasicPrincipal("bob"));
+        ldapAuthenticator.invalidateCache();
+
+        client.addCredentials("alice@alt.example.com", "alt-alice-pass");
+        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alt-alice-pass"), new BasicPrincipal("alice"));
+        ldapAuthenticator.invalidateCache();
+        assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+        ldapAuthenticator.invalidateCache();
     }
 
     @Test
@@ -62,7 +87,7 @@ public class TestLdapAuthenticator
         LdapAuthenticator ldapAuthenticator = new LdapAuthenticator(
                 client,
                 new LdapConfig()
-                        .setUserBindSearchPattern("${USER}@example.com")
+                        .setUserBindSearchPatterns("${USER}@example.com")
                         .setUserBaseDistinguishedName(BASE_DN)
                         .setGroupAuthorizationSearchPattern(PATTERN_PREFIX + "${USER}"));
 
