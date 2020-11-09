@@ -71,9 +71,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
 
 public final class Statistics
@@ -451,11 +449,6 @@ public final class Statistics
     private static Optional<LocalDate> getDateValue(ConnectorSession session, Type type, Block block)
     {
         return block.isNull(0) ? Optional.empty() : Optional.of(LocalDate.ofEpochDay(((SqlDate) type.getObjectValue(session, block, 0)).getDays()));
-    }
-
-    private static OptionalLong getTimestampValue(Block block)
-    {
-        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(floorDiv(block.getLong(0, 0), MICROSECONDS_PER_SECOND));
     }
 
     private static Optional<BigDecimal> getDecimalValue(ConnectorSession session, Type type, Block block)
