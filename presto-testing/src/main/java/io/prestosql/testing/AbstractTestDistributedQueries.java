@@ -186,7 +186,8 @@ public abstract class AbstractTestDistributedQueries
         assertQueryFails("CREATE TABLE " + tableName + " (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
-        tableName = "test_create_table_if_not_exists_" + randomTableSuffix();
+        // TODO (https://github.com/prestosql/presto/issues/5901) revert to longer name when Oracle version is updated
+        tableName = "test_cr_tab_not_exists_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar, c double)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
