@@ -119,7 +119,7 @@ public class RuleAssert
         if (ruleApplication.wasRuleApplied()) {
             fail(format(
                     "Expected %s to not fire for:\n%s",
-                    rule.getClass().getName(),
+                    rule,
                     inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, StatsAndCosts.empty(), session, 2, false))));
         }
     }
@@ -132,7 +132,7 @@ public class RuleAssert
         if (!ruleApplication.wasRuleApplied()) {
             fail(format(
                     "%s did not fire for:\n%s",
-                    rule.getClass().getName(),
+                    rule,
                     formatPlan(plan, types)));
         }
 
@@ -141,7 +141,7 @@ public class RuleAssert
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
             fail(format(
                     "%s: rule fired but return the original plan:\n%s",
-                    rule.getClass().getName(),
+                    rule,
                     formatPlan(plan, types)));
         }
 
@@ -150,7 +150,7 @@ public class RuleAssert
                     "%s: output schema of transformed and original plans are not equivalent\n" +
                             "\texpected: %s\n" +
                             "\tactual:   %s",
-                    rule.getClass().getName(),
+                    rule,
                     plan.getOutputSymbols(),
                     actual.getOutputSymbols()));
         }
@@ -192,9 +192,11 @@ public class RuleAssert
 
     private String formatPlan(PlanNode plan, TypeProvider types)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
-        return inTransaction(session -> textLogicalPlan(plan, types, metadata, StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
+        return inTransaction(session -> {
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
+            CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
+            return textLogicalPlan(plan, types, metadata, StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
+        });
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

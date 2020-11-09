@@ -132,7 +132,7 @@ public class TestColumnarRow
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(null, 100, 100);
+        BlockBuilder blockBuilder = createBlockBuilder(null, 100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
@@ -153,7 +153,7 @@ public class TestColumnarRow
         return blockBuilder;
     }
 
-    private static BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    private static BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return new RowBlockBuilder(Collections.nCopies(FIELD_COUNT, VARCHAR), blockBuilderStatus, expectedEntries);
     }

@@ -103,7 +103,6 @@ import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getOrcMaxRead
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getOrcTinyStripeThreshold;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
-import static io.prestosql.plugin.iceberg.IcebergSessionProperties.isFailOnCorruptedParquetStatistics;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
@@ -223,7 +222,6 @@ public class IcebergPageSourceProvider
                         length,
                         dataColumns,
                         parquetReaderOptions
-                                .withFailOnCorruptedStatistics(isFailOnCorruptedParquetStatistics(session))
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                         predicate,
                         fileFormatDataSourceStats);
@@ -391,7 +389,7 @@ public class IcebergPageSourceProvider
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
-                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, options.isFailOnCorruptedStatistics())) {
+                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain)) {
                     blocks.add(block);
                 }
             }

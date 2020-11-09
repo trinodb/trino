@@ -57,8 +57,10 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.FunctionCall.NullTreatment;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.IfExpression;
+import io.prestosql.sql.tree.IntervalLiteral;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
+import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.Offset;
@@ -99,6 +101,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.prestosql.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
@@ -111,7 +114,14 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.prestosql.sql.tree.IntervalLiteral.IntervalField.DAY;
+import static io.prestosql.sql.tree.IntervalLiteral.IntervalField.YEAR;
+import static io.prestosql.sql.tree.IntervalLiteral.Sign.POSITIVE;
+import static io.prestosql.sql.tree.WindowFrame.Type.GROUPS;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
+import static io.prestosql.sql.tree.WindowFrame.Type.ROWS;
+import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -244,7 +254,7 @@ class QueryPlanner
         NodeAndMappings checkConvergenceStep = copy(recursionStep, mappings);
         Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
         ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
-        WindowNode.Frame frame = new WindowNode.Frame(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), CURRENT_ROW, Optional.empty(), Optional.empty(), Optional.empty());
+        WindowNode.Frame frame = new WindowNode.Frame(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), CURRENT_ROW, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), frame, false);
 
         WindowNode windowNode = new WindowNode(
@@ -839,20 +849,185 @@ class QueryPlanner
             //    avg(CAST(v AS double)) OVER (ORDER BY v)
             PlanAndMappings coercions = coerce(subPlan, inputs, analysis, idAllocator, symbolAllocator, typeCoercion);
             subPlan = coercions.getSubPlan();
-            subPlan = planWindow(subPlan, windowFunction, coercions);
+
+            // For frame of type RANGE, append casts and functions necessary for frame bound calculations
+            Optional<Symbol> frameStart = Optional.empty();
+            Optional<Symbol> frameEnd = Optional.empty();
+            Optional<Symbol> sortKeyCoercedForFrameStartComparison = Optional.empty();
+            Optional<Symbol> sortKeyCoercedForFrameEndComparison = Optional.empty();
+
+            if (window.getFrame().isPresent() && window.getFrame().get().getType() == RANGE) {
+                Optional<Expression> startValue = window.getFrame().get().getStart().getValue();
+                Optional<Expression> endValue = window.getFrame().get().getEnd().flatMap(FrameBound::getValue);
+                // record sortKey coercions for reuse
+                Map<Type, Symbol> sortKeyCoercions = new HashMap<>();
+
+                // process frame start
+                FrameBoundPlanAndSymbols plan = planFrameBound(subPlan, coercions, startValue, window, sortKeyCoercions);
+                subPlan = plan.getSubPlan();
+                frameStart = plan.getFrameBoundSymbol();
+                sortKeyCoercedForFrameStartComparison = plan.getSortKeyCoercedForFrameBoundComparison();
+
+                // process frame end
+                plan = planFrameBound(subPlan, coercions, endValue, window, sortKeyCoercions);
+                subPlan = plan.getSubPlan();
+                frameEnd = plan.getFrameBoundSymbol();
+                sortKeyCoercedForFrameEndComparison = plan.getSortKeyCoercedForFrameBoundComparison();
+            }
+            else if (window.getFrame().isPresent() && (window.getFrame().get().getType() == ROWS || window.getFrame().get().getType() == GROUPS)) {
+                frameStart = window.getFrame().get().getStart().getValue().map(coercions::get);
+                frameEnd = window.getFrame().get().getEnd().flatMap(FrameBound::getValue).map(coercions::get);
+            }
+            else if (window.getFrame().isPresent()) {
+                throw new IllegalArgumentException("unexpected window frame type: " + window.getFrame().get().getType());
+            }
+
+            subPlan = planWindow(subPlan, windowFunction, coercions, frameStart, sortKeyCoercedForFrameStartComparison, frameEnd, sortKeyCoercedForFrameEndComparison);
         }
 
         return subPlan;
     }
 
-    private PlanBuilder planWindow(PlanBuilder subPlan, FunctionCall windowFunction, PlanAndMappings coercions)
+    private FrameBoundPlanAndSymbols planFrameBound(PlanBuilder subPlan, PlanAndMappings coercions, Optional<Expression> frameOffset, Window window, Map<Type, Symbol> sortKeyCoercions)
+    {
+        Optional<ResolvedFunction> frameBoundCalculationFunction = frameOffset.map(analysis::getFrameBoundCalculation);
+
+        // Empty frameBoundCalculationFunction indicates that frame bound type is CURRENT ROW or UNBOUNDED.
+        // Handling it doesn't require any additional symbols.
+        if (frameBoundCalculationFunction.isEmpty()) {
+            return new FrameBoundPlanAndSymbols(subPlan, Optional.empty(), Optional.empty());
+        }
+
+        // Present frameBoundCalculationFunction indicates that frame bound type is <expression> PRECEDING or <expression> FOLLOWING.
+        // It requires adding certain projections to the plan so that the operator can determine frame bounds.
+
+        // First, append filter to validate offset values. They mustn't be negative or null.
+        Symbol offsetSymbol = coercions.get(frameOffset.get());
+        Expression zeroOffset = zeroOfType(symbolAllocator.getTypes().get(offsetSymbol));
+        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+        Expression predicate = new IfExpression(
+                new ComparisonExpression(
+                        GREATER_THAN_OR_EQUAL,
+                        offsetSymbol.toSymbolReference(),
+                        zeroOffset),
+                TRUE_LITERAL,
+                new Cast(
+                        new FunctionCall(
+                                fail.toQualifiedName(),
+                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), toSqlType(VARCHAR)))),
+                        toSqlType(BOOLEAN)));
+        subPlan = subPlan.withNewRoot(new FilterNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                predicate));
+
+        // Then, coerce the sortKey so that we can add / subtract the offset.
+        // Note: for that we cannot rely on the usual mechanism of using the coerce() method. The coerce() method can only handle one coercion for a node,
+        // while the sortKey node might require several different coercions, e.g. one for frame start and one for frame end.
+        Expression sortKey = Iterables.getOnlyElement(window.getOrderBy().get().getSortItems()).getSortKey();
+        Symbol sortKeyCoercedForFrameBoundCalculation = coercions.get(sortKey);
+        Optional<Type> coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundCalculation);
+        if (coercion.isPresent()) {
+            Type expectedType = coercion.get();
+            Symbol alreadyCoerced = sortKeyCoercions.get(expectedType);
+            if (alreadyCoerced != null) {
+                sortKeyCoercedForFrameBoundCalculation = alreadyCoerced;
+            }
+            else {
+                Expression cast = new Cast(
+                        coercions.get(sortKey).toSymbolReference(),
+                        toSqlType(expectedType),
+                        false,
+                        typeCoercion.isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
+                sortKeyCoercedForFrameBoundCalculation = symbolAllocator.newSymbol(cast, expectedType);
+                sortKeyCoercions.put(expectedType, sortKeyCoercedForFrameBoundCalculation);
+                subPlan = subPlan.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        Assignments.builder()
+                                .putIdentities(subPlan.getRoot().getOutputSymbols())
+                                .put(sortKeyCoercedForFrameBoundCalculation, cast)
+                                .build()));
+            }
+        }
+
+        // Next, pre-project the function which combines sortKey with the offset.
+        // Note: if frameOffset needs a coercion, it was added before by a call to coerce() method.
+        ResolvedFunction function = frameBoundCalculationFunction.get();
+        Expression functionCall = new FunctionCall(
+                function.toQualifiedName(),
+                ImmutableList.of(
+                        sortKeyCoercedForFrameBoundCalculation.toSymbolReference(),
+                        offsetSymbol.toSymbolReference()));
+        Symbol frameBoundSymbol = symbolAllocator.newSymbol(functionCall, function.getSignature().getReturnType());
+        subPlan = subPlan.withNewRoot(new ProjectNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                Assignments.builder()
+                        .putIdentities(subPlan.getRoot().getOutputSymbols())
+                        .put(frameBoundSymbol, functionCall)
+                        .build()));
+
+        // Finally, coerce the sortKey to the type of frameBound so that the operator can perform comparisons on them
+        Optional<Symbol> sortKeyCoercedForFrameBoundComparison = Optional.of(coercions.get(sortKey));
+        coercion = frameOffset.map(analysis::getSortKeyCoercionForFrameBoundComparison);
+        if (coercion.isPresent()) {
+            Type expectedType = coercion.get();
+            Symbol alreadyCoerced = sortKeyCoercions.get(expectedType);
+            if (alreadyCoerced != null) {
+                sortKeyCoercedForFrameBoundComparison = Optional.of(alreadyCoerced);
+            }
+            else {
+                Expression cast = new Cast(
+                        coercions.get(sortKey).toSymbolReference(),
+                        toSqlType(expectedType),
+                        false,
+                        typeCoercion.isTypeOnlyCoercion(analysis.getType(sortKey), expectedType));
+                Symbol castSymbol = symbolAllocator.newSymbol(cast, expectedType);
+                sortKeyCoercions.put(expectedType, castSymbol);
+                subPlan = subPlan.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        Assignments.builder()
+                                .putIdentities(subPlan.getRoot().getOutputSymbols())
+                                .put(castSymbol, cast)
+                                .build()));
+                sortKeyCoercedForFrameBoundComparison = Optional.of(castSymbol);
+            }
+        }
+
+        return new FrameBoundPlanAndSymbols(subPlan, Optional.of(frameBoundSymbol), sortKeyCoercedForFrameBoundComparison);
+    }
+
+    private Expression zeroOfType(Type type)
+    {
+        if (isNumericType(type)) {
+            return new Cast(new LongLiteral("0"), toSqlType(type));
+        }
+        if (type.equals(INTERVAL_DAY_TIME)) {
+            return new IntervalLiteral("0", POSITIVE, DAY);
+        }
+        if (type.equals(INTERVAL_YEAR_MONTH)) {
+            return new IntervalLiteral("0", POSITIVE, YEAR);
+        }
+        throw new IllegalArgumentException("unexpected type: " + type);
+    }
+
+    private PlanBuilder planWindow(
+            PlanBuilder subPlan,
+            FunctionCall windowFunction,
+            PlanAndMappings coercions,
+            Optional<Symbol> frameStartSymbol,
+            Optional<Symbol> sortKeyCoercedForFrameStartComparison,
+            Optional<Symbol> frameEndSymbol,
+            Optional<Symbol> sortKeyCoercedForFrameEndComparison)
     {
         WindowFrame.Type frameType = WindowFrame.Type.RANGE;
         FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
         FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
 
-        Optional<Expression> frameStart = Optional.empty();
-        Optional<Expression> frameEnd = Optional.empty();
+        Optional<Expression> frameStartExpression = Optional.empty();
+        Optional<Expression> frameEndExpression = Optional.empty();
 
         Window window = windowFunction.getWindow().get();
         if (window.getFrame().isPresent()) {
@@ -860,11 +1035,11 @@ class QueryPlanner
             frameType = frame.getType();
 
             frameStartType = frame.getStart().getType();
-            frameStart = frame.getStart().getValue();
+            frameStartExpression = frame.getStart().getValue();
 
             if (frame.getEnd().isPresent()) {
                 frameEndType = frame.getEnd().get().getType();
-                frameEnd = frame.getEnd().get().getValue();
+                frameEndExpression = frame.getEnd().get().getValue();
             }
         }
 
@@ -886,11 +1061,13 @@ class QueryPlanner
         WindowNode.Frame frame = new WindowNode.Frame(
                 frameType,
                 frameStartType,
-                frameStart.map(coercions::get),
+                frameStartSymbol,
+                sortKeyCoercedForFrameStartComparison,
                 frameEndType,
-                frameEnd.map(coercions::get),
-                frameStart,
-                frameEnd);
+                frameEndSymbol,
+                sortKeyCoercedForFrameEndComparison,
+                frameStartExpression,
+                frameEndExpression);
 
         Symbol newSymbol = symbolAllocator.newSymbol(windowFunction, analysis.getType(windowFunction));
 
@@ -1215,6 +1392,35 @@ class QueryPlanner
         public Aggregation getRewritten()
         {
             return aggregation;
+        }
+    }
+
+    private static class FrameBoundPlanAndSymbols
+    {
+        private final PlanBuilder subPlan;
+        private final Optional<Symbol> frameBoundSymbol;
+        private final Optional<Symbol> sortKeyCoercedForFrameBoundComparison;
+
+        public FrameBoundPlanAndSymbols(PlanBuilder subPlan, Optional<Symbol> frameBoundSymbol, Optional<Symbol> sortKeyCoercedForFrameBoundComparison)
+        {
+            this.subPlan = subPlan;
+            this.frameBoundSymbol = frameBoundSymbol;
+            this.sortKeyCoercedForFrameBoundComparison = sortKeyCoercedForFrameBoundComparison;
+        }
+
+        public PlanBuilder getSubPlan()
+        {
+            return subPlan;
+        }
+
+        public Optional<Symbol> getFrameBoundSymbol()
+        {
+            return frameBoundSymbol;
+        }
+
+        public Optional<Symbol> getSortKeyCoercedForFrameBoundComparison()
+        {
+            return sortKeyCoercedForFrameBoundComparison;
         }
     }
 }

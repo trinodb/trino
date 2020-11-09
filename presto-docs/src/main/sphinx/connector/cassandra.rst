@@ -98,6 +98,8 @@ Property Name                                                 Description
                                                               connecting to Cassandra versions < 2.1.5, which lacks
                                                               the ``system.size_estimates`` table.
 
+``cassandra.batch-size``                                      Maximum number of statements to execute in one batch.
+
 ``cassandra.client.read-timeout``                             Maximum time the Cassandra driver waits for an
                                                               answer to a query from one Cassandra node. Note that the underlying
                                                               Cassandra driver may retry a query against more than one node in

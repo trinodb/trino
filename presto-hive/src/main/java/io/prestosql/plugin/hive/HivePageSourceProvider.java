@@ -15,10 +15,16 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.orc.metadata.ColumnMetadata;
+import io.prestosql.orc.metadata.OrcColumnId;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
 import io.prestosql.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
+import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
+import io.prestosql.plugin.hive.orc.OrcPageSource;
 import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -55,7 +61,13 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static io.prestosql.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
+import static io.prestosql.plugin.hive.HiveUpdatablePageSource.ACID_ROW_STRUCT_COLUMN_ID;
+import static io.prestosql.plugin.hive.HiveUpdatablePageSource.ORIGINAL_FILE_PATH_MATCHER;
+import static io.prestosql.plugin.hive.orc.OrcTypeToHiveTypeTranslator.fromOrcTypeToHiveType;
+import static io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.prestosql.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -68,6 +80,7 @@ public class HivePageSourceProvider
     private final int domainCompactionThreshold;
     private final Set<HivePageSourceFactory> pageSourceFactories;
     private final Set<HiveRecordCursorProvider> cursorProviders;
+    private final Optional<OrcFileWriterFactory> orcFileWriterFactory;
 
     @Inject
     public HivePageSourceProvider(
@@ -76,7 +89,20 @@ public class HivePageSourceProvider
             HiveConfig hiveConfig,
             Set<HivePageSourceFactory> pageSourceFactories,
             Set<HiveRecordCursorProvider> cursorProviders,
-            GenericHiveRecordCursorProvider genericCursorProvider)
+            GenericHiveRecordCursorProvider genericCursorProvider,
+            OrcFileWriterFactory orcFileWriterFactory)
+    {
+        this(typeManager, hdfsEnvironment, hiveConfig, pageSourceFactories, cursorProviders, genericCursorProvider, Optional.of(orcFileWriterFactory));
+    }
+
+    public HivePageSourceProvider(
+            TypeManager typeManager,
+            HdfsEnvironment hdfsEnvironment,
+            HiveConfig hiveConfig,
+            Set<HivePageSourceFactory> pageSourceFactories,
+            Set<HiveRecordCursorProvider> cursorProviders,
+            GenericHiveRecordCursorProvider genericCursorProvider,
+            Optional<OrcFileWriterFactory> orcFileWriterFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -86,19 +112,30 @@ public class HivePageSourceProvider
                 .addAll(requireNonNull(cursorProviders, "cursorProviders is null"))
                 .add(genericCursorProvider) // generic should be last, as a fallback option
                 .build();
+        this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
     {
-        HiveTableHandle hiveTable = (HiveTableHandle) table;
+        HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
+        HiveSplit hiveSplit = (HiveSplit) split;
+
+        if (shouldSkipBucket(hiveTable, hiveSplit, dynamicFilter)) {
+            return new EmptyPageSource();
+        }
 
         List<HiveColumnHandle> hiveColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
-
-        HiveSplit hiveSplit = (HiveSplit) split;
         Path path = new Path(hiveSplit.getPath());
+        boolean originalFile = ORIGINAL_FILE_PATH_MATCHER.matcher(path.toString()).matches();
 
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
@@ -125,9 +162,35 @@ public class HivePageSourceProvider
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                hiveSplit.getAcidInfo());
+                hiveSplit.getAcidInfo(),
+                originalFile,
+                hiveTable.getTransaction());
+
         if (pageSource.isPresent()) {
-            return pageSource.get();
+            ConnectorPageSource source = pageSource.get();
+            if (hiveTable.isAcidDelete()) {
+                checkArgument(orcFileWriterFactory.isPresent(), "orcFileWriterFactory not supplied but required for DELETEs");
+                HivePageSource hivePageSource = (HivePageSource) source;
+                OrcPageSource orcPageSource = (OrcPageSource) hivePageSource.getDelegate();
+                ColumnMetadata<OrcType> columnMetadata = orcPageSource.getColumnTypes();
+                int acidRowColumnId = originalFile ? 0 : ACID_ROW_STRUCT_COLUMN_ID;
+                HiveType rowType = fromOrcTypeToHiveType(columnMetadata.get(new OrcColumnId(acidRowColumnId)), columnMetadata);
+                return new HiveUpdatablePageSource(
+                        hiveTable,
+                        hiveSplit.getPartitionName(),
+                        hiveSplit.getStatementId(),
+                        source,
+                        typeManager,
+                        hiveSplit.getBucketNumber(),
+                        path,
+                        originalFile,
+                        orcFileWriterFactory.get(),
+                        configuration,
+                        session,
+                        rowType);
+            }
+
+            return source;
         }
         throw new RuntimeException("Could not find a file reader for split " + hiveSplit);
     }
@@ -152,7 +215,9 @@ public class HivePageSourceProvider
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            boolean originalFile,
+            AcidTransaction transaction)
     {
         if (effectivePredicate.isNone()) {
             return Optional.of(new EmptyPageSource());
@@ -185,7 +250,10 @@ public class HivePageSourceProvider
                     schema,
                     desiredColumns,
                     effectivePredicate,
-                    acidInfo);
+                    acidInfo,
+                    bucketNumber,
+                    originalFile,
+                    transaction);
 
             if (readerWithProjections.isPresent()) {
                 ConnectorPageSource pageSource = readerWithProjections.get().getConnectorPageSource();
@@ -263,6 +331,15 @@ public class HivePageSourceProvider
         return Optional.empty();
     }
 
+    private static boolean shouldSkipBucket(HiveTableHandle hiveTable, HiveSplit hiveSplit, DynamicFilter dynamicFilter)
+    {
+        if (hiveSplit.getBucketNumber().isEmpty()) {
+            return false;
+        }
+        Optional<HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveTable, dynamicFilter.getCurrentPredicate());
+        return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getBucketNumber().getAsInt())).orElse(false);
+    }
+
     public static class ColumnMapping
     {
         private final ColumnMappingKind kind;
@@ -278,6 +355,12 @@ public class HivePageSourceProvider
         {
             checkArgument(hiveColumnHandle.getColumnType() == REGULAR);
             return new ColumnMapping(ColumnMappingKind.REGULAR, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), baseTypeCoercionFrom);
+        }
+
+        public static ColumnMapping synthesized(HiveColumnHandle hiveColumnHandle, int index, Optional<HiveType> baseTypeCoercionFrom)
+        {
+            checkArgument(hiveColumnHandle.getColumnType() == SYNTHESIZED);
+            return new ColumnMapping(ColumnMappingKind.SYNTHESIZED, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), baseTypeCoercionFrom);
         }
 
         public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, String prefilledValue, Optional<HiveType> baseTypeCoercionFrom)
@@ -331,7 +414,7 @@ public class HivePageSourceProvider
 
         public int getIndex()
         {
-            checkState(kind == ColumnMappingKind.REGULAR || kind == ColumnMappingKind.INTERIM);
+            checkState(kind == ColumnMappingKind.REGULAR || kind == ColumnMappingKind.INTERIM || isRowIdColumnHandle(hiveColumnHandle));
             return index.getAsInt();
         }
 
@@ -362,7 +445,6 @@ public class HivePageSourceProvider
 
             for (HiveColumnHandle column : columns) {
                 Optional<HiveType> baseTypeCoercionFrom = tableToPartitionMapping.getCoercion(column.getBaseHiveColumnIndex());
-
                 if (column.getColumnType() == REGULAR) {
                     if (column.isBaseColumn()) {
                         baseColumnHiveIndices.add(column.getBaseHiveColumnIndex());
@@ -381,6 +463,21 @@ public class HivePageSourceProvider
                     else {
                         columnMappings.add(empty(column));
                     }
+                }
+                else if (isRowIdColumnHandle(column)) {
+                    baseColumnHiveIndices.add(column.getBaseHiveColumnIndex());
+                    checkArgument(
+                            projectionsForColumn.computeIfAbsent(column.getBaseHiveColumnIndex(), index -> new HashSet()).add(column.getHiveColumnProjectionInfo()),
+                            "duplicate column in columns list");
+
+                    if (baseTypeCoercionFrom.isEmpty()
+                            || projectionValidForType(baseTypeCoercionFrom.get(), column.getHiveColumnProjectionInfo())) {
+                        columnMappings.add(synthesized(column, regularIndex, baseTypeCoercionFrom));
+                    }
+                    else {
+                        throw new RuntimeException("baseTypeCoercisionFrom was empty for the rowId column");
+                    }
+                    regularIndex++;
                 }
                 else {
                     columnMappings.add(prefilled(
@@ -462,6 +559,7 @@ public class HivePageSourceProvider
         REGULAR,
         PREFILLED,
         INTERIM,
+        SYNTHESIZED,
         EMPTY
     }
 

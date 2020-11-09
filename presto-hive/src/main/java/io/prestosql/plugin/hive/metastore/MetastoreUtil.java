@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.PartitionOfflineException;
@@ -45,6 +46,7 @@ import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,11 +61,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.prestosql.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
@@ -437,11 +441,26 @@ public final class MetastoreUtil
         for (HiveColumnHandle partitionKey : partitionKeys) {
             String name = partitionKey.getName();
             Domain domain = effectivePredicate.getDomains().get().get(partitionKey);
-            if (domain != null && domain.isNullableSingleValue()) {
+            if (domain != null) {
                 domains.put(name, domain);
             }
         }
 
         return withColumnDomains(domains);
+    }
+
+    public static Map<String, String> adjustRowCount(Map<String, String> parameters, String description, long rowCountAdjustment)
+    {
+        String existingRowCount = parameters.get(NUM_ROWS);
+        if (existingRowCount == null) {
+            return parameters;
+        }
+        Long count = Longs.tryParse(existingRowCount);
+        requireNonNull(count, format("For %s, the existing row count (%s) is not a digit string", description, existingRowCount));
+        long newRowCount = count + rowCountAdjustment;
+        checkArgument(newRowCount >= 0, "For %s, the subtracted row count (%s) is less than zero, existing count %s, rows deleted %d", description, newRowCount, existingRowCount, rowCountAdjustment);
+        Map<String, String> copiedParameters = new HashMap<>(parameters);
+        copiedParameters.put(NUM_ROWS, String.valueOf(newRowCount));
+        return ImmutableMap.copyOf(copiedParameters);
     }
 }

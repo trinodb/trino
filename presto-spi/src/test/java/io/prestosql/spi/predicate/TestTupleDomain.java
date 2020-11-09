@@ -51,7 +51,6 @@ public class TestTupleDomain
     private static final ColumnHandle C = new TestingColumnHandle("c");
     private static final ColumnHandle D = new TestingColumnHandle("d");
     private static final ColumnHandle E = new TestingColumnHandle("e");
-    private static final ColumnHandle F = new TestingColumnHandle("f");
 
     @Test
     public void testNone()

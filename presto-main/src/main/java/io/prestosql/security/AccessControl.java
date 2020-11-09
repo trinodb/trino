@@ -239,6 +239,13 @@ public interface AccessControl
     void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to change the specified table's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, PrestoPrincipal principal);
+
+    /**
      * Check if identity is allowed to rename a column in the specified table.
      *
      * @throws AccessDeniedException if not allowed
@@ -293,6 +300,20 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to grant a privilege to the grantee on the specified schema.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to revoke a privilege from the revokee on the specified schema.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRevokeSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal revokee, boolean grantOption);
 
     /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified table.

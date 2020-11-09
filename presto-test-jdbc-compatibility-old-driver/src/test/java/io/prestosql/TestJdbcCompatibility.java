@@ -210,7 +210,7 @@ public class TestJdbcCompatibility
     }
 
     @Test
-    public void testSelectParametricTimestampWithTimezoneInMap()
+    public void testSelectParametricTimestampWithTimeZoneInMap()
     {
         if (hasBrokenParametricTimestampWithTimeZoneSupport()) {
             throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");

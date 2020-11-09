@@ -25,6 +25,7 @@ import io.prestosql.metadata.InternalNode;
 import io.prestosql.server.DynamicFilterService;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
@@ -51,6 +52,7 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.SqlStageExecution.createSqlStageExecution;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -111,7 +113,7 @@ public class TestSqlStageExecution
                 nodeTaskMap,
                 executor,
                 new NoOpFailureDetector(),
-                new DynamicFilterService(new DynamicFilterConfig()),
+                new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), new DynamicFilterConfig()),
                 new SplitSchedulerStats());
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
@@ -174,7 +176,7 @@ public class TestSqlStageExecution
                 nodeTaskMap,
                 executor,
                 new NoOpFailureDetector(),
-                new DynamicFilterService(new DynamicFilterConfig()),
+                new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), new DynamicFilterConfig()),
                 new SplitSchedulerStats());
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 

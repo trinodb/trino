@@ -788,8 +788,8 @@ public abstract class AbstractTestDistributedQueries
 
         // Test DELETE access control
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertAccessDenied("DELETE FROM " + tableName + " where orderkey < 12", "Cannot select from columns \\[orderkey\\] in table or view .*." + tableName + ".*", privilege("orderkey", SELECT_COLUMN));
-        assertAccessAllowed("DELETE FROM " + tableName + " where orderkey < 12", privilege("orderdate", SELECT_COLUMN));
+        assertAccessDenied("DELETE FROM " + tableName + " where orderkey < 12", "Cannot select from columns \\[orderkey\\] in table or view .*." + tableName + ".*", privilege(tableName + ".orderkey", SELECT_COLUMN));
+        assertAccessAllowed("DELETE FROM " + tableName + " where orderkey < 12", privilege(tableName + ".orderdate", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM " + tableName, privilege("orders", SELECT_COLUMN));
     }
 
@@ -1009,7 +1009,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testQueryLoggingCount()
     {
-        QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
+        QueryManager queryManager = getDistributedQueryRunner().getCoordinator().getQueryManager();
         executeExclusively(() -> {
             assertUntilTimeout(
                     () -> assertEquals(
@@ -1261,17 +1261,16 @@ public abstract class AbstractTestDistributedQueries
     {
         String tableName = "test_written_stats_" + randomTableSuffix();
         String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
         assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
 
         sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
-        resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+        queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);

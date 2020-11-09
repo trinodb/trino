@@ -27,6 +27,8 @@ import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionNotFoundException;
 import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.acid.AcidOperation;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
@@ -48,6 +50,8 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -377,11 +381,11 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction)
     {
         identity = updateIdentity(identity);
         try {
-            delegate.updateTableStatistics(identity, databaseName, tableName, update);
+            delegate.updateTableStatistics(identity, databaseName, tableName, update, transaction);
         }
         finally {
             HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
@@ -551,6 +555,18 @@ public class CachingHiveMetastore
         identity = updateIdentity(identity);
         try {
             delegate.commentTable(identity, databaseName, tableName, comment);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
+    @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        identity = updateIdentity(identity);
+        try {
+            delegate.setTableOwner(identity, databaseName, tableName, principal);
         }
         finally {
             invalidateTable(databaseName, tableName);
@@ -941,6 +957,65 @@ public class CachingHiveMetastore
     private Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
     {
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
+    }
+
+    @Override
+    public long allocateWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId)
+    {
+        return delegate.allocateWriteId(identity, dbName, tableName, transactionId);
+    }
+
+    @Override
+    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    {
+        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
+    }
+
+    @Override
+    public void updateTableWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+    {
+        try {
+            delegate.updateTableWriteId(identity, dbName, tableName, transactionId, writeId, rowCountChange);
+        }
+        finally {
+            invalidateTable(dbName, tableName);
+        }
+    }
+
+    @Override
+    public void alterPartitions(HiveIdentity identity, String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        identity = updateIdentity(identity);
+        try {
+            delegate.alterPartitions(identity, dbName, tableName, partitions, writeId);
+        }
+        finally {
+            invalidatePartitionCache(dbName, tableName);
+        }
+    }
+
+    @Override
+    public void addDynamicPartitions(HiveIdentity identity, String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    {
+        identity = updateIdentity(identity);
+        try {
+            delegate.addDynamicPartitions(identity, dbName, tableName, partitionNames, transactionId, writeId, operation);
+        }
+        finally {
+            invalidatePartitionCache(dbName, tableName);
+        }
+    }
+
+    @Override
+    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, EnvironmentContext context, PrincipalPrivileges principalPrivileges)
+    {
+        try {
+            delegate.alterTransactionalTable(identity, table, transactionId, writeId, context, principalPrivileges);
+        }
+        finally {
+            identity = updateIdentity(identity);
+            invalidateTable(table.getDatabaseName(), table.getTableName());
+        }
     }
 
     private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, long maximumSize, StatsRecording statsRecording)

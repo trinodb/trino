@@ -226,6 +226,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetTableAuthorization(context, tableName, principal);
+    }
+
+    @Override
     public void checkCanInsertIntoTable(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanInsertIntoTable(context, tableName);
@@ -265,6 +271,18 @@ public abstract class ForwardingAccessControl
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
     {
         delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantSchemaPrivilege(context, privilege, schemaName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal revokee, boolean grantOption)
+    {
+        delegate().checkCanRevokeSchemaPrivilege(context, privilege, schemaName, revokee, grantOption);
     }
 
     @Override

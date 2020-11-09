@@ -99,19 +99,14 @@ public class MongoSession
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
     private static final String OR_OP = "$or";
-    private static final String AND_OP = "$and";
-    private static final String NOT_OP = "$not";
-    private static final String NOR_OP = "$nor";
 
     private static final String EQ_OP = "$eq";
     private static final String NOT_EQ_OP = "$ne";
-    private static final String EXISTS_OP = "$exists";
     private static final String GTE_OP = "$gte";
     private static final String GT_OP = "$gt";
     private static final String LT_OP = "$lt";
     private static final String LTE_OP = "$lte";
     private static final String IN_OP = "$in";
-    private static final String NOTIN_OP = "$nin";
 
     private final TypeManager typeManager;
     private final MongoClient client;
@@ -278,7 +273,9 @@ public class MongoSession
             output.append(column.getName(), 1);
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
-        FindIterable<Document> iterable = collection.find(buildQuery(tableHandle.getConstraint())).projection(output);
+        Document query = buildQuery(tableHandle.getConstraint());
+        FindIterable<Document> iterable = collection.find(query).projection(output);
+        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), query.toJson(), output.toJson());
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
@@ -433,7 +430,7 @@ public class MongoSession
 
     private static Document isNullPredicate()
     {
-        return documentOf(EXISTS_OP, true).append(EQ_OP, null);
+        return documentOf(EQ_OP, null);
     }
 
     private static Document isNotNullPredicate()

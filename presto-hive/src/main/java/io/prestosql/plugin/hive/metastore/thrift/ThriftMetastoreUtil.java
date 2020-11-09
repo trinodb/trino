@@ -148,7 +148,7 @@ public final class ThriftMetastoreUtil
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
     private static final String NUM_FILES = "numFiles";
-    private static final String NUM_ROWS = "numRows";
+    public static final String NUM_ROWS = "numRows";
     private static final String RAW_DATA_SIZE = "rawDataSize";
     private static final String TOTAL_SIZE = "totalSize";
     private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
@@ -186,6 +186,7 @@ public final class ThriftMetastoreUtil
         result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
         result.setViewExpandedText(table.getViewExpandedText().orElse(null));
+        table.getWriteId().ifPresent(result::setWriteId);
         return result;
     }
 
@@ -359,12 +360,18 @@ public final class ThriftMetastoreUtil
 
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition)
     {
+        return toMetastoreApiPartition(partition, Optional.empty());
+    }
+
+    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition, Optional<Long> writeId)
+    {
         org.apache.hadoop.hive.metastore.api.Partition result = new org.apache.hadoop.hive.metastore.api.Partition();
         result.setDbName(partition.getDatabaseName());
         result.setTableName(partition.getTableName());
         result.setValues(partition.getValues());
         result.setSd(makeStorageDescriptor(partition.getTableName(), partition.getColumns(), partition.getStorage()));
         result.setParameters(partition.getParameters());
+        writeId.ifPresent(result::setWriteId);
         return result;
     }
 
@@ -421,7 +428,8 @@ public final class ThriftMetastoreUtil
                         .collect(toImmutableList()))
                 .setParameters(table.getParameters() == null ? ImmutableMap.of() : table.getParameters())
                 .setViewOriginalText(Optional.ofNullable(emptyToNull(table.getViewOriginalText())))
-                .setViewExpandedText(Optional.ofNullable(emptyToNull(table.getViewExpandedText())));
+                .setViewExpandedText(Optional.ofNullable(emptyToNull(table.getViewExpandedText())))
+                .setWriteId(table.getWriteId() < 0 ? OptionalLong.empty() : OptionalLong.of(table.getWriteId()));
 
         fromMetastoreApiStorageDescriptor(table.getParameters(), storageDescriptor, tableBuilder.getStorageBuilder(), table.getTableName());
 
@@ -963,9 +971,12 @@ public final class ThriftMetastoreUtil
         if (type.equals(BOOLEAN)) {
             return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
         }
-        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP_MILLIS)) {
-            // TODO https://github.com/prestosql/presto/issues/37 support non-legacy TIMESTAMP
+        if (isNumericType(type) || type.equals(DATE)) {
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
+        }
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp MIN_VALUE, MAX_VALUE
+            return ImmutableSet.of(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
         if (type instanceof VarcharType || type instanceof CharType) {
             // TODO Collect MIN,MAX once it is used by the optimizer

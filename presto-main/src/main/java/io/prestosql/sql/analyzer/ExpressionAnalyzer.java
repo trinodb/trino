@@ -16,6 +16,7 @@ package io.prestosql.sql.analyzer;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.SliceUtf8;
 import io.prestosql.Session;
@@ -35,7 +36,9 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalParseResult;
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeType;
@@ -72,6 +75,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.Format;
+import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.GroupingOperation;
@@ -92,6 +96,7 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression;
@@ -99,6 +104,7 @@ import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.SortItem;
+import io.prestosql.sql.tree.SortItem.Ordering;
 import io.prestosql.sql.tree.StackableAstVisitor;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SubqueryExpression;
@@ -134,14 +140,18 @@ import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.prestosql.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
+import static io.prestosql.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.prestosql.spi.connector.StandardWarningCode.DEPRECATED_FUNCTION;
+import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
+import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -167,8 +177,13 @@ import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
-import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
-import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
+import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
+import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.prestosql.sql.tree.WindowFrame.Type.GROUPS;
+import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
+import static io.prestosql.sql.tree.WindowFrame.Type.ROWS;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static io.prestosql.type.DateTimes.extractTimePrecision;
 import static io.prestosql.type.DateTimes.extractTimestampPrecision;
@@ -204,6 +219,17 @@ public class ExpressionAnalyzer
     private final Set<NodeRef<ExistsPredicate>> existsSubqueries = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, Type> expressionCoercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
+
+    // Coercions needed for window function frame of type RANGE.
+    // These are coercions for the sort key, needed for frame bound calculation, identified by frame range offset expression.
+    // Frame definition might contain two different offset expressions (for start and end), each requiring different coercion of the sort key.
+    private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
+    // Coercions needed for window function frame of type RANGE.
+    // These are coercions for the sort key, needed for comparison of the sort key with precomputed frame bound, identified by frame range offset expression.
+    private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
+    // Functions for calculating frame bounds for frame of type RANGE, identified by frame range offset expression.
+    private final Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = new LinkedHashMap<>();
+
     private final Set<NodeRef<InPredicate>> subqueryInPredicates = new LinkedHashSet<>();
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> expressionTypes = new LinkedHashMap<>();
@@ -282,6 +308,21 @@ public class ExpressionAnalyzer
     public Set<NodeRef<Expression>> getTypeOnlyCoercions()
     {
         return unmodifiableSet(typeOnlyCoercions);
+    }
+
+    public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundCalculation()
+    {
+        return unmodifiableMap(sortKeyCoercionsForFrameBoundCalculation);
+    }
+
+    public Map<NodeRef<Expression>, Type> getSortKeyCoercionsForFrameBoundComparison()
+    {
+        return unmodifiableMap(sortKeyCoercionsForFrameBoundComparison);
+    }
+
+    public Map<NodeRef<Expression>, ResolvedFunction> getFrameBoundCalculations()
+    {
+        return unmodifiableMap(frameBoundCalculations);
     }
 
     public Set<NodeRef<InPredicate>> getSubqueryInPredicates()
@@ -948,20 +989,56 @@ public class ExpressionAnalyzer
                 if (window.getFrame().isPresent()) {
                     WindowFrame frame = window.getFrame().get();
 
-                    if (frame.getStart().getValue().isPresent()) {
-                        Expression startValue = frame.getStart().getValue().get();
-                        Type type = process(startValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
+                    if (frame.getType() == ROWS) {
+                        if (frame.getStart().getValue().isPresent()) {
+                            Expression startValue = frame.getStart().getValue().get();
+                            Type type = process(startValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw semanticException(TYPE_MISMATCH, node, "Window frame ROWS start value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
+                        }
+                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                            Expression endValue = frame.getEnd().get().getValue().get();
+                            Type type = process(endValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw semanticException(TYPE_MISMATCH, node, "Window frame ROWS end value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
                         }
                     }
-
-                    if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
-                        Expression endValue = frame.getEnd().get().getValue().get();
-                        Type type = process(endValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
+                    else if (frame.getType() == RANGE) {
+                        if (frame.getStart().getValue().isPresent()) {
+                            Expression startValue = frame.getStart().getValue().get();
+                            analyzeFrameRangeOffset(startValue, frame.getStart().getType(), context, window);
                         }
+                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                            Expression endValue = frame.getEnd().get().getValue().get();
+                            analyzeFrameRangeOffset(endValue, frame.getEnd().get().getType(), context, window);
+                        }
+                    }
+                    else if (frame.getType() == GROUPS) {
+                        if (frame.getStart().getValue().isPresent()) {
+                            if (window.getOrderBy().isEmpty()) {
+                                throw semanticException(MISSING_ORDER_BY, window, "Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
+                            }
+                            Expression startValue = frame.getStart().getValue().get();
+                            Type type = process(startValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw semanticException(TYPE_MISMATCH, node, "Window frame GROUPS start value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
+                        }
+                        if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
+                            if (window.getOrderBy().isEmpty()) {
+                                throw semanticException(MISSING_ORDER_BY, window, "Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
+                            }
+                            Expression endValue = frame.getEnd().get().getValue().get();
+                            Type type = process(endValue, context);
+                            if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
+                                throw semanticException(TYPE_MISMATCH, node, "Window frame GROUPS end value type must be INTEGER or BIGINT (actual %s)", type);
+                            }
+                        }
+                    }
+                    else {
+                        throw semanticException(NOT_SUPPORTED, frame, "Unsupported frame type: " + frame.getType());
                     }
                 }
 
@@ -1048,6 +1125,77 @@ public class ExpressionAnalyzer
 
             Type type = signature.getReturnType();
             return setExpressionType(node, type);
+        }
+
+        private void analyzeFrameRangeOffset(Expression offsetValue, FrameBound.Type boundType, StackableAstVisitorContext<Context> context, Window window)
+        {
+            if (window.getOrderBy().isEmpty()) {
+                throw semanticException(MISSING_ORDER_BY, window, "Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
+            }
+            OrderBy orderBy = window.getOrderBy().get();
+            if (orderBy.getSortItems().size() != 1) {
+                throw semanticException(INVALID_ORDER_BY, orderBy, "Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: %s)", orderBy.getSortItems().size());
+            }
+            Expression sortKey = Iterables.getOnlyElement(orderBy.getSortItems()).getSortKey();
+            Type sortKeyType = getExpressionType(sortKey);
+            if (!isNumericType(sortKeyType) && !isDateTimeType(sortKeyType)) {
+                throw semanticException(TYPE_MISMATCH, sortKey, "Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: %s)", sortKeyType);
+            }
+
+            Type offsetValueType = process(offsetValue, context);
+
+            if (isNumericType(sortKeyType)) {
+                if (!isNumericType(offsetValueType)) {
+                    throw semanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
+                }
+            }
+            else { // isDateTimeType(sortKeyType)
+                if (offsetValueType != INTERVAL_DAY_TIME && offsetValueType != INTERVAL_YEAR_MONTH) {
+                    throw semanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
+                }
+            }
+
+            // resolve function to calculate frame boundary value (add / subtract offset from sortKey)
+            Ordering ordering = Iterables.getOnlyElement(orderBy.getSortItems()).getOrdering();
+            OperatorType operatorType;
+            ResolvedFunction function;
+            if ((boundType == PRECEDING && ordering == ASCENDING) || (boundType == FOLLOWING && ordering == DESCENDING)) {
+                operatorType = SUBTRACT;
+            }
+            else {
+                operatorType = ADD;
+            }
+            try {
+                function = metadata.resolveOperator(operatorType, ImmutableList.of(sortKeyType, offsetValueType));
+            }
+            catch (PrestoException e) {
+                ErrorCode errorCode = e.getErrorCode();
+                if (errorCode.equals(OPERATOR_NOT_FOUND.toErrorCode())) {
+                    throw semanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
+                }
+                throw e;
+            }
+            BoundSignature signature = function.getSignature();
+            Type expectedSortKeyType = signature.getArgumentTypes().get(0);
+            if (!expectedSortKeyType.equals(sortKeyType)) {
+                if (!typeCoercion.canCoerce(sortKeyType, expectedSortKeyType)) {
+                    throw semanticException(TYPE_MISMATCH, sortKey, "Sort key must evaluate to a %s (actual: %s)", expectedSortKeyType, sortKeyType);
+                }
+                sortKeyCoercionsForFrameBoundCalculation.put(NodeRef.of(offsetValue), expectedSortKeyType);
+            }
+            Type expectedOffsetValueType = signature.getArgumentTypes().get(1);
+            if (!expectedOffsetValueType.equals(offsetValueType)) {
+                coerceType(offsetValue, offsetValueType, expectedOffsetValueType, format("Function %s argument 1", function));
+            }
+            Type expectedFunctionResultType = signature.getReturnType();
+            if (!expectedFunctionResultType.equals(sortKeyType)) {
+                if (!typeCoercion.canCoerce(sortKeyType, expectedFunctionResultType)) {
+                    throw semanticException(TYPE_MISMATCH, sortKey, "Sort key must evaluate to a %s (actual: %s)", expectedFunctionResultType, sortKeyType);
+                }
+                sortKeyCoercionsForFrameBoundComparison.put(NodeRef.of(offsetValue), expectedFunctionResultType);
+            }
+
+            frameBoundCalculations.put(NodeRef.of(offsetValue), function);
         }
 
         public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, StackableAstVisitorContext<Context> context)
@@ -1166,12 +1314,60 @@ public class ExpressionAnalyzer
         protected Type visitExtract(Extract node, StackableAstVisitorContext<Context> context)
         {
             Type type = process(node.getExpression(), context);
-            if (!isDateTimeType(type)) {
-                throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
-            }
             Extract.Field field = node.getField();
-            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type instanceof TimestampWithTimeZoneType)) {
-                throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
+
+            switch (field) {
+                case YEAR:
+                case MONTH:
+                    if (!(type instanceof DateType) &&
+                            !(type instanceof TimestampType) &&
+                            !(type instanceof TimestampWithTimeZoneType) &&
+                            !(type.equals(INTERVAL_YEAR_MONTH))) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                case DAY:
+                    if (!(type instanceof DateType) &&
+                            !(type instanceof TimestampType) &&
+                            !(type instanceof TimestampWithTimeZoneType) &&
+                            !(type.equals(INTERVAL_DAY_TIME))) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                case QUARTER:
+                case WEEK:
+                case DAY_OF_MONTH:
+                case DAY_OF_WEEK:
+                case DOW:
+                case DAY_OF_YEAR:
+                case DOY:
+                case YEAR_OF_WEEK:
+                case YOW:
+                    if (!(type instanceof DateType) &&
+                            !(type instanceof TimestampType) &&
+                            !(type instanceof TimestampWithTimeZoneType)) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                case HOUR:
+                case MINUTE:
+                case SECOND:
+                    if (!(type instanceof TimestampType) &&
+                            !(type instanceof TimestampWithTimeZoneType) &&
+                            !(type instanceof TimeType) &&
+                            !(type instanceof TimeWithTimeZoneType) &&
+                            !(type.equals(INTERVAL_DAY_TIME))) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                case TIMEZONE_MINUTE:
+                case TIMEZONE_HOUR:
+                    if (!(type instanceof TimestampWithTimeZoneType) && !(type instanceof TimeWithTimeZoneType)) {
+                        throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
+                    }
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unknown field: " + field);
             }
 
             return setExpressionType(node, BIGINT);
@@ -1719,10 +1915,14 @@ public class ExpressionAnalyzer
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
         Map<NodeRef<Expression>, Type> expressionCoercions = analyzer.getExpressionCoercions();
         Set<NodeRef<Expression>> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
+        Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = analyzer.getSortKeyCoercionsForFrameBoundCalculation();
+        Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = analyzer.getSortKeyCoercionsForFrameBoundComparison();
+        Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = analyzer.getFrameBoundCalculations();
         Map<NodeRef<FunctionCall>, ResolvedFunction> resolvedFunctions = analyzer.getResolvedFunctions();
 
         analysis.addTypes(expressionTypes);
-        analysis.addCoercions(expressionCoercions, typeOnlyCoercions);
+        analysis.addCoercions(expressionCoercions, typeOnlyCoercions, sortKeyCoercionsForFrameBoundCalculation, sortKeyCoercionsForFrameBoundComparison);
+        analysis.addFrameBoundCalculations(frameBoundCalculations);
 
         resolvedFunctions.entrySet()
                 .forEach(entry -> analysis.addResolvedFunction(entry.getKey().getNode(), entry.getValue(), session.getUser()));
@@ -1858,5 +2058,16 @@ public class ExpressionAnalyzer
                 warningCollector,
                 isDescribe,
                 CorrelationSupport.ALLOWED);
+    }
+
+    public static boolean isNumericType(Type type)
+    {
+        return type.equals(BIGINT) ||
+                type.equals(INTEGER) ||
+                type.equals(SMALLINT) ||
+                type.equals(TINYINT) ||
+                type.equals(DOUBLE) ||
+                type.equals(REAL) ||
+                type instanceof DecimalType;
     }
 }

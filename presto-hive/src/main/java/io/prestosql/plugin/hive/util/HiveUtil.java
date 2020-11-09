@@ -27,6 +27,7 @@ import io.prestosql.hadoop.TextLineLengthLimitExceededException;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
+import io.prestosql.plugin.hive.HiveTimestampPrecision;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.avro.PrestoAvroSerDe;
 import io.prestosql.plugin.hive.metastore.Column;
@@ -819,7 +820,7 @@ public final class HiveUtil
         return partitionKey;
     }
 
-    public static List<HiveColumnHandle> hiveColumnHandles(Table table, TypeManager typeManager, int timestampPrecision)
+    public static List<HiveColumnHandle> hiveColumnHandles(Table table, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -845,7 +846,7 @@ public final class HiveUtil
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getRegularColumnHandles(Table table, TypeManager typeManager, int timestampPrecision)
+    public static List<HiveColumnHandle> getRegularColumnHandles(Table table, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 

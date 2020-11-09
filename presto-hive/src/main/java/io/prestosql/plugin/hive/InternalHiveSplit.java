@@ -51,6 +51,7 @@ public class InternalHiveSplit
     private final List<InternalHiveBlock> blocks;
     private final String partitionName;
     private final OptionalInt bucketNumber;
+    private final int statementId;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
@@ -72,6 +73,7 @@ public class InternalHiveSplit
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt bucketNumber,
+            int statementId,
             boolean splittable,
             boolean forceLocalScheduling,
             TableToPartitionMapping tableToPartitionMapping,
@@ -102,6 +104,7 @@ public class InternalHiveSplit
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.blocks = ImmutableList.copyOf(blocks);
         this.bucketNumber = bucketNumber;
+        this.statementId = statementId;
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
@@ -158,6 +161,11 @@ public class InternalHiveSplit
     public OptionalInt getBucketNumber()
     {
         return bucketNumber;
+    }
+
+    public int getStatementId()
+    {
+        return statementId;
     }
 
     public boolean isSplittable()

@@ -57,7 +57,7 @@ public class TestCompletedEventWarnings
                 .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
-        generatedEvents.initialize(EXPECTED_EVENTS);
+        generatedEvents.reset(EXPECTED_EVENTS);
     }
 
     @AfterMethod(alwaysRun = true)

@@ -55,8 +55,6 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.weakref.jmx.ObjectNames.generatedNameOf;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class PinotModule
         implements Module
@@ -105,8 +103,6 @@ public class PinotModule
         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NodeManager.class).toInstance(nodeManager);
-        binder.bind(PinotMetrics.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(PinotMetrics.class).as(generatedNameOf(PinotMetrics.class, catalogName));
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
     }

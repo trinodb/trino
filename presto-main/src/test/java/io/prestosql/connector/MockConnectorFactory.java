@@ -13,32 +13,21 @@
  */
 package io.prestosql.connector;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
-import io.prestosql.plugin.tpch.TpchHandleResolver;
-import io.prestosql.plugin.tpch.TpchRecordSetProvider;
-import io.prestosql.plugin.tpch.TpchSplitManager;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorNewTableLayout;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTableProperties;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -47,13 +36,10 @@ import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
-import io.prestosql.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -63,8 +49,6 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -77,11 +61,13 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final ApplyProjection applyProjection;
+    private final ApplyAggregation applyAggregation;
     private final ApplyTopN applyTopN;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final ListRoleGrants roleGrants;
+    private final MockConnectorAccessControl accessControl;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -90,23 +76,27 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             ApplyProjection applyProjection,
+            ApplyAggregation applyAggregation,
             ApplyTopN applyTopN,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
             Supplier<Iterable<EventListener>> eventListeners,
-            ListRoleGrants roleGrants)
+            ListRoleGrants roleGrants,
+            MockConnectorAccessControl accessControl)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
-        this.getColumns = getColumns;
-        this.applyProjection = applyProjection;
+        this.getColumns = requireNonNull(getColumns, "getColumns is null");
+        this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
+        this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -118,13 +108,26 @@ public class MockConnectorFactory
     @Override
     public ConnectorHandleResolver getHandleResolver()
     {
-        return new TpchHandleResolver();
+        return new MockConnectorHandleResolver();
     }
 
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, applyTopN, getInsertLayout, getNewTableLayout, eventListeners, roleGrants);
+        return new MockConnector(
+                listSchemaNames,
+                listTables,
+                getViews,
+                getTableHandle,
+                getColumns,
+                applyProjection,
+                applyAggregation,
+                applyTopN,
+                getInsertLayout,
+                getNewTableLayout,
+                eventListeners,
+                roleGrants,
+                accessControl);
     }
 
     public static Builder builder()
@@ -135,291 +138,39 @@ public class MockConnectorFactory
     @FunctionalInterface
     public interface ApplyProjection
     {
-        Optional<ProjectionApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
+        Optional<ProjectionApplicationResult<ConnectorTableHandle>> apply(
+                ConnectorSession session,
+                ConnectorTableHandle handle,
+                List<ConnectorExpression> projections,
+                Map<String, ColumnHandle> assignments);
+    }
+
+    @FunctionalInterface
+    public interface ApplyAggregation
+    {
+        Optional<AggregationApplicationResult<ConnectorTableHandle>> apply(
+                ConnectorSession session,
+                ConnectorTableHandle handle,
+                List<AggregateFunction> aggregates,
+                Map<String, ColumnHandle> assignments,
+                List<List<ColumnHandle>> groupingSets);
     }
 
     @FunctionalInterface
     public interface ApplyTopN
     {
-        Optional<TopNApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments);
+        Optional<TopNApplicationResult<ConnectorTableHandle>> apply(
+                ConnectorSession session,
+                ConnectorTableHandle handle,
+                long topNCount,
+                List<SortItem> sortItems,
+                Map<String, ColumnHandle> assignments);
     }
 
     @FunctionalInterface
     public interface ListRoleGrants
     {
         Set<RoleGrant> apply(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit);
-    }
-
-    public static class MockConnector
-            implements Connector
-    {
-        private final ConnectorContext context;
-        private final Function<ConnectorSession, List<String>> listSchemaNames;
-        private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
-        private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
-        private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
-        private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
-        private final ApplyProjection applyProjection;
-        private final ApplyTopN applyTopN;
-        private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
-        private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
-        private final Supplier<Iterable<EventListener>> eventListeners;
-        private final ListRoleGrants roleGrants;
-
-        private MockConnector(
-                ConnectorContext context,
-                Function<ConnectorSession, List<String>> listSchemaNames,
-                BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
-                BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
-                BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
-                Function<SchemaTableName, List<ColumnMetadata>> getColumns,
-                ApplyProjection applyProjection,
-                ApplyTopN applyTopN,
-                BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
-                BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
-                Supplier<Iterable<EventListener>> eventListeners,
-                ListRoleGrants roleGrants)
-        {
-            this.context = requireNonNull(context, "context is null");
-            this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
-            this.listTables = requireNonNull(listTables, "listTables is null");
-            this.getViews = requireNonNull(getViews, "getViews is null");
-            this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
-            this.getColumns = requireNonNull(getColumns, "getColumns is null");
-            this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
-            this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
-            this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
-            this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
-            this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
-            this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
-        }
-
-        @Override
-        public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
-        {
-            return new ConnectorTransactionHandle() {};
-        }
-
-        @Override
-        public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
-        {
-            return new MockConnectorMetadata();
-        }
-
-        @Override
-        public ConnectorSplitManager getSplitManager()
-        {
-            return new TpchSplitManager(context.getNodeManager(), 1);
-        }
-
-        @Override
-        public ConnectorRecordSetProvider getRecordSetProvider()
-        {
-            return new TpchRecordSetProvider();
-        }
-
-        @Override
-        public Iterable<EventListener> getEventListeners()
-        {
-            return eventListeners.get();
-        }
-
-        private class MockConnectorMetadata
-                implements ConnectorMetadata
-        {
-            @Override
-            public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
-            {
-                return applyProjection.apply(session, handle, projections, assignments);
-            }
-
-            @Override
-            public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(ConnectorSession session, ConnectorTableHandle handle, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
-            {
-                return applyTopN.apply(session, handle, topNCount, sortItems, assignments);
-            }
-
-            @Override
-            public List<String> listSchemaNames(ConnectorSession session)
-            {
-                return listSchemaNames.apply(session);
-            }
-
-            @Override
-            public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
-            {
-                return getTableHandle.apply(session, tableName);
-            }
-
-            @Override
-            public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
-            {
-                MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
-                return new ConnectorTableMetadata(table.getTableName(), getColumns.apply(table.getTableName()));
-            }
-
-            @Override
-            public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
-            {
-                if (schemaName.isPresent()) {
-                    return listTables.apply(session, schemaName.get());
-                }
-                ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-                for (String schema : listSchemaNames(session)) {
-                    tableNames.addAll(listTables.apply(session, schema));
-                }
-                return tableNames.build();
-            }
-
-            @Override
-            public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
-            {
-                MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
-                return getColumns.apply(table.getTableName()).stream()
-                        .collect(toImmutableMap(ColumnMetadata::getName, column -> new TpchColumnHandle(column.getName(), column.getType())));
-            }
-
-            @Override
-            public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-            {
-                TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) columnHandle;
-                return new ColumnMetadata(tpchColumnHandle.getColumnName(), tpchColumnHandle.getType());
-            }
-
-            @Override
-            public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
-            {
-                return listTables(session, prefix.getSchema()).stream()
-                        .filter(prefix::matches)
-                        .collect(toImmutableMap(table -> table, getColumns));
-            }
-
-            @Override
-            public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
-            {
-                return getViews.apply(session, schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new));
-            }
-
-            @Override
-            public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
-            {
-                return Optional.ofNullable(getViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
-            }
-
-            @Override
-            public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-            {
-                return new MockConnectorInsertTableHandle();
-            }
-
-            @Override
-            public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
-            {
-                MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
-                return getInsertLayout.apply(session, table.getTableName());
-            }
-
-            @Override
-            public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
-            {
-                return new MockConnectorOutputTableHandle();
-            }
-
-            @Override
-            public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-            {
-                return getNewTableLayout.apply(session, tableMetadata);
-            }
-
-            @Override
-            public boolean usesLegacyTableLayouts()
-            {
-                return false;
-            }
-
-            @Override
-            public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
-            {
-                return new ConnectorTableProperties();
-            }
-
-            @Override
-            public Set<String> listRoles(ConnectorSession session)
-            {
-                return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty()).stream().map(grant -> grant.getRoleName()).collect(toImmutableSet());
-            }
-
-            @Override
-            public Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
-            {
-                return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty()).stream().filter(grant -> grant.getGrantee().equals(principal)).collect(toImmutableSet());
-            }
-
-            @Override
-            public Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
-            {
-                return roleGrants.apply(session, roles, grantees, limit);
-            }
-
-            @Override
-            public Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
-            {
-                return listRoleGrants(session, principal);
-            }
-
-            @Override
-            public Set<String> listEnabledRoles(ConnectorSession session)
-            {
-                return listRoles(session);
-            }
-        }
-    }
-
-    public static class MockConnectorTableHandle
-            implements ConnectorTableHandle
-    {
-        private final SchemaTableName tableName;
-
-        @JsonCreator
-        public MockConnectorTableHandle(@JsonProperty SchemaTableName tableName)
-        {
-            this.tableName = requireNonNull(tableName, "tableName is null");
-        }
-
-        @JsonProperty
-        public SchemaTableName getTableName()
-        {
-            return tableName;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            MockConnectorTableHandle other = (MockConnectorTableHandle) o;
-            return Objects.equals(tableName, other.tableName);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(tableName);
-        }
-    }
-
-    private static class MockConnectorInsertTableHandle
-            implements ConnectorInsertTableHandle
-    {
-    }
-
-    private static class MockConnectorOutputTableHandle
-            implements ConnectorOutputTableHandle
-    {
     }
 
     public static final class Builder
@@ -430,11 +181,14 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
+        private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
+        private Grants<String> schemaGrants = new AllowAllGrants<>();
+        private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -478,6 +232,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withApplyAggregation(ApplyAggregation applyAggregation)
+        {
+            this.applyAggregation = applyAggregation;
+            return this;
+        }
+
         public Builder withApplyTopN(ApplyTopN applyTopN)
         {
             this.applyTopN = applyTopN;
@@ -512,9 +272,34 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withSchemaGrants(Grants<String> schemaGrants)
+        {
+            this.schemaGrants = schemaGrants;
+            return this;
+        }
+
+        public Builder withTableGrants(Grants<SchemaTableName> tableGrants)
+        {
+            this.tableGrants = tableGrants;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
-            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, applyTopN, getInsertLayout, getNewTableLayout, eventListeners, roleGrants);
+            return new MockConnectorFactory(
+                    listSchemaNames,
+                    listTables,
+                    getViews,
+                    getTableHandle,
+                    getColumns,
+                    applyProjection,
+                    applyAggregation,
+                    applyTopN,
+                    getInsertLayout,
+                    getNewTableLayout,
+                    eventListeners,
+                    roleGrants,
+                    new MockConnectorAccessControl(schemaGrants, tableGrants));
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()

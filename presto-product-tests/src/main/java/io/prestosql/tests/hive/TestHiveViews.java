@@ -16,6 +16,7 @@ package io.prestosql.tests.hive;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -28,6 +29,8 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_VIEWS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveViews
         extends HiveProductTest
@@ -100,15 +103,30 @@ public class TestHiveViews
     public void testShowCreateView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_show_view");
-
         onHive().executeQuery("CREATE VIEW hive_show_view AS SELECT * FROM nation");
 
-        // view SQL depends on Hive distribution
-        assertThat(query("SHOW CREATE VIEW hive_show_view")).hasRowsCount(1);
+        String showCreateViewSql = "SHOW CREATE VIEW %s.default.hive_show_view";
+        String expectedResult = "CREATE VIEW %s.default.hive_show_view AS\n" +
+                "SELECT\n" +
+                "  \"n_nationkey\"\n" +
+                ", \"n_name\"\n" +
+                ", \"n_regionkey\"\n" +
+                ", \"n_comment\"\n" +
+                "FROM\n" +
+                "  \"default\".\"nation\"";
+
+        QueryResult actualResult = query(format(showCreateViewSql, "hive"));
+        assertThat(actualResult).hasRowsCount(1);
+        assertEquals((String) actualResult.row(0).get(0), format(expectedResult, "hive"));
+
+        // Verify the translated view sql for a catalog other than "hive", which is configured to the same metastore
+        actualResult = query(format(showCreateViewSql, "hive_with_external_writes"));
+        assertThat(actualResult).hasRowsCount(1);
+        assertEquals((String) actualResult.row(0).get(0), format(expectedResult, "hive_with_external_writes"));
     }
 
     @Test(groups = HIVE_VIEWS)
-    public void testUnsupportedLateralViews()
+    public void testLateralViewExplode()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_lateral_view");
         onHive().executeQuery("DROP TABLE IF EXISTS pageAds");
@@ -117,6 +135,40 @@ public class TestHiveViews
         onHive().executeQuery("CREATE VIEW hive_lateral_view as SELECT pageid, adid FROM pageAds LATERAL VIEW explode(adid_list) adTable AS adid");
 
         assertThat(query("SELECT COUNT(*) FROM hive_lateral_view")).contains(row(0));
+    }
+
+    /**
+     * Test view containing IF, IN, LIKE, BETWEEN, CASE, COALESCE, operators, delimited and non-delimited columns, an inline comment
+     */
+    @Test(groups = HIVE_VIEWS)
+    public void testRichSqlSyntax()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS view_with_rich_syntax");
+        onHive().executeQuery("CREATE VIEW view_with_rich_syntax AS " +
+                "SELECT \n" +
+                "   `n_nationkey`, \n" + // grave accent
+                "   n_name, \n" + // no grave accent
+                "   `n_regionkey` AS `n_regionkey`, \n" + // alias
+                "   n_regionkey BETWEEN 1 AND 2 AS region_between_1_2, \n" + // BETWEEN, boolean
+                "   IF(`n`.`n_name` IN ('ALGERIA', 'ARGENTINA'), 1, 0) AS `starts_with_a`, \n" +
+                "   IF(`n`.`n_name` != 'PERU', 1, 0) `not_peru`, \n" + // no "AS" here
+                "   IF(`n`.`n_name` LIKE '%N%', 1, 0) `CONTAINS_N`, \n" + // LIKE, uppercase column name
+                // TODO (https://github.com/prestosql/presto/issues/5837) "   CASE n_regionkey WHEN 0 THEN 'Africa' WHEN 1 THEN 'America' END region_name, \n" + // simple CASE
+                "   CASE WHEN n_name = \"BRAZIL\" THEN 'is BRAZIL' WHEN n_name = \"ALGERIA\" THEN 'is ALGERIA' ELSE \"\" END is_something,\n" + // searched CASE, double quote string literals
+                "   COALESCE(IF(n_name LIKE 'A%', NULL, n_name), 'A%') AS coalesced_name, \n" + // coalesce
+                "   `n`.`n_nationkey` + `n_nationkey` + n.n_nationkey + n_nationkey + 10000 - -1 AS arithmetic--some comment without leading space \n" +
+                "FROM `default`.`nation` AS `n`");
+        assertThat(query("" +
+                "SELECT n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contains_n, is_something, coalesced_name, arithmetic " +
+                "FROM view_with_rich_syntax " +
+                "WHERE n_regionkey < 3 AND (n_nationkey < 5 OR n_nationkey IN (12, 17))"))
+                .containsOnly(
+                        row(0, "ALGERIA", false, 1, 1, 0, "is ALGERIA", "A%", 10001),
+                        row(1, "ARGENTINA", true, 1, 1, 1, "", "A%", 10005),
+                        row(2, "BRAZIL", true, 0, 1, 0, "is BRAZIL", "BRAZIL", 10009),
+                        row(3, "CANADA", true, 0, 1, 1, "", "CANADA", 10013),
+                        row(12, "JAPAN", true, 0, 1, 1, "", "JAPAN", 10049),
+                        row(17, "PERU", true, 0, 0, 0, "", "PERU", 10069));
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -151,7 +203,7 @@ public class TestHiveViews
                 row("hive", "test_schema", "presto_test_view", "VIEW"));
 
         assertThat(query("SELECT view_definition FROM information_schema.views WHERE table_schema = 'test_schema' and table_name = 'hive_test_view'")).containsOnly(
-                row("SELECT \"n_nationkey\", \"n_name\", \"n_regionkey\", \"n_comment\"\nFROM \"hive\".\"default\".\"nation\""));
+                row("SELECT \"n_nationkey\", \"n_name\", \"n_regionkey\", \"n_comment\"\nFROM \"default\".\"nation\""));
 
         assertThat(query("DESCRIBE test_schema.hive_test_view"))
                 .contains(row("n_nationkey", "bigint", "", ""));

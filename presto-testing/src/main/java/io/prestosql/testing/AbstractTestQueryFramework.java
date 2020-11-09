@@ -411,6 +411,13 @@ public abstract class AbstractTestQueryFramework
         return queryRunner;
     }
 
+    protected final DistributedQueryRunner getDistributedQueryRunner()
+    {
+        checkState(queryRunner != null, "queryRunner not set");
+        checkState(queryRunner instanceof DistributedQueryRunner, "queryRunner is not a DistributedQueryRunner");
+        return (DistributedQueryRunner) queryRunner;
+    }
+
     protected Session noJoinReordering()
     {
         return noJoinReordering(JoinDistributionType.PARTITIONED);
@@ -426,8 +433,7 @@ public abstract class AbstractTestQueryFramework
 
     protected OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        Plan plan = runner.getQueryPlan(queryId);
+        Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
         PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
                 .where(node -> {
                     if (!(node instanceof ProjectNode)) {
@@ -447,7 +453,7 @@ public abstract class AbstractTestQueryFramework
                 .findOnlyElement()
                 .getId();
 
-        return runner.getCoordinator()
+        return getDistributedQueryRunner().getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(queryId)
                 .getQueryStats()

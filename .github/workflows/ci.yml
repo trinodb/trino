@@ -10,9 +10,10 @@ env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
   # maven.wagon.rto is in millis, defaults to 30m
-  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000 -DLogTestDurationListener.enabled=true"
+  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
+  MAVEN_TEST: "-B -Dair.check.skip-all -DLogTestDurationListener.enabled=true"
 
 jobs:
   maven-checks:
@@ -23,6 +24,7 @@ jobs:
         java-version:
           - 11
           - 15
+    timeout-minutes: 45
     steps:
       - name: Free Disk Space
         run: |
@@ -48,6 +50,7 @@ jobs:
 
   error-prone-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
@@ -60,11 +63,12 @@ jobs:
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw -B -T C1 clean test-compile -Dair.check.skip-all -P errorprone-compiler-presto \
+          ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler-presto \
             -pl '!presto-docs,!presto-server,!presto-server-rpm'
 
   web-ui-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
       - name: Web UI Checks
@@ -72,6 +76,7 @@ jobs:
 
   test-jdbc-compatibility:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
         with:
@@ -87,7 +92,7 @@ jobs:
         run: presto-test-jdbc-compatibility-old-driver/bin/run_tests.sh
       - name: Test current JDBC vs old server
         if: always()
-        run: ./mvnw test -B -Dair.check.skip-all -pl presto-test-jdbc-compatibility-old-server
+        run: ./mvnw test ${MAVEN_TEST} -pl presto-test-jdbc-compatibility-old-server
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -98,6 +103,7 @@ jobs:
           - config-empty
           - config-hdp3
           # TODO: config-cdh5
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
@@ -129,7 +135,7 @@ jobs:
           AWS_REGION: us-east-2
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            ./mvnw test -B -Dair.check.skip-all -pl presto-hive -P test-hive-glue
+            ./mvnw test ${MAVEN_TEST} -pl presto-hive -P test-hive-glue
           fi
       - name: Run Hive Azure ABFS Access Key Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -185,6 +191,7 @@ jobs:
 
   test-other-modules:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
@@ -196,7 +203,7 @@ jobs:
           ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
       - name: Maven Tests
         run: |
-          ./mvnw test -B -fae -Dair.check.skip-all -pl '
+          ./mvnw test ${MAVEN_TEST} -fae -pl '
             !presto-main,
             !presto-tests,
             !presto-raptor-legacy,
@@ -232,6 +239,7 @@ jobs:
           - "presto-oracle"
           - "presto-kudu"
           - "presto-phoenix,presto-iceberg,presto-druid"
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
@@ -242,12 +250,13 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
-        run: ./mvnw test -B -fae -Dair.check.skip-all -pl ${{ matrix.modules }}
+        run: ./mvnw test ${MAVEN_TEST} -fae -pl ${{ matrix.modules }}
 
   test-memsql:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
@@ -262,7 +271,7 @@ jobs:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
         run: |
           if [ "${MEMSQL_LICENSE}" != "" ]; then
-            ./mvnw test -B -fae -Dair.check.skip-all -pl presto-memsql -Dmemsql.license=${MEMSQL_LICENSE}
+            ./mvnw test ${MAVEN_TEST} -fae -pl presto-memsql -Dmemsql.license=${MEMSQL_LICENSE}
           fi
 
   pt:
@@ -301,6 +310,7 @@ jobs:
             suite: suite-8-non-generic
           - config: config-cdh5
             suite: suite-tpcds
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1

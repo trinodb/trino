@@ -53,6 +53,7 @@ public class CassandraClientConfig
     private int nativeProtocolPort = 9042;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
+    private int batchSize = 100;
     private Long splitsPerNode;
     private boolean allowDropTable;
     private String username;
@@ -160,6 +161,19 @@ public class CassandraClientConfig
     public CassandraClientConfig setSplitSize(int splitSize)
     {
         this.splitSize = splitSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getBatchSize()
+    {
+        return batchSize;
+    }
+
+    @Config("cassandra.batch-size")
+    public CassandraClientConfig setBatchSize(int batchSize)
+    {
+        this.batchSize = batchSize;
         return this;
     }
 

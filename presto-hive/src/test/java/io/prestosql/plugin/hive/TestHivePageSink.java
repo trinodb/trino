@@ -77,6 +77,7 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -94,7 +95,6 @@ import static org.testng.Assert.assertTrue;
 public class TestHivePageSink
 {
     private static final int NUM_ROWS = 1000;
-    private static final String CLIENT_ID = "client_id";
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
 
@@ -235,19 +235,21 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 ImmutableList.of(),
                 OptionalInt.empty(),
+                0,
                 false,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty());
-        ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
+        ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TYPE_MANAGER,
                 HDFS_ENVIRONMENT,
                 config,
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
-                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
+                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config),
+                Optional.empty());
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
     }
 
@@ -268,7 +270,7 @@ public class TestHivePageSink
                 Optional.empty(),
                 "test",
                 ImmutableMap.of(),
-                false,
+                NO_ACID_TRANSACTION,
                 false);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         TypeOperators typeOperators = new TypeOperators();

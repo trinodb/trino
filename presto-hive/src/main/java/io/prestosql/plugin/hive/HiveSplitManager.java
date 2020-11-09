@@ -221,6 +221,7 @@ public class HiveSplitManager
         int concurrency = isTransactionalTable(table.getParameters()) ? splitLoaderConcurrency : min(splitLoaderConcurrency, partitions.size());
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
+                hiveTable.getTransaction(),
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
                 dynamicFilter,

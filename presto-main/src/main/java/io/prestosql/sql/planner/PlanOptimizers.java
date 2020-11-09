@@ -114,6 +114,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushDeleteIntoConnector;
+import io.prestosql.sql.planner.iterative.rule.PushDistinctLimitIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughFilter;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughJoin;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughProject;
@@ -179,6 +180,7 @@ import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarAggregat
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import io.prestosql.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
+import io.prestosql.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.prestosql.sql.planner.iterative.rule.UnwrapCastInComparison;
@@ -284,9 +286,6 @@ public class PlanOptimizers
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
-        Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
-                new MergeFilters(metadata));
-
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
                 new PruneAggregationColumns(),
                 new PruneAggregationSourceColumns(),
@@ -384,7 +383,7 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 session -> !isIterativeRuleBasedColumnPruning(session),
-                ImmutableList.of(new PruneUnreferencedOutputs(metadata, typeAnalyzer)),
+                ImmutableList.of(new PruneUnreferencedOutputs(metadata)),
                 columnPruningRules);
 
         builder.add(
@@ -411,10 +410,10 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
-                                .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
                                 .addAll(ImmutableSet.of(
+                                        new MergeFilters(metadata),
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
@@ -527,7 +526,12 @@ public class PlanOptimizers
                 new CheckSubqueryNodesAreRewritten(),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
-                        new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)));
+                        new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new TransformFilteringSemiJoinToInnerJoin()))); // must run after PredicatePushDown
 
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 ruleStats,
@@ -541,6 +545,7 @@ public class PlanOptimizers
                         .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
                         .add(new PushSampleIntoTableScan(metadata))
                         .add(new PushAggregationIntoTableScan(metadata))
+                        .add(new PushDistinctLimitIntoTableScan(metadata))
                         .build());
         builder.add(pushIntoTableScanOptimizer);
         builder.add(new UnaliasSymbolReferences(metadata));

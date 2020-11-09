@@ -23,7 +23,6 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
@@ -46,6 +45,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.CallSiteBinder;
 import io.prestosql.sql.gen.SqlTypeBytecodeExpression;
+import io.prestosql.util.MinMaxCompare;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
@@ -83,16 +83,12 @@ import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Reflection.methodHandle;
-import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.util.Arrays.stream;
 
 public abstract class AbstractMinMaxBy
         extends SqlAggregationFunction
 {
-    private static final MethodHandle MIN_FUNCTION = methodHandle(AbstractMinMaxBy.class, "min", long.class);
-    private static final MethodHandle MAX_FUNCTION = methodHandle(AbstractMinMaxBy.class, "max", long.class);
-
-    private final MethodHandle comparisonResultAdapter;
+    private final boolean min;
 
     protected AbstractMinMaxBy(boolean min, String description)
     {
@@ -115,7 +111,7 @@ public abstract class AbstractMinMaxBy
                         AGGREGATE),
                 true,
                 false);
-        this.comparisonResultAdapter = min ? MIN_FUNCTION : MAX_FUNCTION;
+        this.min = min;
     }
 
     @Override
@@ -182,8 +178,7 @@ public abstract class AbstractMinMaxBy
         List<Type> inputTypes = ImmutableList.of(valueType, keyType);
 
         CallSiteBinder binder = new CallSiteBinder();
-        MethodHandle compareMethod = functionDependencies.getOperatorInvoker(COMPARISON, ImmutableList.of(keyType, keyType), Optional.empty()).getMethodHandle();
-        compareMethod = filterReturnValue(compareMethod, comparisonResultAdapter);
+        MethodHandle compareMethod = MinMaxCompare.getMinMaxCompare(functionDependencies, keyType, Optional.empty(), min);
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -338,17 +333,5 @@ public abstract class AbstractMinMaxBy
                 .filter(method -> method.getName().equals(name))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("State class does not have a method named " + name));
-    }
-
-    @UsedByGeneratedCode
-    public static boolean min(long comparisonResult)
-    {
-        return comparisonResult < 0;
-    }
-
-    @UsedByGeneratedCode
-    public static boolean max(long comparisonResult)
-    {
-        return comparisonResult > 0;
     }
 }

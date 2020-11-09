@@ -14,7 +14,9 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
@@ -25,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.testing.Assertions.assertContains;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -140,6 +143,50 @@ public class TestStaticMetastoreLocator
         assertEqualHiveClient(metastoreClient3, FALLBACK_CLIENT);
     }
 
+    @Test
+    public void testStickToFallbackAfterBackoff()
+            throws TException
+    {
+        TestingTicker ticker = new TestingTicker();
+        MetastoreLocator cluster = createMetastoreLocator(CONFIG_WITH_FALLBACK, CLIENTS, ticker);
+
+        ticker.increment(10, NANOSECONDS);
+        ThriftMetastoreClient metastoreClient1 = cluster.createMetastoreClient(Optional.empty());
+        assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
+        assertGetTableException(metastoreClient1);
+
+        ticker.increment(10, NANOSECONDS);
+        ThriftMetastoreClient metastoreClient2 = cluster.createMetastoreClient(Optional.empty());
+        assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
+
+        // even after backoff for DEFAULT_CLIENT passes we should stick to client which we saw working correctly most recently
+        ticker.increment(StaticMetastoreLocator.Backoff.MAX_BACKOFF, NANOSECONDS);
+        ThriftMetastoreClient metastoreClient3 = cluster.createMetastoreClient(Optional.empty());
+        assertEqualHiveClient(metastoreClient3, FALLBACK_CLIENT);
+    }
+
+    @Test
+    public void testReturnsToDefaultClientAfterErrorOnFallback()
+            throws TException
+    {
+        TestingTicker ticker = new TestingTicker();
+        MetastoreLocator cluster = createMetastoreLocator(CONFIG_WITH_FALLBACK, CLIENTS, ticker);
+
+        ticker.increment(10, NANOSECONDS);
+        ThriftMetastoreClient metastoreClient1 = cluster.createMetastoreClient(Optional.empty());
+        assertEqualHiveClient(metastoreClient1, DEFAULT_CLIENT);
+        assertGetTableException(metastoreClient1);
+
+        ticker.increment(10, NANOSECONDS);
+        ThriftMetastoreClient metastoreClient2 = cluster.createMetastoreClient(Optional.empty());
+        assertEqualHiveClient(metastoreClient2, FALLBACK_CLIENT);
+        assertGetTableException(metastoreClient2);
+
+        ticker.increment(10, NANOSECONDS);
+        ThriftMetastoreClient metastoreClient3 = cluster.createMetastoreClient(Optional.empty());
+        assertEqualHiveClient(metastoreClient3, DEFAULT_CLIENT);
+    }
+
     private static void assertGetTableException(ThriftMetastoreClient client)
     {
         try {
@@ -160,7 +207,12 @@ public class TestStaticMetastoreLocator
 
     private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, Map<String, Optional<ThriftMetastoreClient>> clients)
     {
-        return new StaticMetastoreLocator(config, new ThriftMetastoreAuthenticationConfig(), new MockThriftMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
+        return createMetastoreLocator(config, clients, Ticker.systemTicker());
+    }
+
+    private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, Map<String, Optional<ThriftMetastoreClient>> clients, Ticker ticker)
+    {
+        return new StaticMetastoreLocator(config, new ThriftMetastoreAuthenticationConfig(), new MockThriftMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients), ticker);
     }
 
     private static ThriftMetastoreClient createFakeMetastoreClient()

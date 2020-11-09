@@ -85,6 +85,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.testing.StructuralTestUtil.rowBlockOf;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -291,13 +292,8 @@ public class TestHiveFileFormats
     public void testOrc(int rowCount, long fileSizePadding)
             throws Exception
     {
-        // Hive binary writers are broken for timestamps
-        List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(TestHiveFileFormats::withoutTimestamps)
-                .collect(toImmutableList());
-
         assertThatFileFormat(ORC)
-                .withColumns(testColumns)
+                .withColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
                 .isReadableByPageSource(new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC));
@@ -947,7 +943,9 @@ public class TestHiveFileFormats
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                false,
+                NO_ACID_TRANSACTION);
 
         return pageSource.get();
     }
@@ -1014,7 +1012,9 @@ public class TestHiveFileFormats
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                false,
+                NO_ACID_TRANSACTION);
 
         assertTrue(pageSource.isPresent());
 

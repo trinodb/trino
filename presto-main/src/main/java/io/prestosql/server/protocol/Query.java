@@ -503,7 +503,7 @@ class Query
                 .withExceptionConsumer(this::handleSerializationException)
                 .withColumnsAndTypes(columns, types);
 
-        try {
+        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
             long bytes = 0;
             while (bytes < targetResultBytes) {
                 SerializedPage serializedPage = exchangeClient.pollPage();
@@ -511,7 +511,7 @@ class Query
                     break;
                 }
 
-                Page page = serde.deserialize(serializedPage);
+                Page page = serde.deserialize(context, serializedPage);
                 bytes += page.getLogicalSizeInBytes();
                 resultBuilder.addPage(page);
             }

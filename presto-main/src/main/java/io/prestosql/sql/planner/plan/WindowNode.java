@@ -37,6 +37,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
+import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -221,8 +222,10 @@ public class WindowNode
         private final WindowFrame.Type type;
         private final FrameBound.Type startType;
         private final Optional<Symbol> startValue;
+        private final Optional<Symbol> sortKeyCoercedForFrameStartComparison;
         private final FrameBound.Type endType;
         private final Optional<Symbol> endValue;
+        private final Optional<Symbol> sortKeyCoercedForFrameEndComparison;
 
         // This information is only used for printing the plan.
         private final Optional<Expression> originalStartValue;
@@ -233,25 +236,35 @@ public class WindowNode
                 @JsonProperty("type") WindowFrame.Type type,
                 @JsonProperty("startType") FrameBound.Type startType,
                 @JsonProperty("startValue") Optional<Symbol> startValue,
+                @JsonProperty("sortKeyCoercedForFrameStartComparison") Optional<Symbol> sortKeyCoercedForFrameStartComparison,
                 @JsonProperty("endType") FrameBound.Type endType,
                 @JsonProperty("endValue") Optional<Symbol> endValue,
+                @JsonProperty("sortKeyCoercedForFrameEndComparison") Optional<Symbol> sortKeyCoercedForFrameEndComparison,
                 @JsonProperty("originalStartValue") Optional<Expression> originalStartValue,
                 @JsonProperty("originalEndValue") Optional<Expression> originalEndValue)
         {
             this.startType = requireNonNull(startType, "startType is null");
             this.startValue = requireNonNull(startValue, "startValue is null");
+            this.sortKeyCoercedForFrameStartComparison = requireNonNull(sortKeyCoercedForFrameStartComparison, "sortKeyCoercedForFrameStartComparison is null");
             this.endType = requireNonNull(endType, "endType is null");
             this.endValue = requireNonNull(endValue, "endValue is null");
+            this.sortKeyCoercedForFrameEndComparison = requireNonNull(sortKeyCoercedForFrameEndComparison, "sortKeyCoercedForFrameEndComparison is null");
             this.type = requireNonNull(type, "type is null");
             this.originalStartValue = requireNonNull(originalStartValue, "originalStartValue is null");
             this.originalEndValue = requireNonNull(originalEndValue, "originalEndValue is null");
 
             if (startValue.isPresent()) {
                 checkArgument(originalStartValue.isPresent(), "originalStartValue must be present if startValue is present");
+                if (type == RANGE) {
+                    checkArgument(sortKeyCoercedForFrameStartComparison.isPresent(), "for frame of type RANGE, sortKeyCoercedForFrameStartComparison must be present if startValue is present");
+                }
             }
 
             if (endValue.isPresent()) {
                 checkArgument(originalEndValue.isPresent(), "originalEndValue must be present if endValue is present");
+                if (type == RANGE) {
+                    checkArgument(sortKeyCoercedForFrameEndComparison.isPresent(), "for frame of type RANGE, sortKeyCoercedForFrameEndComparison must be present if endValue is present");
+                }
             }
         }
 
@@ -274,6 +287,12 @@ public class WindowNode
         }
 
         @JsonProperty
+        public Optional<Symbol> getSortKeyCoercedForFrameStartComparison()
+        {
+            return sortKeyCoercedForFrameStartComparison;
+        }
+
+        @JsonProperty
         public FrameBound.Type getEndType()
         {
             return endType;
@@ -283,6 +302,12 @@ public class WindowNode
         public Optional<Symbol> getEndValue()
         {
             return endValue;
+        }
+
+        @JsonProperty
+        public Optional<Symbol> getSortKeyCoercedForFrameEndComparison()
+        {
+            return sortKeyCoercedForFrameEndComparison;
         }
 
         @JsonProperty
@@ -310,14 +335,16 @@ public class WindowNode
             return type == frame.type &&
                     startType == frame.startType &&
                     Objects.equals(startValue, frame.startValue) &&
+                    Objects.equals(sortKeyCoercedForFrameStartComparison, frame.sortKeyCoercedForFrameStartComparison) &&
                     endType == frame.endType &&
-                    Objects.equals(endValue, frame.endValue);
+                    Objects.equals(endValue, frame.endValue) &&
+                    Objects.equals(sortKeyCoercedForFrameEndComparison, frame.sortKeyCoercedForFrameEndComparison);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(type, startType, startValue, endType, endValue, originalStartValue, originalEndValue);
+            return Objects.hash(type, startType, startValue, sortKeyCoercedForFrameStartComparison, endType, endValue, sortKeyCoercedForFrameEndComparison);
         }
     }
 

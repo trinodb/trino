@@ -139,7 +139,7 @@ public class DockerContainer
         return this;
     }
 
-    public DockerContainer withHealthCheck(String healthCheckScript)
+    public DockerContainer withHealthCheck(Path healthCheckScript)
     {
         HealthCheck cmd = new HealthCheck()
                 .withTest(ImmutableList.of("CMD", "health.sh"))

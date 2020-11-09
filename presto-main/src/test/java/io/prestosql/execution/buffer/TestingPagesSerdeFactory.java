@@ -52,15 +52,21 @@ public class TestingPagesSerdeFactory
         }
 
         @Override
-        public synchronized SerializedPage serialize(Page page)
+        public synchronized SerializedPage serialize(PagesSerdeContext context, Page page)
         {
-            return super.serialize(page);
+            return super.serialize(context, page);
         }
 
         @Override
         public synchronized Page deserialize(SerializedPage serializedPage)
         {
             return super.deserialize(serializedPage);
+        }
+
+        @Override
+        public synchronized Page deserialize(PagesSerdeContext context, SerializedPage page)
+        {
+            return super.deserialize(context, page);
         }
     }
 }

@@ -67,7 +67,8 @@ public final class JoinUtils
             return PlanNodeSearcher.searchFrom(((JoinNode) node).getRight())
                     .recurseOnlyWhen(
                             MorePredicates.<PlanNode>isInstanceOfAny(ProjectNode.class)
-                                    .or(JoinUtils::isLocalRepartitionExchange))
+                                    .or(JoinUtils::isLocalRepartitionExchange)
+                                    .or(JoinUtils::isLocalGatherExchange))  // used in cross join case
                     .where(joinNode -> isRemoteReplicatedExchange(joinNode) || isRemoteReplicatedSourceNode(joinNode))
                     .matches();
         }

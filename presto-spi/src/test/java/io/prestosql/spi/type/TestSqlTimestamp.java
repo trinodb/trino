@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 
+import static io.prestosql.spi.type.SqlTimestamp.fromMillis;
 import static io.prestosql.spi.type.SqlTimestamp.newInstance;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,75 +42,71 @@ public class TestSqlTimestamp
     }
 
     @Test
-    public void testPositiveEpoch()
+    public void testFromMillis()
     {
-        // round down
-        // represents a timestamp of 1970-01-01 00:00:00.111111111111
-        assertThat(newInstance(0, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00");
-        assertThat(newInstance(1, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.1");
-        assertThat(newInstance(2, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.11");
-        assertThat(newInstance(3, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.111");
-        assertThat(newInstance(4, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.1111");
-        assertThat(newInstance(5, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.11111");
-        assertThat(newInstance(6, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.111111");
-        assertThat(newInstance(7, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.1111111");
-        assertThat(newInstance(8, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.11111111");
-        assertThat(newInstance(9, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.111111111");
-        assertThat(newInstance(10, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.1111111111");
-        assertThat(newInstance(11, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.11111111111");
-        assertThat(newInstance(12, 111111, 111111).toString()).isEqualTo("1970-01-01 00:00:00.111111111111");
+        // round down, positive epoch
+        // represents a timestamp of 1970-01-01 00:00:00.111
+        assertThat(fromMillis(0, 111).toString()).isEqualTo("1970-01-01 00:00:00");
+        assertThat(fromMillis(1, 111).toString()).isEqualTo("1970-01-01 00:00:00.1");
+        assertThat(fromMillis(2, 111).toString()).isEqualTo("1970-01-01 00:00:00.11");
+        assertThat(fromMillis(3, 111).toString()).isEqualTo("1970-01-01 00:00:00.111");
+        assertThat(fromMillis(4, 111).toString()).isEqualTo("1970-01-01 00:00:00.1110");
+        assertThat(fromMillis(5, 111).toString()).isEqualTo("1970-01-01 00:00:00.11100");
+        assertThat(fromMillis(6, 111).toString()).isEqualTo("1970-01-01 00:00:00.111000");
+        assertThat(fromMillis(7, 111).toString()).isEqualTo("1970-01-01 00:00:00.1110000");
+        assertThat(fromMillis(8, 111).toString()).isEqualTo("1970-01-01 00:00:00.11100000");
+        assertThat(fromMillis(9, 111).toString()).isEqualTo("1970-01-01 00:00:00.111000000");
+        assertThat(fromMillis(10, 111).toString()).isEqualTo("1970-01-01 00:00:00.1110000000");
+        assertThat(fromMillis(11, 111).toString()).isEqualTo("1970-01-01 00:00:00.11100000000");
+        assertThat(fromMillis(12, 111).toString()).isEqualTo("1970-01-01 00:00:00.111000000000");
 
-        // round up
-        // represents a timestamp of 1970-01-01 00:00:00.555555555555
-        assertThat(newInstance(0, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:01");
-        assertThat(newInstance(1, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.6");
-        assertThat(newInstance(2, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.56");
-        assertThat(newInstance(3, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.556");
-        assertThat(newInstance(4, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.5556");
-        assertThat(newInstance(5, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.55556");
-        assertThat(newInstance(6, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.555556");
-        assertThat(newInstance(7, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.5555556");
-        assertThat(newInstance(8, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.55555556");
-        assertThat(newInstance(9, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.555555556");
-        assertThat(newInstance(10, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.5555555556");
-        assertThat(newInstance(11, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.55555555556");
-        assertThat(newInstance(12, 555555, 555555).toString()).isEqualTo("1970-01-01 00:00:00.555555555555");
-    }
+        // round up, positive epoch
+        // represents a timestamp of 1970-01-01 00:00:00.555
+        assertThat(fromMillis(0, 555).toString()).isEqualTo("1970-01-01 00:00:01");
+        assertThat(fromMillis(1, 555).toString()).isEqualTo("1970-01-01 00:00:00.6");
+        assertThat(fromMillis(2, 555).toString()).isEqualTo("1970-01-01 00:00:00.56");
+        assertThat(fromMillis(3, 555).toString()).isEqualTo("1970-01-01 00:00:00.555");
+        assertThat(fromMillis(4, 555).toString()).isEqualTo("1970-01-01 00:00:00.5550");
+        assertThat(fromMillis(5, 555).toString()).isEqualTo("1970-01-01 00:00:00.55500");
+        assertThat(fromMillis(6, 555).toString()).isEqualTo("1970-01-01 00:00:00.555000");
+        assertThat(fromMillis(7, 555).toString()).isEqualTo("1970-01-01 00:00:00.5550000");
+        assertThat(fromMillis(8, 555).toString()).isEqualTo("1970-01-01 00:00:00.55500000");
+        assertThat(fromMillis(9, 555).toString()).isEqualTo("1970-01-01 00:00:00.555000000");
+        assertThat(fromMillis(10, 555).toString()).isEqualTo("1970-01-01 00:00:00.5550000000");
+        assertThat(fromMillis(11, 555).toString()).isEqualTo("1970-01-01 00:00:00.55500000000");
+        assertThat(fromMillis(12, 555).toString()).isEqualTo("1970-01-01 00:00:00.555000000000");
 
-    @Test
-    public void testNegativeEpoch()
-    {
-        // round down
-        // represents a timestamp of 1969-12-31 23:59:59.111111111111
-        assertThat(newInstance(0, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59");
-        assertThat(newInstance(1, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.1");
-        assertThat(newInstance(2, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.11");
-        assertThat(newInstance(3, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.111");
-        assertThat(newInstance(4, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.1111");
-        assertThat(newInstance(5, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.11111");
-        assertThat(newInstance(6, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.111111");
-        assertThat(newInstance(7, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.1111111");
-        assertThat(newInstance(8, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.11111111");
-        assertThat(newInstance(9, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.111111111");
-        assertThat(newInstance(10, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.1111111111");
-        assertThat(newInstance(11, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.11111111111");
-        assertThat(newInstance(12, -888889, 111111).toString()).isEqualTo("1969-12-31 23:59:59.111111111111");
+        // round down, negative epoch
+        // represents a timestamp of 1969-12-31 23:59:59.111
+        assertThat(fromMillis(0, -889).toString()).isEqualTo("1969-12-31 23:59:59");
+        assertThat(fromMillis(1, -889).toString()).isEqualTo("1969-12-31 23:59:59.1");
+        assertThat(fromMillis(2, -889).toString()).isEqualTo("1969-12-31 23:59:59.11");
+        assertThat(fromMillis(3, -889).toString()).isEqualTo("1969-12-31 23:59:59.111");
+        assertThat(fromMillis(4, -889).toString()).isEqualTo("1969-12-31 23:59:59.1110");
+        assertThat(fromMillis(5, -889).toString()).isEqualTo("1969-12-31 23:59:59.11100");
+        assertThat(fromMillis(6, -889).toString()).isEqualTo("1969-12-31 23:59:59.111000");
+        assertThat(fromMillis(7, -889).toString()).isEqualTo("1969-12-31 23:59:59.1110000");
+        assertThat(fromMillis(8, -889).toString()).isEqualTo("1969-12-31 23:59:59.11100000");
+        assertThat(fromMillis(9, -889).toString()).isEqualTo("1969-12-31 23:59:59.111000000");
+        assertThat(fromMillis(10, -889).toString()).isEqualTo("1969-12-31 23:59:59.1110000000");
+        assertThat(fromMillis(11, -889).toString()).isEqualTo("1969-12-31 23:59:59.11100000000");
+        assertThat(fromMillis(12, -889).toString()).isEqualTo("1969-12-31 23:59:59.111000000000");
 
-        // round up
-        // represents a timestamp of 1969-12-31 23:59:59.555555555555
-        assertThat(newInstance(0, -444445, 555555).toString()).isEqualTo("1970-01-01 00:00:00");
-        assertThat(newInstance(1, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.6");
-        assertThat(newInstance(2, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.56");
-        assertThat(newInstance(3, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.556");
-        assertThat(newInstance(4, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.5556");
-        assertThat(newInstance(5, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.55556");
-        assertThat(newInstance(6, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.555556");
-        assertThat(newInstance(7, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.5555556");
-        assertThat(newInstance(8, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.55555556");
-        assertThat(newInstance(9, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.555555556");
-        assertThat(newInstance(10, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.5555555556");
-        assertThat(newInstance(11, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.55555555556");
-        assertThat(newInstance(12, -444445, 555555).toString()).isEqualTo("1969-12-31 23:59:59.555555555555");
+        // round up, negative epoch
+        // represents a timestamp of 1969-12-31 23:59:59.555
+        assertThat(fromMillis(0, -445).toString()).isEqualTo("1970-01-01 00:00:00");
+        assertThat(fromMillis(1, -445).toString()).isEqualTo("1969-12-31 23:59:59.6");
+        assertThat(fromMillis(2, -445).toString()).isEqualTo("1969-12-31 23:59:59.56");
+        assertThat(fromMillis(3, -445).toString()).isEqualTo("1969-12-31 23:59:59.555");
+        assertThat(fromMillis(4, -445).toString()).isEqualTo("1969-12-31 23:59:59.5550");
+        assertThat(fromMillis(5, -445).toString()).isEqualTo("1969-12-31 23:59:59.55500");
+        assertThat(fromMillis(6, -445).toString()).isEqualTo("1969-12-31 23:59:59.555000");
+        assertThat(fromMillis(7, -445).toString()).isEqualTo("1969-12-31 23:59:59.5550000");
+        assertThat(fromMillis(8, -445).toString()).isEqualTo("1969-12-31 23:59:59.55500000");
+        assertThat(fromMillis(9, -445).toString()).isEqualTo("1969-12-31 23:59:59.555000000");
+        assertThat(fromMillis(10, -445).toString()).isEqualTo("1969-12-31 23:59:59.5550000000");
+        assertThat(fromMillis(11, -445).toString()).isEqualTo("1969-12-31 23:59:59.55500000000");
+        assertThat(fromMillis(12, -445).toString()).isEqualTo("1969-12-31 23:59:59.555000000000");
     }
 
     @Test

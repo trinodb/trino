@@ -19,10 +19,13 @@ import io.prestosql.plugin.base.type.DecodedTimestamp;
 import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
 import io.prestosql.rcfile.ColumnData;
 import io.prestosql.rcfile.EncodeOutput;
+import io.prestosql.rcfile.TimestampHolder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.TimestampType;
 import org.joda.time.DateTimeZone;
+
+import java.util.function.BiFunction;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
@@ -30,10 +33,7 @@ import static io.prestosql.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static io.prestosql.rcfile.RcFileDecoderUtils.isNegativeVInt;
 import static io.prestosql.rcfile.RcFileDecoderUtils.readVInt;
 import static io.prestosql.rcfile.RcFileDecoderUtils.writeVInt;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static java.lang.Math.floorDiv;
-import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampEncoding
@@ -53,9 +53,10 @@ public class TimestampEncoding
     @Override
     public void encodeColumn(Block block, SliceOutput output, EncodeOutput encodeOutput)
     {
+        BiFunction<Block, Integer, TimestampHolder> factory = TimestampHolder.getFactory(type);
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                writeTimestamp(output, floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND));
+                writeTimestamp(output, factory.apply(block, position));
             }
             encodeOutput.closeEntry();
         }
@@ -64,7 +65,7 @@ public class TimestampEncoding
     @Override
     public void encodeValueInto(Block block, int position, SliceOutput output)
     {
-        writeTimestamp(output, floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND));
+        writeTimestamp(output, TimestampHolder.getFactory(type).apply(block, position));
     }
 
     @Override
@@ -176,11 +177,11 @@ public class TimestampEncoding
         return nanos;
     }
 
-    private void writeTimestamp(SliceOutput output, long millis)
+    private void writeTimestamp(SliceOutput output, TimestampHolder timestamp)
     {
-        millis = timeZone.convertLocalToUTC(millis, false);
-        long seconds = floorDiv(millis, 1000);
-        int nanos = toIntExact(floorMod(millis, 1000) * 1_000_000);
+        long millis = timeZone.convertLocalToUTC(timestamp.getSeconds() * MILLISECONDS_PER_SECOND, false);
+        long seconds = millis / MILLISECONDS_PER_SECOND;
+        int nanos = timestamp.getNanosOfSecond();
         writeTimestamp(seconds, nanos, output);
     }
 

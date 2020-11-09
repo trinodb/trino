@@ -34,46 +34,54 @@ import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.spi.resourcegroups.QueryType;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
+import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static io.prestosql.execution.TestQueues.createResourceGroupId;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestEventListener
+        extends AbstractTestQueryFramework
 {
     private static final int SPLITS_PER_NODE = 3;
-    private final EventsBuilder generatedEvents = new EventsBuilder();
-
-    private DistributedQueryRunner queryRunner;
-    private Session session;
+    private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
+    private final EventsBuilder generatedEvents = new EventsBuilder(queryMetadata -> !queryMetadata.getQuery().contains(IGNORE_EVENT_MARKER));
     private EventsAwaitingQueries queries;
 
-    @BeforeClass
-    private void setUp()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        session = testSessionBuilder()
+        Session session = testSessionBuilder()
                 .setSystemProperty("task_concurrency", "1")
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .setClientInfo("{\"clientVersion\":\"testVersion\"}")
                 .build();
-        queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
@@ -95,7 +103,10 @@ public class TestEventListener
         queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
         queryRunner.getCoordinator().getResourceGroupManager().get()
                 .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
+
         queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
+
+        return queryRunner;
     }
 
     private String getResourceFilePath(String fileName)
@@ -103,17 +114,10 @@ public class TestEventListener
         return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
-    @AfterClass(alwaysRun = true)
-    private void tearDown()
-    {
-        queryRunner.close();
-        queryRunner = null;
-    }
-
     private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
             throws Exception
     {
-        return queries.runQueryAndWaitForEvents(sql, numEventsExpected, session);
+        return queries.runQueryAndWaitForEvents(sql, numEventsExpected, getSession());
     }
 
     @Test
@@ -160,7 +164,78 @@ public class TestEventListener
         assertFailedQuery("SELECT * FROM mock.default.tests_table", "Throw from apply projection");
     }
 
+    @Test
+    public void testAbortedWhileWaitingForResources()
+            throws Exception
+    {
+        Session mySession = Session.builder(getSession())
+                .setSystemProperty("required_workers_count", "17")
+                .setSystemProperty("required_workers_max_wait_time", "10ms")
+                .build();
+        assertFailedQuery(mySession, "SELECT * FROM tpch.sf1.nation", "Insufficient active worker nodes. Waited 10.00ms for at least 17 workers, but only 1 workers are active");
+    }
+
+    @Test(timeOut = 30_000)
+    public void testKilledWhileWaitingForResources()
+            throws Exception
+    {
+        String testQueryMarker = "test_query_id_" + randomUUID().toString().replace("-", "");
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            Session mySession = Session.builder(getSession())
+                    .setSystemProperty("required_workers_count", "17")
+                    .setSystemProperty("required_workers_max_wait_time", "5m")
+                    .build();
+            String sql = format("SELECT nationkey as %s  FROM tpch.sf1.nation", testQueryMarker);
+
+            executorService.submit(
+                    // asynchronous call to cancel query which will be stared via `assertFailedQuery` below
+                    () -> {
+                        Optional<String> queryIdValue = findQueryId(testQueryMarker);
+                        assertThat(queryIdValue).as("query id").isPresent();
+
+                        getQueryRunner().execute(format("CALL system.runtime.kill_query('%s', 'because') %s", queryIdValue.get(), IGNORE_EVENT_MARKER));
+                        return null;
+                    });
+
+            assertFailedQuery(mySession, sql, "Query killed. Message: because");
+        }
+        finally {
+            shutdownAndAwaitTermination(executorService, Duration.ZERO);
+        }
+    }
+
+    @Test
+    public void testWithInvalidExecutionPolicy()
+            throws Exception
+    {
+        Session mySession = Session.builder(getSession())
+                .setSystemProperty("execution_policy", "invalid_as_hell")
+                .build();
+        assertFailedQuery(mySession, "SELECT 1", "No execution policy invalid_as_hell");
+    }
+
+    private Optional<String> findQueryId(String queryPattern)
+            throws InterruptedException
+    {
+        Optional<String> queryIdValue = Optional.empty();
+        while (queryIdValue.isEmpty()) {
+            queryIdValue = computeActual("SELECT query_id FROM system.runtime.queries WHERE query LIKE '%" + queryPattern + "%' AND query NOT LIKE '%system.runtime.queries%'" + IGNORE_EVENT_MARKER)
+                    .getOnlyColumn()
+                    .map(String.class::cast)
+                    .collect(toOptional());
+            Thread.sleep(50);
+        }
+        return queryIdValue;
+    }
+
     private void assertFailedQuery(@Language("SQL") String sql, String expectedFailure)
+            throws Exception
+    {
+        assertFailedQuery(getSession(), sql, expectedFailure);
+    }
+
+    private void assertFailedQuery(Session session, @Language("SQL") String sql, String expectedFailure)
             throws Exception
     {
         queries.runQueryAndWaitForEvents(sql, 2, session, Optional.of(expectedFailure));
@@ -245,6 +320,7 @@ public class TestEventListener
         // Check only the presence because they are non-deterministic.
         assertTrue(statistics.getResourceWaitingTime().isPresent());
         assertTrue(statistics.getAnalysisTime().isPresent());
+        assertTrue(statistics.getPlanningTime().isPresent());
         assertTrue(statistics.getExecutionTime().isPresent());
         assertTrue(statistics.getPlanNodeStatsAndCosts().isPresent());
         assertTrue(statistics.getCpuTime().getSeconds() >= 0);
@@ -315,7 +391,7 @@ public class TestEventListener
         assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), 0); // Prepare has no splits
 
         // Add prepared statement to a new session to eliminate any impact on other tests in this suite.
-        Session sessionWithPrepare = Session.builder(session).addPreparedStatement("stmt", selectQuery).build();
+        Session sessionWithPrepare = Session.builder(getSession()).addPreparedStatement("stmt", selectQuery).build();
 
         // We expect the following events
         // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
@@ -354,7 +430,7 @@ public class TestEventListener
         MaterializedResult result = runQueryAndWaitForEvents("SELECT 1 FROM lineitem", expectedEvents);
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        QueryStats queryStats = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
+        QueryStats queryStats = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
         assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
@@ -364,7 +440,7 @@ public class TestEventListener
         runQueryAndWaitForEvents("SELECT COUNT(1) FROM lineitem", expectedEvents);
         queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        queryStats = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
+        queryStats = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
         assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
@@ -378,6 +454,7 @@ public class TestEventListener
         assertEquals(statistics.getQueuedTime().toMillis(), queryStats.getQueuedTime().toMillis());
         assertEquals(statistics.getResourceWaitingTime().get().toMillis(), queryStats.getResourceWaitingTime().toMillis());
         assertEquals(statistics.getAnalysisTime().get().toMillis(), queryStats.getAnalysisTime().toMillis());
+        assertEquals(statistics.getPlanningTime().get().toMillis(), queryStats.getPlanningTime().toMillis());
         assertEquals(statistics.getExecutionTime().get().toMillis(), queryStats.getExecutionTime().toMillis());
         assertEquals(statistics.getPeakUserMemoryBytes(), queryStats.getPeakUserMemoryReservation().toBytes());
         assertEquals(statistics.getPeakTotalNonRevocableMemoryBytes(), queryStats.getPeakNonRevocableMemoryReservation().toBytes());

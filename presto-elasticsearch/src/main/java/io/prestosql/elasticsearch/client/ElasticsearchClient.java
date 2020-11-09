@@ -514,6 +514,10 @@ public class ElasticsearchClient
                     // for a given index. Newer versions support only one and don't
                     // expose it in the document. Here we skip it if it's present.
                     mappings = mappings.elements().next();
+
+                    if (!mappings.has("properties")) {
+                        return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
+                    }
                 }
 
                 JsonNode metaNode = nullSafeNode(mappings, "_meta");

@@ -13,12 +13,9 @@
  */
 package io.prestosql.operator.aggregation.multimapagg;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.AccumulatorStateFactory;
 import io.prestosql.spi.type.Type;
 
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class MultimapAggregationStateFactory
@@ -26,13 +23,11 @@ public class MultimapAggregationStateFactory
 {
     private final Type keyType;
     private final Type valueType;
-    private final MultimapAggGroupImplementation implementation;
 
-    public MultimapAggregationStateFactory(Type keyType, Type valueType, MultimapAggGroupImplementation implementation)
+    public MultimapAggregationStateFactory(Type keyType, Type valueType)
     {
         this.keyType = requireNonNull(keyType);
         this.valueType = requireNonNull(valueType);
-        this.implementation = requireNonNull(implementation);
     }
 
     @Override
@@ -50,26 +45,12 @@ public class MultimapAggregationStateFactory
     @Override
     public MultimapAggregationState createGroupedState()
     {
-        switch (implementation) {
-            case NEW:
-                return new GroupedMultimapAggregationState(keyType, valueType);
-            case LEGACY:
-                return new LegacyGroupedMultimapAggregationState(keyType, valueType);
-            default:
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Unexpected group enum type %s", implementation));
-        }
+        return new GroupedMultimapAggregationState(keyType, valueType);
     }
 
     @Override
     public Class<? extends MultimapAggregationState> getGroupedStateClass()
     {
-        switch (implementation) {
-            case NEW:
-                return GroupedMultimapAggregationState.class;
-            case LEGACY:
-                return LegacyGroupedMultimapAggregationState.class;
-            default:
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Unexpected group enum type %s", implementation));
-        }
+        return GroupedMultimapAggregationState.class;
     }
 }

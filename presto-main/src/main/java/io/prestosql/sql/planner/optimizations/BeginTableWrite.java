@@ -204,7 +204,8 @@ public class BeginTableWrite
                         handle,
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
-                        scan.getEnforcedConstraint());
+                        scan.getEnforcedConstraint(),
+                        scan.isForDelete());
             }
 
             if (node instanceof FilterNode) {

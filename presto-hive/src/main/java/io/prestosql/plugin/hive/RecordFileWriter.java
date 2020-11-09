@@ -45,6 +45,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.createRecordWriter;
@@ -90,7 +91,7 @@ public class RecordFileWriter
         // existing tables may have columns in a different order
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager))
+                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
                 .collect(toList());
 
         fieldCount = fileColumnNames.size();

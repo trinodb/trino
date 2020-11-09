@@ -53,6 +53,7 @@ import static io.prestosql.execution.buffer.BufferTestUtils.createPage;
 import static io.prestosql.execution.buffer.BufferTestUtils.enqueuePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.getBufferResult;
 import static io.prestosql.execution.buffer.BufferTestUtils.getFuture;
+import static io.prestosql.execution.buffer.BufferTestUtils.serializePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.sizeOfPages;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
@@ -1016,7 +1017,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1047,7 +1048,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1093,7 +1094,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());

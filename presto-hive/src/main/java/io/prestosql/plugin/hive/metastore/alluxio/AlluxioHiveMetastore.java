@@ -25,6 +25,7 @@ import com.google.inject.Inject;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -186,7 +187,8 @@ public class AlluxioHiveMetastore
             HiveIdentity identity,
             String databaseName,
             String tableName,
-            Function<PartitionStatistics, PartitionStatistics> update)
+            Function<PartitionStatistics, PartitionStatistics> update,
+            AcidTransaction transaction)
     {
         throw new PrestoException(NOT_SUPPORTED, "updateTableStatistics");
     }
@@ -305,6 +307,12 @@ public class AlluxioHiveMetastore
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
         throw new PrestoException(NOT_SUPPORTED, "commentTable");
+    }
+
+    @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "setTableOwner");
     }
 
     @Override

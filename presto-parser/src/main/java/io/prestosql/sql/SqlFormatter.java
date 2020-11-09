@@ -91,6 +91,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
@@ -1189,6 +1190,17 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitSetTableAuthorization(SetTableAuthorization node, Integer context)
+        {
+            builder.append("ALTER TABLE ")
+                    .append(formatName(node.getSource()))
+                    .append(" SET AUTHORIZATION ")
+                    .append(formatPrincipal(node.getPrincipal()));
+
+            return null;
+        }
+
+        @Override
         protected Void visitInsert(Insert node, Integer indent)
         {
             builder.append("INSERT INTO ")
@@ -1409,10 +1421,11 @@ public final class SqlFormatter
             }
 
             builder.append(" ON ");
-            if (node.isTable()) {
-                builder.append("TABLE ");
+            if (node.getType().isPresent()) {
+                builder.append(node.getType().get());
+                builder.append(" ");
             }
-            builder.append(node.getTableName())
+            builder.append(node.getName())
                     .append(" TO ")
                     .append(formatPrincipal(node.getGrantee()));
             if (node.isWithGrantOption()) {
@@ -1440,10 +1453,11 @@ public final class SqlFormatter
             }
 
             builder.append(" ON ");
-            if (node.isTable()) {
-                builder.append("TABLE ");
+            if (node.getType().isPresent()) {
+                builder.append(node.getType().get());
+                builder.append(" ");
             }
-            builder.append(node.getTableName())
+            builder.append(node.getName())
                     .append(" FROM ")
                     .append(formatPrincipal(node.getGrantee()));
 

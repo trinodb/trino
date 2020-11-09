@@ -170,7 +170,7 @@ public class CoordinatorModule
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         // export under the old name, for backwards compatibility
-        newExporter(binder).export(DispatchManager.class).as("presto.execution:name=QueryManager");
+        newExporter(binder).export(DispatchManager.class).as(generator -> generator.generatedNameOf(QueryManager.class));
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
         binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
 

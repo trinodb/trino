@@ -1776,18 +1776,29 @@ public abstract class AbstractTestQueries
         assertAccessDenied("INSERT INTO orders SELECT * FROM orders", "Cannot insert into table .*.orders.*", privilege("orders", INSERT_TABLE));
         assertAccessDenied("DELETE FROM orders", "Cannot delete from table .*.orders.*", privilege("orders", DELETE_TABLE));
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
-        assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT name FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT name FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessAllowed("SELECT name FROM nation", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT n1.nationkey, n2.regionkey FROM nation n1, nation n2", "Cannot select from columns \\[nationkey, regionkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT count(name) as c FROM nation where comment > 'abc' GROUP BY regionkey having max(nationkey) > 10", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT 1 FROM region, nation where region.regionkey = nation.nationkey", "Cannot select from columns \\[nationkey\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT n1.nationkey, n2.regionkey FROM nation n1, nation n2", "Cannot select from columns \\[nationkey, regionkey\\] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT count(name) as c FROM nation where comment > 'abc' GROUP BY regionkey having max(nationkey) > 10", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT 1 FROM region, nation where region.regionkey = nation.nationkey", "Cannot select from columns \\[nationkey\\] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT count(*) FROM nation", "Cannot select from columns \\[\\] in table .*.nation.*", privilege("nation", SELECT_COLUMN));
-        assertAccessDenied("WITH t1 AS (SELECT * FROM nation) SELECT * FROM t1", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("WITH t1 AS (SELECT * FROM nation) SELECT * FROM t1", "Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessAllowed("SELECT name AS my_alias FROM nation", privilege("my_alias", SELECT_COLUMN));
         assertAccessAllowed("SELECT my_alias from (SELECT name AS my_alias FROM nation)", privilege("my_alias", SELECT_COLUMN));
-        assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from columns \\[name\\] in table .*.nation.*", privilege("name", SELECT_COLUMN));
+        assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from columns \\[name\\] in table .*.nation.*", privilege("nation.name", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT orders.custkey, lineitem.quantity FROM orders JOIN lineitem USING (orderkey)",
+                "Cannot select from columns \\[orderkey, custkey\\] in table .*",
+                privilege("orders.orderkey", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT orders.custkey, lineitem.quantity FROM orders JOIN lineitem USING (orderkey)",
+                "Cannot select from columns \\[orderkey, quantity\\] in table .*",
+                privilege("lineitem.orderkey", SELECT_COLUMN));
+
         assertAccessDenied("SHOW CREATE TABLE orders", "Cannot show create table for .*.orders.*", privilege("orders", SHOW_CREATE_TABLE));
         assertAccessAllowed("SHOW CREATE TABLE lineitem", privilege("orders", SHOW_CREATE_TABLE));
         assertAccessDenied("SELECT abs(1)", "Cannot execute function abs", privilege("abs", EXECUTE_FUNCTION));
@@ -1798,11 +1809,11 @@ public abstract class AbstractTestQueries
         assertAccessAllowed("SHOW STATS FOR (SELECT * FROM lineitem)", privilege("orders", SELECT_COLUMN));
         assertAccessDenied("SHOW STATS FOR (SELECT * FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
         assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot show stats for columns \\[nationkey\\] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot show stats for columns \\[nationkey\\] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT *, nationkey FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT *, * FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot show stats for columns \\[nationkey\\] in table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT *, nationkey FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT *, * FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SHOW STATS FOR (SELECT linenumber, orderkey FROM lineitem)", "Cannot show stats for columns \\[linenumber, orderkey\\] in table or view .*.lineitem.*", privilege("lineitem", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT linenumber, orderkey, quantity FROM lineitem)", "Cannot show stats for columns \\[linenumber, orderkey, quantity\\] in table or view .*.lineitem.*", privilege("linenumber", SELECT_COLUMN), privilege("orderkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT linenumber, orderkey, quantity FROM lineitem)", "Cannot show stats for columns \\[linenumber, orderkey, quantity\\] in table or view .*.lineitem.*", privilege("lineitem.linenumber", SELECT_COLUMN), privilege("lineitem.orderkey", SELECT_COLUMN));
         assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot show stats for columns \\[nationkey\\] in table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
         assertAccessDenied("SHOW STATS FOR (SELECT * FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
     }

@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjec
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveTimestampPrecision;
 import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.benchmark.FileFormat;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -37,6 +38,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -116,7 +118,10 @@ public class TestTimestampMicros
                 schema,
                 List.of(createBaseColumn(columnName, 0, columnHiveType, columnType, REGULAR, Optional.empty())),
                 TupleDomain.all(),
-                Optional.empty())
+                Optional.empty(),
+                OptionalInt.empty(),
+                false,
+                AcidTransaction.NO_ACID_TRANSACTION)
                 .orElseThrow();
 
         pageSourceWithProjections.getProjectedReaderColumns()

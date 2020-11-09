@@ -82,6 +82,7 @@ import io.prestosql.sql.tree.FunctionCall.NullTreatment;
 import io.prestosql.sql.tree.GenericDataType;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
+import io.prestosql.sql.tree.GrantOnType;
 import io.prestosql.sql.tree.GrantRoles;
 import io.prestosql.sql.tree.GrantorSpecification;
 import io.prestosql.sql.tree.GroupBy;
@@ -152,6 +153,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
@@ -494,6 +496,15 @@ class AstBuilder
                 (ColumnDefinition) visit(context.columnDefinition()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitSetTableAuthorization(SqlBaseParser.SetTableAuthorizationContext context)
+    {
+        return new SetTableAuthorization(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                getPrincipalSpecification(context.principal()));
     }
 
     @Override
@@ -1113,10 +1124,22 @@ class AstBuilder
                     .map(SqlBaseParser.PrivilegeContext::getText)
                     .collect(toList()));
         }
+
+        Optional<GrantOnType> type;
+        if (context.SCHEMA() != null) {
+            type = Optional.of(GrantOnType.SCHEMA);
+        }
+        else if (context.TABLE() != null) {
+            type = Optional.of(GrantOnType.TABLE);
+        }
+        else {
+            type = Optional.empty();
+        }
+
         return new Grant(
                 getLocation(context),
                 privileges,
-                context.TABLE() != null,
+                type,
                 getQualifiedName(context.qualifiedName()),
                 getPrincipalSpecification(context.grantee),
                 context.OPTION() != null);
@@ -1134,11 +1157,23 @@ class AstBuilder
                     .map(SqlBaseParser.PrivilegeContext::getText)
                     .collect(toList()));
         }
+
+        Optional<GrantOnType> type;
+        if (context.SCHEMA() != null) {
+            type = Optional.of(GrantOnType.SCHEMA);
+        }
+        else if (context.TABLE() != null) {
+            type = Optional.of(GrantOnType.TABLE);
+        }
+        else {
+            type = Optional.empty();
+        }
+
         return new Revoke(
                 getLocation(context),
                 context.OPTION() != null,
                 privileges,
-                context.TABLE() != null,
+                type,
                 getQualifiedName(context.qualifiedName()),
                 getPrincipalSpecification(context.grantee));
     }
@@ -2427,6 +2462,8 @@ class AstBuilder
                 return WindowFrame.Type.RANGE;
             case SqlBaseLexer.ROWS:
                 return WindowFrame.Type.ROWS;
+            case SqlBaseLexer.GROUPS:
+                return WindowFrame.Type.GROUPS;
         }
 
         throw new IllegalArgumentException("Unsupported frame type: " + type.getText());

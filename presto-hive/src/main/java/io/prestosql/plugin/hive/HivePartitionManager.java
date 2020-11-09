@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.plugin.hive.util.Optionals;
 import io.prestosql.spi.PrestoException;
@@ -91,10 +90,7 @@ public class HivePartitionManager
             return new HivePartitionResult(partitionColumns, ImmutableList.of(), none(), none(), none(), hiveBucketHandle, Optional.empty());
         }
 
-        Table table = metastore.getTable(identity, tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-
-        Optional<HiveBucketFilter> bucketFilter = getHiveBucketFilter(table, effectivePredicate);
+        Optional<HiveBucketFilter> bucketFilter = getHiveBucketFilter(hiveTableHandle, effectivePredicate);
         TupleDomain<HiveColumnHandle> compactEffectivePredicate = effectivePredicate
                 .transform(HiveColumnHandle.class::cast)
                 .simplify(domainCompactionThreshold);
@@ -187,6 +183,7 @@ public class HivePartitionManager
                 handle.getTableName(),
                 handle.getTableParameters(),
                 ImmutableList.copyOf(partitions.getPartitionColumns()),
+                handle.getDataColumns(),
                 Optional.of(getPartitionsAsList(partitions)),
                 partitions.getCompactEffectivePredicate(),
                 partitions.getEnforcedConstraint(),
@@ -194,8 +191,8 @@ public class HivePartitionManager
                 partitions.getBucketFilter(),
                 handle.getAnalyzePartitionValues(),
                 handle.getAnalyzeColumnNames(),
-                Optionals.combine(handle.getConstraintColumns(), columns,
-                        Sets::union));
+                Optionals.combine(handle.getConstraintColumns(), columns, Sets::union),
+                handle.getTransaction());
     }
 
     public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, HiveTableHandle table)

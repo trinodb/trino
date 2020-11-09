@@ -58,8 +58,8 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationReturnCon
 import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.util.Failures.internalError;
+import static io.prestosql.util.MinMaxCompare.getMinMaxCompare;
 import static io.prestosql.util.Reflection.methodHandle;
-import static java.lang.invoke.MethodHandles.filterReturnValue;
 
 public abstract class AbstractMinMaxAggregationFunction
         extends SqlAggregationFunction
@@ -79,10 +79,7 @@ public abstract class AbstractMinMaxAggregationFunction
     private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableBooleanState.class, NullableBooleanState.class);
     private static final MethodHandle BLOCK_POSITION_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, BlockPositionState.class, BlockPositionState.class);
 
-    private static final MethodHandle MIN_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "min", long.class);
-    private static final MethodHandle MAX_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "max", long.class);
-
-    private final MethodHandle comparisonResultAdapter;
+    private final boolean min;
 
     protected AbstractMinMaxAggregationFunction(String name, boolean min, String description)
     {
@@ -103,7 +100,7 @@ public abstract class AbstractMinMaxAggregationFunction
                         AGGREGATE),
                 true,
                 false);
-        this.comparisonResultAdapter = min ? MIN_FUNCTION : MAX_FUNCTION;
+        this.min = min;
     }
 
     @Override
@@ -142,8 +139,9 @@ public abstract class AbstractMinMaxAggregationFunction
         else {
             invocationConvention = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
         }
-        MethodHandle compareMethodHandle = functionDependencies.getOperatorInvoker(COMPARISON, ImmutableList.of(type, type), Optional.of(invocationConvention)).getMethodHandle();
-        compareMethodHandle = filterReturnValue(compareMethodHandle, comparisonResultAdapter);
+
+        MethodHandle compareMethodHandle = getMinMaxCompare(functionDependencies, type, Optional.of(invocationConvention), min);
+
         return generateAggregation(type, compareMethodHandle);
     }
 
@@ -340,17 +338,5 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             throw internalError(t);
         }
-    }
-
-    @UsedByGeneratedCode
-    public static boolean min(long comparisonResult)
-    {
-        return comparisonResult < 0;
-    }
-
-    @UsedByGeneratedCode
-    public static boolean max(long comparisonResult)
-    {
-        return comparisonResult > 0;
     }
 }

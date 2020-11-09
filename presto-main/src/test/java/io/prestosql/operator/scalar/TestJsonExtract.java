@@ -369,6 +369,7 @@ public class TestJsonExtract
     private static void assertInvalidExtract(String inputJson, String jsonPath, String message)
     {
         assertPrestoExceptionThrownBy(() -> doJsonExtract(inputJson, jsonPath))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage(message);
     }
 }

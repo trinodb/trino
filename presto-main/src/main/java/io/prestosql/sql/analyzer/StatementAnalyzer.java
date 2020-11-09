@@ -143,6 +143,7 @@ import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.SetOperation;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.SimpleGroupBy;
 import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.SortItem;
@@ -232,6 +233,7 @@ import static io.prestosql.sql.analyzer.AggregationAnalyzer.verifyOrderByAggrega
 import static io.prestosql.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.prestosql.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
+import static io.prestosql.sql.analyzer.CanonicalizationAware.canonicalize;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -254,7 +256,6 @@ import static io.prestosql.sql.tree.Join.Type.FULL;
 import static io.prestosql.sql.tree.Join.Type.INNER;
 import static io.prestosql.sql.tree.Join.Type.LEFT;
 import static io.prestosql.sql.tree.Join.Type.RIGHT;
-import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.sql.util.AstUtils.preOrder;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.MoreLists.mappedCopy;
@@ -866,6 +867,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitDropColumn(DropColumn node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitSetTableAuthorization(SetTableAuthorization node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }
@@ -1797,6 +1804,9 @@ class StatementAnalyzer
 
                 leftJoinFields.add(leftField.get().getRelationFieldIndex());
                 rightJoinFields.add(rightField.get().getRelationFieldIndex());
+
+                recordColumnAccess(leftField.get().getField());
+                recordColumnAccess(rightField.get().getField());
             }
 
             ImmutableList.Builder<Field> outputs = ImmutableList.builder();
@@ -1821,6 +1831,16 @@ class StatementAnalyzer
             analysis.setJoinUsing(node, new Analysis.JoinUsingAnalysis(leftJoinFields, rightJoinFields, leftFields.build(), rightFields.build()));
 
             return createAndAssignScope(node, scope, new RelationType(outputs.build()));
+        }
+
+        private void recordColumnAccess(Field field)
+        {
+            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
+                analysis.addTableColumnReferences(
+                        accessControl,
+                        session.getIdentity(),
+                        ImmutableMultimap.of(field.getOriginTable().get(), field.getOriginColumnName().get()));
+            }
         }
 
         private boolean isLateralRelation(Relation node)
@@ -2007,12 +2027,6 @@ class StatementAnalyzer
             }
             if ((startType == FOLLOWING) && (endType == CURRENT_ROW)) {
                 throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with CURRENT ROW");
-            }
-            if ((frame.getType() == RANGE) && ((startType == PRECEDING) || (endType == PRECEDING))) {
-                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE PRECEDING is only supported with UNBOUNDED");
-            }
-            if ((frame.getType() == RANGE) && ((startType == FOLLOWING) || (endType == FOLLOWING))) {
-                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE FOLLOWING is only supported with UNBOUNDED");
             }
         }
 
@@ -2201,9 +2215,23 @@ class StatementAnalyzer
 
             for (SelectItem item : node.getSelect().getSelectItems()) {
                 if (item instanceof AllColumns) {
-                    List<Field> itemOutputFields = analysis.getSelectAllResultFields((AllColumns) item);
-                    checkNotNull(itemOutputFields, "output fields is null for select item %s", item);
-                    outputFields.addAll(itemOutputFields);
+                    AllColumns allColumns = (AllColumns) item;
+
+                    List<Field> fields = analysis.getSelectAllResultFields(allColumns);
+                    checkNotNull(fields, "output fields is null for select item %s", item);
+                    for (int i = 0; i < fields.size(); i++) {
+                        Field field = fields.get(i);
+
+                        Optional<String> name;
+                        if (!allColumns.getAliases().isEmpty()) {
+                            name = Optional.of(canonicalize(allColumns.getAliases().get(i)));
+                        }
+                        else {
+                            name = field.getName();
+                        }
+
+                        outputFields.add(Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginColumnName(), false));
+                    }
                 }
                 else if (item instanceof SingleColumn) {
                     SingleColumn column = (SingleColumn) item;
@@ -3075,9 +3103,20 @@ class StatementAnalyzer
                     }
                 }
                 else if (item instanceof AllColumns) {
-                    ((AllColumns) item).getAliases().stream()
-                            .map(CanonicalizationAware::canonicalizationAwareKey)
-                            .forEach(aliases::add);
+                    AllColumns allColumns = (AllColumns) item;
+
+                    List<Field> fields = analysis.getSelectAllResultFields(allColumns);
+                    checkNotNull(fields, "output fields is null for select item %s", item);
+                    for (int i = 0; i < fields.size(); i++) {
+                        Field field = fields.get(i);
+
+                        if (!allColumns.getAliases().isEmpty()) {
+                            aliases.add(canonicalizationAwareKey(allColumns.getAliases().get(i)));
+                        }
+                        else if (field.getName().isPresent()) {
+                            aliases.add(canonicalizationAwareKey(new Identifier(field.getName().get())));
+                        }
+                    }
                 }
             }
 

@@ -488,6 +488,6 @@ public class TestQueryResultRows
 
     private static Type createMapType(Type keyType, Type valueType)
     {
-        return METADATA.getType(mapType(keyType.getTypeSignature(), keyType.getTypeSignature()));
+        return METADATA.getType(mapType(keyType.getTypeSignature(), valueType.getTypeSignature()));
     }
 }

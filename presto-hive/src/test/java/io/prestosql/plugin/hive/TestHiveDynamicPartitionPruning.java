@@ -20,7 +20,6 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
@@ -63,11 +62,11 @@ public class TestHiveDynamicPartitionPruning
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setInitialTables(getTables())
-                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering-probe-blocking-timeout", "1h"))
                 // Reduced partitioned join limit for large DF to enable DF min/max collection with ENABLE_LARGE_DYNAMIC_FILTERS
-                .setSingleExtraProperty("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
-                .setSingleExtraProperty("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
+                .addExtraProperty("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
+                .addExtraProperty("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
+                .setHiveProperties(ImmutableMap.of("hive.dynamic-filtering-probe-blocking-timeout", "1h"))
+                .setInitialTables(getTables())
                 .build();
     }
 
@@ -99,8 +98,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testJoinWithEmptyBuildSide()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'");
         assertEquals(result.getResult().getRowCount(), 0);
@@ -124,8 +122,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testJoinWithSelectiveBuildSide()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
                         "AND supplier.name = 'Supplier#000000001'");
@@ -149,8 +146,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testJoinWithNonSelectiveBuildSide()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey");
         assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
@@ -175,8 +171,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testJoinLargeBuildSideRangeDynamicFiltering()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey");
         assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
@@ -203,9 +198,8 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testJoinWithMultipleDynamicFiltersOnProbe()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
         // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM (" +
                         "SELECT supplier.suppkey FROM " +
@@ -231,10 +225,35 @@ public class TestHiveDynamicPartitionPruning
     }
 
     @Test(timeOut = 30_000)
+    public void testJoinWithImplicitCoercion()
+    {
+        // setup partitioned fact table with integer suppkey
+        assertUpdate(
+                "CREATE TABLE partitioned_lineitem_int " +
+                        "WITH (format = 'TEXTFILE', partitioned_by=array['suppkey_int']) AS " +
+                        "SELECT orderkey, CAST(suppkey as int) suppkey_int FROM tpch.tiny.lineitem",
+                LINEITEM_COUNT);
+
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+                getSession(),
+                "SELECT * FROM partitioned_lineitem_int l JOIN supplier s ON l.suppkey_int = s.suppkey AND s.name = 'Supplier#000000001'");
+        assertGreaterThan(result.getResult().getRowCount(), 0);
+
+        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
+        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
+        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
+        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertEquals(domainStats.getDiscreteValuesCount(), 0);
+        assertEquals(domainStats.getRangeCount(), 1);
+    }
+
+    @Test(timeOut = 30_000)
     public void testSemiJoinWithEmptyBuildSide()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')");
         assertEquals(result.getResult().getRowCount(), 0);
@@ -257,8 +276,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testSemiJoinWithSelectiveBuildSide()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')");
         assertGreaterThan(result.getResult().getRowCount(), 0);
@@ -281,8 +299,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testSemiJoinWithNonSelectiveBuildSide()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)");
         assertGreaterThan(result.getResult().getRowCount(), 0);
@@ -307,8 +324,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testSemiJoinLargeBuildSideRangeDynamicFiltering()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)");
         assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
@@ -335,8 +351,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testRightJoinWithEmptyBuildSide()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'abc'");
         assertEquals(result.getResult().getRowCount(), 0);
@@ -359,8 +374,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testRightJoinWithSelectiveBuildSide()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'Supplier#000000001'");
         assertGreaterThan(result.getResult().getRowCount(), 0);
@@ -383,8 +397,7 @@ public class TestHiveDynamicPartitionPruning
     @Test(timeOut = 30_000)
     public void testRightJoinWithNonSelectiveBuildSide()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 getSession(),
                 "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey");
         assertGreaterThan(result.getResult().getRowCount(), 0);
@@ -408,8 +421,7 @@ public class TestHiveDynamicPartitionPruning
 
     private DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        return runner.getCoordinator()
+        return getDistributedQueryRunner().getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(queryId)
                 .getQueryStats()

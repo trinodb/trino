@@ -534,7 +534,7 @@ public class HiveConfig
 
     public DateTimeZone getRcfileDateTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(rcfileTimeZone));
+        return DateTimeZone.forID(rcfileTimeZone);
     }
 
     @NotNull
@@ -582,7 +582,7 @@ public class HiveConfig
 
     public DateTimeZone getOrcLegacyDateTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(orcLegacyTimeZone));
+        return DateTimeZone.forID(orcLegacyTimeZone);
     }
 
     @NotNull
@@ -601,7 +601,7 @@ public class HiveConfig
 
     public DateTimeZone getParquetDateTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(parquetTimeZone));
+        return DateTimeZone.forID(parquetTimeZone);
     }
 
     @NotNull

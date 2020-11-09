@@ -15,7 +15,6 @@ package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
@@ -69,18 +68,23 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.sql.ExpressionTestUtils.createExpression;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
-import static java.util.stream.Collectors.toList;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
+/**
+ * This benchmark is known to produce non-deterministic results, because of the nature of JIT compiler.
+ * Using -Xbatch flag reduces the impact of this flaw while greatly increasing startup time.
+ */
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Fork(3)
-@Warmup(iterations = 20, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, timeUnit = TimeUnit.MILLISECONDS)
+@Fork(value = 3, jvmArgsAppend = {
+        "-Xbatch",
+        "-server",
+})
+@Warmup(iterations = 30, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 50, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkDecimalOperators
 {
     private static final int PAGE_SIZE = 30000;
@@ -108,7 +112,7 @@ public class BenchmarkDecimalOperators
                 expression = "CAST(d1 AS BIGINT)";
             }
             else {
-                setDoubleMaxValue(Math.pow(9, Integer.valueOf(precision) - SCALE));
+                setDoubleMaxValue(Math.pow(9, Integer.parseInt(precision) - SCALE));
                 expression = format("CAST(d1 AS DECIMAL(%s, %d))", precision, SCALE);
             }
             generateRandomInputPage();
@@ -142,7 +146,7 @@ public class BenchmarkDecimalOperators
         @Setup
         public void setup()
         {
-            addSymbol("v1", createDecimalType(Integer.valueOf(precision), SCALE));
+            addSymbol("v1", createDecimalType(Integer.parseInt(precision), SCALE));
 
             String expression = "CAST(v1 AS DOUBLE)";
             generateRandomInputPage();
@@ -176,7 +180,7 @@ public class BenchmarkDecimalOperators
         @Setup
         public void setup()
         {
-            addSymbol("v1", createDecimalType(Integer.valueOf(precision), SCALE));
+            addSymbol("v1", createDecimalType(Integer.parseInt(precision), SCALE));
 
             String expression = "CAST(v1 AS VARCHAR)";
             generateRandomInputPage();
@@ -550,7 +554,6 @@ public class BenchmarkDecimalOperators
     {
         private final Metadata metadata = createTestMetadataManager();
         private final TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
-        private final Session session = testSessionBuilder().build();
         private final Random random = new Random();
 
         protected final Map<String, Symbol> symbols = new HashMap<>();
@@ -588,7 +591,7 @@ public class BenchmarkDecimalOperators
             for (int i = 0; i < PAGE_SIZE; i++) {
                 Object[] values = types.stream()
                         .map(this::generateRandomValue)
-                        .collect(toList()).toArray();
+                        .toArray();
 
                 buildPagesBuilder.row(values);
             }

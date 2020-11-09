@@ -42,7 +42,7 @@ public class AllowAllSystemAccessControl
 {
     public static final String NAME = "allow-all";
 
-    private static final AllowAllSystemAccessControl INSTANCE = new AllowAllSystemAccessControl();
+    public static final AllowAllSystemAccessControl INSTANCE = new AllowAllSystemAccessControl();
 
     public static class Factory
             implements SystemAccessControlFactory
@@ -223,6 +223,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
     }
@@ -264,6 +269,16 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
+    {
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal revokee, boolean grantOption)
     {
     }
 

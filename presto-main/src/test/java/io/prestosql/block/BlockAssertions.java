@@ -43,6 +43,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -413,7 +414,7 @@ public final class BlockAssertions
         return builder.build();
     }
 
-    public static Block createTimestampsWithTimezoneBlock(Long... values)
+    public static Block createTimestampsWithTimeZoneBlock(Long... values)
     {
         BlockBuilder builder = TIMESTAMP_WITH_TIME_ZONE.createFixedSizeBlockBuilder(values.length);
         for (long value : values) {
@@ -532,7 +533,7 @@ public final class BlockAssertions
         BlockBuilder builder = TIMESTAMP_MILLIS.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            TIMESTAMP_MILLIS.writeLong(builder, i);
+            TIMESTAMP_MILLIS.writeLong(builder, i * MICROSECONDS_PER_MILLISECOND);
         }
 
         return builder.build();

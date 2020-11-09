@@ -48,6 +48,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -254,8 +255,8 @@ public class SuiteRun
 
         private Duration remainingTimeout()
         {
-            return succinctNanos(
-                    suiteRunOptions.timeout.roundTo(NANOSECONDS) - nanosSince(suiteStartTime).roundTo(NANOSECONDS));
+            long remainingNanos = suiteRunOptions.timeout.roundTo(NANOSECONDS) - nanosSince(suiteStartTime).roundTo(NANOSECONDS);
+            return succinctNanos(max(remainingNanos, 0));
         }
 
         private static String suiteRunId(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)

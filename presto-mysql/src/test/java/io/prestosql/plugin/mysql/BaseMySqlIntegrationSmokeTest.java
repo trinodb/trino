@@ -256,7 +256,7 @@ abstract class BaseMySqlIntegrationSmokeTest
         // with aggregation
         assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
         assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isFullyPushedDown();
-        // TODO (https://github.com/prestosql/presto/issues/5522) assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
 
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
@@ -309,6 +309,16 @@ abstract class BaseMySqlIntegrationSmokeTest
         assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
                 .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
                 .isFullyPushedDown();
+
+        execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
+        execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
+
+        // varbinary equality
+        assertThat(query("SELECT x, y FROM tpch.binary_test WHERE y = from_base64('AFCBhLrkidtNTZcA9Ru3hw==')"))
+                .matches("VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))")
+                .isFullyPushedDown();
+
+        execute("DROP TABLE tpch.binary_test");
     }
 
     private AutoCloseable withTable(String tableName, String tableDefinition)

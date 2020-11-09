@@ -156,6 +156,7 @@ public class QueryMonitor
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         0,
                         0,
                         0,
@@ -239,6 +240,7 @@ public class QueryMonitor
                 ofMillis(queryStats.getQueuedTime().toMillis()),
                 Optional.of(ofMillis(queryStats.getResourceWaitingTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
+                Optional.of(ofMillis(queryStats.getPlanningTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getExecutionTime().toMillis())),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getPeakNonRevocableMemoryReservation().toBytes(),
@@ -268,6 +270,7 @@ public class QueryMonitor
         return new QueryContext(
                 session.getUser(),
                 session.getPrincipal(),
+                session.getGroups(),
                 session.getTraceToken(),
                 session.getRemoteUserAddress(),
                 session.getUserAgent(),

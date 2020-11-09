@@ -90,10 +90,6 @@ public class TestAggregationOperator
     @Test
     public void testMaskWithDirtyNulls()
     {
-        // Ensures that the operator properly tests for nulls in the mask channel before reading its value
-        InternalAggregationFunction countBooleanColumn = metadata.getAggregateFunctionImplementation(
-                metadata.resolveFunction(QualifiedName.of("count"), fromTypes(BIGINT)));
-
         List<Page> input = ImmutableList.of(new Page(
                 4,
                 BlockAssertions.createLongsBlock(1, 2, 3, 4),

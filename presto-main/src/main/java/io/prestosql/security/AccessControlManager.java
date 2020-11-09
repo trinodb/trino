@@ -573,6 +573,23 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetTableAuthorization(SecurityContext securityContext, QualifiedObjectName tableName, PrestoPrincipal principal)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(principal, "principal is null");
+
+        checkCanAccessCatalog(securityContext, tableName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanSetTableAuthorization(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), principal));
+
+        catalogAuthorizationCheck(
+                tableName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanSetTableAuthorization(context, tableName.asSchemaTableName(), principal));
+    }
+
+    @Override
     public void checkCanInsertIntoTable(SecurityContext securityContext, QualifiedObjectName tableName)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -662,6 +679,40 @@ public class AccessControlManager
                 functionName,
                 new PrestoPrincipal(PrincipalType.USER, grantee.getUser()),
                 grantOption));
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanGrantSchemaPrivilege(securityContext.toSystemSecurityContext(), privilege, schemaName, grantee, grantOption));
+
+        catalogAuthorizationCheck(
+                schemaName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanGrantSchemaPrivilege(context, privilege, schemaName.getSchemaName(), grantee, grantOption));
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal revokee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanRevokeSchemaPrivilege(securityContext.toSystemSecurityContext(), privilege, schemaName, revokee, grantOption));
+
+        catalogAuthorizationCheck(
+                schemaName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanRevokeSchemaPrivilege(context, privilege, schemaName.getSchemaName(), revokee, grantOption));
     }
 
     @Override

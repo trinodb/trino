@@ -105,7 +105,8 @@ public class TestSystemConnector
         executor.shutdownNow();
     }
 
-    @Test
+    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/prestosql/presto/issues/5608
+    @Test(invocationCount = 10, successPercentage = 80)
     public void testRuntimeQueriesTimestamps()
     {
         ZonedDateTime timeBefore = ZonedDateTime.now();
@@ -128,7 +129,8 @@ public class TestSystemConnector
         }
     }
 
-    @Test
+    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/prestosql/presto/issues/5608
+    @Test(invocationCount = 10, successPercentage = 80)
     public void testRuntimeTasksTimestamps()
     {
         ZonedDateTime timeBefore = ZonedDateTime.now();
@@ -151,7 +153,8 @@ public class TestSystemConnector
         }
     }
 
-    @Test
+    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/prestosql/presto/issues/5608
+    @Test(invocationCount = 10, successPercentage = 80)
     public void testRuntimeTransactionsTimestamps()
     {
         ZonedDateTime timeBefore = ZonedDateTime.now();

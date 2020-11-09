@@ -323,15 +323,6 @@ public class QueryAssertions
         }
 
         /**
-         * @deprecated Use {@link #isFullyPushedDown()} instead.
-         */
-        @Deprecated
-        public QueryAssert isCorrectlyPushedDown()
-        {
-            return isFullyPushedDown();
-        }
-
-        /**
          * Verifies query is not fully pushed down and verifies the results are the same as when the pushdown is fully disabled.
          * <p>
          * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}

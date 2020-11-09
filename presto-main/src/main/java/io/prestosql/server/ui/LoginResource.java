@@ -58,7 +58,7 @@ public class LoginResource
             throws IOException
     {
         this.formWebUiAuthenticationManager = requireNonNull(formWebUiAuthenticationManager, "formWebUiAuthenticationManager is null");
-        this.loginHtml = Resources.toString(getClass().getResource("/webapp/login.html"), UTF_8);
+        this.loginHtml = Resources.toString(Resources.getResource(getClass(), "/webapp/login.html"), UTF_8);
         verify(loginHtml.contains(REPLACEMENT_TEXT), "login.html does not contain the replacement text");
     }
 

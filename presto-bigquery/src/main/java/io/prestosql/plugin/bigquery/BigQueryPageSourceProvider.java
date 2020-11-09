@@ -27,6 +27,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -56,6 +57,11 @@ public class BigQueryPageSourceProvider
     {
         log.debug("createPageSource(transaction=%s, session=%s, split=%s, table=%s, columns=%s)", transaction, session, split, table, columns);
         BigQuerySplit bigQuerySplit = (BigQuerySplit) split;
+
+        // We expect columns list requested here to match list passed to ConnectorMetadata.applyProjection.
+        checkArgument(bigQuerySplit.getColumns().isEmpty() || bigQuerySplit.getColumns().equals(columns),
+                "Requested columns %s do not match list in split %s", columns, bigQuerySplit.getColumns());
+
         if (bigQuerySplit.representsEmptyProjection()) {
             return new BigQueryEmptyProjectionPageSource(bigQuerySplit.getEmptyRowsToGenerate());
         }

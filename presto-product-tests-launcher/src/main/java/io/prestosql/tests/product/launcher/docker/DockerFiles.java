@@ -60,22 +60,33 @@ public final class DockerFiles
         closed = true;
     }
 
-    public synchronized String getDockerFilesHostPath()
+    public synchronized Path getDockerFilesHostPath()
     {
         checkState(!closed, "Already closed");
         if (dockerFilesHostPath == null) {
             dockerFilesHostPath = unpackDockerFilesFromClasspath();
             verify(dockerFilesHostPath != null);
         }
-        return dockerFilesHostPath.toString();
+        return dockerFilesHostPath;
     }
 
-    public String getDockerFilesHostPath(String file)
+    public ResourceProvider getDockerFilesHostDirectory(String directory)
+    {
+        Path hostPath = getDockerFilesHostPath(directory);
+        return file -> {
+            checkArgument(file != null && !file.isEmpty() && !(file.charAt(0) == '/'), "Invalid file: %s", file);
+            Path filePath = hostPath.resolve(file);
+            checkArgument(Files.exists(filePath), "'%s' resolves to '%s', but it does not exist", file, filePath);
+            return filePath;
+        };
+    }
+
+    public Path getDockerFilesHostPath(String file)
     {
         checkArgument(file != null && !file.isEmpty() && !(file.charAt(0) == '/'), "Invalid file: %s", file);
-        Path filePath = Paths.get(getDockerFilesHostPath()).resolve(file);
+        Path filePath = getDockerFilesHostPath().resolve(file);
         checkArgument(Files.exists(filePath), "'%s' resolves to '%s', but it does not exist", file, filePath);
-        return filePath.toString();
+        return filePath;
     }
 
     private static Path unpackDockerFilesFromClasspath()
@@ -129,5 +140,10 @@ public final class DockerFiles
             }
         }));
         return temporaryDirectoryForDocker;
+    }
+
+    public interface ResourceProvider
+    {
+        Path getPath(String resourceName);
     }
 }

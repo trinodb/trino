@@ -52,6 +52,7 @@ import io.prestosql.execution.SetPathTask;
 import io.prestosql.execution.SetRoleTask;
 import io.prestosql.execution.SetSchemaAuthorizationTask;
 import io.prestosql.execution.SetSessionTask;
+import io.prestosql.execution.SetTableAuthorizationTask;
 import io.prestosql.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import io.prestosql.execution.StartTransactionTask;
 import io.prestosql.execution.UseTask;
@@ -87,6 +88,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.StartTransaction;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.Use;
@@ -143,6 +145,7 @@ public class QueryExecutionFactoryModule
         bindDataDefinitionTask(binder, executionBinder, SetRole.class, SetRoleTask.class);
         bindDataDefinitionTask(binder, executionBinder, SetSchemaAuthorization.class, SetSchemaAuthorizationTask.class);
         bindDataDefinitionTask(binder, executionBinder, SetSession.class, SetSessionTask.class);
+        bindDataDefinitionTask(binder, executionBinder, SetTableAuthorization.class, SetTableAuthorizationTask.class);
         bindDataDefinitionTask(binder, executionBinder, StartTransaction.class, StartTransactionTask.class);
         bindDataDefinitionTask(binder, executionBinder, Use.class, UseTask.class);
     }

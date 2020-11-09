@@ -201,6 +201,7 @@ public class KuduClientSession
         }
 
         builder.setProjectedColumnIndexes(columnIndexes);
+        tableHandle.getLimit().ifPresent(builder::limit);
 
         List<KuduScanToken> tokens = builder.build();
         ImmutableList.Builder<KuduSplit> tokenBuilder = ImmutableList.builder();
@@ -292,7 +293,7 @@ public class KuduClientSession
             List<ColumnMetadata> columns = tableMetadata.getColumns();
             Map<String, Object> properties = tableMetadata.getProperties();
 
-            Schema schema = buildSchema(columns, properties);
+            Schema schema = buildSchema(columns);
             CreateTableOptions options = buildCreateTableOptions(schema, properties);
             return client.createTable(rawName, schema, options);
         }
@@ -381,7 +382,7 @@ public class KuduClientSession
         }
     }
 
-    private Schema buildSchema(List<ColumnMetadata> columns, Map<String, Object> tableProperties)
+    private Schema buildSchema(List<ColumnMetadata> columns)
     {
         List<ColumnSchema> kuduColumns = columns.stream()
                 .map(this::toColumnSchema)

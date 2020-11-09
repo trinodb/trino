@@ -328,13 +328,13 @@ public class TestDateTimeFunctions
         Instant instant = ZonedDateTime.of(2001, 8, 22, 12, 34, 56, 123456789, ZoneId.of("UTC")).toInstant();
 
         assertFunction("from_iso8601_timestamp_nanos('2001-08-22T12:34:56.123456789Z')", TIMESTAMP_TZ_NANOS,
-                SqlTimestampWithTimeZone.newInstance(9, instant, ZoneId.of("UTC")));
+                SqlTimestampWithTimeZone.fromInstant(9, instant, ZoneId.of("UTC")));
         assertFunction("from_iso8601_timestamp_nanos('2001-08-22T07:34:56.123456789-05:00')", TIMESTAMP_TZ_NANOS,
-                SqlTimestampWithTimeZone.newInstance(9, instant, ZoneId.of("-0500")));
+                SqlTimestampWithTimeZone.fromInstant(9, instant, ZoneId.of("-0500")));
         assertFunction("from_iso8601_timestamp_nanos('2001-08-22T13:34:56.123456789+01:00')", TIMESTAMP_TZ_NANOS,
-                SqlTimestampWithTimeZone.newInstance(9, instant, ZoneId.of("+0100")));
+                SqlTimestampWithTimeZone.fromInstant(9, instant, ZoneId.of("+0100")));
         assertFunction("from_iso8601_timestamp_nanos('2001-08-22T12:34:56.123Z')", TIMESTAMP_TZ_NANOS,
-                SqlTimestampWithTimeZone.newInstance(9, instant.minusNanos(456789), ZoneId.of("UTC")));
+                SqlTimestampWithTimeZone.fromInstant(9, instant.minusNanos(456789), ZoneId.of("UTC")));
 
         // make sure that strings without a timezone are parsed in the session local time
         ZoneId nineHoursBehindZone = ZoneId.of("-0900");
@@ -343,7 +343,7 @@ public class TestDateTimeFunctions
                 .build();
         try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
             localAssertion.assertFunction("from_iso8601_timestamp_nanos('2001-08-22T03:34:56.123456789')", TIMESTAMP_TZ_NANOS,
-                    SqlTimestampWithTimeZone.newInstance(9, instant, nineHoursBehindZone));
+                    SqlTimestampWithTimeZone.fromInstant(9, instant, nineHoursBehindZone));
         }
     }
 
@@ -1236,6 +1236,6 @@ public class TestDateTimeFunctions
 
     private static SqlTimestampWithTimeZone toTimestampWithTimeZone(DateTime dateTime)
     {
-        return SqlTimestampWithTimeZone.newInstance(3, dateTime.getMillis(), 0, getTimeZoneKey(dateTime.getZone().toTimeZone().getID()));
+        return SqlTimestampWithTimeZone.newInstance(3, dateTime.getMillis(), 0, getTimeZoneKey(dateTime.getZone().getID()));
     }
 }

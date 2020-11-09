@@ -22,45 +22,26 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
 import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
 import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
-import org.apache.accumulo.core.client.AccumuloException;
-import org.apache.accumulo.core.client.AccumuloSecurityException;
-import org.apache.accumulo.core.client.Connector;
-import org.apache.accumulo.core.client.Instance;
-import org.apache.accumulo.core.client.ZooKeeperInstance;
-import org.apache.accumulo.core.client.security.tokens.PasswordToken;
-import org.apache.accumulo.minicluster.MiniAccumuloCluster;
-import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.io.Text;
 import org.intellij.lang.annotations.Language;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Map;
 
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.accumulo.AccumuloErrorCode.MINI_ACCUMULO;
-import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static io.prestosql.plugin.accumulo.MiniAccumuloConfigUtil.setConfigClassPath;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.accumulo.minicluster.MemoryUnit.MEGABYTE;
 
 public final class AccumuloQueryRunner
 {
     private static final Logger LOG = Logger.get(AccumuloQueryRunner.class);
-    private static final String MAC_PASSWORD = "secret";
-    private static final String MAC_USER = "root";
 
     private static boolean tpchLoaded;
-    private static Connector connector = getAccumuloConnector();
 
     private AccumuloQueryRunner() {}
 
@@ -74,13 +55,14 @@ public final class AccumuloQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
+        TestingAccumuloServer server = TestingAccumuloServer.getInstance();
         queryRunner.installPlugin(new AccumuloPlugin());
         Map<String, String> accumuloProperties =
                 ImmutableMap.<String, String>builder()
-                        .put(AccumuloConfig.INSTANCE, connector.getInstance().getInstanceName())
-                        .put(AccumuloConfig.ZOOKEEPERS, connector.getInstance().getZooKeepers())
-                        .put(AccumuloConfig.USERNAME, MAC_USER)
-                        .put(AccumuloConfig.PASSWORD, MAC_PASSWORD)
+                        .put(AccumuloConfig.INSTANCE, server.getInstanceName())
+                        .put(AccumuloConfig.ZOOKEEPERS, server.getZooKeepers())
+                        .put(AccumuloConfig.USERNAME, server.getUser())
+                        .put(AccumuloConfig.PASSWORD, server.getPassword())
                         .put(AccumuloConfig.ZOOKEEPER_METADATA_ROOT, "/presto-accumulo-test")
                         .build();
 
@@ -88,7 +70,7 @@ public final class AccumuloQueryRunner
 
         if (!tpchLoaded) {
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
-            connector.tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+            server.getConnector().tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
             tpchLoaded = true;
         }
 
@@ -156,71 +138,6 @@ public final class AccumuloQueryRunner
     public static Session createSession()
     {
         return testSessionBuilder().setCatalog("accumulo").setSchema("tpch").build();
-    }
-
-    /**
-     * Gets the AccumuloConnector singleton, starting the MiniAccumuloCluster on initialization.
-     * This singleton instance is required so all test cases access the same MiniAccumuloCluster.
-     *
-     * @return Accumulo connector
-     */
-    public static Connector getAccumuloConnector()
-    {
-        if (connector != null) {
-            return connector;
-        }
-
-        try {
-            MiniAccumuloCluster accumulo = createMiniAccumuloCluster();
-            Instance instance = new ZooKeeperInstance(accumulo.getInstanceName(), accumulo.getZooKeepers());
-            connector = instance.getConnector(MAC_USER, new PasswordToken(MAC_PASSWORD));
-            LOG.info("Connection to MAC instance %s at %s established, user %s password %s", accumulo.getInstanceName(), accumulo.getZooKeepers(), MAC_USER, MAC_PASSWORD);
-            return connector;
-        }
-        catch (AccumuloException | AccumuloSecurityException | InterruptedException | IOException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get connector to Accumulo", e);
-        }
-    }
-
-    /**
-     * Creates and starts an instance of MiniAccumuloCluster, returning the new instance.
-     *
-     * @return New MiniAccumuloCluster
-     */
-    private static MiniAccumuloCluster createMiniAccumuloCluster()
-            throws IOException, InterruptedException
-    {
-        // Create MAC directory
-        File macDir = Files.createTempDirectory("mac-").toFile();
-        LOG.info("MAC is enabled, starting MiniAccumuloCluster at %s", macDir);
-
-        // Start MAC and connect to it
-        MiniAccumuloCluster accumulo = new MiniAccumuloCluster(macDir, MAC_PASSWORD);
-        accumulo.getConfig().setDefaultMemory(512, MEGABYTE);
-        setConfigClassPath(accumulo.getConfig());
-        accumulo.start();
-
-        // Add shutdown hook to stop MAC and cleanup temporary files
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                LOG.info("Shutting down MAC");
-                accumulo.stop();
-            }
-            catch (IOException | InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new PrestoException(MINI_ACCUMULO, "Failed to shut down MAC instance", e);
-            }
-
-            try {
-                LOG.info("Cleaning up MAC directory");
-                FileUtils.forceDelete(macDir);
-            }
-            catch (IOException e) {
-                throw new PrestoException(MINI_ACCUMULO, "Failed to clean up MAC directory", e);
-            }
-        }));
-
-        return accumulo;
     }
 
     public static void main(String[] args)

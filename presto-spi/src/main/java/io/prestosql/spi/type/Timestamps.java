@@ -102,8 +102,22 @@ public class Timestamps
         return POWERS_OF_TEN[toPrecision - fromPrecision];
     }
 
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    public static int roundDiv(int value, long factor)
+    {
+        return (int) roundDiv((long) value, factor);
+    }
+
     public static long roundDiv(long value, long factor)
     {
+        if (factor <= 0) {
+            throw new IllegalArgumentException("Factor must be > 0");
+        }
+
+        if (factor == 1) {
+            return value;
+        }
+
         if (value >= 0) {
             return (value + (factor / 2)) / factor;
         }
