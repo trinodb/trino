@@ -29,7 +29,6 @@ import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseTestOracleDistributedQueries
@@ -169,48 +168,6 @@ public abstract class BaseTestOracleDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT orderstatus FROM orders");
         assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    @Override
-    public void testCreateTable()
-    {
-        assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create"));
-        assertTableColumnNames("test_create", "a", "b", "c");
-
-        assertUpdate("DROP TABLE test_create");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
-
-        assertQueryFails("CREATE TABLE test_create (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create"));
-
-        // Replace test_create_table_if_not_exists with test_create_table_if_not_exist to fetch max size naming on oracle
-        assertUpdate("CREATE TABLE test_create_table_if_not_exist (a bigint, b varchar, c double)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exist"));
-        assertTableColumnNames("test_create_table_if_not_exist", "a", "b", "c");
-
-        assertUpdate("CREATE TABLE IF NOT EXISTS test_create_table_if_not_exist (d bigint, e varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exist"));
-        assertTableColumnNames("test_create_table_if_not_exist", "a", "b", "c");
-
-        assertUpdate("DROP TABLE test_create_table_if_not_exist");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_table_if_not_exist"));
-
-        // Test CREATE TABLE LIKE
-        assertUpdate("CREATE TABLE test_create_original (a bigint, b double, c varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_original"));
-        assertTableColumnNames("test_create_original", "a", "b", "c");
-
-        assertUpdate("CREATE TABLE test_create_like (LIKE test_create_original, d boolean, e varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_like"));
-        assertTableColumnNames("test_create_like", "a", "b", "c", "d", "e");
-
-        assertUpdate("DROP TABLE test_create_original");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_original"));
-
-        assertUpdate("DROP TABLE test_create_like");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_create_like"));
     }
 
     @Test
