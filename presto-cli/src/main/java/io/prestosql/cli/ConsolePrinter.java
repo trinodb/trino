@@ -92,7 +92,7 @@ public class ConsolePrinter
         return REAL_TERMINAL;
     }
 
-    private static boolean detectRealTerminal()
+    protected static boolean detectRealTerminal()
     {
         try (Terminal terminal = terminal()) {
             return !Terminal.TYPE_DUMB.equals(terminal.getType()) &&

@@ -15,6 +15,7 @@ package io.prestosql.cli;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteStreams;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
@@ -57,6 +58,7 @@ import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.prestosql.cli.Completion.commandCompleter;
+import static io.prestosql.cli.ConsolePrinter.detectRealTerminal;
 import static io.prestosql.cli.Help.getHelpText;
 import static io.prestosql.cli.QueryPreprocessor.preprocessQuery;
 import static io.prestosql.client.ClientSession.stripTransactionId;
@@ -124,6 +126,22 @@ public class Console
             }
             catch (IOException e) {
                 throw new RuntimeException(format("Error reading from file %s: %s", clientOptions.file, e.getMessage()));
+            }
+        }
+
+        // Read queries from stdin
+        if (!hasQuery && !detectRealTerminal()) {
+            try {
+                if (System.in.available() > 0) {
+                    query = new String(ByteStreams.toByteArray(System.in), terminal().encoding()) + ";";
+
+                    if (query.length() > 1) {
+                        hasQuery = true;
+                    }
+                }
+            }
+            catch (IOException e) {
+                // ignored
             }
         }
 
