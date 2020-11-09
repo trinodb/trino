@@ -21,7 +21,6 @@ import org.apache.pinot.spi.data.Schema.SchemaBuilder;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -61,7 +60,7 @@ public class TestPinotQueryBase
                         .addSingleValueDimension("numDrivers", DataType.LONG)
                         .addSingleValueDimension("region", DataType.LONG)
                         .addSingleValueDimension("rowtime", DataType.LONG)
-                        .addTime("secondsSinceEpoch", TimeUnit.SECONDS, DataType.LONG)
+                        .addDateTime("secondsSinceEpoch", DataType.LONG, "1:SECONDS:EPOCH", "1:SECONDS")
                         .addSingleValueDimension("utilization", DataType.LONG)
                         .addSingleValueDimension("utilizedDrivers", DataType.LONG)
                         .addSingleValueDimension("vehicleViewId", DataType.LONG)
