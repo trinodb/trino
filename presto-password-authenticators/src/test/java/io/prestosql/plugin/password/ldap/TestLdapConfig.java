@@ -14,6 +14,7 @@
  */
 package io.prestosql.plugin.password.ldap;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -43,7 +44,7 @@ public class TestLdapConfig
                 .setLdapUrl(null)
                 .setAllowInsecure(false)
                 .setTrustCertificate(null)
-                .setUserBindSearchPattern(null)
+                .setUserBindSearchPatterns(" : ")
                 .setUserBaseDistinguishedName(null)
                 .setGroupAuthorizationSearchPattern(null)
                 .setBindDistingushedName(null)
@@ -62,7 +63,7 @@ public class TestLdapConfig
                 .put("ldap.url", "ldaps://localhost:636")
                 .put("ldap.allow-insecure", "true")
                 .put("ldap.ssl-trust-certificate", trustCertificateFile.toString())
-                .put("ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com")
+                .put("ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com:uid=${USER},ou=alt")
                 .put("ldap.user-base-dn", "dc=test,dc=com")
                 .put("ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
                 .put("ldap.bind-dn", "CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
@@ -75,7 +76,7 @@ public class TestLdapConfig
                 .setLdapUrl("ldaps://localhost:636")
                 .setAllowInsecure(true)
                 .setTrustCertificate(trustCertificateFile.toFile())
-                .setUserBindSearchPattern("uid=${USER},ou=org,dc=test,dc=com")
+                .setUserBindSearchPatterns(ImmutableList.of("uid=${USER},ou=org,dc=test,dc=com", "uid=${USER},ou=alt"))
                 .setUserBaseDistinguishedName("dc=test,dc=com")
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)")
                 .setBindDistingushedName("CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
@@ -91,14 +92,14 @@ public class TestLdapConfig
     {
         assertValidates(new LdapConfig()
                 .setLdapUrl("ldaps://localhost")
-                .setUserBindSearchPattern("uid=${USER},ou=org,dc=test,dc=com")
+                .setUserBindSearchPatterns("uid=${USER},ou=org,dc=test,dc=com")
                 .setUserBaseDistinguishedName("dc=test,dc=com")
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)"));
 
         assertValidates(new LdapConfig()
                 .setLdapUrl("ldap://localhost")
                 .setAllowInsecure(true)
-                .setUserBindSearchPattern("uid=${USER},ou=org,dc=test,dc=com")
+                .setUserBindSearchPatterns("uid=${USER},ou=org,dc=test,dc=com")
                 .setUserBaseDistinguishedName("dc=test,dc=com")
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)"));
 

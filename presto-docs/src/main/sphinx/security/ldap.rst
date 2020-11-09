@@ -99,7 +99,11 @@ Property                                                Description
                                                         bind string for password authentication. This property
                                                         must contain the pattern ``${USER}``, which is
                                                         replaced by the actual username during the password
-                                                        authentication. Example: ``${USER}@corp.example.com``.
+                                                        authentication. The property can contain multiple
+                                                        patters separated by colon ``:``, and in that case
+                                                        each pattern will be check in order until a login
+                                                        succeeds or all fail. Example:
+                                                        ``${USER}@corp.example.com:${USER}@corp.example.co.uk``.
 ``ldap.cache-ttl``                                      LDAP cache duration. Defaults to ``1h``.
 ======================================================= ======================================================
 
