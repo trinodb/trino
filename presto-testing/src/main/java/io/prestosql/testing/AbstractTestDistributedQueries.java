@@ -204,7 +204,7 @@ public abstract class AbstractTestDistributedQueries
         assertTableColumnNames(tableName, "a", "b", "c");
 
         String tableNameLike = "test_create_like_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d boolean, e varchar)");
+        assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d bigint, e varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
         assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
 
