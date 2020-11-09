@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.base;
 
+import java.util.Objects;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -22,9 +24,27 @@ public final class CatalogName
 
     public CatalogName(String catalogName)
     {
-        requireNonNull(catalogName, "catalogName is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         checkArgument(!catalogName.isEmpty(), "catalogName is empty");
-        this.catalogName = catalogName;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        CatalogName that = (CatalogName) o;
+        return Objects.equals(catalogName, that.catalogName);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(catalogName);
     }
 
     /**
