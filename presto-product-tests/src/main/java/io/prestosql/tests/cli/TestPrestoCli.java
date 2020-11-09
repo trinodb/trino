@@ -25,6 +25,7 @@ import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.fulfillment.table.ImmutableTableRequirement;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -124,6 +125,39 @@ public class TestPrestoCli
         launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
         assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
         presto.waitForWithTimeoutAndKill();
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldRunBatchQueryWithStdinRedirect()
+            throws Exception
+    {
+        try (TempFile file = new TempFile()) {
+            Files.write("select * from hive.default.nation;", file.file(), UTF_8);
+
+            launchPrestoCliWithRedirectedStdin(file.file());
+            assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+            presto.waitForWithTimeoutAndKill();
+        }
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldRunMultipleBatchQueriesWithStdinRedirect()
+            throws Exception
+    {
+        try (TempFile file = new TempFile()) {
+            Files.write("select * from hive.default.nation;select 1;select 2", file.file(), UTF_8);
+
+            launchPrestoCliWithRedirectedStdin(file.file());
+
+            List<String> expectedLines = ImmutableList.<String>builder()
+                    .addAll(nationTableBatchLines)
+                    .add("\"1\"")
+                    .add("\"2\"")
+                    .build();
+
+            assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(expectedLines);
+            presto.waitForWithTimeoutAndKill();
+        }
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
@@ -316,6 +350,19 @@ public class TestPrestoCli
     private void launchPrestoCliWithServerArgument(String... arguments)
             throws IOException
     {
+        launchPrestoCli(getPrestoCliArguments(arguments));
+    }
+
+    private void launchPrestoCliWithRedirectedStdin(File inputFile)
+            throws IOException
+    {
+        ProcessBuilder processBuilder = getProcessBuilder(getPrestoCliArguments());
+        processBuilder.redirectInput(inputFile);
+        presto = new PrestoCliProcess(processBuilder.start());
+    }
+
+    private List<String> getPrestoCliArguments(String... arguments)
+    {
         ImmutableList.Builder<String> prestoClientOptions = ImmutableList.builder();
         prestoClientOptions.add("--server", serverAddress);
         prestoClientOptions.add("--user", jdbcUser);
@@ -345,7 +392,7 @@ public class TestPrestoCli
         }
 
         prestoClientOptions.add(arguments);
-        launchPrestoCli(prestoClientOptions.build());
+        return prestoClientOptions.build();
     }
 
     private static String removePrefix(String line)
