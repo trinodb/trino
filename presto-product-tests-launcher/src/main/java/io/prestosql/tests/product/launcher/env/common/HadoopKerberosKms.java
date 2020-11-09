@@ -29,14 +29,14 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public class HadoopKerberosKms
         implements EnvironmentExtender
 {
-    private final DockerFiles dockerFiles;
+    private final DockerFiles.ResourceProvider configDir;
 
     private final String hadoopImagesVersion;
 
     @Inject
     public HadoopKerberosKms(DockerFiles dockerFiles, EnvironmentConfig environmentConfig)
     {
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("common/hadoop-kerberos-kms/");
         requireNonNull(environmentConfig, "environmentOptions is null");
         hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
@@ -50,16 +50,14 @@ public class HadoopKerberosKms
         builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName(dockerImageName);
             container
-                    .withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop-kerberos-kms/kms-core-site.xml")),
-                            "/etc/hadoop-kms/conf/core-site.xml");
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("kms-core-site.xml")), "/etc/hadoop-kms/conf/core-site.xml");
         });
 
         builder.configureContainer(COORDINATOR, container -> container.setDockerImageName(dockerImageName));
 
         builder.configureContainer(TESTS, container -> {
             container.setDockerImageName(dockerImageName);
-            container.withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-kerberos-kms.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
+            container.withCopyFileToContainer(forHostPath(configDir.getPath("tempto-configuration.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
     }
 }
