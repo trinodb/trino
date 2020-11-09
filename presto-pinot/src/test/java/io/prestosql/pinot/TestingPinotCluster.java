@@ -41,6 +41,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT;
+import static org.testcontainers.utility.DockerImageName.parse;
 
 public class TestingPinotCluster
         implements Closeable
@@ -64,13 +65,13 @@ public class TestingPinotCluster
     public TestingPinotCluster()
     {
         httpClient = new JettyHttpClient();
-        zookeeper = new GenericContainer<>("zookeeper:3.5.6")
+        zookeeper = new GenericContainer<>(parse("zookeeper:3.5.6"))
                 .withNetwork(Network.SHARED)
                 .withNetworkAliases(ZOOKEEPER_INTERNAL_HOST)
                 .withEnv("ZOOKEEPER_CLIENT_PORT", String.valueOf(ZOOKEEPER_PORT))
                 .withExposedPorts(ZOOKEEPER_PORT);
 
-        controller = new GenericContainer<>(BASE_IMAGE)
+        controller = new GenericContainer<>(parse(BASE_IMAGE))
                 .withNetwork(Network.SHARED)
                 .withClasspathResourceMapping("/pinot-controller", "/var/pinot/controller/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-controller-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
@@ -78,7 +79,7 @@ public class TestingPinotCluster
                 .withNetworkAliases("pinot-controller", "localhost")
                 .withExposedPorts(CONTROLLER_PORT);
 
-        broker = new GenericContainer<>(BASE_IMAGE)
+        broker = new GenericContainer<>(parse(BASE_IMAGE))
                 .withNetwork(Network.SHARED)
                 .withClasspathResourceMapping("/pinot-broker", "/var/pinot/broker/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-broker-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
@@ -86,7 +87,7 @@ public class TestingPinotCluster
                 .withNetworkAliases("pinot-broker", "localhost")
                 .withExposedPorts(BROKER_PORT);
 
-        server = new GenericContainer<>(BASE_IMAGE)
+        server = new GenericContainer<>(parse(BASE_IMAGE))
                 .withNetwork(Network.SHARED)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-server-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
