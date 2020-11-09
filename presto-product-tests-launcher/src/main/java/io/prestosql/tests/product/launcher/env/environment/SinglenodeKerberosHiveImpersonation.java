@@ -18,7 +18,7 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
-import io.prestosql.tests.product.launcher.env.common.Kerberos;
+import io.prestosql.tests.product.launcher.env.common.HadoopKerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
@@ -37,9 +37,9 @@ public final class SinglenodeKerberosHiveImpersonation
     private final DockerFiles dockerFiles;
 
     @Inject
-    public SinglenodeKerberosHiveImpersonation(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, Kerberos kerberos)
+    public SinglenodeKerberosHiveImpersonation(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, HadoopKerberos hadoopKerberos)
     {
-        super(ImmutableList.of(standard, hadoop, kerberos));
+        super(ImmutableList.of(standard, hadoop, hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
     }
 

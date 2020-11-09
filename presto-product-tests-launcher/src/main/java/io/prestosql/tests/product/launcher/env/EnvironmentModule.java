@@ -19,9 +19,9 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.MapBinder;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
+import io.prestosql.tests.product.launcher.env.common.HadoopKerberos;
+import io.prestosql.tests.product.launcher.env.common.HadoopKerberosKms;
 import io.prestosql.tests.product.launcher.env.common.Kafka;
-import io.prestosql.tests.product.launcher.env.common.Kerberos;
-import io.prestosql.tests.product.launcher.env.common.KerberosKms;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 
@@ -54,8 +54,8 @@ public final class EnvironmentModule
         binder.bind(EnvironmentConfigFactory.class);
         binder.bind(Standard.class);
         binder.bind(Hadoop.class);
-        binder.bind(Kerberos.class);
-        binder.bind(KerberosKms.class);
+        binder.bind(HadoopKerberos.class);
+        binder.bind(HadoopKerberosKms.class);
         binder.bind(Kafka.class);
         binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
 
