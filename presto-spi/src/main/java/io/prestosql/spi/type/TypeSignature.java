@@ -39,6 +39,8 @@ public final class TypeSignature
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
 
+    private int hashCode;
+
     public TypeSignature(String base, TypeSignatureParameter... parameters)
     {
         this(base, asList(parameters));
@@ -163,7 +165,16 @@ public final class TypeSignature
     @Override
     public int hashCode()
     {
-        return Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
+        int hash = hashCode;
+        if (hash == 0) {
+            hash = Objects.hash(base.toLowerCase(Locale.ENGLISH), parameters);
+            if (hash == 0) {
+                hash = 1;
+            }
+            hashCode = hash;
+        }
+
+        return hash;
     }
 
     // Type signature constructors for common types
