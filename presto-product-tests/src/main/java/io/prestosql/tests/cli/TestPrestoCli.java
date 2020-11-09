@@ -18,7 +18,6 @@ import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.airlift.testing.TempFile;
-import io.prestosql.cli.Presto;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
@@ -105,7 +104,7 @@ public class TestPrestoCli
             throws IOException
     {
         launchPrestoCli("--version");
-        String version = firstNonNull(Presto.class.getPackage().getImplementationVersion(), "(version unknown)");
+        String version = firstNonNull(TestPrestoCli.class.getPackage().getImplementationVersion(), "(version unknown)");
         assertThat(presto.readRemainingOutputLines()).containsExactly("Presto CLI " + version);
     }
 

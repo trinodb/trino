@@ -31,6 +31,7 @@ import static io.prestosql.tests.product.launcher.cli.Launcher.EnvironmentComman
 import static io.prestosql.tests.product.launcher.cli.Launcher.SuiteCommand;
 import static io.prestosql.tests.product.launcher.cli.Launcher.TestCommand;
 import static io.prestosql.tests.product.launcher.cli.Launcher.VersionProvider;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.IVersionProvider;
@@ -157,12 +158,15 @@ public class Launcher
         @Override
         protected Object[][] getContents()
         {
+            String projectVersion = readProjectVersion();
+
             return new Object[][] {
                     {"project.version", readProjectVersion()},
                     {"product-tests.module", "presto-product-tests"},
                     {"server.module", "presto-server"},
                     {"server.name", "presto-server"},
                     {"launcher.bin", "presto-product-tests-launcher/bin/run-launcher"},
+                    {"cli.bin", format("presto-cli/target/presto-cli-%s-executable.jar", projectVersion)}
             };
         }
     }

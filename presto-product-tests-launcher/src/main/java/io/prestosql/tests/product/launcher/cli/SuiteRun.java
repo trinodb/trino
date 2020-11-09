@@ -116,6 +116,9 @@ public class SuiteRun
         @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.module}-${project.version}-executable.jar")
         public File testJar;
 
+        @Option(names = "--cli-executable", paramLabel = "<jar>", description = "Path to CLI executable " + DEFAULT_VALUE, defaultValue = "${cli.bin}")
+        public File cliJar;
+
         @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE, converter = OptionalPathConverter.class, defaultValue = "")
         public Optional<Path> logsDirBase;
 
@@ -294,6 +297,7 @@ public class SuiteRun
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
             testRunOptions.testJar = suiteRunOptions.testJar;
+            testRunOptions.cliJar = suiteRunOptions.cliJar;
             String suiteRunId = suiteRunId(runId, suiteName, suiteTestRun, environmentConfig);
             testRunOptions.reportsDir = Paths.get("presto-product-tests/target/reports/" + suiteRunId);
             testRunOptions.logsDirBase = logsDirBase.map(dir -> dir.resolve(suiteRunId));
