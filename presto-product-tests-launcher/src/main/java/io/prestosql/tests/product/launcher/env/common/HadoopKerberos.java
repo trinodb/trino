@@ -13,12 +13,15 @@
  */
 package io.prestosql.tests.product.launcher.env.common;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
@@ -37,16 +40,20 @@ public class HadoopKerberos
     private final String hadoopBaseImage;
     private final String hadoopImagesVersion;
 
+    private final Hadoop hadoop;
+
     @Inject
     public HadoopKerberos(
             DockerFiles dockerFiles,
             PortBinder portBinder,
-            EnvironmentConfig environmentConfig)
+            EnvironmentConfig environmentConfig,
+            Hadoop hadoop)
     {
         this.configDir = dockerFiles.getDockerFilesHostDirectory("common/hadoop-kerberos/");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
         hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
+        this.hadoop = requireNonNull(hadoop, "hadoop is null");
     }
 
     @Override
@@ -68,5 +75,11 @@ public class HadoopKerberos
             container.setDockerImageName(dockerImageName);
             container.withCopyFileToContainer(forHostPath(configDir.getPath("tempto-configuration.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
+    }
+
+    @Override
+    public List<EnvironmentExtender> getDependencies()
+    {
+        return ImmutableList.of(hadoop);
     }
 }
