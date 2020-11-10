@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>346</version>
+        <version>347-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-test-jdbc-compatibility-old-driver</artifactId>
@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.presto-jdbc-under-test>346</dep.presto-jdbc-under-test>
+        <dep.presto-jdbc-under-test>347-SNAPSHOT</dep.presto-jdbc-under-test>
     </properties>
 
     <dependencies>
