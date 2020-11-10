@@ -146,6 +146,11 @@ public class TestMySqlDistributedQueries
             return Optional.empty();
         }
 
+        if (typeName.equals("boolean")) {
+            // MySql does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
+            return Optional.empty();
+        }
+
         return Optional.of(dataMappingTestSetup);
     }
 
