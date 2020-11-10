@@ -37,12 +37,12 @@ public class ValuesMatcher
 {
     private final Map<String, Integer> outputSymbolAliases;
     private final Optional<Integer> expectedOutputSymbolCount;
-    private final Optional<List<List<Expression>>> expectedRows;
+    private final Optional<List<Expression>> expectedRows;
 
     public ValuesMatcher(
             Map<String, Integer> outputSymbolAliases,
             Optional<Integer> expectedOutputSymbolCount,
-            Optional<List<List<Expression>>> expectedRows)
+            Optional<List<Expression>> expectedRows)
     {
         this.outputSymbolAliases = ImmutableMap.copyOf(outputSymbolAliases);
         this.expectedOutputSymbolCount = requireNonNull(expectedOutputSymbolCount, "expectedOutputSymbolCount is null");
@@ -62,8 +62,15 @@ public class ValuesMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
         ValuesNode valuesNode = (ValuesNode) node;
 
-        if (!expectedRows.map(rows -> rows.equals(valuesNode.getRows())).orElse(true)) {
-            return NO_MATCH;
+        if (expectedRows.isPresent()) {
+            if (expectedRows.get().size() != valuesNode.getRowCount()) {
+                return NO_MATCH;
+            }
+            if (outputSymbolAliases.size() > 0) {
+                if (!expectedRows.equals(valuesNode.getRows())) {
+                    return NO_MATCH;
+                }
+            }
         }
 
         return match(SymbolAliases.builder()

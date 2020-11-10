@@ -95,6 +95,6 @@ public class TransformCorrelatedSingleRowSubqueryToProject
 
     private static boolean isSingleRowValuesWithNoColumns(ValuesNode values)
     {
-        return values.getRows().size() == 1 && values.getRows().get(0).size() == 0;
+        return values.getRowCount() == 1 && values.getOutputSymbols().isEmpty();
     }
 }

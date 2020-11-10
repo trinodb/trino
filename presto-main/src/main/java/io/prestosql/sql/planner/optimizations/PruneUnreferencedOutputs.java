@@ -73,6 +73,7 @@ import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Row;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -763,10 +764,20 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<Set<Symbol>> context)
         {
+            // nothing to prune: no output symbols and no expressions
+            if (node.getRows().isEmpty()) {
+                return node;
+            }
+
+            // if any of ValuesNode's rows is specified by expression other than Row, the redundant piece cannot be extracted and pruned
+            if (!node.getRows().get().stream().allMatch(Row.class::isInstance)) {
+                return node;
+            }
+
             ImmutableList.Builder<Symbol> rewrittenOutputSymbolsBuilder = ImmutableList.builder();
             ImmutableList.Builder<ImmutableList.Builder<Expression>> rowBuildersBuilder = ImmutableList.builder();
             // Initialize builder for each row
-            for (int i = 0; i < node.getRows().size(); i++) {
+            for (int i = 0; i < node.getRowCount(); i++) {
                 rowBuildersBuilder.add(ImmutableList.builder());
             }
             ImmutableList<ImmutableList.Builder<Expression>> rowBuilders = rowBuildersBuilder.build();
@@ -776,13 +787,14 @@ public class PruneUnreferencedOutputs
                 if (context.get().contains(outputSymbol)) {
                     rewrittenOutputSymbolsBuilder.add(outputSymbol);
                     // Add the value of the output symbol for each row
-                    for (int j = 0; j < node.getRows().size(); j++) {
-                        rowBuilders.get(j).add(node.getRows().get(j).get(i));
+                    for (int j = 0; j < node.getRowCount(); j++) {
+                        rowBuilders.get(j).add(((Row) node.getRows().get().get(j)).getItems().get(i));
                     }
                 }
             }
-            List<List<Expression>> rewrittenRows = rowBuilders.stream()
+            List<Expression> rewrittenRows = rowBuilders.stream()
                     .map(ImmutableList.Builder::build)
+                    .map(Row::new)
                     .collect(toImmutableList());
             return new ValuesNode(node.getId(), rewrittenOutputSymbolsBuilder.build(), rewrittenRows);
         }

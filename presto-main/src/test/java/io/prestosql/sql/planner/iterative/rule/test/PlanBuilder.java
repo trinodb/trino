@@ -90,6 +90,7 @@ import io.prestosql.sql.planner.plan.WindowNode.Specification;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.testing.TestingHandle;
 import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingMetadata.TestingTableHandle;
@@ -219,7 +220,12 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<Expression>> rows)
     {
-        return new ValuesNode(id, columns, rows);
+        return new ValuesNode(id, columns, rows.stream().map(Row::new).collect(toImmutableList()));
+    }
+
+    public ValuesNode valuesOfExpressions(List<Symbol> columns, List<Expression> rows)
+    {
+        return new ValuesNode(idAllocator.getNextId(), columns, rows);
     }
 
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)

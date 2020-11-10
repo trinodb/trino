@@ -112,7 +112,7 @@ public final class DistinctOutputQueryUtil
         @Override
         public Boolean visitValues(ValuesNode node, Void context)
         {
-            return node.getRows().size() == 1;
+            return node.getRowCount() == 1;
         }
 
         @Override

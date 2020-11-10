@@ -2625,6 +2625,28 @@ public class TestAnalyzer
                 .hasErrorCode(NOT_SUPPORTED);
     }
 
+    @Test
+    public void testValues()
+    {
+        assertFails("VALUES (1, 2, 3), (1, 2)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: Values rows have mismatched sizes: 3 vs 2");
+
+        assertFails("VALUES (1, 2), 1")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: Values rows have mismatched sizes: 2 vs 1");
+
+        assertFails("VALUES (1, 2), CAST(ROW(1, 2, 3) AS row(bigint, bigint, bigint))")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: Values rows have mismatched sizes: 2 vs 3");
+
+        assertFails("VALUES (1, 2), ('a', 'b')")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:1: Values rows have mismatched types: row(integer, integer) vs row(varchar(1), varchar(1))");
+
+        analyze("VALUES 'a', ('a'), ROW('a'), CAST(ROW('a') AS row(char(5)))");
+    }
+
     @BeforeClass
     public void setup()
     {

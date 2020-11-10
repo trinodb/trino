@@ -121,6 +121,7 @@ import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.SingleRowBlock;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorIndex;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -129,6 +130,7 @@ import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spiller.PartitioningSpillerFactory;
@@ -260,6 +262,7 @@ import static io.prestosql.operator.WindowFunctionDefinition.window;
 import static io.prestosql.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
@@ -1443,20 +1446,27 @@ public class LocalExecutionPlanner
             // a values node must have a single driver
             context.setDriverInstanceCount(1);
 
-            if (node.getRows().isEmpty()) {
+            if (node.getRowCount() == 0) {
                 OperatorFactory operatorFactory = new ValuesOperatorFactory(context.getNextOperatorId(), node.getId(), ImmutableList.of());
                 return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
             }
 
             List<Type> outputTypes = getSymbolTypes(node.getOutputSymbols(), context.getTypes());
-            PageBuilder pageBuilder = new PageBuilder(node.getRows().size(), outputTypes);
-            for (List<Expression> row : node.getRows()) {
+            PageBuilder pageBuilder = new PageBuilder(node.getRowCount(), outputTypes);
+            for (int i = 0; i < node.getRowCount(); i++) {
+                // declare position for every row
                 pageBuilder.declarePosition();
-                Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(context.getSession(), TypeProvider.empty(), ImmutableList.copyOf(row));
-                for (int i = 0; i < row.size(); i++) {
+                // evaluate values for non-empty rows
+                if (node.getRows().isPresent()) {
+                    Expression row = node.getRows().get().get(i);
+                    Map<NodeRef<Expression>, Type> types = typeAnalyzer.getTypes(context.getSession(), TypeProvider.empty(), row);
+                    checkState(types.get(NodeRef.of(row)) instanceof RowType, "unexpected type of Values row: %s", types);
                     // evaluate the literal value
-                    Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession(), expressionTypes).evaluate();
-                    writeNativeValue(outputTypes.get(i), pageBuilder.getBlockBuilder(i), result);
+                    Object result = ExpressionInterpreter.expressionInterpreter(row, metadata, context.getSession(), types).evaluate();
+                    for (int j = 0; j < outputTypes.size(); j++) {
+                        // divide row into fields
+                        writeNativeValue(outputTypes.get(j), pageBuilder.getBlockBuilder(j), readNativeValue(outputTypes.get(j), (SingleRowBlock) result, j));
+                    }
                 }
             }
 
