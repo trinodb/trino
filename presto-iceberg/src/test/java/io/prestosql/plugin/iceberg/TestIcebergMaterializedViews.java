@@ -51,7 +51,7 @@ public class TestIcebergMaterializedViews
         assertQuery("SELECT count(*) FROM base_table2", "VALUES 3");
     }
 
-    @Test
+    @Test(enabled = false) // TODO https://github.com/prestosql/presto/issues/5892
     public void testCreateRefreshSelect()
     {
         Session session = getSession();
@@ -137,7 +137,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part");
     }
 
-    @Test
+    @Test(enabled = false) // TODO https://github.com/prestosql/presto/issues/5892
     public void testDetectStaleness()
     {
         // Base tables and materialized views for staleness check
@@ -191,7 +191,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part_stale");
     }
 
-    @Test
+    @Test(enabled = false) // TODO https://github.com/prestosql/presto/issues/5892
     public void testSqlFeatures()
     {
         Session session = getSession();
@@ -246,7 +246,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_subquery");
     }
 
-    @Test
+    @Test(enabled = false) // TODO https://github.com/prestosql/presto/issues/5892
     public void testReplace()
     {
         // Materialized view to test 'replace' feature
@@ -263,7 +263,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_replace");
     }
 
-    @Test
+    @Test(enabled = false) // TODO https://github.com/prestosql/presto/issues/5892
     public void testNestedMaterializedViews()
     {
         // Base table and materialized views for nested materialized view testing
