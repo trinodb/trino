@@ -15,6 +15,7 @@ package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.DecimalType;
@@ -340,7 +341,7 @@ public class BenchmarkColumnReaders
         return blocks;
     }
 
-    private abstract static class BenchmarkData
+    public abstract static class BenchmarkData
     {
         protected final Random random = new Random(0);
         private List<Type> types;
@@ -348,13 +349,16 @@ public class BenchmarkColumnReaders
         private File orcFile;
         private OrcDataSource dataSource;
 
+        @Param({"NONE", "ZLIB"})
+        private String compression = "NONE";
+
         public void setup(List<Type> types, Iterator<Page> pages)
                 throws Exception
         {
             this.types = types;
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
-            OrcTester.writeOrcPages(orcFile, NONE, types, pages, new OrcWriterStats());
+            OrcTester.writeOrcPages(orcFile, CompressionKind.valueOf(compression), types, pages, new OrcWriterStats());
 
             dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
         }
