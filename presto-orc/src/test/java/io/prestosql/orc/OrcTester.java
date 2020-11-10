@@ -635,10 +635,6 @@ public class OrcTester
     public static void writeOrcColumnPresto(File outputFile, CompressionKind compression, Type type, Iterator<?> values, OrcWriterStats stats)
             throws Exception
     {
-        ImmutableMap.Builder<String, String> metadata = ImmutableMap.builder();
-        metadata.put("columns", "test");
-        metadata.put("columns.types", createSettableStructObjectInspector("test", type).getTypeName());
-
         List<String> columnNames = ImmutableList.of("test");
         List<Type> types = ImmutableList.of(type);
 
