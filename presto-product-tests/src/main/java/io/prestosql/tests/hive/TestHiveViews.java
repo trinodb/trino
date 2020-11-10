@@ -169,19 +169,20 @@ public class TestHiveViews
                 // TODO (https://github.com/prestosql/presto/issues/5837) "   CASE n_regionkey WHEN 0 THEN 'Africa' WHEN 1 THEN 'America' END region_name, \n" + // simple CASE
                 "   CASE WHEN n_name = \"BRAZIL\" THEN 'is BRAZIL' WHEN n_name = \"ALGERIA\" THEN 'is ALGERIA' ELSE \"\" END is_something,\n" + // searched CASE, double quote string literals
                 "   COALESCE(IF(n_name LIKE 'A%', NULL, n_name), 'A%') AS coalesced_name, \n" + // coalesce
+                "   round(tan(n_nationkey), 3) AS rounded_tan, \n" + // functions
                 "   `n`.`n_nationkey` + `n_nationkey` + n.n_nationkey + n_nationkey + 10000 - -1 AS arithmetic--some comment without leading space \n" +
                 "FROM `default`.`nation` AS `n`");
         assertViewQuery("" +
-                        "SELECT n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contains_n, is_something, coalesced_name, arithmetic " +
+                        "SELECT n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contains_n, is_something, coalesced_name, rounded_tan, arithmetic " +
                         "FROM view_with_rich_syntax " +
                         "WHERE n_regionkey < 3 AND (n_nationkey < 5 OR n_nationkey IN (12, 17))",
                 queryAssert -> queryAssert.containsOnly(
-                        row(0, "ALGERIA", false, 1, 1, 0, "is ALGERIA", "A%", 10001),
-                        row(1, "ARGENTINA", true, 1, 1, 1, "", "A%", 10005),
-                        row(2, "BRAZIL", true, 0, 1, 0, "is BRAZIL", "BRAZIL", 10009),
-                        row(3, "CANADA", true, 0, 1, 1, "", "CANADA", 10013),
-                        row(12, "JAPAN", true, 0, 1, 1, "", "JAPAN", 10049),
-                        row(17, "PERU", true, 0, 0, 0, "", "PERU", 10069)));
+                        row(0, "ALGERIA", false, 1, 1, 0, "is ALGERIA", "A%", 0.0, 10001),
+                        row(1, "ARGENTINA", true, 1, 1, 1, "", "A%", 1.557, 10005),
+                        row(2, "BRAZIL", true, 0, 1, 0, "is BRAZIL", "BRAZIL", -2.185, 10009),
+                        row(3, "CANADA", true, 0, 1, 1, "", "CANADA", -0.143, 10013),
+                        row(12, "JAPAN", true, 0, 1, 1, "", "JAPAN", -0.636, 10049),
+                        row(17, "PERU", true, 0, 0, 0, "", "PERU", 3.494, 10069)));
     }
 
     @Test(groups = HIVE_VIEWS)
