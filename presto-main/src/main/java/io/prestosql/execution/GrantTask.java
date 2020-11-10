@@ -13,6 +13,7 @@
  */
 package io.prestosql.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
@@ -24,6 +25,7 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Grant;
 import io.prestosql.sql.tree.GrantOnType;
+import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.transaction.TransactionManager;
 
 import java.util.EnumSet;
@@ -36,10 +38,13 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.metadata.MetadataUtil.createPrincipal;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PRIVILEGE;
+import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.tree.PrincipalSpecification.Type.ROLE;
 
 public class GrantTask
         implements DataDefinitionTask<Grant>
@@ -53,13 +58,32 @@ public class GrantTask
     @Override
     public ListenableFuture<?> execute(Grant statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
+        return execute(statement, transactionManager, metadata, accessControl, stateMachine.getSession(), parameters);
+    }
+
+    @VisibleForTesting
+    ListenableFuture<?> execute(Grant statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    {
+        checkGrantee(statement, metadata, session, statement.getGrantee());
         if (statement.getType().filter(GrantOnType.SCHEMA::equals).isPresent()) {
-            executeGrantOnSchema(stateMachine.getSession(), statement, metadata, accessControl);
+            executeGrantOnSchema(session, statement, metadata, accessControl);
         }
         else {
-            executeGrantOnTable(stateMachine.getSession(), statement, metadata, accessControl);
+            executeGrantOnTable(session, statement, metadata, accessControl);
         }
         return immediateFuture(null);
+    }
+
+    private void checkGrantee(Grant statement, Metadata metadata, Session session, PrincipalSpecification grantee)
+    {
+        if (grantee.getType() == ROLE) {
+            String roleName = grantee.getName().getValue();
+            String catalog = getSessionCatalog(metadata, session, statement);
+            Set<String> existingRoles = metadata.listRoles(session, catalog);
+            if (!existingRoles.contains(roleName)) {
+                throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", roleName);
+            }
+        }
     }
 
     private void executeGrantOnSchema(Session session, Grant statement, Metadata metadata, AccessControl accessControl)
