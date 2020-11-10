@@ -29,7 +29,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -80,7 +79,7 @@ public class StaticMetastoreLocator
                 .map(StaticMetastoreLocator::checkMetastoreUri)
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
                 .map(address -> new Backoff(address, ticker))
-                .collect(Collectors.toUnmodifiableList());
+                .collect(toImmutableList());
 
         this.metastoreUsername = metastoreUsername;
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
@@ -114,7 +113,7 @@ public class StaticMetastoreLocator
             }
         }
 
-        List<HostAndPort> addresses = backoffsSorted.stream().map(Backoff::getAddress).collect(Collectors.toUnmodifiableList());
+        List<HostAndPort> addresses = backoffsSorted.stream().map(Backoff::getAddress).collect(toImmutableList());
         throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
     }
 
