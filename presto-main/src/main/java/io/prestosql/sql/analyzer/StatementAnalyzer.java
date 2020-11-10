@@ -183,6 +183,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getMaxGroupingSets;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
@@ -1863,67 +1864,72 @@ class StatementAnalyzer
         {
             checkState(node.getRows().size() >= 1);
 
-            List<List<Type>> rowTypes = node.getRows().stream()
+            List<Type> rowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
                     .map(type -> {
                         if (type instanceof RowType) {
-                            return type.getTypeParameters();
+                            return type;
                         }
-                        return ImmutableList.of(type);
+                        return RowType.anonymousRow(type);
                     })
                     .collect(toImmutableList());
 
-            // determine common super type of the rows
-            List<Type> fieldTypes = new ArrayList<>(rowTypes.iterator().next());
-            for (List<Type> rowType : rowTypes) {
+            int fieldCount = rowTypes.get(0).getTypeParameters().size();
+            Type commonSuperType = rowTypes.get(0);
+            for (Type rowType : rowTypes) {
                 // check field count consistency for rows
-                if (rowType.size() != fieldTypes.size()) {
+                if (rowType.getTypeParameters().size() != fieldCount) {
+                    throw semanticException(TYPE_MISMATCH,
+                            node,
+                            "Values rows have mismatched sizes: %s vs %s",
+                            fieldCount,
+                            rowType.getTypeParameters().size());
+                }
+
+                // determine common super type of the rows
+                Optional<Type> partialSuperType = typeCoercion.getCommonSuperType(rowType, commonSuperType);
+                if (partialSuperType.isEmpty()) {
                     throw semanticException(TYPE_MISMATCH,
                             node,
                             "Values rows have mismatched types: %s vs %s",
                             rowTypes.get(0),
                             rowType);
                 }
-
-                for (int i = 0; i < rowType.size(); i++) {
-                    Type fieldType = rowType.get(i);
-                    Type superType = fieldTypes.get(i);
-
-                    Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(fieldType, superType);
-                    if (commonSuperType.isEmpty()) {
-                        throw semanticException(TYPE_MISMATCH,
-                                node,
-                                "Values rows have mismatched types: %s vs %s",
-                                rowTypes.get(0),
-                                rowType);
-                    }
-                    fieldTypes.set(i, commonSuperType.get());
-                }
+                commonSuperType = partialSuperType.get();
             }
 
-            // add coercions for the rows
+            // add coercions
             for (Expression row : node.getRows()) {
+                Type actualType = analysis.getType(row);
                 if (row instanceof Row) {
-                    List<Expression> items = ((Row) row).getItems();
-                    for (int i = 0; i < items.size(); i++) {
-                        Type expectedType = fieldTypes.get(i);
-                        Expression item = items.get(i);
-                        Type actualType = analysis.getType(item);
-                        if (!actualType.equals(expectedType)) {
-                            analysis.addCoercion(item, expectedType, typeCoercion.isTypeOnlyCoercion(actualType, expectedType));
+                    // coerce Row by fields to preserve Row structure and enable optimizations based on this structure, e.g. pruning, predicate extraction
+                    // TODO coerce the whole Row and add an Optimizer rule that converts CAST(ROW(...) AS ...) into ROW(CAST(...), CAST(...), ...).
+                    //  The rule would also handle Row-type expressions that were specified as CAST(ROW). It should support multiple casts over a ROW.
+                    for (int i = 0; i < actualType.getTypeParameters().size(); i++) {
+                        Expression item = ((Row) row).getItems().get(i);
+                        Type actualItemType = actualType.getTypeParameters().get(i);
+                        Type expectedItemType = commonSuperType.getTypeParameters().get(i);
+                        if (!actualItemType.equals(expectedItemType)) {
+                            analysis.addCoercion(item, expectedItemType, typeCoercion.isTypeOnlyCoercion(actualItemType, expectedItemType));
                         }
                     }
                 }
+                else if (actualType instanceof RowType) {
+                    // coerce row-type expression as a whole
+                    if (!actualType.equals(commonSuperType)) {
+                        analysis.addCoercion(row, commonSuperType, typeCoercion.isTypeOnlyCoercion(actualType, commonSuperType));
+                    }
+                }
                 else {
-                    Type actualType = analysis.getType(row);
-                    Type expectedType = fieldTypes.get(0);
-                    if (!actualType.equals(expectedType)) {
-                        analysis.addCoercion(row, expectedType, typeCoercion.isTypeOnlyCoercion(actualType, expectedType));
+                    // coerce field. it will be wrapped in Row by Planner
+                    Type superType = getOnlyElement(commonSuperType.getTypeParameters());
+                    if (!actualType.equals(superType)) {
+                        analysis.addCoercion(row, superType, typeCoercion.isTypeOnlyCoercion(actualType, superType));
                     }
                 }
             }
 
-            List<Field> fields = fieldTypes.stream()
+            List<Field> fields = commonSuperType.getTypeParameters().stream()
                     .map(valueType -> Field.newUnqualified(Optional.empty(), valueType))
                     .collect(toImmutableList());
 

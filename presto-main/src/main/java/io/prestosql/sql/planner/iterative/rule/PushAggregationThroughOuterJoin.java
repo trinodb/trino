@@ -35,6 +35,7 @@ import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashSet;
@@ -282,7 +283,7 @@ public class PushAggregationThroughOuterJoin
         ValuesNode nullRow = new ValuesNode(
                 idAllocator.getNextId(),
                 nullSymbols.build(),
-                ImmutableList.of(nullLiterals.build()));
+                ImmutableList.of(new Row(nullLiterals.build())));
         Map<Symbol, SymbolReference> sourcesSymbolMapping = sourcesSymbolMappingBuilder.build();
 
         // For each aggregation function in the reference node, create a corresponding aggregation function

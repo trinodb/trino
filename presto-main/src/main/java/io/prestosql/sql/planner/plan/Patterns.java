@@ -320,9 +320,14 @@ public final class Patterns
 
     public static final class Values
     {
-        public static Property<ValuesNode, Lookup, List<List<Expression>>> rows()
+        public static Property<ValuesNode, Lookup, Optional<List<Expression>>> rows()
         {
             return property("rows", ValuesNode::getRows);
+        }
+
+        public static Property<ValuesNode, Lookup, Integer> rowCount()
+        {
+            return property("rowCount", ValuesNode::getRowCount);
         }
     }
 

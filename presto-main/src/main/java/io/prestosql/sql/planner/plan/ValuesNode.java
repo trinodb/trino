@@ -18,33 +18,85 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Row;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.util.MoreLists.listOfListsCopy;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class ValuesNode
         extends PlanNode
 {
     private final List<Symbol> outputSymbols;
-    private final List<List<Expression>> rows;
+    private final int rowCount;
+    // If ValuesNode produces output symbols, each row in ValuesNode is represented by a single expression in `rows` list.
+    // It can be an expression of type Row or any other expression that evaluates to RowType.
+    // In case when output symbols are present but ValuesNode does not have any rows, `rows` is an Optional with empty list.
+    // If ValuesNode does not produce any output symbols, `rows` is Optional.empty().
+    private final Optional<List<Expression>> rows;
+
+    /**
+     * Constructor of ValuesNode with non-empty output symbols list
+     */
+    public ValuesNode(PlanNodeId id, List<Symbol> outputSymbols, List<Expression> rows)
+    {
+        this(id, outputSymbols, rows.size(), Optional.of(rows));
+    }
+
+    /**
+     * Constructor of ValuesNode with empty output symbols list
+     */
+    public ValuesNode(PlanNodeId id, int rowCount)
+    {
+        this(id, ImmutableList.of(), rowCount, Optional.empty());
+    }
 
     @JsonCreator
     public ValuesNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
-            @JsonProperty("rows") List<List<Expression>> rows)
+            @JsonProperty("rowCount") int rowCount,
+            @JsonProperty("rows") Optional<List<Expression>> rows)
     {
         super(id);
-        this.outputSymbols = ImmutableList.copyOf(outputSymbols);
-        this.rows = listOfListsCopy(rows);
+        this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
+        this.rowCount = rowCount;
 
-        for (List<Expression> row : rows) {
-            checkArgument(row.size() == outputSymbols.size(), "Expected row to have %s values, but row has %s values", outputSymbols.size(), row.size());
+        requireNonNull(rows, "rows is null");
+        if (rows.isPresent()) {
+            checkArgument(rowCount == rows.get().size(), "declared and actual row counts don't match: %s vs %s", rowCount, rows.get().size());
+
+            // check row size consistency (only for rows specified as Row)
+            List<Integer> rowSizes = rows.get().stream()
+                    .map(row -> requireNonNull(row, "row is null"))
+                    .filter(expression -> expression instanceof Row)
+                    .map(expression -> ((Row) expression).getItems().size())
+                    .distinct()
+                    .collect(toImmutableList());
+            checkState(rowSizes.size() <= 1, "mismatched rows. All rows must be the same size");
+
+            // check if row size matches the number of output symbols (only for rows specified as Row)
+            if (rowSizes.size() == 1) {
+                checkState(getOnlyElement(rowSizes).equals(outputSymbols.size()), "row size doesn't match the number of output symbols: %s vs %s", getOnlyElement(rowSizes), outputSymbols.size());
+            }
+        }
+        else {
+            checkArgument(outputSymbols.size() == 0, "missing rows specification for Values with non-empty output symbols");
+        }
+
+        if (outputSymbols.size() == 0) {
+            this.rows = Optional.empty();
+        }
+        else {
+            this.rows = rows.map(ImmutableList::copyOf);
         }
     }
 
@@ -56,7 +108,13 @@ public class ValuesNode
     }
 
     @JsonProperty
-    public List<List<Expression>> getRows()
+    public int getRowCount()
+    {
+        return rowCount;
+    }
+
+    @JsonProperty
+    public Optional<List<Expression>> getRows()
     {
         return rows;
     }

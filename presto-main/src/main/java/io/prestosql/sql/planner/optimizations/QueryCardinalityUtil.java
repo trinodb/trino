@@ -170,7 +170,7 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitValues(ValuesNode node, Void context)
         {
-            return Range.singleton((long) node.getRows().size());
+            return Range.singleton((long) node.getRowCount());
         }
 
         @Override

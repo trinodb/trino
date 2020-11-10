@@ -59,4 +59,17 @@ public class TestPruneValuesColumns
                                 p.values(p.symbol("x"))))
                 .doesNotFire();
     }
+
+    @Test
+    public void testDoNotPruneWhenValuesExpressionIsNotRow()
+    {
+        tester().assertThat(new PruneValuesColumns())
+                .on(p ->
+                        p.project(
+                                Assignments.of(),
+                                p.valuesOfExpressions(
+                                        ImmutableList.of(p.symbol("x")),
+                                        ImmutableList.of(expression("CAST(ROW(1) AS row(bigint))")))))
+                .doesNotFire();
+    }
 }

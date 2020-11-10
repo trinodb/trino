@@ -32,11 +32,11 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SortItem;
 import io.prestosql.sql.tree.SortItem.NullOrdering;
 import io.prestosql.sql.tree.SymbolReference;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -285,18 +285,27 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(ValuesNode valuesNode, Captures captures, Context context)
         {
+            if (valuesNode.getRows().isEmpty()) {
+                return Result.empty();
+            }
+
             boolean anyRewritten = false;
-            ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
-            for (List<Expression> row : valuesNode.getRows()) {
-                ImmutableList.Builder<Expression> newRow = ImmutableList.builder();
-                for (Expression expression : row) {
-                    Expression rewritten = rewriter.rewrite(expression, context);
-                    if (!expression.equals(rewritten)) {
-                        anyRewritten = true;
-                    }
-                    newRow.add(rewritten);
+            ImmutableList.Builder<Expression> rows = ImmutableList.builder();
+            for (Expression row : valuesNode.getRows().get()) {
+                Expression rewritten;
+                if (row instanceof Row) {
+                    // preserve the structure of row
+                    rewritten = new Row(((Row) row).getItems().stream()
+                            .map(item -> rewriter.rewrite(item, context))
+                            .collect(toImmutableList()));
                 }
-                rows.add(newRow.build());
+                else {
+                    rewritten = rewriter.rewrite(row, context);
+                }
+                if (!row.equals(rewritten)) {
+                    anyRewritten = true;
+                }
+                rows.add(rewritten);
             }
             if (anyRewritten) {
                 return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));

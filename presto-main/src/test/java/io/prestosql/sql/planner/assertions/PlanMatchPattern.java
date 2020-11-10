@@ -65,6 +65,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SortItem;
 import io.prestosql.sql.tree.WindowFrame;
 
@@ -691,10 +692,10 @@ public final class PlanMatchPattern
                 groupIdSymbol));
     }
 
-    private static PlanMatchPattern values(
+    public static PlanMatchPattern values(
             Map<String, Integer> aliasToIndex,
             Optional<Integer> expectedOutputSymbolCount,
-            Optional<List<List<Expression>>> expectedRows)
+            Optional<List<Expression>> expectedRows)
     {
         return node(ValuesNode.class).with(new ValuesMatcher(aliasToIndex, expectedOutputSymbolCount, expectedRows));
     }
@@ -702,9 +703,16 @@ public final class PlanMatchPattern
     private static PlanMatchPattern values(List<String> aliases, Optional<List<List<Expression>>> expectedRows)
     {
         return values(
-                Maps.uniqueIndex(IntStream.range(0, aliases.size()).boxed().iterator(), aliases::get),
+                aliasToIndex(aliases),
                 Optional.of(aliases.size()),
-                expectedRows);
+                expectedRows.map(list -> list.stream()
+                        .map(Row::new)
+                        .collect(toImmutableList())));
+    }
+
+    public static Map<String, Integer> aliasToIndex(List<String> aliases)
+    {
+        return Maps.uniqueIndex(IntStream.range(0, aliases.size()).boxed().iterator(), aliases::get);
     }
 
     public static PlanMatchPattern values(Map<String, Integer> aliasToIndex)

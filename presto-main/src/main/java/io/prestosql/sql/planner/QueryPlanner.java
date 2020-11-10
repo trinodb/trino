@@ -497,7 +497,7 @@ class QueryPlanner
 
         return new PlanBuilder(
                 new TranslationMap(outerContext, analysis.getImplicitFromScope(node), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of()),
-                new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of())));
+                new ValuesNode(idAllocator.getNextId(), 1));
     }
 
     private PlanBuilder filter(PlanBuilder subPlan, Expression predicate, Node node)

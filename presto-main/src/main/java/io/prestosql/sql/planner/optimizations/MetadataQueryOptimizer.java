@@ -46,6 +46,7 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Row;
 
 import java.util.List;
 import java.util.Map;
@@ -122,6 +123,9 @@ public class MetadataQueryOptimizer
             ImmutableMap.Builder<Symbol, ColumnHandle> columnBuilder = ImmutableMap.builder();
 
             List<Symbol> inputs = tableScan.getOutputSymbols();
+            if (inputs.isEmpty()) {
+                return context.defaultRewrite(node);
+            }
             for (Symbol symbol : inputs) {
                 ColumnHandle column = tableScan.getAssignments().get(symbol);
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableScan.getTable(), column);
@@ -146,7 +150,7 @@ public class MetadataQueryOptimizer
                 return context.defaultRewrite(node);
             }
 
-            ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
             for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
                 if (!domain.isNone()) {
                     Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
@@ -165,7 +169,7 @@ public class MetadataQueryOptimizer
                             rowBuilder.add(literalEncoder.toExpression(value.getValue(), type));
                         }
                     }
-                    rowsBuilder.add(rowBuilder.build());
+                    rowsBuilder.add(new Row(rowBuilder.build()));
                 }
             }
 

@@ -103,6 +103,7 @@ import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.util.GraphvizPrinter;
 
@@ -697,11 +698,25 @@ public class PlanPrinter
         public Void visitValues(ValuesNode node, Void context)
         {
             NodeRepresentation nodeOutput = addNode(node, "Values");
-            for (List<Expression> row : node.getRows()) {
-                nodeOutput.appendDetailsLine(row.stream()
-                        .map(PlanPrinter::unresolveFunctions)
-                        .map(Expression::toString)
-                        .collect(joining(", ", "(", ")")));
+            if (node.getRows().isEmpty()) {
+                for (int i = 0; i < node.getRowCount(); i++) {
+                    nodeOutput.appendDetailsLine("()");
+                }
+                return null;
+            }
+            List<String> rows = node.getRows().get().stream()
+                    .map(row -> {
+                        if (row instanceof Row) {
+                            return ((Row) row).getItems().stream()
+                                    .map(PlanPrinter::unresolveFunctions)
+                                    .map(Expression::toString)
+                                    .collect(joining(", ", "(", ")"));
+                        }
+                        return unresolveFunctions(row).toString();
+                    })
+                    .collect(toImmutableList());
+            for (String row : rows) {
+                nodeOutput.appendDetailsLine(row);
             }
             return null;
         }
