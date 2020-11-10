@@ -75,6 +75,7 @@ import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.AbstractMap.SimpleEntry;
@@ -462,11 +463,31 @@ public class UnaliasSymbolReferences
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
 
+            // nothing to map: no output symbols and no expressions
+            if (node.getRows().isEmpty()) {
+                return new PlanAndMappings(node, mapping);
+            }
+
+            // if any of ValuesNode's rows is specified by expression other than Row, we cannot reason about individual fields
+            if (node.getRows().get().stream().anyMatch(row -> !(row instanceof Row))) {
+                List<Expression> newRows = node.getRows().get().stream()
+                        .map(mapper::map)
+                        .collect(toImmutableList());
+                List<Symbol> newOutputs = node.getOutputSymbols().stream()
+                        .map(mapper::map)
+                        .distinct()
+                        .collect(toImmutableList());
+                checkState(newOutputs.size() == node.getOutputSymbols().size(), "duplicate output symbol in Values");
+                return new PlanAndMappings(
+                        new ValuesNode(node.getId(), newOutputs, newRows),
+                        mapping);
+            }
+
             ImmutableList.Builder<SimpleEntry<Symbol, List<Expression>>> rewrittenAssignmentsBuilder = ImmutableList.builder();
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-                for (List<Expression> row : node.getRows()) {
-                    expressionsBuilder.add(mapper.map(row.get(i)));
+                for (Expression row : node.getRows().get()) {
+                    expressionsBuilder.add(mapper.map(((Row) row).getItems().get(i)));
                 }
                 rewrittenAssignmentsBuilder.add(new SimpleEntry<>(mapper.map(node.getOutputSymbols().get(i)), expressionsBuilder.build()));
             }
@@ -482,8 +503,8 @@ public class UnaliasSymbolReferences
             List<Symbol> newOutputs = deduplicateAssignments.keySet().stream()
                     .collect(toImmutableList());
 
-            List<ImmutableList.Builder<Expression>> newRows = new ArrayList<>(node.getRows().size());
-            for (int i = 0; i < node.getRows().size(); i++) {
+            List<ImmutableList.Builder<Expression>> newRows = new ArrayList<>(node.getRowCount());
+            for (int i = 0; i < node.getRowCount(); i++) {
                 newRows.add(ImmutableList.builder());
             }
             for (List<Expression> expressions : deduplicateAssignments.values()) {
@@ -498,6 +519,7 @@ public class UnaliasSymbolReferences
                             newOutputs,
                             newRows.stream()
                                     .map(ImmutableList.Builder::build)
+                                    .map(Row::new)
                                     .collect(toImmutableList())),
                     mapping);
         }

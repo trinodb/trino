@@ -224,7 +224,7 @@ public abstract class AbstractCostBasedPlanTest
         @Override
         public Void visitValues(ValuesNode node, Integer indent)
         {
-            output(indent, "values (%s rows)", node.getRows().size());
+            output(indent, "values (%s rows)", node.getRowCount());
 
             return null;
         }

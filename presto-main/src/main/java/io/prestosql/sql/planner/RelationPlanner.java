@@ -21,6 +21,7 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.analyzer.Analysis;
@@ -801,19 +802,19 @@ class RelationPlanner
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
         TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(node), analysis, lambdaDeclarationToSymbolMap, outputSymbols);
 
-        ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
+        ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (Expression row : node.getRows()) {
-            ImmutableList.Builder<Expression> values = ImmutableList.builder();
             if (row instanceof Row) {
-                for (Expression item : ((Row) row).getItems()) {
-                    values.add(coerceIfNecessary(analysis, item, translationMap.rewrite(item)));
-                }
+                rows.add(new Row(((Row) row).getItems().stream()
+                        .map(item -> coerceIfNecessary(analysis, item, translationMap.rewrite(item)))
+                        .collect(toImmutableList())));
+            }
+            else if (analysis.getType(row) instanceof RowType) {
+                rows.add(coerceIfNecessary(analysis, row, translationMap.rewrite(row)));
             }
             else {
-                values.add(coerceIfNecessary(analysis, row, translationMap.rewrite(row)));
+                rows.add(new Row(ImmutableList.of(coerceIfNecessary(analysis, row, translationMap.rewrite(row)))));
             }
-
-            rows.add(values.build());
         }
 
         ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbols, rows.build());
@@ -839,7 +840,7 @@ class RelationPlanner
         Scope.Builder scope = Scope.builder();
         parent.ifPresent(scope::withOuterQueryParent);
 
-        PlanNode values = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of()));
+        PlanNode values = new ValuesNode(idAllocator.getNextId(), 1);
         TranslationMap translations = new TranslationMap(outerContext, scope.build(), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of());
         return new PlanBuilder(translations, values);
     }

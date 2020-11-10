@@ -25,6 +25,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
@@ -55,7 +56,10 @@ import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.tests.QueryTemplate;
 import io.prestosql.util.MorePredicates;
 import org.testng.annotations.Test;
@@ -79,10 +83,16 @@ import static io.prestosql.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.prestosql.spi.predicate.Domain.singleValue;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aliasToIndex;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -1579,6 +1589,44 @@ public class TestLogicalPlanner
                         node(ExplainAnalyzeNode.class,
                                 exchange(LOCAL, GATHER,
                                         strictTableScan("nation", ImmutableMap.of("regionkey", "regionkey"))))));
+    }
+
+    @Test
+    public void testValuesCoercions()
+    {
+        assertPlan("VALUES TINYINT '1', REAL '1'",
+                CREATED,
+                anyTree(
+                        values(
+                                ImmutableList.of("field"),
+                                ImmutableList.of(
+                                        ImmutableList.of(new Cast(new GenericLiteral("TINYINT", "1"), toSqlType(REAL))),
+                                        ImmutableList.of(new GenericLiteral("REAL", "1"))))));
+
+        // rows coerced by field
+        assertPlan("VALUES (TINYINT '1', REAL '1'), (DOUBLE '2', SMALLINT '2')",
+                CREATED,
+                anyTree(
+                        values(
+                                ImmutableList.of("field", "field0"),
+                                ImmutableList.of(
+                                        ImmutableList.of(new Cast(new GenericLiteral("TINYINT", "1"), toSqlType(DOUBLE)), new GenericLiteral("REAL", "1")),
+                                        ImmutableList.of(new GenericLiteral("DOUBLE", "2"), new Cast(new GenericLiteral("SMALLINT", "2"), toSqlType(REAL)))))));
+
+        // entry of type other than Row coerced as a whole
+        assertPlan("VALUES DOUBLE '1', CAST(ROW(2) AS row(bigint))",
+                CREATED,
+                anyTree(
+                        values(
+                                aliasToIndex(ImmutableList.of("field")),
+                                Optional.of(1),
+                                Optional.of(ImmutableList.of(
+                                        new Row(ImmutableList.of(new GenericLiteral("DOUBLE", "1"))),
+                                        new Cast(
+                                                new Cast(
+                                                        new Row(ImmutableList.of(new LongLiteral("2"))),
+                                                        toSqlType(RowType.anonymous(ImmutableList.of(BIGINT)))),
+                                                toSqlType(RowType.anonymous(ImmutableList.of(DOUBLE)))))))));
     }
 
     private Session noJoinReordering()

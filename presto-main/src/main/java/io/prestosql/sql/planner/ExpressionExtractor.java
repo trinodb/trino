@@ -135,7 +135,7 @@ public final class ExpressionExtractor
         @Override
         public Void visitValues(ValuesNode node, Void context)
         {
-            node.getRows().forEach(row -> row.forEach(consumer));
+            node.getRows().ifPresent(list -> list.forEach(consumer));
             return super.visitValues(node, context);
         }
 

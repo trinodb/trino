@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.StringLiteral;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -393,7 +394,7 @@ public class TestStageStateMachine
                 new PlanFragmentId("plan"),
                 new ValuesNode(valuesNodeId,
                         ImmutableList.of(symbol),
-                        ImmutableList.of(ImmutableList.of(new StringLiteral("foo")))),
+                        ImmutableList.of(new Row(ImmutableList.of(new StringLiteral("foo"))))),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(valuesNodeId),

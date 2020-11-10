@@ -18,6 +18,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Row;
 
 import java.util.Arrays;
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.planner.plan.Patterns.values;
 import static io.prestosql.util.MoreLists.filteredCopy;
 
@@ -39,6 +41,17 @@ public class PruneValuesColumns
     @Override
     protected Optional<PlanNode> pushDownProjectOff(Context context, ValuesNode valuesNode, Set<Symbol> referencedOutputs)
     {
+        // no symbols to prune
+        if (valuesNode.getOutputSymbols().isEmpty()) {
+            return Optional.empty();
+        }
+
+        checkState(valuesNode.getRows().isPresent(), "rows is empty");
+        // if any of ValuesNode's rows is specified by expression other than Row, the redundant piece cannot be extracted and pruned
+        if (!valuesNode.getRows().get().stream().allMatch(Row.class::isInstance)) {
+            return Optional.empty();
+        }
+
         List<Symbol> newOutputs = filteredCopy(valuesNode.getOutputSymbols(), referencedOutputs::contains);
 
         // for each output of project, the corresponding column in the values node
@@ -47,11 +60,11 @@ public class PruneValuesColumns
             mapping[i] = valuesNode.getOutputSymbols().indexOf(newOutputs.get(i));
         }
 
-        ImmutableList.Builder<List<Expression>> rowsBuilder = ImmutableList.builder();
-        for (List<Expression> row : valuesNode.getRows()) {
-            rowsBuilder.add(Arrays.stream(mapping)
-                    .mapToObj(row::get)
-                    .collect(Collectors.toList()));
+        ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
+        for (Expression row : valuesNode.getRows().get()) {
+            rowsBuilder.add(new Row(Arrays.stream(mapping)
+                    .mapToObj(i -> ((Row) row).getItems().get(i))
+                    .collect(Collectors.toList())));
         }
 
         return Optional.of(new ValuesNode(valuesNode.getId(), newOutputs, rowsBuilder.build()));

@@ -126,7 +126,7 @@ public final class PlanCopier
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
         {
-            return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getRows());
+            return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getRowCount(), node.getRows());
         }
 
         @Override

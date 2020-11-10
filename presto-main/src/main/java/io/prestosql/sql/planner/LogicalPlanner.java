@@ -79,6 +79,7 @@ import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.RefreshMaterializedView;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.type.TypeCoercion;
@@ -228,7 +229,7 @@ public class LogicalPlanner
         if ((statement instanceof CreateTableAsSelect && analysis.getCreate().get().isCreateTableAsSelectNoOp()) ||
                 statement instanceof RefreshMaterializedView && analysis.isSkipMaterializedViewRefresh()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
-            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "0"))));
+            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "0")))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);

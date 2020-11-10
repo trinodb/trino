@@ -23,12 +23,16 @@ import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
@@ -39,7 +43,21 @@ public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
 {
     private ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
-            (expression, context) -> new LongLiteral("0"));
+            (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<>()
+            {
+                @Override
+                protected Expression rewriteExpression(Expression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    return new LongLiteral("0");
+                }
+
+                @Override
+                public Expression rewriteRow(Row node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    // rewrite Row items to preserve Row structure of ValuesNode
+                    return new Row(node.getItems().stream().map(item -> new LongLiteral("0")).collect(toImmutableList()));
+                }
+            }, expression));
 
     @Test
     public void testProjectionExpressionRewrite()
