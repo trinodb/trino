@@ -58,6 +58,8 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.writeOrcColumnPresto;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
+import static io.prestosql.plugin.tpch.TpchTables.getTableColumns;
+import static io.prestosql.plugin.tpch.TpchTables.getTablePages;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -315,6 +317,19 @@ public class BenchmarkColumnReaders
         }
     }
 
+    @Benchmark
+    public Object readLineitem(LineitemBenchmarkData data)
+            throws Exception
+    {
+        List<Page> pages = new ArrayList<>();
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                pages.add(page.getLoadedPage());
+            }
+        }
+        return pages;
+    }
+
     private Object readFirstColumn(OrcRecordReader recordReader)
             throws IOException
     {
@@ -328,18 +343,29 @@ public class BenchmarkColumnReaders
     private abstract static class BenchmarkData
     {
         protected final Random random = new Random(0);
-        private Type type;
+        private List<Type> types;
         private File temporaryDirectory;
         private File orcFile;
         private OrcDataSource dataSource;
 
-        public void setup(Type type)
+        public void setup(List<Type> types, Iterator<Page> pages)
                 throws Exception
         {
-            this.type = type;
+            this.types = types;
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnPresto(orcFile, NONE, type, createValues(), new OrcWriterStats());
+            OrcTester.writeOrcPages(orcFile, NONE, types, pages, new OrcWriterStats());
+
+            dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
+        }
+
+        public void setup(Type type, Iterator<?> values)
+                throws Exception
+        {
+            this.types = ImmutableList.of(type);
+            temporaryDirectory = createTempDir();
+            orcFile = new File(temporaryDirectory, randomUUID().toString());
+            writeOrcColumnPresto(orcFile, NONE, type, values, new OrcWriterStats());
 
             dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
         }
@@ -351,13 +377,6 @@ public class BenchmarkColumnReaders
             deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
         }
 
-        public Type getType()
-        {
-            return type;
-        }
-
-        protected abstract Iterator<?> createValues();
-
         OrcRecordReader createRecordReader()
                 throws IOException
         {
@@ -365,7 +384,7 @@ public class BenchmarkColumnReaders
                     .orElseThrow(() -> new RuntimeException("File is empty"));
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
-                    ImmutableList.of(type),
+                    types,
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),
@@ -402,11 +421,10 @@ public class BenchmarkColumnReaders
                 throws Exception
         {
             Type type = createTestMetadataManager().fromSqlType(typeName);
-            setup(type);
+            setup(type, createValues());
         }
 
-        @Override
-        protected final Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             return NULL_VALUES.iterator();
         }
@@ -420,11 +438,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BOOLEAN);
+            setup(BOOLEAN, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Boolean> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -442,11 +459,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BOOLEAN);
+            setup(BOOLEAN, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Boolean> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -464,11 +480,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TINYINT);
+            setup(TINYINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Byte> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -486,11 +501,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TINYINT);
+            setup(TINYINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Byte> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -513,11 +527,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SHORT_DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -535,11 +548,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SHORT_DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -562,11 +574,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(LONG_DECIMAL_TYPE);
+            setup(LONG_DECIMAL_TYPE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -584,11 +595,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(LONG_DECIMAL_TYPE);
+            setup(LONG_DECIMAL_TYPE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -611,11 +621,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(DOUBLE);
+            setup(DOUBLE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Double> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -633,11 +642,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(DOUBLE);
+            setup(DOUBLE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Double> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -660,11 +668,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(REAL);
+            setup(REAL, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Float> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -682,11 +689,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(REAL);
+            setup(REAL, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Float> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -717,11 +723,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BIGINT);
+            setup(BIGINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -747,11 +752,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BIGINT);
+            setup(BIGINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -782,11 +786,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(INTEGER);
+            setup(INTEGER, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Integer> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -812,11 +815,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(INTEGER);
+            setup(INTEGER, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Integer> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -847,11 +849,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SMALLINT);
+            setup(SMALLINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Short> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -877,11 +878,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SMALLINT);
+            setup(SMALLINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Short> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -904,11 +904,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR);
+            setup(VARCHAR, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -926,11 +925,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR);
+            setup(VARCHAR, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -953,11 +951,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR);
+            setup(VARCHAR, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<String> dictionary = createDictionary(random);
 
@@ -977,11 +974,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR);
+            setup(VARCHAR, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<String> dictionary = createDictionary(random);
 
@@ -1025,11 +1021,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP_MILLIS);
+            setup(TIMESTAMP_MILLIS, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -1047,11 +1042,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP_MILLIS);
+            setup(TIMESTAMP_MILLIS, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -1063,6 +1057,20 @@ public class BenchmarkColumnReaders
                 }
             }
             return values.iterator();
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class LineitemBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(
+                    getTableColumns("lineitem"),
+                    getTablePages("lineitem", 0.1));
         }
     }
 
