@@ -13,8 +13,10 @@
  */
 package io.prestosql.spi.block;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
 import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -38,9 +40,14 @@ public class LongArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, block);
 
-        for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
-                sliceOutput.writeLong(block.getLong(position, 0));
+        if (!block.mayHaveNull()) {
+            sliceOutput.writeBytes(getValuesSlice(block));
+        }
+        else {
+            for (int position = 0; position < positionCount; position++) {
+                if (!block.isNull(position)) {
+                    sliceOutput.writeLong(block.getLong(position, 0));
+                }
             }
         }
     }
@@ -53,12 +60,29 @@ public class LongArrayBlockEncoding
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         long[] values = new long[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                values[position] = sliceInput.readLong();
+        if (valueIsNull == null) {
+            sliceInput.readBytes(Slices.wrappedLongArray(values));
+        }
+        else {
+            for (int position = 0; position < values.length; position++) {
+                if (!valueIsNull[position]) {
+                    values[position] = sliceInput.readLong();
+                }
             }
         }
 
         return new LongArrayBlock(0, positionCount, valueIsNull, values);
+    }
+
+    private Slice getValuesSlice(Block block)
+    {
+        if (block instanceof LongArrayBlock) {
+            return ((LongArrayBlock) block).getValuesSlice();
+        }
+        else if (block instanceof LongArrayBlockBuilder) {
+            return ((LongArrayBlockBuilder) block).getValuesSlice();
+        }
+
+        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }
