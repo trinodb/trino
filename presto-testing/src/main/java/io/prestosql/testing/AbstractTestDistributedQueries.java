@@ -1473,6 +1473,7 @@ public abstract class AbstractTestDistributedQueries
     private List<DataMappingTestSetup> testDataMappingSmokeTestData()
     {
         return ImmutableList.<DataMappingTestSetup>builder()
+                .add(new DataMappingTestSetup("boolean", "false", "true"))
                 .add(new DataMappingTestSetup("tinyint", "37", "127"))
                 .add(new DataMappingTestSetup("smallint", "32123", "32767"))
                 .add(new DataMappingTestSetup("integer", "1274942432", "2147483647"))

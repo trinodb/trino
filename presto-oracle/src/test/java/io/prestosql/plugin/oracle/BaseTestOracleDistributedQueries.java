@@ -79,6 +79,10 @@ public abstract class BaseTestOracleDistributedQueries
         if (typeName.equals("time")) {
             return Optional.empty();
         }
+        if (typeName.equals("boolean")) {
+            // Oracle does not have native support for boolean however usually it is represented as number(1)
+            return Optional.empty();
+        }
 
         return Optional.of(dataMappingTestSetup);
     }
