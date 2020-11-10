@@ -51,6 +51,7 @@ import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @Command(
@@ -214,6 +215,15 @@ public class SuiteRun
         public TestRunResult executeSuiteTestRun(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
         {
             TestRun.TestRunOptions testRunOptions = createTestRunOptions(runId, suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
+            if (testRunOptions.timeout.toMillis() == 0) {
+                return new TestRunResult(
+                        runId,
+                        suiteTestRun,
+                        environmentConfig,
+                        new Duration(0, MILLISECONDS),
+                        Optional.of(new Exception("Test execution not attempted because suite total running time limit was exhausted")));
+            }
+
             log.info("Starting test run #%02d %s with config %s and remaining timeout %s", runId, suiteTestRun, environmentConfig, testRunOptions.timeout);
             log.info("Execute this test run using:\n%s test run %s", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, testRunOptions));
 
