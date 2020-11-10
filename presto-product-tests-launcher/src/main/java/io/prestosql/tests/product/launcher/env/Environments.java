@@ -14,6 +14,8 @@
 package io.prestosql.tests.product.launcher.env;
 
 import com.google.common.base.CaseFormat;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
@@ -54,6 +56,22 @@ public final class Environments
         }
         catch (RuntimeException e) {
             log.warn("Could not prune containers correctly: %s", getStackTraceAsString(e));
+        }
+    }
+
+    public static void pruneContainer(String containerId)
+    {
+        if (Strings.isNullOrEmpty(containerId)) {
+            return;
+        }
+
+        log.info("Shutting down container %s", containerId);
+
+        try {
+            killContainers(DockerClientFactory.lazyClient(), listContainersCmd -> listContainersCmd.withIdFilter(ImmutableList.of(containerId)));
+        }
+        catch (RuntimeException e) {
+            log.warn("Could not prune container correctly: %s", getStackTraceAsString(e));
         }
     }
 

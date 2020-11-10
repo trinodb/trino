@@ -213,10 +213,17 @@ public final class TestRun
                 Collection<DockerContainer> environmentContainers = allContainers.stream()
                         .filter(container -> !container.equals(testsContainer))
                         .collect(toImmutableList());
+
+                testsContainer.getDependencies().clear();
                 testsContainer.dependsOn(environmentContainers);
 
                 log.info("Starting the environment '%s' with configuration %s", this.environment, environmentConfig);
+                for (DockerContainer container : allContainers) {
+                    log.info("Container %s startup depends on %s", container.getLogicalName(), container.getDependencies());
+                }
+
                 environment.start();
+                log.info("Environment started");
             }
             else {
                 testsContainer.setNetwork(new ExistingNetwork(Environment.PRODUCT_TEST_LAUNCHER_NETWORK));

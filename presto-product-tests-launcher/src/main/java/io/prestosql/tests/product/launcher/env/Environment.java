@@ -217,25 +217,32 @@ public final class Environment
             while (testContainer.isRunning()) {
                 Thread.sleep(10000); // check every 10 seconds
 
+                log.info("Tests are still running...");
+
                 if (!attached && !allContainersHealthy(containers)) {
                     log.warn("Environment %s is not healthy, interrupting tests", name);
                     return ENVIRONMENT_FAILED_EXIT_CODE;
                 }
             }
 
-            InspectContainerResponse containerInfo = testContainer.getCurrentContainerInfo();
-            InspectContainerResponse.ContainerState containerState = containerInfo.getState();
-            Long exitCode = containerState.getExitCodeLong();
-            log.info("Test container %s is %s, with exitCode %s", containerInfo.getId(), containerState.getStatus(), exitCode);
-            checkState(exitCode != null, "No exitCode for tests container %s in state %s", testContainer, containerState);
+            InspectContainerResponse.ContainerState state = testContainer.state();
+            Long exitCode = state.getExitCodeLong();
+            log.info("Test container %s is %s, with exitCode %s", testContainer.getContainerId(), state.getStatus(), exitCode);
+            checkState(exitCode != null, "No exitCode for tests container %s in state %s", testContainer, state);
 
             return exitCode;
         }
         catch (InterruptedException e) {
+            log.info("Awaiting tests completion was interrupted: %s", e);
             // Gracefully stop environment and trigger listeners
             Thread.currentThread().interrupt();
             stop();
             throw new RuntimeException("Interrupted", e);
+        }
+        catch (Exception e) {
+            log.warn("Exception occured while waiting for test completion: %s", e);
+            stop();
+            throw new RuntimeException("Unknown", e);
         }
     }
 

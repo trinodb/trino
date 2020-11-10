@@ -46,11 +46,11 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.ofBytes;
+import static io.prestosql.tests.product.launcher.env.Environments.pruneContainer;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.size;
@@ -149,6 +149,18 @@ public class DockerContainer
 
         return withCopyFileToContainer(forHostPath(healthCheckScript), "/usr/local/bin/health.sh")
                 .withCreateContainerCmdModifier(command -> command.withHealthcheck(cmd));
+    }
+
+    @Override
+    public boolean isRunning()
+    {
+        try {
+            return (boolean) executor.getAsync(() -> super.isRunning()).get();
+        }
+        catch (InterruptedException | ExecutionException e) {
+            log.warn("Could not check if container %s is running: %s", getContainerId(), e);
+            return false;
+        }
     }
 
     @Override
@@ -285,6 +297,18 @@ public class DockerContainer
         return statistics.get();
     }
 
+    public InspectContainerResponse.ContainerState state()
+    {
+        try {
+            InspectContainerResponse containerInfo = (InspectContainerResponse) executor.getAsync(() -> getCurrentContainerInfo()).get();
+            return containerInfo.getState();
+        }
+        catch (Exception e) {
+            log.warn("Could not get container state: %s", e);
+            throw new RuntimeException(e);
+        }
+    }
+
     public DockerContainer waitingForAll(WaitStrategy... strategies)
     {
         WaitAllStrategy waitAllStrategy = new WaitAllStrategy();
@@ -333,10 +357,11 @@ public class DockerContainer
     public boolean isHealthy()
     {
         try {
-            return super.isHealthy();
+            return (boolean) executor.runAsync(() -> super.isHealthy()).get();
         }
-        catch (RuntimeException ignored) {
+        catch (RuntimeException | InterruptedException | ExecutionException e) {
             // Container without health checks will throw
+            log.warn("Could not check if container %s is healthy: %s", getContainerId(), e);
             return true;
         }
     }
@@ -405,7 +430,9 @@ public class DockerContainer
             log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
         }
 
-        checkState(!isRunning(), "Container %s is still running", logicalName);
+        if (this.isRunning()) {
+            pruneContainer(getContainerId());
+        }
     }
 
     public enum OutputMode

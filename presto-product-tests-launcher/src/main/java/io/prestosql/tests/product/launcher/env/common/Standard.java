@@ -22,7 +22,6 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.ServerPackage;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 
 import javax.inject.Inject;
 
@@ -112,7 +111,6 @@ public final class Standard
         DockerContainer container = new DockerContainer("prestodev/centos6-oj8:" + imagesVersion, TESTS)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
-                .waitingFor(new WaitAllStrategy()) // don't wait
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy());
 
         return container;

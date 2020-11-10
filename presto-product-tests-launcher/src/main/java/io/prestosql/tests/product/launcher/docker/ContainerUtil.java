@@ -20,6 +20,7 @@ import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Network;
+import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.DockerClientFactory;
@@ -30,6 +31,8 @@ import java.util.function.Function;
 
 public final class ContainerUtil
 {
+    private static final Logger log = Logger.get(ContainerUtil.class);
+
     private ContainerUtil() {}
 
     public static void killContainers(DockerClient dockerClient, Function<ListContainersCmd, ListContainersCmd> filter)
@@ -40,15 +43,18 @@ public final class ContainerUtil
 
             List<Container> containers = listContainersCmd.exec();
             if (containers.isEmpty()) {
+                log.info("There are no running containers to kill");
                 break;
             }
             for (Container container : containers) {
                 try {
+                    log.info("Removing container %s", container.getId());
                     dockerClient.removeContainerCmd(container.getId())
                             .withForce(true)
                             .exec();
                 }
-                catch (ConflictException | NotFoundException ignored) {
+                catch (ConflictException | NotFoundException e) {
+                    log.warn("Could not force remove container: %s", e);
                 }
             }
         }
@@ -63,8 +69,9 @@ public final class ContainerUtil
                 dockerClient.removeNetworkCmd(network.getId())
                         .exec();
             }
-            catch (NotFoundException ignored) {
+            catch (NotFoundException e) {
                 // Possible when previous tests invocation leaves a network behind and it is being garbage collected by Ryuk in the background.
+                log.warn("Could not remove network", e);
             }
         }
     }
