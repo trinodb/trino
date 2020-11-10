@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.block;
 
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -332,6 +334,11 @@ public class LongArrayBlockBuilder
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
+    }
+
+    Slice getValuesSlice()
+    {
+        return Slices.wrappedLongArray(values, 0, positionCount);
     }
 
     private void checkReadablePosition(int position)
