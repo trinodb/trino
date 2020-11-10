@@ -19,13 +19,12 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
 
+import static io.prestosql.cli.TerminalUtils.isRealTerminal;
 import static java.util.Objects.requireNonNull;
 import static org.jline.terminal.TerminalBuilder.terminal;
 
 public class ConsolePrinter
 {
-    public static final boolean REAL_TERMINAL = detectRealTerminal();
-
     private static final String ERASE_SCREEN_FORWARD = "\033[0J";
     private static final String ERASE_LINE_ALL = "\033[2K";
 
@@ -84,22 +83,6 @@ public class ConsolePrinter
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
-        }
-    }
-
-    public boolean isRealTerminal()
-    {
-        return REAL_TERMINAL;
-    }
-
-    protected static boolean detectRealTerminal()
-    {
-        try (Terminal terminal = terminal()) {
-            return !Terminal.TYPE_DUMB.equals(terminal.getType()) &&
-                    !Terminal.TYPE_DUMB_COLOR.equals(terminal.getType());
-        }
-        catch (IOException e) {
-            return false;
         }
     }
 

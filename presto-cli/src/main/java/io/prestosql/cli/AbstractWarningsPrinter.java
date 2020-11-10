@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.cli.ConsolePrinter.REAL_TERMINAL;
+import static io.prestosql.cli.TerminalUtils.isRealTerminal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.jline.utils.AttributedStyle.DEFAULT;
@@ -41,7 +41,7 @@ abstract class AbstractWarningsPrinter
     private String getWarningMessage(Warning warning)
     {
         // If this is a real terminal color the warnings yellow
-        if (REAL_TERMINAL) {
+        if (isRealTerminal()) {
             return new AttributedStringBuilder()
                     .style(DEFAULT.foreground(YELLOW))
                     .append("WARNING: ")
