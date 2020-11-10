@@ -42,6 +42,7 @@ import static io.prestosql.cli.FormatUtils.formatFinalTime;
 import static io.prestosql.cli.FormatUtils.formatProgressBar;
 import static io.prestosql.cli.FormatUtils.formatTime;
 import static io.prestosql.cli.FormatUtils.pluralize;
+import static io.prestosql.cli.TerminalUtils.isRealTerminal;
 import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -240,7 +241,7 @@ Spilled: 20GB
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
         int progressPercentage = (int) min(99, stats.getProgressPercentage().orElse(0.0));
 
-        if (console.isRealTerminal()) {
+        if (isRealTerminal()) {
             // blank line
             reprintLine("");
 

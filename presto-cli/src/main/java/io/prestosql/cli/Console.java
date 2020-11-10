@@ -58,9 +58,9 @@ import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.prestosql.cli.Completion.commandCompleter;
-import static io.prestosql.cli.ConsolePrinter.detectRealTerminal;
 import static io.prestosql.cli.Help.getHelpText;
 import static io.prestosql.cli.QueryPreprocessor.preprocessQuery;
+import static io.prestosql.cli.TerminalUtils.isRealTerminal;
 import static io.prestosql.client.ClientSession.stripTransactionId;
 import static io.prestosql.sql.parser.StatementSplitter.Statement;
 import static io.prestosql.sql.parser.StatementSplitter.isEmptyStatement;
@@ -130,7 +130,7 @@ public class Console
         }
 
         // Read queries from stdin
-        if (!hasQuery && !detectRealTerminal()) {
+        if (!hasQuery && !isRealTerminal()) {
             try {
                 if (System.in.available() > 0) {
                     query = new String(ByteStreams.toByteArray(System.in), terminal().encoding()) + ";";
