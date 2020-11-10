@@ -1355,9 +1355,8 @@ class StatementAnalyzer
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
             analysis.unregisterTableForView();
 
-            if (isViewStale(view.getColumns(), descriptor.getVisibleFields(), name, table)) {
-                throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
-            }
+            checkViewStaleness(view.getColumns(), descriptor.getVisibleFields(), name, table)
+                    .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
 
             // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
             // This is needed in case the underlying table(s) changed and the query in the view now produces types that
@@ -1410,9 +1409,8 @@ class StatementAnalyzer
             analysis.unregisterTableForView();
 
             List<ConnectorViewDefinition.ViewColumn> viewColumns = translateMaterializedViewColumns(view.getColumns());
-            if (isViewStale(viewColumns, descriptor.getVisibleFields(), name, table)) {
-                throw semanticException(VIEW_IS_STALE, table, "Materialized View '%s' is stale; it must be re-created", name);
-            }
+            checkViewStaleness(viewColumns, descriptor.getVisibleFields(), name, table)
+                    .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "Materialized View '%s' is stale or in invalid state: %s", name, explanation); });
 
             // Derive the type of the materialized view from the stored definition, not from the analysis of the underlying query.
             // This is needed in case the underlying table(s) changed and the query in the materialized view now produces types that
@@ -2600,10 +2598,13 @@ class StatementAnalyzer
             }
         }
 
-        private boolean isViewStale(List<ViewColumn> columns, Collection<Field> fields, QualifiedObjectName name, Node node)
+        private Optional<String> checkViewStaleness(List<ViewColumn> columns, Collection<Field> fields, QualifiedObjectName name, Node node)
         {
             if (columns.size() != fields.size()) {
-                return true;
+                return Optional.of(format(
+                        "stored view column count (%s) does not match column count derived from the view query analysis (%s)",
+                        columns.size(),
+                        fields.size()));
             }
 
             List<Field> fieldList = ImmutableList.copyOf(fields);
@@ -2611,13 +2612,34 @@ class StatementAnalyzer
                 ViewColumn column = columns.get(i);
                 Type type = getViewColumnType(column, name, node);
                 Field field = fieldList.get(i);
-                if (!column.getName().equalsIgnoreCase(field.getName().orElse(null)) ||
-                        !typeCoercion.canCoerce(field.getType(), type)) {
-                    return true;
+                if (field.getName().isEmpty()) {
+                    return Optional.of(format(
+                            "a column of type %s projected from query view at position %s has no name",
+                            field.getType(),
+                            i));
+                }
+                String fieldName = field.getName().orElseThrow();
+                if (!column.getName().equalsIgnoreCase(fieldName)) {
+                    return Optional.of(format(
+                            "column [%s] of type %s projected from query view at position %s has a different name from column [%s] of type %s stored in view definition",
+                            fieldName,
+                            field.getType(),
+                            i,
+                            column.getName(),
+                            type));
+                }
+                if (!typeCoercion.canCoerce(field.getType(), type)) {
+                    return Optional.of(format(
+                            "column [%s] of type %s projected from query view at position %s cannot be coerced to column [%s] of type %s stored in view definition",
+                            fieldName,
+                            field.getType(),
+                            i,
+                            column.getName(),
+                            type));
                 }
             }
 
-            return false;
+            return Optional.empty();
         }
 
         private Type getViewColumnType(ViewColumn column, QualifiedObjectName name, Node node)

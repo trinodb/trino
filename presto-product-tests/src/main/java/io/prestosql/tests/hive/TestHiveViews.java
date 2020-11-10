@@ -73,23 +73,25 @@ public class TestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    // TODO (https://github.com/prestosql/presto/issues/5911) the test does not test view coercion
     public void testViewWithUnsupportedCoercion()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_unsupported_coercion");
         onHive().executeQuery("CREATE VIEW view_with_unsupported_coercion AS SELECT length(n_comment) FROM nation");
 
         assertThat(() -> query("SELECT COUNT(*) FROM view_with_unsupported_coercion"))
-                .failsWithMessage("View 'hive.default.view_with_unsupported_coercion' is stale; it must be re-created");
+                .failsWithMessage("View 'hive.default.view_with_unsupported_coercion' is stale or in invalid state: a column of type bigint projected from query view at position 0 has no name");
     }
 
     @Test(groups = HIVE_VIEWS)
+    // TODO (https://github.com/prestosql/presto/issues/5911) the test does not test view coercion
     public void testWithUnsupportedFunction()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_repeat_function");
         onHive().executeQuery("CREATE VIEW view_with_repeat_function AS SELECT REPEAT(n_comment,2) FROM nation");
 
         assertThat(() -> query("SELECT COUNT(*) FROM view_with_repeat_function"))
-                .failsWithMessage("View 'hive.default.view_with_repeat_function' is stale; it must be re-created");
+                .failsWithMessage("View 'hive.default.view_with_repeat_function' is stale or in invalid state: a column of type array(varchar(152)) projected from query view at position 0 has no name");
     }
 
     @Test(groups = HIVE_VIEWS)
