@@ -72,6 +72,7 @@ public final class TestRun
     private static final Logger log = Logger.get(TestRun.class);
 
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    @SuppressWarnings("unused")
     public boolean usageHelpRequested;
 
     @Mixin
@@ -175,7 +176,7 @@ public final class TestRun
                 int exitCode = Failsafe
                         .with(Timeout.of(java.time.Duration.ofMillis(timeout.toMillis()))
                                 .withCancel(true))
-                        .get(() -> tryExecuteTests());
+                        .get(this::tryExecuteTests);
 
                 log.info("Tests execution completed with code %d", exitCode);
                 return exitCode;
