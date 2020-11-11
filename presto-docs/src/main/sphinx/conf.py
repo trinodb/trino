@@ -81,8 +81,6 @@ highlight_language = 'sql'
 
 default_role = 'backquote'
 
-copybutton_image_path = 'copy-icon.svg'
-
 rst_epilog = """
 .. |presto_server_release| replace:: ``presto-server-{release}``
 """.replace('{release}', release)
