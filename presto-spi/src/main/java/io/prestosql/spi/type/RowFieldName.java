@@ -13,11 +13,14 @@
  */
 package io.prestosql.spi.type;
 
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public class RowFieldName
+@Immutable
+public final class RowFieldName
 {
     private final String name;
 

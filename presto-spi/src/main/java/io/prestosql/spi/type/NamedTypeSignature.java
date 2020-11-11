@@ -13,13 +13,16 @@
  */
 package io.prestosql.spi.type;
 
+import javax.annotation.concurrent.Immutable;
+
 import java.util.Objects;
 import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class NamedTypeSignature
+@Immutable
+public final class NamedTypeSignature
 {
     private final Optional<RowFieldName> fieldName;
     private final TypeSignature typeSignature;

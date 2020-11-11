@@ -15,6 +15,8 @@ package io.prestosql.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
+import javax.annotation.concurrent.Immutable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -27,7 +29,8 @@ import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
-public class TypeSignature
+@Immutable
+public final class TypeSignature
 {
     private static final String TIMESTAMP_WITH_TIME_ZONE = "timestamp with time zone";
     private static final String TIMESTAMP_WITHOUT_TIME_ZONE = "timestamp without time zone";
