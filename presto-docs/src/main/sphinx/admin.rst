@@ -14,3 +14,4 @@ Administration
     admin/session-property-managers
     admin/dist-sort
     admin/dynamic-filtering
+    admin/graceful-shutdown
