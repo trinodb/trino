@@ -64,6 +64,11 @@ public class TestingDruidServer
 
     public TestingDruidServer()
     {
+        this(DRUID_DOCKER_IMAGE);
+    }
+
+    public TestingDruidServer(String dockerImageName)
+    {
         try {
             // Cannot use Files.createTempDirectory() because on Mac by default it uses
             // /var/folders/ which is not visible to Docker for Mac
@@ -84,7 +89,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forListeningPort());
             zookeeper.start();
 
-            this.coordinator = new GenericContainer<>(DRUID_DOCKER_IMAGE)
+            this.coordinator = new GenericContainer<>(dockerImageName)
                     .withExposedPorts(DRUID_COORDINATOR_PORT)
                     .withNetwork(network)
                     .withCommand("coordinator")
