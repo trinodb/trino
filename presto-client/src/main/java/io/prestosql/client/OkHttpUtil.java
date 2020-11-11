@@ -14,7 +14,6 @@
 package io.prestosql.client;
 
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
@@ -246,22 +245,16 @@ public final class OkHttpUtil
 
     public static void setupChannelSocket(OkHttpClient.Builder clientBuilder)
     {
-        // Enable socket factory only for pre JDK 11
-        if (!isAtLeastJava11()) {
+        // Enable socket factory only for pre JDK8u242
+        if (!isAtLeastJava8u242()) {
             clientBuilder.socketFactory(new SocketChannelSocketFactory());
             clientBuilder.protocols(ImmutableList.of(Protocol.HTTP_1_1));
         }
     }
 
-    private static boolean isAtLeastJava11()
+    private static boolean isAtLeastJava8u242()
     {
-        String feature = Splitter.on(".").split(StandardSystemProperty.JAVA_VERSION.value()).iterator().next();
-        try {
-            return Integer.parseInt(feature) >= 11;
-        }
-        catch (NumberFormatException e) {
-            return false;
-        }
+        return StandardSystemProperty.JAVA_VERSION.value().compareTo("1.8.0_242") > 0;
     }
 
     private static void validateCertificates(KeyStore keyStore)
