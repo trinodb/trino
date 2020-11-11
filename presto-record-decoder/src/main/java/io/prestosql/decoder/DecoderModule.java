@@ -15,6 +15,7 @@ package io.prestosql.decoder;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
 import io.prestosql.decoder.avro.AvroRowDecoder;
 import io.prestosql.decoder.avro.AvroRowDecoderFactory;
@@ -28,6 +29,7 @@ import io.prestosql.decoder.raw.RawRowDecoder;
 import io.prestosql.decoder.raw.RawRowDecoderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 
 /**
  * Default decoder module. Installs the registry and all known decoder submodules.
@@ -38,13 +40,22 @@ public class DecoderModule
     @Override
     public void configure(Binder binder)
     {
-        MapBinder<String, RowDecoderFactory> decoderFactoriesByName = MapBinder.newMapBinder(binder, String.class, RowDecoderFactory.class);
-        decoderFactoriesByName.addBinding(DummyRowDecoder.NAME).to(DummyRowDecoderFactory.class).in(SINGLETON);
-        decoderFactoriesByName.addBinding(CsvRowDecoder.NAME).to(CsvRowDecoderFactory.class).in(SINGLETON);
-        decoderFactoriesByName.addBinding(JsonRowDecoder.NAME).to(JsonRowDecoderFactory.class).in(SINGLETON);
-        decoderFactoriesByName.addBinding(RawRowDecoder.NAME).to(RawRowDecoderFactory.class).in(SINGLETON);
-        decoderFactoriesByName.addBinding(AvroRowDecoder.NAME).to(AvroRowDecoderFactory.class).in(SINGLETON);
+        bindDecoderFactory(binder, DummyRowDecoder.NAME, DummyRowDecoderFactory.class);
+        bindDecoderFactory(binder, CsvRowDecoder.NAME, CsvRowDecoderFactory.class);
+        bindDecoderFactory(binder, JsonRowDecoder.NAME, JsonRowDecoderFactory.class);
+        bindDecoderFactory(binder, RawRowDecoder.NAME, RawRowDecoderFactory.class);
+        bindDecoderFactory(binder, AvroRowDecoder.NAME, AvroRowDecoderFactory.class);
 
         binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
+    }
+
+    public static MapBinder<String, RowDecoderFactory> decoderFactoriesByName(Binder binder)
+    {
+        return newMapBinder(binder, String.class, RowDecoderFactory.class);
+    }
+
+    public static void bindDecoderFactory(Binder binder, String name, Class<? extends RowDecoderFactory> decoderFactory)
+    {
+        decoderFactoriesByName(binder).addBinding(name).to(decoderFactory).in(Scopes.SINGLETON);
     }
 }
