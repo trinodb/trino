@@ -401,6 +401,7 @@ public class PlanNodeDecorrelator
                     .map(node, childDecorrelationResult.node);
 
             Set<Symbol> groupingKeys = ImmutableSet.copyOf(node.getGroupingKeys());
+            checkState(ImmutableSet.copyOf(decorrelatedAggregation.getGroupingKeys()).equals(groupingKeys), "grouping keys were correlated");
             List<Symbol> symbolsToAdd = childDecorrelationResult.symbolsToPropagate.stream()
                     .filter(symbol -> !groupingKeys.contains(symbol))
                     .collect(toImmutableList());
