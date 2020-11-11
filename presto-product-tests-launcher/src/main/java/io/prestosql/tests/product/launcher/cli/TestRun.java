@@ -54,11 +54,9 @@ import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TEST
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.lang.StrictMath.toIntExact;
-import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
-import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
@@ -276,10 +274,7 @@ public final class TestRun
                                                 .build()))
                                 .addAll(testArguments)
                                 .addAll(reportsDirOptions(reportsDirBase))
-                                .build().toArray(new String[0]))
-                        // this message marks that environment has started and tests are running
-                        .waitingFor(forLogMessage(".*\\[TestNG] Running.*", 1)
-                                .withStartupTimeout(ofMinutes(15)));
+                                .build().toArray(new String[0]));
             });
 
             builder.setAttached(attach);
