@@ -40,20 +40,6 @@ pre.literal-block {
     font-size: 0.6rem;
 }
 
-a.copybtn {
-    opacity: 1.0;
-    width: 1.1em;
-    height: 1.1em;
-    top: .4em;
-    right: .4em;
-}
-
-.highlight {
-    padding: 1em 0.5em;
-}
-
 .copybtn:hover {
-    opacity: 0.3 !important;
-    cursor: pointer;
+    cursor: copy;
 }
-
