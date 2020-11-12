@@ -46,13 +46,18 @@ public class PruneValuesColumns
             return Optional.empty();
         }
 
+        List<Symbol> newOutputs = filteredCopy(valuesNode.getOutputSymbols(), referencedOutputs::contains);
+
+        // no output symbols left
+        if (newOutputs.isEmpty()) {
+            return Optional.of(new ValuesNode(valuesNode.getId(), valuesNode.getRowCount()));
+        }
+
         checkState(valuesNode.getRows().isPresent(), "rows is empty");
         // if any of ValuesNode's rows is specified by expression other than Row, the redundant piece cannot be extracted and pruned
         if (!valuesNode.getRows().get().stream().allMatch(Row.class::isInstance)) {
             return Optional.empty();
         }
-
-        List<Symbol> newOutputs = filteredCopy(valuesNode.getOutputSymbols(), referencedOutputs::contains);
 
         // for each output of project, the corresponding column in the values node
         int[] mapping = new int[newOutputs.size()];
