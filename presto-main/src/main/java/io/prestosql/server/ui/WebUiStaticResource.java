@@ -62,6 +62,26 @@ public class WebUiStaticResource
         return Response.status(NOT_FOUND).build();
     }
 
+    // asset files are always visible
+    @ResourceSecurity(PUBLIC)
+    @GET
+    @Path("/ui/assets/{path: .*}")
+    public Response getAssetsFile(@PathParam("path") String path, @Context ServletContext servletContext)
+            throws IOException
+    {
+        return getFile("assets/" + path, servletContext);
+    }
+
+    // vendor files are always visible
+    @ResourceSecurity(PUBLIC)
+    @GET
+    @Path("/ui/vendor/{path: .*}")
+    public Response getVendorFile(@PathParam("path") String path, @Context ServletContext servletContext)
+            throws IOException
+    {
+        return getFile("vendor/" + path, servletContext);
+    }
+
     @ResourceSecurity(WEB_UI)
     @GET
     @Path("/ui/{path: .*}")
