@@ -14,6 +14,7 @@
 package io.prestosql.spi.eventlistener;
 
 import java.time.Instant;
+import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,5 +45,13 @@ public class QueryCreatedEvent
     public QueryMetadata getMetadata()
     {
         return metadata;
+    }
+
+    @Override
+    public String toString()
+    {
+        return new StringJoiner(", ", QueryCreatedEvent.class.getSimpleName() + "[", "]")
+                .add("queryId='" + getMetadata().getQueryId() + "'")
+                .toString();
     }
 }
