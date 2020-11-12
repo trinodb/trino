@@ -246,7 +246,7 @@ public final class TestRun
                     exposePort(container, 5007); // debug port
                 }
 
-                if (Boolean.getBoolean("CONTINUOUS_INTEGRATION")) {
+                if (System.getenv("CONTINUOUS_INTEGRATION") != null) {
                     container.withEnv("CONTINUOUS_INTEGRATION", "true");
                 }
 
