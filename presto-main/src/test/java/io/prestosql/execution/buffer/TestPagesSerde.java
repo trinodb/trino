@@ -68,7 +68,7 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertEquals(pageSize, 48); // page overhead ideally 35 but since a 0 sized block will be a RLEBlock we have an overhead of 13
+        assertEquals(pageSize, 52); // page overhead ideally 35 but since a 0 sized block will be a RLEBlock we have an overhead of 17
 
         // page with one value
         BIGINT.writeLong(builder, 123);
