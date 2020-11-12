@@ -40,6 +40,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.isEqual;
 
 public abstract class AbstractResourceConfigurationManager
@@ -127,7 +128,7 @@ public abstract class AbstractResourceConfigurationManager
     private void validateQueryType(String queryType)
     {
         try {
-            QueryType.valueOf(queryType.toUpperCase());
+            QueryType.valueOf(queryType.toUpperCase(ENGLISH));
         }
         catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(format("Selector specifies an invalid query type: %s", queryType));

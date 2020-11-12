@@ -329,7 +329,7 @@ public class PhoenixClient
         }
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
-            String elementDataType = toWriteMapping(session, elementType).getDataType().toUpperCase();
+            String elementDataType = toWriteMapping(session, elementType).getDataType().toUpperCase(ENGLISH);
             String elementWriteName = getArrayElementPhoenixTypeName(session, this, elementType);
             return WriteMapping.objectMapping(elementDataType + " ARRAY", arrayWriteFunction(session, elementType, elementWriteName));
         }

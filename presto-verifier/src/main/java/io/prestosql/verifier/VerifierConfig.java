@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import static io.prestosql.verifier.QueryType.CREATE;
 import static io.prestosql.verifier.QueryType.MODIFY;
 import static io.prestosql.verifier.QueryType.READ;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class VerifierConfig
@@ -189,7 +190,7 @@ public class VerifierConfig
 
         ImmutableSet.Builder<QueryType> builder = ImmutableSet.builder();
         for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(types)) {
-            builder.add(QueryType.valueOf(value.toUpperCase()));
+            builder.add(QueryType.valueOf(value.toUpperCase(ENGLISH)));
         }
 
         this.controlQueryTypes = builder.build();
@@ -212,7 +213,7 @@ public class VerifierConfig
 
         ImmutableSet.Builder<QueryType> builder = ImmutableSet.builder();
         for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(types)) {
-            builder.add(QueryType.valueOf(value.toUpperCase()));
+            builder.add(QueryType.valueOf(value.toUpperCase(ENGLISH)));
         }
 
         this.testQueryTypes = builder.build();

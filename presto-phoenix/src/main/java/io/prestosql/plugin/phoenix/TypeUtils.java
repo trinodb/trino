@@ -55,6 +55,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -78,7 +79,7 @@ public final class TypeUtils
             return "DECIMAL";
         }
 
-        return client.toWriteMapping(session, elementType).getDataType().toUpperCase();
+        return client.toWriteMapping(session, elementType).getDataType().toUpperCase(ENGLISH);
     }
 
     public static Block jdbcObjectArrayToBlock(ConnectorSession session, Type type, Object[] elements)

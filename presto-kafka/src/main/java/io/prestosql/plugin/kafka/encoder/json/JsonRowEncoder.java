@@ -51,6 +51,7 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class JsonRowEncoder
@@ -118,7 +119,7 @@ public class JsonRowEncoder
     private DateTimeFormat parseDataFormat(String dataFormat, String columnName)
     {
         try {
-            return DateTimeFormat.valueOf(dataFormat.toUpperCase().replaceAll("-", "_").strip());
+            return DateTimeFormat.valueOf(dataFormat.toUpperCase(ENGLISH).replaceAll("-", "_").strip());
         }
         catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(format("Unable to parse data format '%s' for column '%s'", dataFormat, columnName), e);

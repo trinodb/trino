@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.END_TIME;
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.START_TIME;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class AtopMetadata
@@ -74,7 +75,7 @@ public class AtopMetadata
             return null;
         }
         try {
-            AtopTable table = AtopTable.valueOf(tableName.getTableName().toUpperCase());
+            AtopTable table = AtopTable.valueOf(tableName.getTableName().toUpperCase(ENGLISH));
             return new AtopTableHandle(schemaName, table);
         }
         catch (IllegalArgumentException e) {
