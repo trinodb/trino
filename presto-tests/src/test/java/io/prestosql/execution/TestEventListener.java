@@ -67,7 +67,7 @@ public class TestEventListener
 {
     private static final int SPLITS_PER_NODE = 3;
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
-    private final EventsBuilder generatedEvents = new EventsBuilder(queryMetadata -> !queryMetadata.getQuery().contains(IGNORE_EVENT_MARKER));
+    private final EventsCollector generatedEvents = new EventsCollector(queryMetadata -> !queryMetadata.getQuery().contains(IGNORE_EVENT_MARKER));
     private EventsAwaitingQueries queries;
 
     @Override

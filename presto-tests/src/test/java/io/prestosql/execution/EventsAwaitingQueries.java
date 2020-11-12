@@ -27,13 +27,13 @@ import static org.testng.Assert.fail;
 
 class EventsAwaitingQueries
 {
-    private final EventsBuilder eventsBuilder;
+    private final EventsCollector eventsCollector;
 
     private final QueryRunner queryRunner;
 
-    EventsAwaitingQueries(EventsBuilder eventsBuilder, QueryRunner queryRunner)
+    EventsAwaitingQueries(EventsCollector eventsCollector, QueryRunner queryRunner)
     {
-        this.eventsBuilder = requireNonNull(eventsBuilder, "eventsBuilder is null");
+        this.eventsCollector = requireNonNull(eventsCollector, "eventsBuilder is null");
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
     }
 
@@ -46,7 +46,7 @@ class EventsAwaitingQueries
     MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession, Optional<String> expectedExceptionRegEx)
             throws Exception
     {
-        eventsBuilder.reset(numEventsExpected);
+        eventsCollector.reset(numEventsExpected);
         MaterializedResult result = null;
         try {
             result = queryRunner.execute(alternateSession, sql);
@@ -63,7 +63,7 @@ class EventsAwaitingQueries
             }
         }
 
-        eventsBuilder.waitForEvents(10);
+        eventsCollector.waitForEvents(10);
 
         return result;
     }

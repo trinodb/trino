@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Test(singleThreaded = true)
 public class TestConnectorEventListener
 {
-    private final EventsBuilder generatedEvents = new EventsBuilder();
+    private final EventsCollector generatedEvents = new EventsCollector();
 
     private DistributedQueryRunner queryRunner;
     private Session session;

@@ -27,7 +27,7 @@ import java.util.function.Predicate;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.util.Objects.requireNonNull;
 
-class EventsBuilder
+class EventsCollector
 {
     private final Predicate<QueryMetadata> queryFilter;
     private ImmutableList.Builder<QueryCreatedEvent> queryCreatedEvents;
@@ -36,12 +36,12 @@ class EventsBuilder
 
     private CountDownLatch eventsLatch;
 
-    public EventsBuilder()
+    public EventsCollector()
     {
         this(alwaysTrue());
     }
 
-    public EventsBuilder(Predicate<QueryMetadata> queryFilter)
+    public EventsCollector(Predicate<QueryMetadata> queryFilter)
     {
         this.queryFilter = requireNonNull(queryFilter, "filter is null");
         reset(0);

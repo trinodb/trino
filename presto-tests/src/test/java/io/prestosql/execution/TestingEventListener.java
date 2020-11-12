@@ -21,28 +21,28 @@ import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 class TestingEventListener
         implements EventListener
 {
-    private final EventsBuilder eventsBuilder;
+    private final EventsCollector eventsCollector;
 
-    public TestingEventListener(EventsBuilder eventsBuilder)
+    public TestingEventListener(EventsCollector eventsCollector)
     {
-        this.eventsBuilder = eventsBuilder;
+        this.eventsCollector = eventsCollector;
     }
 
     @Override
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
-        eventsBuilder.addQueryCreated(queryCreatedEvent);
+        eventsCollector.addQueryCreated(queryCreatedEvent);
     }
 
     @Override
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
-        eventsBuilder.addQueryCompleted(queryCompletedEvent);
+        eventsCollector.addQueryCompleted(queryCompletedEvent);
     }
 
     @Override
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
-        eventsBuilder.addSplitCompleted(splitCompletedEvent);
+        eventsCollector.addSplitCompleted(splitCompletedEvent);
     }
 }
