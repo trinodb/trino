@@ -43,13 +43,13 @@ class EventsAwaitingQueries
         return runQueryAndWaitForEvents(sql, numEventsExpected, session, Optional.empty());
     }
 
-    MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession, Optional<String> expectedExceptionRegEx)
+    MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session session, Optional<String> expectedExceptionRegEx)
             throws Exception
     {
         eventsCollector.reset(numEventsExpected);
         MaterializedResult result = null;
         try {
-            result = queryRunner.execute(alternateSession, sql);
+            result = queryRunner.execute(session, sql);
         }
         catch (RuntimeException exception) {
             if (expectedExceptionRegEx.isPresent()) {
