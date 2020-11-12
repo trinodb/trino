@@ -16,6 +16,7 @@ package io.prestosql.tests.product.launcher.env;
 import java.io.File;
 
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static java.lang.System.getenv;
 import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions
@@ -25,7 +26,7 @@ public final class EnvironmentOptions
     @Option(names = "--config", paramLabel = "<config>", description = "Environment config to use")
     public String config = "config-default";
 
-    @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Presto server package " + DEFAULT_VALUE, defaultValue = "${server.module}/target/${server.name}-${project.version}.tar.gz")
+    @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Presto server package " + DEFAULT_VALUE, defaultValue = "${rootdir}/${server.module}/target/${server.name}-${project.version}.tar.gz")
     public File serverPackage;
 
     @Option(names = "--without-presto", description = "Do not start " + COORDINATOR)
@@ -35,7 +36,7 @@ public final class EnvironmentOptions
     public boolean bindPorts = true;
 
     @Option(names = "--debug", description = "Open Java debug ports")
-    public boolean debug;
+    public boolean debug = "true".equals(getenv("PT_DEBUG"));
 
     @Option(names = "--output", description = "Container output handling mode: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "PRINT")
     public DockerContainer.OutputMode output;

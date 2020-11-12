@@ -133,6 +133,19 @@
             <artifactId>testng</artifactId>
         </dependency>
 
+        <!-- to run product tests from IntelliJ -->
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-product-tests-launcher</artifactId>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>net.java.dev.jna</groupId>
+                    <artifactId>jna-platform</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <dependency>
             <groupId>io.prestosql.hive</groupId>
             <artifactId>hive-apache-jdbc</artifactId>

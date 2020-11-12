@@ -1,0 +1,14 @@
+#!/bin/sh -e
+get_classpath() {
+    while true; do
+        if [ "$1" = -classpath ]; then
+            echo "$2"
+            return
+        fi
+        shift
+        shift
+    done
+    false
+}
+classpath="$(get_classpath "$@")"
+exec "$_PT_JAVA_EXE" -classpath "$classpath" io.prestosql.tests.product.launcher.cli.Launcher env run -- java "$@"

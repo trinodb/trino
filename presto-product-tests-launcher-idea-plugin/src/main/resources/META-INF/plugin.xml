@@ -1,0 +1,9 @@
+<idea-plugin>
+    <id>io.prestosql.tests.product.launcher.idea</id>
+    <name>Presto Product Tests Launcher</name>
+    <vendor url="https://prestosql.io/">Presto</vendor>
+    <depends>TestNG-J</depends>
+    <extensions defaultExtensionNs="com.intellij">
+        <java.programPatcher implementation="io.prestosql.tests.product.launcher.idea.ProductTestPatcher" />
+    </extensions>
+</idea-plugin>
