@@ -14,10 +14,9 @@
 package io.prestosql.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
-import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.block.TestingSession.SESSION;
+import static io.prestosql.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -58,12 +57,5 @@ public class TestDictionaryBlockEncoding
             assertEquals(actualDictionaryBlock.getId(position), ids[position]);
         }
         assertEquals(actualDictionaryBlock.getDictionarySourceId(), dictionaryBlock.getDictionarySourceId());
-    }
-
-    private static void assertBlockEquals(Type type, Block actual, Block expected)
-    {
-        for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
-        }
     }
 }
