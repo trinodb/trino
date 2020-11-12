@@ -72,6 +72,8 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class Statistics
@@ -373,12 +375,12 @@ public final class Statistics
 
         // MAX_VALUE_SIZE_IN_BYTES
         if (computedStatistics.containsKey(MAX_VALUE_SIZE_IN_BYTES)) {
-            result.setMaxValueSizeInBytes(getIntegerValue(session, BIGINT, computedStatistics.get(MAX_VALUE_SIZE_IN_BYTES)));
+            result.setMaxValueSizeInBytes(getIntegerValue(BIGINT, computedStatistics.get(MAX_VALUE_SIZE_IN_BYTES)));
         }
 
         // TOTAL_VALUES_SIZE_IN_BYTES
         if (computedStatistics.containsKey(TOTAL_SIZE_IN_BYTES)) {
-            result.setTotalSizeInBytes(getIntegerValue(session, BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES)));
+            result.setTotalSizeInBytes(getIntegerValue(BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES)));
         }
 
         // NUMBER OF NULLS
@@ -411,10 +413,10 @@ public final class Statistics
     private static void setMinMax(ConnectorSession session, Type type, Block min, Block max, HiveColumnStatistics.Builder result)
     {
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            result.setIntegerStatistics(new IntegerStatistics(getIntegerValue(session, type, min), getIntegerValue(session, type, max)));
+            result.setIntegerStatistics(new IntegerStatistics(getIntegerValue(type, min), getIntegerValue(type, max)));
         }
         else if (type.equals(DOUBLE) || type.equals(REAL)) {
-            result.setDoubleStatistics(new DoubleStatistics(getDoubleValue(session, type, min), getDoubleValue(session, type, max)));
+            result.setDoubleStatistics(new DoubleStatistics(getDoubleValue(type, min), getDoubleValue(type, max)));
         }
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(getDateValue(session, type, min), getDateValue(session, type, max)));
@@ -428,18 +430,29 @@ public final class Statistics
         }
     }
 
-    private static OptionalLong getIntegerValue(ConnectorSession session, Type type, Block block)
+    private static OptionalLong getIntegerValue(Type type, Block block)
     {
-        // works for BIGINT as well as for other integer types TINYINT/SMALLINT/INTEGER that store values as byte/short/int
-        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(((Number) type.getObjectValue(session, block, 0)).longValue());
+        verify(type == BIGINT || type == INTEGER || type == SMALLINT || type == TINYINT, "Unsupported type: %s", type);
+        if (block.isNull(0)) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(type.getLong(block, 0));
     }
 
-    private static OptionalDouble getDoubleValue(ConnectorSession session, Type type, Block block)
+    private static OptionalDouble getDoubleValue(Type type, Block block)
     {
+        verify(type == DOUBLE || type == REAL, "Unsupported type: %s", type);
         if (block.isNull(0)) {
             return OptionalDouble.empty();
         }
-        double value = ((Number) type.getObjectValue(session, block, 0)).doubleValue();
+        double value;
+        if (type == DOUBLE) {
+            value = type.getDouble(block, 0);
+        }
+        else {
+            verify(type == REAL);
+            value = intBitsToFloat(toIntExact(type.getLong(block, 0)));
+        }
         if (!Double.isFinite(value)) {
             return OptionalDouble.empty();
         }
