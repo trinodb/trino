@@ -26,13 +26,11 @@ import io.prestosql.plugin.hive.metastore.IntegerStatistics;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.statistics.ColumnStatisticMetadata;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlDecimal;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -336,13 +334,12 @@ public final class Statistics
     }
 
     public static Map<String, HiveColumnStatistics> fromComputedStatistics(
-            ConnectorSession session,
             Map<ColumnStatisticMetadata, Block> computedStatistics,
             Map<String, Type> columnTypes,
             long rowCount)
     {
         return createColumnToComputedStatisticsMap(computedStatistics).entrySet().stream()
-                .collect(toImmutableMap(Entry::getKey, entry -> createHiveColumnStatistics(session, entry.getValue(), columnTypes.get(entry.getKey()), rowCount)));
+                .collect(toImmutableMap(Entry::getKey, entry -> createHiveColumnStatistics(entry.getValue(), columnTypes.get(entry.getKey()), rowCount)));
     }
 
     private static Map<String, Map<ColumnStatisticType, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
@@ -359,7 +356,6 @@ public final class Statistics
 
     @VisibleForTesting
     static HiveColumnStatistics createHiveColumnStatistics(
-            ConnectorSession session,
             Map<ColumnStatisticType, Block> computedStatistics,
             Type columnType,
             long rowCount)
@@ -370,7 +366,7 @@ public final class Statistics
         // We ask the engine to compute either both or neither
         verify(computedStatistics.containsKey(MIN_VALUE) == computedStatistics.containsKey(MAX_VALUE));
         if (computedStatistics.containsKey(MIN_VALUE)) {
-            setMinMax(session, columnType, computedStatistics.get(MIN_VALUE), computedStatistics.get(MAX_VALUE), result);
+            setMinMax(columnType, computedStatistics.get(MIN_VALUE), computedStatistics.get(MAX_VALUE), result);
         }
 
         // MAX_VALUE_SIZE_IN_BYTES
@@ -410,7 +406,7 @@ public final class Statistics
         return result.build();
     }
 
-    private static void setMinMax(ConnectorSession session, Type type, Block min, Block max, HiveColumnStatistics.Builder result)
+    private static void setMinMax(Type type, Block min, Block max, HiveColumnStatistics.Builder result)
     {
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
             result.setIntegerStatistics(new IntegerStatistics(getIntegerValue(type, min), getIntegerValue(type, max)));
@@ -419,10 +415,10 @@ public final class Statistics
             result.setDoubleStatistics(new DoubleStatistics(getDoubleValue(type, min), getDoubleValue(type, max)));
         }
         else if (type.equals(DATE)) {
-            result.setDateStatistics(new DateStatistics(getDateValue(session, type, min), getDateValue(session, type, max)));
+            result.setDateStatistics(new DateStatistics(getDateValue(type, min), getDateValue(type, max)));
         }
         else if (type instanceof DecimalType) {
-            result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(session, type, min), getDecimalValue(session, type, max)));
+            result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(type, min), getDecimalValue(type, max)));
         }
         // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp
         else {
@@ -459,14 +455,23 @@ public final class Statistics
         return OptionalDouble.of(value);
     }
 
-    private static Optional<LocalDate> getDateValue(ConnectorSession session, Type type, Block block)
+    private static Optional<LocalDate> getDateValue(Type type, Block block)
     {
-        return block.isNull(0) ? Optional.empty() : Optional.of(LocalDate.ofEpochDay(((SqlDate) type.getObjectValue(session, block, 0)).getDays()));
+        verify(type == DATE, "Unsupported type: %s", type);
+        if (block.isNull(0)) {
+            return Optional.empty();
+        }
+        int days = toIntExact(type.getLong(block, 0));
+        return Optional.of(LocalDate.ofEpochDay(days));
     }
 
-    private static Optional<BigDecimal> getDecimalValue(ConnectorSession session, Type type, Block block)
+    private static Optional<BigDecimal> getDecimalValue(Type type, Block block)
     {
-        return block.isNull(0) ? Optional.empty() : Optional.of(((SqlDecimal) type.getObjectValue(session, block, 0)).toBigDecimal());
+        verify(type instanceof DecimalType, "Unsupported type: %s", type);
+        if (block.isNull(0)) {
+            return Optional.empty();
+        }
+        return Optional.of(Decimals.readBigDecimal((DecimalType) type, block, 0));
     }
 
     public enum ReduceOperator
