@@ -1252,7 +1252,7 @@ public class HiveMetadata
 
         if (partitionColumns.isEmpty()) {
             // commit analyze to unpartitioned table
-            metastore.setTableStatistics(identity, table, createPartitionStatistics(session, columnTypes, computedStatisticsMap.get(ImmutableList.<String>of())));
+            metastore.setTableStatistics(identity, table, createPartitionStatistics(columnTypes, computedStatisticsMap.get(ImmutableList.<String>of())));
         }
         else {
             List<List<String>> partitionValuesList;
@@ -1282,7 +1282,7 @@ public class HiveMetadata
                 }
                 else {
                     usedComputedStatistics++;
-                    partitionStatistics.put(partitionValues, createPartitionStatistics(session, columnTypes, collectedStatistics));
+                    partitionStatistics.put(partitionValues, createPartitionStatistics(columnTypes, collectedStatistics));
                 }
             }
             verify(usedComputedStatistics == computedStatistics.size(), "All computed statistics must be used");
@@ -1417,7 +1417,7 @@ public class HiveMetadata
                     .map(PartitionUpdate::getStatistics)
                     .reduce((first, second) -> reduce(first, second, ADD))
                     .orElse(createZeroStatistics());
-            tableStatistics = createPartitionStatistics(session, basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
+            tableStatistics = createPartitionStatistics(basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
         }
         else {
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
@@ -1432,7 +1432,6 @@ public class HiveMetadata
             for (PartitionUpdate update : partitionUpdates) {
                 Partition partition = buildPartitionObject(session, table, update);
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
-                        session,
                         update.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, partition.getValues()));
@@ -1653,7 +1652,6 @@ public class HiveMetadata
                 }
 
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
-                        session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
@@ -1686,7 +1684,6 @@ public class HiveMetadata
                 // insert into existing partition
                 List<String> partitionValues = toPartitionValues(partitionUpdate.getName());
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
-                        session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, partitionValues));
@@ -1709,7 +1706,6 @@ public class HiveMetadata
                     metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
                 }
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
-                        session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, partition.getValues()));
@@ -1768,7 +1764,6 @@ public class HiveMetadata
     }
 
     private PartitionStatistics createPartitionStatistics(
-            ConnectorSession session,
             Map<String, Type> columnTypes,
             ComputedStatistics computedStatistics)
     {
@@ -1779,18 +1774,16 @@ public class HiveMetadata
         verify(!rowCountBlock.isNull(0), "rowCount must never be null");
         long rowCount = BIGINT.getLong(rowCountBlock, 0);
         HiveBasicStatistics rowCountOnlyBasicStatistics = new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(rowCount), OptionalLong.empty(), OptionalLong.empty());
-        return createPartitionStatistics(session, rowCountOnlyBasicStatistics, columnTypes, computedColumnStatistics);
+        return createPartitionStatistics(rowCountOnlyBasicStatistics, columnTypes, computedColumnStatistics);
     }
 
     private PartitionStatistics createPartitionStatistics(
-            ConnectorSession session,
             HiveBasicStatistics basicStatistics,
             Map<String, Type> columnTypes,
             Map<ColumnStatisticMetadata, Block> computedColumnStatistics)
     {
         long rowCount = basicStatistics.getRowCount().orElseThrow(() -> new IllegalArgumentException("rowCount not present"));
         Map<String, HiveColumnStatistics> columnStatistics = fromComputedStatistics(
-                session,
                 computedColumnStatistics,
                 columnTypes,
                 rowCount);
