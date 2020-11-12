@@ -769,6 +769,11 @@ public class PruneUnreferencedOutputs
                 return node;
             }
 
+            // handle the case of all output symbols pruned
+            if (node.getOutputSymbols().stream().noneMatch(context.get()::contains)) {
+                return new ValuesNode(node.getId(), node.getRowCount());
+            }
+
             // if any of ValuesNode's rows is specified by expression other than Row, the redundant piece cannot be extracted and pruned
             if (!node.getRows().get().stream().allMatch(Row.class::isInstance)) {
                 return node;
