@@ -22,6 +22,7 @@ import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
 import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -62,6 +63,7 @@ public class TestQueryStats
                     succinctBytes(116L),
                     117L,
                     1833,
+                    Metrics.EMPTY,
                     succinctBytes(118L),
                     new Duration(119, NANOSECONDS),
                     120L,
@@ -101,6 +103,7 @@ public class TestQueryStats
                     succinctBytes(216L),
                     217L,
                     2833,
+                    Metrics.EMPTY,
                     succinctBytes(218L),
                     new Duration(219, NANOSECONDS),
                     220L,
@@ -140,6 +143,7 @@ public class TestQueryStats
                     succinctBytes(316L),
                     317L,
                     3833,
+                    Metrics.EMPTY,
                     succinctBytes(318L),
                     new Duration(319, NANOSECONDS),
                     320L,
