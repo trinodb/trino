@@ -52,6 +52,7 @@ import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_P
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -117,7 +118,7 @@ public class BenchmarkPlanner
     public List<Plan> planQueries(BenchmarkData benchmarkData)
     {
         return benchmarkData.queryRunner.inTransaction(transactionSession -> {
-            LogicalPlanner.Stage stage = LogicalPlanner.Stage.valueOf(benchmarkData.stage.toUpperCase());
+            LogicalPlanner.Stage stage = LogicalPlanner.Stage.valueOf(benchmarkData.stage.toUpperCase(ENGLISH));
             return benchmarkData.queries.stream()
                     .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage, false, WarningCollector.NOOP))
                     .collect(toImmutableList());

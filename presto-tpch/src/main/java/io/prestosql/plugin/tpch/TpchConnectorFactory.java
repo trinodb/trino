@@ -31,6 +31,7 @@ import java.util.Map;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class TpchConnectorFactory
         implements ConnectorFactory
@@ -77,7 +78,7 @@ public class TpchConnectorFactory
     public Connector create(String catalogName, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
-        ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase());
+        ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase(ENGLISH));
         NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
