@@ -46,7 +46,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -389,10 +388,7 @@ public class DockerContainer
 
     public void tryStop()
     {
-        if (!isRunning()) {
-            log.warn("Could not stop already stopped container: %s", logicalName);
-            return;
-        }
+        log.info("Trying to stop container %s...", getLogicalName());
 
         try {
             executor.runAsync(this::stop).get();
@@ -404,8 +400,6 @@ public class DockerContainer
         catch (ExecutionException | RuntimeException e) {
             log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
         }
-
-        checkState(!isRunning(), "Container %s is still running", logicalName);
     }
 
     public enum OutputMode

@@ -171,10 +171,14 @@ public final class Environment
                 .with(timeout, retry)
                 .with(executorService);
 
-        ImmutableList.copyOf(containers.values())
-                .stream()
-                .filter(DockerContainer::isRunning)
-                .forEach(container -> executor.run(container::tryStop));
+        for (DockerContainer container : ImmutableList.copyOf(containers.values())) {
+            try {
+                executor.runAsync(container::tryStop).get();
+            }
+            catch (InterruptedException | ExecutionException e) {
+                log.warn("Could not stop container %s due to %s", container.getLogicalName(), e);
+            }
+        }
 
         this.listener.ifPresent(listener -> listener.environmentStopped(this));
         pruneEnvironment();
