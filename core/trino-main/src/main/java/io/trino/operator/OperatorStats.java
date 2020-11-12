@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.spi.Mergeable;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -63,6 +64,7 @@ public class OperatorStats
     private final long outputPositions;
 
     private final long dynamicFilterSplitsProcessed;
+    private final Metrics metrics;
 
     private final DataSize physicalWrittenDataSize;
 
@@ -115,6 +117,7 @@ public class OperatorStats
             @JsonProperty("outputPositions") long outputPositions,
 
             @JsonProperty("dynamicFilterSplitsProcessed") long dynamicFilterSplitsProcessed,
+            @JsonProperty("metrics") Metrics metrics,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
@@ -169,6 +172,7 @@ public class OperatorStats
         this.outputPositions = outputPositions;
 
         this.dynamicFilterSplitsProcessed = dynamicFilterSplitsProcessed;
+        this.metrics = requireNonNull(metrics);
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -333,6 +337,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public Metrics getMetrics()
+    {
+        return metrics;
+    }
+
+    @JsonProperty
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
@@ -451,6 +461,7 @@ public class OperatorStats
         long outputPositions = this.outputPositions;
 
         long dynamicFilterSplitsProcessed = this.dynamicFilterSplitsProcessed;
+        Metrics.Accumulator metricsAccumulator = Metrics.accumulator().add(this.getMetrics());
 
         long physicalWrittenDataSize = this.physicalWrittenDataSize.toBytes();
 
@@ -498,6 +509,7 @@ public class OperatorStats
             outputPositions += operator.getOutputPositions();
 
             dynamicFilterSplitsProcessed += operator.getDynamicFilterSplitsProcessed();
+            metricsAccumulator.add(operator.getMetrics());
 
             physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
 
@@ -557,6 +569,7 @@ public class OperatorStats
                 outputPositions,
 
                 dynamicFilterSplitsProcessed,
+                metricsAccumulator.get(),
 
                 succinctBytes(physicalWrittenDataSize),
 
@@ -623,6 +636,7 @@ public class OperatorStats
                 outputDataSize,
                 outputPositions,
                 dynamicFilterSplitsProcessed,
+                metrics,
                 physicalWrittenDataSize,
                 blockedWall,
                 finishCalls,
