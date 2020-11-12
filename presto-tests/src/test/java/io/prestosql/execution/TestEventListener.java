@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
+import io.prestosql.execution.EventsCollector.EventFilters;
 import io.prestosql.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import io.prestosql.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.prestosql.plugin.tpch.TpchPlugin;
@@ -67,7 +68,7 @@ public class TestEventListener
 {
     private static final int SPLITS_PER_NODE = 3;
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
-    private final EventsCollector generatedEvents = new EventsCollector(queryMetadata -> !queryMetadata.getQuery().contains(IGNORE_EVENT_MARKER));
+    private final EventsCollector generatedEvents = new EventsCollector(buildEventFilters());
     private EventsAwaitingQueries queries;
 
     @Override
@@ -107,6 +108,14 @@ public class TestEventListener
         queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
 
         return queryRunner;
+    }
+
+    private static EventFilters buildEventFilters()
+    {
+        return EventFilters.builder()
+                .setQueryCreatedFilter(event -> !event.getMetadata().getQuery().contains(IGNORE_EVENT_MARKER))
+                .setQueryCompletedFilter(event -> !event.getMetadata().getQuery().contains(IGNORE_EVENT_MARKER))
+                .build();
     }
 
     private String getResourceFilePath(String fileName)
