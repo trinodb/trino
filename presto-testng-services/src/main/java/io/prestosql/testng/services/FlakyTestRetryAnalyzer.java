@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 
 public class FlakyTestRetryAnalyzer
@@ -38,7 +39,7 @@ public class FlakyTestRetryAnalyzer
 
     // This property exists so that flaky tests are retried on CI only by default but tests of retrying pass locally as well.
     // TODO replace pom.xml property with explicit invocation of a testng runner (test suite with a test) and amend the retryer behavior on that level
-    private static final String ENABLE_PROPERTY = "io.prestosql.testng.services.FlakyTestRetryAnalyzer.enabled";
+    private static final String ENABLED_SYSTEM_PROPERTY = "io.prestosql.testng.services.FlakyTestRetryAnalyzer.enabled";
 
     @VisibleForTesting
     static final int ALLOWED_RETRIES_COUNT = 2;
@@ -52,10 +53,20 @@ public class FlakyTestRetryAnalyzer
         if (result.isSuccess()) {
             return false;
         }
-        if (!isEnabled()) {
-            log.info("not retrying; FlakyTestRetryAnalyzer disabled");
+
+        String enabledSystemPropertyValue = System.getProperty(ENABLED_SYSTEM_PROPERTY);
+        if (enabledSystemPropertyValue != null) {
+            if (!parseBoolean(enabledSystemPropertyValue)) {
+                log.info("not retrying; FlakyTestRetryAnalyzer explicitly disabled ('%s' property set to '%s')", ENABLED_SYSTEM_PROPERTY, enabledSystemPropertyValue);
+                return false;
+            }
+        }
+        // Enable retry on CI by default
+        if (System.getenv("CONTINUOUS_INTEGRATION") == null) {
+            log.info("not retrying; FlakyTestRetryAnalyzer not enabled as CONTINUOUS_INTEGRATION environment was not detected");
             return false;
         }
+
         Method javaMethod = result.getMethod().getConstructorOrMethod().getMethod();
         if (javaMethod == null) {
             log.info("not retrying; cannot get java method");
@@ -94,16 +105,6 @@ public class FlakyTestRetryAnalyzer
                 method.getMethodName(),
                 retryCount);
         return true;
-    }
-
-    private static boolean isEnabled()
-    {
-        if (System.getProperty(ENABLE_PROPERTY) != null) {
-            return Boolean.getBoolean(ENABLE_PROPERTY);
-        }
-
-        // Enable retry on CI by default
-        return System.getenv("CONTINUOUS_INTEGRATION") != null;
     }
 
     private static String getName(ITestNGMethod method, Object[] parameters)
