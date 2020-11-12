@@ -15,6 +15,7 @@ package io.prestosql.spi.eventlistener;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
@@ -98,5 +99,15 @@ public class SplitCompletedEvent
     public String getPayload()
     {
         return payload;
+    }
+
+    @Override
+    public String toString()
+    {
+        return new StringJoiner(", ", SplitCompletedEvent.class.getSimpleName() + "[", "]")
+                .add("queryId='" + queryId + "'")
+                .add("stageId='" + stageId + "'")
+                .add("taskId='" + taskId + "'")
+                .toString();
     }
 }

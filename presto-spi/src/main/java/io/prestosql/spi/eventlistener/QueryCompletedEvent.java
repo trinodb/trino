@@ -18,6 +18,7 @@ import io.prestosql.spi.PrestoWarning;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
 
@@ -99,5 +100,14 @@ public class QueryCompletedEvent
     public Instant getEndTime()
     {
         return endTime;
+    }
+
+    @Override
+    public String toString()
+    {
+        return new StringJoiner(", ", QueryCompletedEvent.class.getSimpleName() + "[", "]")
+                .add("queryId='" + getMetadata().getQueryId() + "'")
+                .add("queryState='" + getMetadata().getQueryState() + "'")
+                .toString();
     }
 }
