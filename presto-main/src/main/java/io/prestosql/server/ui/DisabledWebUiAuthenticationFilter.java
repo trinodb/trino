@@ -17,7 +17,6 @@ import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.isPublicUiResource;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 public class DisabledWebUiAuthenticationFilter
@@ -32,7 +31,8 @@ public class DisabledWebUiAuthenticationFilter
             return;
         }
 
-        if (isPublicUiResource(path)) {
+        // disabled page is always visible
+        if (path.equals(FormWebUiAuthenticationFilter.DISABLED_LOCATION)) {
             return;
         }
 

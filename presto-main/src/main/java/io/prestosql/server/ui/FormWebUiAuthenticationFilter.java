@@ -95,7 +95,9 @@ public class FormWebUiAuthenticationFilter
     public void filter(ContainerRequestContext request)
     {
         String path = request.getUriInfo().getRequestUri().getPath();
-        if (isPublicUiResource(path)) {
+
+        // disabled page is always visible
+        if (path.equals(DISABLED_LOCATION)) {
             return;
         }
 
@@ -271,14 +273,6 @@ public class FormWebUiAuthenticationFilter
                 null,
                 secure,
                 true);
-    }
-
-    static boolean isPublicUiResource(String path)
-    {
-        // note login page is handled later
-        return path.equals(DISABLED_LOCATION) ||
-                path.startsWith("/ui/vendor") ||
-                path.startsWith("/ui/assets");
     }
 
     public boolean isPasswordAllowed(boolean secure)
