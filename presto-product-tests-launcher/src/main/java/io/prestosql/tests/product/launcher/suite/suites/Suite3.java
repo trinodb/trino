@@ -40,7 +40,7 @@ public class Suite3
                         .withGroups("cli", "group-by", "join", "tls")
                         .build(),
                 testOnEnvironment(SinglenodeKerberosHdfsImpersonationWithWireEncryption.class)
-                        .withGroups("storage_formats", "cli", "hdfs_impersonation,authorization")
+                        .withGroups("storage_formats", "cli", "hdfs_impersonation", "authorization")
                         .build(),
                 testOnEnvironment(SinglenodeKerberosHdfsImpersonationWithDataProtection.class)
                         .withTests("TestHiveStorageFormats.testOrcTableCreatedInPresto", "TestHiveCreateTable.testCreateTable")
