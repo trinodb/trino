@@ -28,6 +28,7 @@ import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -83,6 +84,7 @@ public class OperatorContext
     private final CounterStat outputPositions = new CounterStat();
 
     private final AtomicLong dynamicFilterSplitsProcessed = new AtomicLong();
+    private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
@@ -217,6 +219,16 @@ public class OperatorContext
     public void recordDynamicFilterSplitProcessed(long dynamicFilterSplits)
     {
         dynamicFilterSplitsProcessed.getAndAdd(dynamicFilterSplits);
+    }
+
+    /**
+     * Overwrites the metrics with the latest one.
+     *
+     * @param metrics Latest operator's metrics.
+     */
+    public void setLatestMetrics(Metrics metrics)
+    {
+        this.metrics.set(metrics);
     }
 
     public void recordPhysicalWrittenData(long sizeInBytes)
@@ -531,6 +543,7 @@ public class OperatorContext
                 outputPositions.getTotalCount(),
 
                 dynamicFilterSplitsProcessed.get(),
+                metrics.get(),
 
                 succinctBytes(physicalWrittenDataSize.get()),
 
