@@ -14,12 +14,10 @@
 package io.prestosql.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
-import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.block.TestingSession.SESSION;
+import static io.prestosql.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
 
 public class TestVariableWidthBlockEncoding
 {
@@ -39,12 +37,5 @@ public class TestVariableWidthBlockEncoding
         blockEncodingSerde.writeBlock(sliceOutput, expectedBlock);
         Block actualBlock = blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
         assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
-    }
-
-    private static void assertBlockEquals(Type type, Block actual, Block expected)
-    {
-        for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
-        }
     }
 }
