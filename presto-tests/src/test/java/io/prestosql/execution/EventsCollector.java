@@ -16,7 +16,6 @@ package io.prestosql.execution;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
 import io.prestosql.spi.eventlistener.QueryCreatedEvent;
-import io.prestosql.spi.eventlistener.QueryMetadata;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 
 import java.util.List;
@@ -24,12 +23,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
-import static com.google.common.base.Predicates.alwaysTrue;
 import static java.util.Objects.requireNonNull;
 
 class EventsCollector
 {
-    private final Predicate<QueryMetadata> queryFilter;
+    private EventFilters eventFilters;
     private ImmutableList.Builder<QueryCreatedEvent> queryCreatedEvents;
     private ImmutableList.Builder<QueryCompletedEvent> queryCompletedEvents;
     private ImmutableList.Builder<SplitCompletedEvent> splitCompletedEvents;
@@ -38,12 +36,12 @@ class EventsCollector
 
     public EventsCollector()
     {
-        this(alwaysTrue());
+        this(EventFilters.builder().build());
     }
 
-    public EventsCollector(Predicate<QueryMetadata> queryFilter)
+    public EventsCollector(EventFilters eventFilters)
     {
-        this.queryFilter = requireNonNull(queryFilter, "filter is null");
+        this.eventFilters = requireNonNull(eventFilters, "filter is null");
         reset(0);
     }
 
@@ -64,7 +62,7 @@ class EventsCollector
 
     public synchronized void addQueryCreated(QueryCreatedEvent event)
     {
-        if (!queryFilter.test(event.getMetadata())) {
+        if (!eventFilters.queryCreatedFilter.test(event)) {
             return;
         }
         queryCreatedEvents.add(event);
@@ -73,7 +71,7 @@ class EventsCollector
 
     public synchronized void addQueryCompleted(QueryCompletedEvent event)
     {
-        if (!queryFilter.test(event.getMetadata())) {
+        if (!eventFilters.queryCompletedFilter.test(event)) {
             return;
         }
         queryCompletedEvents.add(event);
@@ -82,6 +80,9 @@ class EventsCollector
 
     public synchronized void addSplitCompleted(SplitCompletedEvent event)
     {
+        if (!eventFilters.splitCompletedFilter.test(event)) {
+            return;
+        }
         splitCompletedEvents.add(event);
         eventsLatch.countDown();
     }
@@ -99,5 +100,54 @@ class EventsCollector
     public List<SplitCompletedEvent> getSplitCompletedEvents()
     {
         return splitCompletedEvents.build();
+    }
+
+    public static class EventFilters
+    {
+        private final Predicate<QueryCreatedEvent> queryCreatedFilter;
+        private final Predicate<QueryCompletedEvent> queryCompletedFilter;
+        private final Predicate<SplitCompletedEvent> splitCompletedFilter;
+
+        private EventFilters(Predicate<QueryCreatedEvent> queryCreatedFilter, Predicate<QueryCompletedEvent> queryCompletedFilter, Predicate<SplitCompletedEvent> splitCompletedFilter)
+        {
+            this.queryCreatedFilter = requireNonNull(queryCreatedFilter, "queryCreatedFilter is null");
+            this.queryCompletedFilter = requireNonNull(queryCompletedFilter, "queryCompletedFilter is null");
+            this.splitCompletedFilter = requireNonNull(splitCompletedFilter, "splitCompletedFilter is null");
+        }
+
+        public static Builder builder()
+        {
+            return new Builder();
+        }
+
+        public static class Builder
+        {
+            private Predicate<QueryCreatedEvent> queryCreatedFilter = queryCreatedEvent -> true;
+            private Predicate<QueryCompletedEvent> queryCompletedFilter = queryCompletedEvent -> true;
+            private Predicate<SplitCompletedEvent> splitCompletedFilter = splitCompletedEvent -> true;
+
+            public Builder setQueryCreatedFilter(Predicate<QueryCreatedEvent> queryCreatedFilter)
+            {
+                this.queryCreatedFilter = queryCreatedFilter;
+                return this;
+            }
+
+            public Builder setQueryCompletedFilter(Predicate<QueryCompletedEvent> queryCompletedFilter)
+            {
+                this.queryCompletedFilter = queryCompletedFilter;
+                return this;
+            }
+
+            public Builder setSplitCompletedFilter(Predicate<SplitCompletedEvent> splitCompletedFilter)
+            {
+                this.splitCompletedFilter = splitCompletedFilter;
+                return this;
+            }
+
+            public EventFilters build()
+            {
+                return new EventFilters(queryCreatedFilter, queryCompletedFilter, splitCompletedFilter);
+            }
+        }
     }
 }
