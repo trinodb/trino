@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class BinaryLiteral
@@ -42,7 +43,7 @@ public class BinaryLiteral
     {
         super(location);
         requireNonNull(value, "value is null");
-        String hexString = WHITESPACE_PATTERN.matcher(value).replaceAll("").toUpperCase();
+        String hexString = WHITESPACE_PATTERN.matcher(value).replaceAll("").toUpperCase(ENGLISH);
         if (NOT_HEX_DIGIT_PATTERN.matcher(hexString).matches()) {
             throw new ParsingException("Binary literal can only contain hexadecimal digits", location.get());
         }

@@ -1759,7 +1759,7 @@ public abstract class AbstractTestHive
                 List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
                 String ds = partitionKeys.get(0).getValue();
                 String fileFormat = partitionKeys.get(1).getValue();
-                HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase());
+                HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase(ENGLISH));
                 int dummyPartition = Integer.parseInt(partitionKeys.get(2).getValue());
 
                 long rowNumber = 0;
@@ -1851,7 +1851,7 @@ public abstract class AbstractTestHive
                 List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
                 String ds = partitionKeys.get(0).getValue();
                 String fileFormat = partitionKeys.get(1).getValue();
-                HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase());
+                HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase(ENGLISH));
                 int dummyPartition = Integer.parseInt(partitionKeys.get(2).getValue());
 
                 long rowNumber = 0;
