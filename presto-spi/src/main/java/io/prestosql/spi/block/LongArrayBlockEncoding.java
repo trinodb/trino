@@ -44,11 +44,17 @@ public class LongArrayBlockEncoding
             sliceOutput.writeBytes(getValuesSlice(block));
         }
         else {
-            for (int position = 0; position < positionCount; position++) {
-                if (!block.isNull(position)) {
-                    sliceOutput.writeLong(block.getLong(position, 0));
+            long[] valuesWithoutNull = new long[positionCount];
+            int nonNullPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                valuesWithoutNull[nonNullPositionCount] = block.getLong(i, 0);
+                if (!block.isNull(i)) {
+                    nonNullPositionCount++;
                 }
             }
+
+            sliceOutput.writeInt(nonNullPositionCount);
+            sliceOutput.writeBytes(Slices.wrappedLongArray(valuesWithoutNull, 0, nonNullPositionCount));
         }
     }
 
@@ -64,9 +70,13 @@ public class LongArrayBlockEncoding
             sliceInput.readBytes(Slices.wrappedLongArray(values));
         }
         else {
-            for (int position = 0; position < values.length; position++) {
-                if (!valueIsNull[position]) {
-                    values[position] = sliceInput.readLong();
+            int nonNullPositionCount = sliceInput.readInt();
+            sliceInput.readBytes(Slices.wrappedLongArray(values, 0, nonNullPositionCount));
+            int position = nonNullPositionCount - 1;
+            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
+                values[i] = values[position];
+                if (!valueIsNull[i]) {
+                    position--;
                 }
             }
         }
