@@ -241,7 +241,7 @@ public class TestEventListener
         queries.runQueryAndWaitForEvents(sql, 2, session, Optional.of(expectedFailure));
 
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        assertEquals(sql, queryCompletedEvent.getMetadata().getQuery());
+        assertEquals(queryCompletedEvent.getMetadata().getQuery(), sql);
 
         QueryFailureInfo failureInfo = queryCompletedEvent.getFailureInfo()
                 .orElseThrow(() -> new AssertionError("Expected query event to be failed"));
