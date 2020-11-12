@@ -30,7 +30,6 @@ import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
-import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
@@ -75,9 +74,10 @@ import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.openjdk.jmh.annotations.Scope.Thread;
 
 @SuppressWarnings("MethodMayBeStatic")
-@State(Scope.Thread)
+@State(Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)
 @Warmup(iterations = 30, time = 500, timeUnit = MILLISECONDS)
@@ -397,7 +397,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class AllNullBenchmarkData
             extends BenchmarkData
     {
@@ -434,7 +434,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class BooleanNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -455,7 +455,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class BooleanWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -476,7 +476,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class TinyIntNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -497,7 +497,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class TinyIntWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -523,7 +523,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class ShortDecimalNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -544,7 +544,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class ShortDecimalWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -570,7 +570,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class LongDecimalNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -591,7 +591,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class LongDecimalWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -617,7 +617,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class DoubleNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -638,7 +638,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class DoubleWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -664,7 +664,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class FloatNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -685,7 +685,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class FloatWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -711,7 +711,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class BigintNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -740,7 +740,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class BigintWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -774,7 +774,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class IntegerNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -803,7 +803,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class IntegerWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -837,7 +837,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class SmallintNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -866,7 +866,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class SmallintWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -900,7 +900,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class VarcharDirectNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -921,7 +921,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class VarcharDirectWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -947,7 +947,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class VarcharDictionaryNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -970,7 +970,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class VarcharDictionaryWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -1017,7 +1017,7 @@ public class BenchmarkColumnReaders
         return new String(value);
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class TimestampNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -1038,7 +1038,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class TimestampWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -1064,7 +1064,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class LineitemBenchmarkData
             extends BenchmarkData
     {
