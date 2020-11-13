@@ -223,6 +223,7 @@ public class IcebergMetadata
                 name.getTableName(),
                 name.getTableType(),
                 snapshotId,
+                TupleDomain.all(),
                 TupleDomain.all());
     }
 
@@ -644,7 +645,7 @@ public class IcebergMetadata
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
 
         icebergTable.newDelete()
-                .deleteFromRowFilter(toIcebergExpression(handle.getPredicate()))
+                .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
                 .commit();
 
         // TODO: it should be possible to return number of deleted records
@@ -671,49 +672,42 @@ public class IcebergMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-
-        // TODO: Remove TupleDomain#simplify once Iceberg supports IN expression
-        TupleDomain<IcebergColumnHandle> newDomain = constraint.getSummary()
-                .transform(IcebergColumnHandle.class::cast)
-                .intersect(table.getPredicate());
-
-        if (newDomain.isNone()) {
-            return Optional.empty();
-        }
-
-        if (newDomain.equals(table.getPredicate())) {
-            return Optional.empty();
-        }
-
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
 
-        List<PartitionField> fields = icebergTable.spec().fields().stream()
-                .filter(field -> field.transform().isIdentity())
-                .collect(toImmutableList());
-
-        // Ensure partition specs in all manifests contain the identity fields from the predicate
-        if (!icebergTable.specs().values().stream().allMatch(spec -> spec.fields().containsAll(fields))) {
-            return Optional.empty();
-        }
-
+        // Extract identity partition column source ids common to ALL specs
         Set<Integer> partitionSourceIds = icebergTable.spec().fields().stream()
                 .filter(field -> field.transform().isIdentity())
+                .filter(field -> icebergTable.specs().values().stream().allMatch(spec -> spec.fields().contains(field)))
                 .map(PartitionField::sourceId)
                 .collect(toImmutableSet());
 
+        BiPredicate<IcebergColumnHandle, Domain> isIdentityPartition = (column, domain) -> partitionSourceIds.contains(column.getId());
+
         // TODO: Avoid enforcing the constraint when partition filters have large IN expressions, since iceberg cannot
         // support it. Such large expressions cannot be simplified since simplification changes the filtered set.
-        BiPredicate<IcebergColumnHandle, Domain> contains = (column, domain) -> partitionSourceIds.contains(column.getId());
-        TupleDomain<ColumnHandle> remainingTupleDomain = newDomain.filter(contains.negate()).transform(ColumnHandle.class::cast);
-        TupleDomain<IcebergColumnHandle> enforcedTupleDomain = newDomain.filter(contains);
+        TupleDomain<IcebergColumnHandle> newEnforcedConstraint = constraint.getSummary()
+                .transform(IcebergColumnHandle.class::cast)
+                .filter(isIdentityPartition)
+                .intersect(table.getEnforcedPredicate());
+
+        TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = constraint.getSummary()
+                .transform(IcebergColumnHandle.class::cast)
+                .filter(isIdentityPartition.negate())
+                .intersect(table.getPredicate());
+
+        if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
+                && newUnenforcedConstraint.equals(table.getPredicate())) {
+            return Optional.empty();
+        }
 
         return Optional.of(new ConstraintApplicationResult<>(
                 new IcebergTableHandle(table.getSchemaName(),
                         table.getTableName(),
                         table.getTableType(),
                         table.getSnapshotId(),
-                        enforcedTupleDomain),
-                remainingTupleDomain));
+                        newUnenforcedConstraint,
+                        newEnforcedConstraint),
+                newUnenforcedConstraint.transform(ColumnHandle.class::cast)));
     }
 
     @Override
