@@ -34,6 +34,7 @@ import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -43,6 +44,7 @@ import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -58,6 +60,7 @@ import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
@@ -539,6 +542,28 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery("SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
         dropTable("test_schema_evolution_drop_middle");
+    }
+
+    @Test
+    public void testLargeInFailureOnPartitionedColumns()
+    {
+        QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_large_in_failure");
+        assertUpdate(format("CREATE TABLE %s (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col2'])",
+                tableName));
+        assertUpdate(format("INSERT INTO %s VALUES (1, 10)", tableName), 1L);
+        assertUpdate(format("INSERT INTO %s VALUES (2, 20)", tableName), 1L);
+
+        List<String> predicates = IntStream.range(0, 5000).boxed()
+                .map(Object::toString)
+                .collect(toImmutableList());
+
+        String filter = format("col2 IN (%s)", String.join(",", predicates));
+
+        assertThatThrownBy(() -> getQueryRunner().execute(format("SELECT * FROM %s WHERE %s", tableName, filter)))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("java.lang.StackOverflowError");
+
+        dropTable("test_large_in_failure");
     }
 
     @Test
