@@ -13,8 +13,8 @@ Linux Operating System
 * adequate ulimits for the user that runs the Presto process. These limits
   may depend on the specific Linux distribution you are using. The number
   of open file descriptors needed for a particular Presto instance scales
-  as roughly the number of machines in the cluster, times some factor 
-  depending on the workload. We recommend the following limits, which can 
+  as roughly the number of machines in the cluster, times some factor
+  depending on the workload. We recommend the following limits, which can
   typically be set in ``/etc/security/limits.conf``:
 
 .. code-block:: none
@@ -28,8 +28,7 @@ Java Runtime Environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 * 64-bit required
-* version 11 recommended (lower versions not supported, higher versions less
-  tested)
+* version 11.0.7+ (version 12+ not supported)
 * Azul Zulu recommended (most tested)
 
 Python

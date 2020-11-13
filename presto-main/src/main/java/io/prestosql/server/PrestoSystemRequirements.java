@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTime;
 
+import java.lang.Runtime.Version;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
@@ -92,8 +93,9 @@ final class PrestoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        if (Runtime.version().feature() < 11) {
-            failRequirement("Presto requires Java 11+ (found %s)", Runtime.version());
+        Version required = Version.parse("11.0.7");
+        if (Runtime.version().compareTo(required) < 0) {
+            failRequirement("Presto requires Java %s at minimum (found %s)", required, Runtime.version());
         }
     }
 
