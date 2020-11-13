@@ -142,6 +142,7 @@ public class TransformFilteringSemiJoinToInnerJoin
                 ImmutableList.of(new EquiJoinClause(semiJoin.getSourceJoinSymbol(), semiJoin.getFilteringSourceJoinSymbol())),
                 semiJoin.getSource().getOutputSymbols(),
                 ImmutableList.of(),
+                false,
                 joinFilter,
                 Optional.empty(),
                 Optional.empty(),

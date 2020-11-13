@@ -157,6 +157,8 @@ public class PushAggregationThroughOuterJoin
                     join.getCriteria(),
                     join.getLeft().getOutputSymbols(),
                     ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
+                    // there are no duplicate rows possible since outer rows were guaranteed to be distinct
+                    false,
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
@@ -174,6 +176,8 @@ public class PushAggregationThroughOuterJoin
                     join.getCriteria(),
                     ImmutableList.copyOf(rewrittenAggregation.getAggregations().keySet()),
                     join.getRight().getOutputSymbols(),
+                    // there are no duplicate rows possible since outer rows were guaranteed to be distinct
+                    false,
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
@@ -247,6 +251,7 @@ public class PushAggregationThroughOuterJoin
                 ImmutableList.of(),
                 outerJoin.getOutputSymbols(),
                 aggregationOverNull.getOutputSymbols(),
+                false,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

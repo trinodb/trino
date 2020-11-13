@@ -173,6 +173,7 @@ public class PushDownDereferenceThroughJoin
                 joinNode.getCriteria(),
                 newLeftOutputSymbols,
                 newRightOutputSymbols,
+                joinNode.isMaySkipOutputDuplicates(),
                 // Use newly created symbols in filter
                 joinNode.getFilter().map(expression -> replaceExpression(expression, mappings)),
                 joinNode.getLeftHashSymbol(),

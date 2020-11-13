@@ -968,6 +968,7 @@ public class UnaliasSymbolReferences
                             newCriteria,
                             newLeftOutputSymbols,
                             newRightOutputSymbols,
+                            node.isMaySkipOutputDuplicates(),
                             newFilter,
                             newLeftHashSymbol,
                             newRightHashSymbol,

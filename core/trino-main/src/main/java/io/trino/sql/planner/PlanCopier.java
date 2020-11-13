@@ -140,6 +140,7 @@ public final class PlanCopier
                     node.getCriteria(),
                     node.getLeftOutputSymbols(),
                     node.getRightOutputSymbols(),
+                    node.isMaySkipOutputDuplicates(),
                     node.getFilter(),
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol(),
