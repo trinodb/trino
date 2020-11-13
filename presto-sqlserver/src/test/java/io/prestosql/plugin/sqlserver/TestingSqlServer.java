@@ -14,7 +14,6 @@
 package io.prestosql.plugin.sqlserver;
 
 import org.testcontainers.containers.MSSQLServerContainer;
-import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Connection;
 import java.sql.Statement;
@@ -24,8 +23,7 @@ public final class TestingSqlServer
 {
     public TestingSqlServer()
     {
-        super(DockerImageName.parse("microsoft/mssql-server-linux:2017-CU13").asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server:2017-CU12"));
-        addEnv("ACCEPT_EULA", "yes");
+        super("microsoft/mssql-server-linux:2017-CU13");
     }
 
     public void execute(String sql)

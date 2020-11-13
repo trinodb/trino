@@ -56,8 +56,6 @@
         <dep.tempto.version>182</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
-        <dep.testcontainers.version>1.15.0-rc2</dep.testcontainers.version>
-        <dep.docker-java.version>3.2.5</dep.docker-java.version>
         <dep.joda.version>2.10.6</dep.joda.version>
         <dep.coral.version>1.0.12</dep.coral.version>
 
@@ -1094,13 +1092,6 @@
             </dependency>
 
             <dependency>
-                <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
-                <groupId>net.java.dev.jna</groupId>
-                <artifactId>jna</artifactId>
-                <version>5.5.0</version>
-            </dependency>
-
-            <dependency>
                 <groupId>net.jodah</groupId>
                 <artifactId>failsafe</artifactId>
                 <version>2.4.0</version>
@@ -1293,15 +1284,8 @@
 
             <dependency>
                 <groupId>org.testcontainers</groupId>
-                <artifactId>testcontainers</artifactId>
-                <version>${dep.testcontainers.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <!-- TODO update to released version. The update to RC was urgently needed due to https://github.com/testcontainers/testcontainers-java/issues/3166 -->
-                <version>${dep.testcontainers.version}</version>
+                <version>1.14.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

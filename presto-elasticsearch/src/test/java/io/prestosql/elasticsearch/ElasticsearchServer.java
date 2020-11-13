@@ -15,7 +15,6 @@ package io.prestosql.elasticsearch;
 
 import com.google.common.net.HostAndPort;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,8 +35,7 @@ public class ElasticsearchServer
     public ElasticsearchServer(String image, Map<String, String> configurationFiles)
             throws IOException
     {
-        DockerImageName dockerImageName = DockerImageName.parse(image).asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch");
-        container = new ElasticsearchContainer(dockerImageName);
+        container = new ElasticsearchContainer(image);
 
         configurationPath = createTempDir().toPath();
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
