@@ -18,8 +18,7 @@
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 11.0.8, 64-bit
-* Python 2.6+ (for running with the launcher script)
+* Java 11.0.7+, 64-bit
 * Docker
 
 ## Building Presto
