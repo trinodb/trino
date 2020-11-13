@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Injector;
@@ -79,6 +78,7 @@ import io.prestosql.sql.planner.Plan;
 import io.prestosql.testing.ProcedureTester;
 import io.prestosql.testing.TestingAccessControlManager;
 import io.prestosql.testing.TestingEventListenerManager;
+import io.prestosql.testing.TestingGroupProvider;
 import io.prestosql.testing.TestingWarningCollectorModule;
 import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.guice.MBeanModule;
@@ -137,6 +137,7 @@ public class TestingPrestoServer
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
     private final TestingAccessControlManager accessControl;
+    private final TestingGroupProvider groupProvider;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager<?>> resourceGroupManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
@@ -230,11 +231,12 @@ public class TestingPrestoServer
                 .add(binder -> {
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(TestingGroupProvider.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
                     binder.bind(GroupProviderManager.class).in(Scopes.SINGLETON);
-                    binder.bind(GroupProvider.class).toInstance(user -> ImmutableSet.of());
+                    binder.bind(GroupProvider.class).to(TestingGroupProvider.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
@@ -278,6 +280,7 @@ public class TestingPrestoServer
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
+        groupProvider = injector.getInstance(TestingGroupProvider.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
@@ -427,6 +430,11 @@ public class TestingPrestoServer
     public TestingAccessControlManager getAccessControl()
     {
         return accessControl;
+    }
+
+    public TestingGroupProvider getGroupProvider()
+    {
+        return groupProvider;
     }
 
     public ProcedureTester getProcedureTester()

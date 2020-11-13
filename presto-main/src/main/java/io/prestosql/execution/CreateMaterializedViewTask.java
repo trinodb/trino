@@ -16,21 +16,19 @@ package io.prestosql.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.CreateMaterializedView;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.Statement;
 import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Inject;
@@ -52,12 +50,13 @@ public class CreateMaterializedViewTask
         implements DataDefinitionTask<CreateMaterializedView>
 {
     private final SqlParser sqlParser;
+    private final GroupProvider groupProvider;
 
     @Inject
-    public CreateMaterializedViewTask(SqlParser sqlParser, FeaturesConfig featuresConfig)
+    public CreateMaterializedViewTask(SqlParser sqlParser, GroupProvider groupProvider)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        requireNonNull(featuresConfig, "featuresConfig is null");
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
     }
 
     @Override
@@ -87,7 +86,8 @@ public class CreateMaterializedViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzeStatement(statement, session, metadata, accessControl, parameters, parameterLookup, stateMachine.getWarningCollector());
+        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector())
+                .analyze(statement);
 
         List<ConnectorMaterializedViewDefinition.Column> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
@@ -122,18 +122,5 @@ public class CreateMaterializedViewTask
         metadata.createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
 
         return immediateFuture(null);
-    }
-
-    private Analysis analyzeStatement(
-            Statement statement,
-            Session session,
-            Metadata metadata,
-            AccessControl accessControl,
-            List<Expression> parameters,
-            Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
-    {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, warningCollector);
-        return analyzer.analyze(statement);
     }
 }

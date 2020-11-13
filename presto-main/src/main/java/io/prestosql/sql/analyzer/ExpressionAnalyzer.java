@@ -35,6 +35,7 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalParseResult;
@@ -1868,6 +1869,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalysis analyzeExpressions(
             Session session,
             Metadata metadata,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             SqlParser sqlParser,
             TypeProvider types,
@@ -1877,7 +1879,7 @@ public class ExpressionAnalyzer
             boolean isDescribe)
     {
         Analysis analysis = new Analysis(null, parameters, isDescribe);
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, types, warningCollector);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(
                     expression,
@@ -1901,6 +1903,7 @@ public class ExpressionAnalyzer
     public static ExpressionAnalysis analyzeExpression(
             Session session,
             Metadata metadata,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             SqlParser sqlParser,
             Scope scope,
@@ -1909,7 +1912,7 @@ public class ExpressionAnalyzer
             WarningCollector warningCollector,
             CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector, correlationSupport);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector, correlationSupport);
         analyzer.analyze(expression, scope);
 
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1949,11 +1952,12 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        return create(analysis, session, metadata, sqlParser, accessControl, types, warningCollector, CorrelationSupport.ALLOWED);
+        return create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, warningCollector, CorrelationSupport.ALLOWED);
     }
 
     public static ExpressionAnalyzer create(
@@ -1961,6 +1965,7 @@ public class ExpressionAnalyzer
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             TypeProvider types,
             WarningCollector warningCollector,
@@ -1969,7 +1974,7 @@ public class ExpressionAnalyzer
         return new ExpressionAnalyzer(
                 metadata,
                 accessControl,
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, correlationSupport),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, correlationSupport),
                 session,
                 types,
                 analysis.getParameters(),

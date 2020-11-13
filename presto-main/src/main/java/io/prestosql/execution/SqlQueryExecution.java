@@ -43,6 +43,7 @@ import io.prestosql.server.DynamicFilterService;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
@@ -133,7 +134,9 @@ public class SqlQueryExecution
             QueryStateMachine stateMachine,
             Slug slug,
             Metadata metadata,
-            TypeOperators typeOperators, AccessControl accessControl,
+            TypeOperators typeOperators,
+            GroupProvider groupProvider,
+            AccessControl accessControl,
             SqlParser sqlParser,
             SplitManager splitManager,
             NodePartitioningManager nodePartitioningManager,
@@ -180,7 +183,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
-            this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
+            this.analysis = analyze(preparedQuery, stateMachine, metadata, groupProvider, accessControl, sqlParser, queryExplainer, warningCollector);
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -237,6 +240,7 @@ public class SqlQueryExecution
             PreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
             Metadata metadata,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             SqlParser sqlParser,
             QueryExplainer queryExplainer,
@@ -249,6 +253,7 @@ public class SqlQueryExecution
                 stateMachine.getSession(),
                 metadata,
                 sqlParser,
+                groupProvider,
                 accessControl,
                 Optional.of(queryExplainer),
                 preparedQuery.getParameters(),
@@ -679,6 +684,7 @@ public class SqlQueryExecution
         private final int scheduleSplitBatchSize;
         private final Metadata metadata;
         private final TypeOperators typeOperators;
+        private final GroupProvider groupProvider;
         private final AccessControl accessControl;
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
@@ -702,6 +708,7 @@ public class SqlQueryExecution
                 QueryManagerConfig config,
                 Metadata metadata,
                 TypeOperators typeOperators,
+                GroupProvider groupProvider,
                 AccessControl accessControl,
                 SqlParser sqlParser,
                 SplitManager splitManager,
@@ -726,6 +733,7 @@ public class SqlQueryExecution
             this.scheduleSplitBatchSize = config.getScheduleSplitBatchSize();
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+            this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -762,6 +770,7 @@ public class SqlQueryExecution
                     slug,
                     metadata,
                     typeOperators,
+                    groupProvider,
                     accessControl,
                     sqlParser,
                     splitManager,

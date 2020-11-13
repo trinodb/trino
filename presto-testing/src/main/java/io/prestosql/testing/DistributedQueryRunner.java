@@ -335,6 +335,12 @@ public class DistributedQueryRunner
         return coordinator.getAccessControl();
     }
 
+    @Override
+    public TestingGroupProvider getGroupProvider()
+    {
+        return coordinator.getGroupProvider();
+    }
+
     public TestingPrestoServer getCoordinator()
     {
         return coordinator;

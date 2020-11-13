@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
@@ -67,10 +68,10 @@ final class DescribeInputRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            AccessControl accessControl,
+            GroupProvider groupProvider, AccessControl accessControl,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, accessControl, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, groupProvider, accessControl, warningCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -82,6 +83,7 @@ final class DescribeInputRewrite
         private final Optional<QueryExplainer> queryExplainer;
         private final List<Expression> parameters;
         private final Map<NodeRef<Parameter>, Expression> parameterLookup;
+        private final GroupProvider groupProvider;
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
 
@@ -92,6 +94,7 @@ final class DescribeInputRewrite
                 Optional<QueryExplainer> queryExplainer,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
+                GroupProvider groupProvider,
                 AccessControl accessControl,
                 WarningCollector warningCollector)
         {
@@ -99,6 +102,7 @@ final class DescribeInputRewrite
             this.parser = parser;
             this.metadata = metadata;
             this.queryExplainer = queryExplainer;
+            this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
             this.accessControl = accessControl;
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
@@ -112,7 +116,7 @@ final class DescribeInputRewrite
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
             // create  analysis for the query we are describing.
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
             Analysis analysis = analyzer.analyze(statement, true);
 
             // get all parameters in query

@@ -19,6 +19,7 @@ import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.sql.analyzer.QueryExplainer;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.AstVisitor;
@@ -56,6 +57,7 @@ final class ExplainRewrite
             Statement node,
             List<Expression> parameter,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {

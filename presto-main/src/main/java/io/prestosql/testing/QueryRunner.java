@@ -54,6 +54,8 @@ public interface QueryRunner
 
     StatsCalculator getStatsCalculator();
 
+    TestingGroupProvider getGroupProvider();
+
     TestingAccessControlManager getAccessControl();
 
     MaterializedResult execute(@Language("SQL") String sql);

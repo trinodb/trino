@@ -22,6 +22,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.LogicalPlanner;
@@ -57,6 +58,7 @@ public class QueryExplainer
     private final PlanFragmenter planFragmenter;
     private final Metadata metadata;
     private final TypeOperators typeOperators;
+    private final GroupProvider groupProvider;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
     private final StatsCalculator statsCalculator;
@@ -69,6 +71,7 @@ public class QueryExplainer
             PlanFragmenter planFragmenter,
             Metadata metadata,
             TypeOperators typeOperators,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
@@ -80,6 +83,7 @@ public class QueryExplainer
                 planFragmenter,
                 metadata,
                 typeOperators,
+                groupProvider,
                 accessControl,
                 sqlParser,
                 statsCalculator,
@@ -92,6 +96,7 @@ public class QueryExplainer
             PlanFragmenter planFragmenter,
             Metadata metadata,
             TypeOperators typeOperators,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
@@ -102,6 +107,7 @@ public class QueryExplainer
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -111,7 +117,7 @@ public class QueryExplainer
 
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector);
         return analyzer.analyze(statement);
     }
 
