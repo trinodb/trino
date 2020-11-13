@@ -184,6 +184,7 @@ public class PushPartialAggregationThroughJoin
                 child.getCriteria(),
                 leftChild.getOutputSymbols(),
                 rightChild.getOutputSymbols(),
+                child.isMaySkipOutputDuplicates(),
                 child.getFilter(),
                 child.getLeftHashSymbol(),
                 child.getRightHashSymbol(),

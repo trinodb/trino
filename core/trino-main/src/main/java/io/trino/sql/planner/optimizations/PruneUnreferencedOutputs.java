@@ -240,6 +240,7 @@ public class PruneUnreferencedOutputs
                     node.getCriteria(),
                     leftOutputSymbols,
                     rightOutputSymbols,
+                    node.isMaySkipOutputDuplicates(),
                     node.getFilter(),
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol(),

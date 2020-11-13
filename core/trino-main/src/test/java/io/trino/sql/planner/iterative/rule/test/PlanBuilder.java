@@ -837,6 +837,7 @@ public class PlanBuilder
                 criteria,
                 leftOutputSymbols,
                 rightOutputSymbols,
+                false,
                 filter,
                 leftHashSymbol,
                 rightHashSymbol,
