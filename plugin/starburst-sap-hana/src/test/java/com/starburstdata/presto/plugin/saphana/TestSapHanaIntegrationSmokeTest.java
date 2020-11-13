@@ -53,6 +53,88 @@ public class TestSapHanaIntegrationSmokeTest
     }
 
     @Test
+    public void testPredicatePushdown()
+    {
+        // varchar equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar range
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar different case
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        // bigint equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // bigint range, with decimal to bigint simplification
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // date equality
+        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
+                .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testDecimalPredicatePushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(server::execute, schemaName + ".test_decimal_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))", ImmutableList.of("123.321, 123456789.987654321"))) {
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal <= 123456790"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal <= 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal <= 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal = 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal = 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testCharPredicatePushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(server::execute, schemaName + ".test_char_pushdown",
+                "(char_1 char(1), char_5 char(5), char_10 char(10))", ImmutableList.of("'0', '0', '0'", "'1', '12345', '1234567890'"))) {
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE char_1 = '0' AND char_5 = '0'"))
+                    .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE char_5 = CHAR'12345' AND char_10 = '1234567890'"))
+                    .matches("VALUES (CHAR'1', CHAR'12345', CHAR'1234567890')")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE char_10 = CHAR'0'"))
+                    .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testLimitPushdown()
     {
         assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
