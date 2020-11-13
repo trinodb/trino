@@ -27,9 +27,15 @@ Linux Operating System
 Java Runtime Environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-* 64-bit required
-* version 11.0.7+ (version 12+ not supported)
-* Azul Zulu recommended (most tested)
+Presto requires a 64-bit version of Java 11, with a minimum required version of 11.0.7.
+Newer patch versions such as 11.0.8 or 11.0.9 are recommended. Earlier patch versions
+such as 11.0.2 do not work, nor will earlier major versions such as Java 8. Newer major
+versions such as Java 12 or 13 are not supported -- they may work, but are not tested.
+
+We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
+as the JDK for Presto, as Presto is tested against that distribution.
+Zulu is also the JDK used by the
+`Presto Docker image <https://hub.docker.com/r/prestosql/presto>`_.
 
 Python
 ^^^^^^
