@@ -17,10 +17,10 @@ Linux Operating System
   depending on the workload. We recommend the following limits, which can
   typically be set in ``/etc/security/limits.conf``:
 
-.. code-block:: none
+  .. code-block:: none
 
-    presto soft nofile 131072
-    presto hard nofile 131072
+      presto soft nofile 131072
+      presto hard nofile 131072
 
 .. _requirements-java:
 
