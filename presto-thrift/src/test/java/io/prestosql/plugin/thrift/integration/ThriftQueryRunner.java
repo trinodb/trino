@@ -43,6 +43,7 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingAccessControlManager;
+import io.prestosql.testing.TestingGroupProvider;
 import io.prestosql.transaction.TransactionManager;
 
 import java.io.IOException;
@@ -231,6 +232,12 @@ public final class ThriftQueryRunner
         public StatsCalculator getStatsCalculator()
         {
             return source.getStatsCalculator();
+        }
+
+        @Override
+        public TestingGroupProvider getGroupProvider()
+        {
+            return source.getGroupProvider();
         }
 
         @Override

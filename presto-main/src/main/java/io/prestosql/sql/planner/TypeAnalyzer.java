@@ -15,6 +15,7 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
@@ -49,7 +50,17 @@ public class TypeAnalyzer
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Iterable<Expression> expressions)
     {
-        return analyzeExpressions(session, metadata, new AllowAllAccessControl(), parser, inputTypes, expressions, ImmutableMap.of(), WarningCollector.NOOP, false).getExpressionTypes();
+        return analyzeExpressions(session,
+                metadata,
+                user -> ImmutableSet.of(),
+                new AllowAllAccessControl(),
+                parser,
+                inputTypes,
+                expressions,
+                ImmutableMap.of(),
+                WarningCollector.NOOP,
+                false)
+                .getExpressionTypes();
     }
 
     public Map<NodeRef<Expression>, Type> getTypes(Session session, TypeProvider inputTypes, Expression expression)

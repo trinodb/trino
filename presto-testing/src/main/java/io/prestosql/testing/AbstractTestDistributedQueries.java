@@ -1198,6 +1198,24 @@ public abstract class AbstractTestDistributedQueries
                 "Cannot select from columns \\[.*\\] in table .*.orders.*",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
+        // verify that groups are set inside access control
+        executeExclusively(() -> {
+            try {
+                // require view owner to be in a group to access table
+                getQueryRunner().getAccessControl().denyIdentityTable((identity, table) -> identity.getGroups().contains("testgroup") || !table.equals("orders"));
+                assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName))
+                        .hasMessageMatching("Access Denied: View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders");
+
+                // verify view can be queried when owner is in group
+                getQueryRunner().getGroupProvider().setUserGroups(ImmutableMap.of(viewOwnerSession.getUser(), ImmutableSet.of("testgroup")));
+                getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName);
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+                getQueryRunner().getGroupProvider().reset();
+            }
+        });
+
         // change access denied exception to view
         assertAccessDenied("SHOW CREATE VIEW " + nestedViewName, "Cannot show create table for .*test_nested_view_column_access.*", privilege(nestedViewName, SHOW_CREATE_TABLE));
         assertAccessAllowed("SHOW CREATE VIEW " + nestedViewName, privilege("test_denied_access_view", SHOW_CREATE_TABLE));

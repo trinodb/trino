@@ -240,6 +240,7 @@ public class LocalQueryRunner
     private final CostCalculator costCalculator;
     private final CostCalculator estimatedExchangesCostCalculator;
     private final TaskCountEstimator taskCountEstimator;
+    private final TestingGroupProvider groupProvider;
     private final TestingAccessControlManager accessControl;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
@@ -334,6 +335,7 @@ public class LocalQueryRunner
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         this.estimatedExchangesCostCalculator = new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator);
+        this.groupProvider = new TestingGroupProvider();
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         this.pageSourceManager = new PageSourceManager();
@@ -421,7 +423,7 @@ public class LocalQueryRunner
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
-                .put(CreateView.class, new CreateViewTask(sqlParser, featuresConfig))
+                .put(CreateView.class, new CreateViewTask(sqlParser, groupProvider))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
@@ -524,6 +526,12 @@ public class LocalQueryRunner
     public CostCalculator getEstimatedExchangesCostCalculator()
     {
         return estimatedExchangesCostCalculator;
+    }
+
+    @Override
+    public TestingGroupProvider getGroupProvider()
+    {
+        return groupProvider;
     }
 
     @Override
@@ -881,12 +889,13 @@ public class LocalQueryRunner
                 planFragmenter,
                 metadata,
                 typeOperators,
+                groupProvider,
                 accessControl,
                 sqlParser,
                 statsCalculator,
                 costCalculator,
                 dataDefinitionTask);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,

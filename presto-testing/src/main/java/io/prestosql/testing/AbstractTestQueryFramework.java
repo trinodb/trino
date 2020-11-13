@@ -391,6 +391,7 @@ public abstract class AbstractTestQueryFramework
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),
                 metadata,
                 typeOperators,
+                queryRunner.getGroupProvider(),
                 queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
