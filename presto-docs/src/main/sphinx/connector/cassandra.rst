@@ -8,7 +8,7 @@ The Cassandra connector allows querying data stored in
 Compatibility
 -------------
 
-Connector is compatible with all Cassandra versions newer than 2.1.5.
+Connector is tested against Cassandra version 2.2 and 3.11, but any intermediate or newer versions are expected to work.
 
 Configuration
 -------------
