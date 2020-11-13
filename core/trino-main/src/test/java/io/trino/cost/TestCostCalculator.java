@@ -850,6 +850,7 @@ public class TestCostCalculator
                 criteria.build(),
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
+                false,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

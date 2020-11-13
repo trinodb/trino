@@ -115,6 +115,7 @@ public class TransformUncorrelatedSubqueryToJoin
                 ImmutableList.of(),
                 parent.getInput().getOutputSymbols(),
                 parent.getSubquery().getOutputSymbols(),
+                false,
                 filter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(filter),
                 Optional.empty(),
                 Optional.empty(),

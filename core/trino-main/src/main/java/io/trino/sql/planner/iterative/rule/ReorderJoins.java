@@ -331,6 +331,7 @@ public class ReorderJoins
                     joinConditions,
                     leftOutputSymbols,
                     rightOutputSymbols,
+                    false,
                     joinFilters.isEmpty() ? Optional.empty() : Optional.of(and(joinFilters)),
                     Optional.empty(),
                     Optional.empty(),

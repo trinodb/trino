@@ -162,6 +162,7 @@ public class TransformCorrelatedGroupedAggregationWithoutProjection
                 ImmutableList.of(),
                 inputWithUniqueId.getOutputSymbols(),
                 source.getOutputSymbols(),
+                false,
                 decorrelatedSource.get().getCorrelatedPredicates(),
                 Optional.empty(),
                 Optional.empty(),

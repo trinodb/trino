@@ -187,6 +187,7 @@ public class EliminateCrossJoins
                     criteria.build(),
                     result.getOutputSymbols(),
                     rightNode.getOutputSymbols(),
+                    false,
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),

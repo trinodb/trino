@@ -583,6 +583,7 @@ public class TestSourcePartitionedScheduler
                         ImmutableList.of(),
                         tableScan.getOutputSymbols(),
                         remote.getOutputSymbols(),
+                        false,
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
