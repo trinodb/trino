@@ -344,6 +344,7 @@ public class ExtractSpatialJoins
                 joinNode.getCriteria(),
                 joinNode.getLeftOutputSymbols(),
                 joinNode.getRightOutputSymbols(),
+                joinNode.isMaySkipOutputDuplicates(),
                 Optional.of(newFilter),
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),

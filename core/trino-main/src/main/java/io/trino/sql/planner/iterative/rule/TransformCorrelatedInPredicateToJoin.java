@@ -251,6 +251,7 @@ public class TransformCorrelatedInPredicateToJoin
                 ImmutableList.of(),
                 probeSide.getOutputSymbols(),
                 buildSide.getOutputSymbols(),
+                false,
                 Optional.of(joinExpression),
                 Optional.empty(),
                 Optional.empty(),
