@@ -341,6 +341,7 @@ public class TestEliminateCrossJoins
                 criteria.build(),
                 left.getOutputSymbols(),
                 right.getOutputSymbols(),
+                false,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

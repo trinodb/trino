@@ -163,6 +163,7 @@ public class RemoveUnsupportedDynamicFilters
                         node.getCriteria(),
                         node.getLeftOutputSymbols(),
                         node.getRightOutputSymbols(),
+                        node.isMaySkipOutputDuplicates(),
                         filter,
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),
