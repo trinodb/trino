@@ -296,6 +296,10 @@ Option                          Description
 
 Troubleshooting
 ---------------
+Enable Insecure access
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+If you enable HTTPS for Presto coordinator, the default behaviour will prevent the access to web interface over HTTP with error ``Web Interface is disabled``. Although not recommended, this can be reenabled by setting
+``http-server.authentication.allow-insecure-over-http`` to ``true``.
 
 Java Keystore File Verification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
