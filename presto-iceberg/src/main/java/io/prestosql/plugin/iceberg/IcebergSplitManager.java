@@ -36,6 +36,8 @@ import static java.util.Objects.requireNonNull;
 public class IcebergSplitManager
         implements ConnectorSplitManager
 {
+    public static final int ICEBERG_DOMAIN_COMPACTION_THRESHOLD = 1000;
+
     private final IcebergTransactionManager transactionManager;
     private final HdfsEnvironment hdfsEnvironment;
 
@@ -64,7 +66,13 @@ public class IcebergSplitManager
         Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(table.getPredicate()))
+                .filter(toIcebergExpression(
+                        table.getEnforcedPredicate()
+                                // TODO: Remove TupleDomain#simplify once Iceberg supports IN expression. Currently this
+                                // is required for IN predicates on non-partition columns with large value list. Such
+                                // predicates on partition columns are not supported.
+                                // (See AbstractTestIcebergSmoke#testLargeInFailureOnPartitionedColumns)
+                                .intersect(table.getPredicate().simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD))))
                 .useSnapshot(table.getSnapshotId().get());
 
         // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can

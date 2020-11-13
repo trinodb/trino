@@ -21,6 +21,9 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatistics;
@@ -30,6 +33,7 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.transaction.TransactionBuilder;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -42,11 +46,17 @@ import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static io.prestosql.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
+import static io.prestosql.spi.predicate.Domain.multipleValues;
+import static io.prestosql.spi.predicate.Domain.singleValue;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
@@ -63,6 +73,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIcebergSmoke
         extends AbstractTestIntegrationSmokeTest
@@ -1226,6 +1237,93 @@ public abstract class AbstractTestIcebergSmoke
         assertThat(columnStatistics.getRange()).hasValue(new DoubleRange(101, 104));
 
         dropTable(tableName);
+    }
+
+    @Test
+    public void testPredicatePushdown()
+    {
+        QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_predicate");
+        assertUpdate(format("CREATE TABLE %s (col1 BIGINT, col2 BIGINT, col3 BIGINT) WITH (partitioning = ARRAY['col2', 'col3'])", tableName));
+        assertUpdate(format("INSERT INTO %s VALUES (1, 10, 100)", tableName), 1L);
+        assertUpdate(format("INSERT INTO %s VALUES (2, 20, 200)", tableName), 1L);
+
+        assertQuery(format("SELECT * FROM %s WHERE col1 = 1", tableName), "VALUES (1, 10, 100)");
+        assertFilterPushdown(tableName,
+                ImmutableMap.of("col1", singleValue(BIGINT, 1L)),
+                ImmutableMap.of(),
+                ImmutableMap.of("col1", singleValue(BIGINT, 1L)));
+
+        assertQuery(format("SELECT * FROM %s WHERE col2 = 10", tableName), "VALUES (1, 10, 100)");
+        assertFilterPushdown(tableName,
+                ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
+                ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
+                ImmutableMap.of());
+
+        assertQuery(format("SELECT * FROM %s WHERE col1 = 1 AND col2 = 10", tableName), "VALUES (1, 10, 100)");
+        assertFilterPushdown(tableName,
+                ImmutableMap.of("col1", singleValue(BIGINT, 1L), "col2", singleValue(BIGINT, 10L)),
+                ImmutableMap.of("col2", singleValue(BIGINT, 10L)),
+                ImmutableMap.of("col1", singleValue(BIGINT, 1L)));
+
+        // Assert pushdown for an IN predicate with value count above the default compaction threshold
+        List<Long> values = LongStream.range(1L, 1010L).boxed()
+                .filter(index -> index != 20L)
+                .collect(toImmutableList());
+        assertTrue(values.size() > ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+        String valuesString = String.join(",", values.stream().map(Object::toString).collect(toImmutableList()));
+        String inPredicate = "%s IN (" + valuesString + ")";
+        assertQuery(
+                format("SELECT * FROM %s WHERE %s AND %s", tableName, format(inPredicate, "col1"), format(inPredicate, "col2")),
+                "VALUES (1, 10, 100)");
+
+        assertFilterPushdown(
+                tableName,
+                ImmutableMap.of("col1", multipleValues(BIGINT, values), "col2", multipleValues(BIGINT, values)),
+                ImmutableMap.of("col2", multipleValues(BIGINT, values)),
+                // Unenforced predicate is simplified during split generation, but not reflected here
+                ImmutableMap.of("col1", multipleValues(BIGINT, values)));
+
+        dropTable(tableName.getObjectName());
+    }
+
+    private void assertFilterPushdown(
+            QualifiedObjectName tableName,
+            Map<String, Domain> filter,
+            Map<String, Domain> expectedEnforcedPredicate,
+            Map<String, Domain> expectedPredicate)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+
+        newTransaction().execute(getSession(), session -> {
+            TableHandle table = metadata.getTableHandle(session, tableName)
+                    .orElseThrow(() -> new TableNotFoundException(tableName.asSchemaTableName()));
+
+            Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, table);
+            TupleDomain<ColumnHandle> domains = TupleDomain.withColumnDomains(
+                    filter.entrySet().stream()
+                            .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue)));
+
+            Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, table, new Constraint(domains));
+
+            assertTrue(result.isEmpty() == (expectedPredicate == null && expectedEnforcedPredicate == null));
+
+            if (!result.isEmpty()) {
+                IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().getConnectorHandle();
+
+                assertEquals(newTable.getEnforcedPredicate(),
+                        TupleDomain.withColumnDomains(expectedEnforcedPredicate.entrySet().stream()
+                                .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
+
+                assertEquals(newTable.getPredicate(),
+                        TupleDomain.withColumnDomains(expectedPredicate.entrySet().stream()
+                                .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
+            }
+        });
+    }
+
+    private TransactionBuilder newTransaction()
+    {
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl());
     }
 
     private static class TestRelationalNumberPredicate

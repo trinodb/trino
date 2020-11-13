@@ -32,7 +32,12 @@ public class IcebergTableHandle
     private final String tableName;
     private final TableType tableType;
     private final Optional<Long> snapshotId;
+
+    // Filter used during split generation and table scan, but not required to be strictly enforced by Iceberg Connector
     private final TupleDomain<IcebergColumnHandle> predicate;
+
+    // Filter guaranteed to be enforced by Iceberg connector
+    private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -40,13 +45,15 @@ public class IcebergTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
-            @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate)
+            @JsonProperty("predicate") TupleDomain<IcebergColumnHandle> predicate,
+            @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
+        this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
     }
 
     @JsonProperty
@@ -79,6 +86,12 @@ public class IcebergTableHandle
         return predicate;
     }
 
+    @JsonProperty
+    public TupleDomain<IcebergColumnHandle> getEnforcedPredicate()
+    {
+        return enforcedPredicate;
+    }
+
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -104,13 +117,14 @@ public class IcebergTableHandle
                 Objects.equals(tableName, that.tableName) &&
                 tableType == that.tableType &&
                 Objects.equals(snapshotId, that.snapshotId) &&
-                Objects.equals(predicate, that.predicate);
+                Objects.equals(predicate, that.predicate) &&
+                Objects.equals(enforcedPredicate, that.enforcedPredicate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tableType, snapshotId, predicate);
+        return Objects.hash(schemaName, tableName, tableType, snapshotId, predicate, enforcedPredicate);
     }
 
     @Override
