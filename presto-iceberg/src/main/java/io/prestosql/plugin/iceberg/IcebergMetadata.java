@@ -701,6 +701,8 @@ public class IcebergMetadata
                 .map(PartitionField::sourceId)
                 .collect(toImmutableSet());
 
+        // TODO: Avoid enforcing the constraint when partition filters have large IN expressions, since iceberg cannot
+        // support it. Such large expressions cannot be simplified since simplification changes the filtered set.
         BiPredicate<IcebergColumnHandle, Domain> contains = (column, domain) -> partitionSourceIds.contains(column.getId());
         TupleDomain<ColumnHandle> remainingTupleDomain = newDomain.filter(contains.negate()).transform(ColumnHandle.class::cast);
         TupleDomain<IcebergColumnHandle> enforcedTupleDomain = newDomain.filter(contains);
