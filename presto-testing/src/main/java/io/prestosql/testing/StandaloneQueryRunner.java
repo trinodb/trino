@@ -154,6 +154,12 @@ public final class StandaloneQueryRunner
     }
 
     @Override
+    public TestingGroupProvider getGroupProvider()
+    {
+        return server.getGroupProvider();
+    }
+
+    @Override
     public TestingAccessControlManager getAccessControl()
     {
         return server.getAccessControl();

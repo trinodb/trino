@@ -15,6 +15,7 @@ package io.prestosql.sql.analyzer;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.connector.CatalogName;
@@ -2841,6 +2842,7 @@ public class TestAnalyzer
                 session,
                 metadata,
                 SQL_PARSER,
+                user -> ImmutableSet.of(),
                 new AllowAllAccessControl(),
                 Optional.empty(),
                 emptyList(),

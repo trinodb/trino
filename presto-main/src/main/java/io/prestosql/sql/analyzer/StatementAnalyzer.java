@@ -46,6 +46,7 @@ import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.ArrayType;
@@ -276,6 +277,7 @@ class StatementAnalyzer
     private final TypeCoercion typeCoercion;
     private final Session session;
     private final SqlParser sqlParser;
+    private final GroupProvider groupProvider;
     private final AccessControl accessControl;
     private final WarningCollector warningCollector;
     private final CorrelationSupport correlationSupport;
@@ -284,6 +286,7 @@ class StatementAnalyzer
             Analysis analysis,
             Metadata metadata,
             SqlParser sqlParser,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             Session session,
             WarningCollector warningCollector,
@@ -293,6 +296,7 @@ class StatementAnalyzer
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -611,6 +615,7 @@ class StatementAnalyzer
                     analysis,
                     metadata,
                     sqlParser,
+                    groupProvider,
                     new AllowAllAccessControl(),
                     session,
                     warningCollector,
@@ -770,7 +775,7 @@ class StatementAnalyzer
             analysis.setUpdateType("CREATE VIEW", viewName);
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -959,7 +964,7 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -1142,7 +1147,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1470,6 +1475,7 @@ class StatementAnalyzer
             Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.analyzeExpressions(
                     session,
                     metadata,
+                    groupProvider,
                     accessControl,
                     sqlParser,
                     TypeProvider.empty(),
@@ -1518,7 +1524,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -2568,7 +2574,9 @@ class StatementAnalyzer
                 Identity identity;
                 AccessControl viewAccessControl;
                 if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
-                    identity = Identity.ofUser(owner.get());
+                    identity = Identity.forUser(owner.get())
+                            .withGroups(groupProvider.getGroups(owner.get()))
+                            .build();
                     viewAccessControl = new ViewAccessControl(accessControl, session.getIdentity());
                 }
                 else {
@@ -2579,7 +2587,7 @@ class StatementAnalyzer
                 // TODO: record path in view definition (?) (check spec) and feed it into the session object we use to evaluate the query defined by the view
                 Session viewSession = createViewSession(catalog, schema, identity, session.getPath());
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector, CorrelationSupport.ALLOWED);
+                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, viewAccessControl, viewSession, warningCollector, CorrelationSupport.ALLOWED);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -2657,6 +2665,7 @@ class StatementAnalyzer
             return ExpressionAnalyzer.analyzeExpression(
                     session,
                     metadata,
+                    groupProvider,
                     accessControl,
                     sqlParser,
                     scope,
@@ -2671,6 +2680,7 @@ class StatementAnalyzer
             return ExpressionAnalyzer.analyzeExpression(
                     session,
                     metadata,
+                    groupProvider,
                     accessControl,
                     sqlParser,
                     scope,
@@ -2700,6 +2710,7 @@ class StatementAnalyzer
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(filter.getCatalog(), filter.getSchema(), Identity.forUser(filter.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
                         metadata,
+                        groupProvider,
                         accessControl,
                         sqlParser,
                         scope,
@@ -2754,6 +2765,7 @@ class StatementAnalyzer
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(mask.getCatalog(), mask.getSchema(), Identity.forUser(mask.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
                         metadata,
+                        groupProvider,
                         accessControl,
                         sqlParser,
                         scope,
@@ -3173,6 +3185,7 @@ class StatementAnalyzer
 
                 ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeExpression(session,
                         metadata,
+                        groupProvider,
                         accessControl,
                         sqlParser,
                         orderByScope,
