@@ -26,6 +26,7 @@ public class KafkaPlugin
     public static final Module DEFAULT_EXTENSION = binder -> {
         binder.install(new KafkaConsumerModule());
         binder.install(new KafkaProducerModule());
+        binder.install(new KafkaAdminModule());
     };
 
     private final Module extension;
