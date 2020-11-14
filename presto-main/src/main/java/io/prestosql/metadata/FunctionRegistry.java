@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.prestosql.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.prestosql.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -779,7 +778,7 @@ public class FunctionRegistry
         return functions.list();
     }
 
-    public Collection<FunctionMetadata> get(QualifiedName name)
+    public ImmutableList<FunctionMetadata> get(QualifiedName name)
     {
         return functions.get(name);
     }
@@ -867,8 +866,8 @@ public class FunctionRegistry
 
     private static class FunctionMap
     {
-        private final Map<FunctionId, SqlFunction> functions;
-        private final Multimap<QualifiedName, FunctionMetadata> functionsByName;
+        private final ImmutableMap<FunctionId, SqlFunction> functions;
+        private final ImmutableListMultimap<QualifiedName, FunctionMetadata> functionsByName;
 
         public FunctionMap()
         {
@@ -906,7 +905,7 @@ public class FunctionRegistry
             return ImmutableList.copyOf(functionsByName.values());
         }
 
-        public Collection<FunctionMetadata> get(QualifiedName name)
+        public ImmutableList<FunctionMetadata> get(QualifiedName name)
         {
             return functionsByName.get(name);
         }
