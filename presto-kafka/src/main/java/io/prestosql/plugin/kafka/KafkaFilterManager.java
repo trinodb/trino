@@ -24,7 +24,7 @@ import io.prestosql.spi.predicate.Ranges;
 import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
-import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.DescribeConfigsResult;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -148,7 +148,7 @@ public class KafkaFilterManager
 
     private boolean isTimestampUpperBoundPushdownEnabled(ConnectorSession session, String topic)
     {
-        try (AdminClient adminClient = adminFactory.create()) {
+        try (Admin adminClient = adminFactory.create()) {
             ConfigResource topicResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
 
             DescribeConfigsResult describeResult = adminClient.describeConfigs(Collections.singleton(topicResource));
