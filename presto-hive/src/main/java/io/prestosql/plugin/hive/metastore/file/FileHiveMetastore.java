@@ -306,7 +306,7 @@ public class FileHiveMetastore
             throw new PrestoException(NOT_SUPPORTED, "Table type not supported: " + table.getTableType());
         }
 
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(table), false);
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, table), false);
 
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
             setTablePrivileges(new HivePrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
@@ -346,7 +346,7 @@ public class FileHiveMetastore
                 .setOwner(principal.getName())
                 .build();
 
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(newTable), true);
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
     }
 
     @Override
@@ -411,8 +411,8 @@ public class FileHiveMetastore
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         TableMetadata updatedMetadata = tableMetadata
-                .withParameters(updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                .withColumnStatistics(updatedStatistics.getColumnStatistics());
+                .withParameters(currentVersion, updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
+                .withColumnStatistics(currentVersion, updatedStatistics.getColumnStatistics());
 
         writeSchemaFile("table", tableMetadataDirectory, tableCodec, updatedMetadata, true);
     }
@@ -521,7 +521,7 @@ public class FileHiveMetastore
         }
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(newTable), true);
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
 
         // replace existing permissions
         deleteTablePrivileges(table);
@@ -574,7 +574,7 @@ public class FileHiveMetastore
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             comment.ifPresent(value -> parameters.put(TABLE_COMMENT, value));
 
-            return oldTable.withParameters(parameters);
+            return oldTable.withParameters(currentVersion, parameters);
         });
     }
 
@@ -597,7 +597,7 @@ public class FileHiveMetastore
                 }
             }
 
-            return oldTable.withDataColumns(newDataColumns.build());
+            return oldTable.withDataColumns(currentVersion, newDataColumns.build());
         });
     }
 
@@ -609,10 +609,12 @@ public class FileHiveMetastore
                 throw new PrestoException(ALREADY_EXISTS, "Column already exists: " + columnName);
             }
 
-            return oldTable.withDataColumns(ImmutableList.<Column>builder()
-                    .addAll(oldTable.getDataColumns())
-                    .add(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
-                    .build());
+            return oldTable.withDataColumns(
+                    currentVersion,
+                    ImmutableList.<Column>builder()
+                            .addAll(oldTable.getDataColumns())
+                            .add(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
+                            .build());
         });
     }
 
@@ -643,7 +645,7 @@ public class FileHiveMetastore
                 }
             }
 
-            return oldTable.withDataColumns(newDataColumns.build());
+            return oldTable.withDataColumns(currentVersion, newDataColumns.build());
         });
     }
 
@@ -664,7 +666,7 @@ public class FileHiveMetastore
                 }
             }
 
-            return oldTable.withDataColumns(newDataColumns.build());
+            return oldTable.withDataColumns(currentVersion, newDataColumns.build());
         });
     }
 
