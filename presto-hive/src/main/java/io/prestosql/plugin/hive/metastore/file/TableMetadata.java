@@ -38,6 +38,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TableMetadata
 {
+    private final Optional<String> writerVersion;
     private final String owner;
     private final String tableType;
     private final List<Column> dataColumns;
@@ -57,6 +58,7 @@ public class TableMetadata
 
     @JsonCreator
     public TableMetadata(
+            @JsonProperty("writerVersion") Optional<String> writerVersion,
             @JsonProperty("owner") String owner,
             @JsonProperty("tableType") String tableType,
             @JsonProperty("dataColumns") List<Column> dataColumns,
@@ -70,6 +72,7 @@ public class TableMetadata
             @JsonProperty("viewExpandedText") Optional<String> viewExpandedText,
             @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
     {
+        this.writerVersion = requireNonNull(writerVersion, "writerVersion is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
@@ -93,8 +96,9 @@ public class TableMetadata
         checkArgument(partitionColumns.isEmpty() || columnStatistics.isEmpty(), "column statistics cannot be set for partitioned table");
     }
 
-    public TableMetadata(Table table)
+    public TableMetadata(String currentVersion, Table table)
     {
+        writerVersion = Optional.of(requireNonNull(currentVersion, "currentVersion is null"));
         owner = table.getOwner();
         tableType = table.getTableType();
         dataColumns = table.getDataColumns();
@@ -118,6 +122,12 @@ public class TableMetadata
         viewOriginalText = table.getViewOriginalText();
         viewExpandedText = table.getViewExpandedText();
         columnStatistics = ImmutableMap.of();
+    }
+
+    @JsonProperty
+    public Optional<String> getWriterVersion()
+    {
+        return writerVersion;
     }
 
     @JsonProperty
@@ -207,9 +217,10 @@ public class TableMetadata
         return columnStatistics;
     }
 
-    public TableMetadata withDataColumns(List<Column> dataColumns)
+    public TableMetadata withDataColumns(String currentVersion, List<Column> dataColumns)
     {
         return new TableMetadata(
+                Optional.of(requireNonNull(currentVersion, "currentVersion is null")),
                 owner,
                 tableType,
                 dataColumns,
@@ -224,9 +235,10 @@ public class TableMetadata
                 columnStatistics);
     }
 
-    public TableMetadata withParameters(Map<String, String> parameters)
+    public TableMetadata withParameters(String currentVersion, Map<String, String> parameters)
     {
         return new TableMetadata(
+                Optional.of(requireNonNull(currentVersion, "currentVersion is null")),
                 owner,
                 tableType,
                 dataColumns,
@@ -241,9 +253,10 @@ public class TableMetadata
                 columnStatistics);
     }
 
-    public TableMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
+    public TableMetadata withColumnStatistics(String currentVersion, Map<String, HiveColumnStatistics> columnStatistics)
     {
         return new TableMetadata(
+                Optional.of(requireNonNull(currentVersion, "currentVersion is null")),
                 owner,
                 tableType,
                 dataColumns,
