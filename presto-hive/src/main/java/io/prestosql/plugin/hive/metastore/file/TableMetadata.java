@@ -95,11 +95,6 @@ public class TableMetadata
 
     public TableMetadata(Table table)
     {
-        this(table, ImmutableMap.of());
-    }
-
-    public TableMetadata(Table table, Map<String, HiveColumnStatistics> columnStatistics)
-    {
         owner = table.getOwner();
         tableType = table.getTableType();
         dataColumns = table.getDataColumns();
@@ -122,7 +117,7 @@ public class TableMetadata
 
         viewOriginalText = table.getViewOriginalText();
         viewExpandedText = table.getViewExpandedText();
-        this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+        columnStatistics = ImmutableMap.of();
     }
 
     @JsonProperty
