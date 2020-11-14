@@ -570,9 +570,7 @@ public class FileHiveMetastore
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             comment.ifPresent(value -> parameters.put(TABLE_COMMENT, value));
 
-            return oldTable.withParameters(ImmutableMap.<String, String>builder()
-                    .putAll(parameters)
-                    .build());
+            return oldTable.withParameters(parameters);
         });
     }
 
