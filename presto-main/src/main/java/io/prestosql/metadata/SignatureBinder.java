@@ -841,9 +841,9 @@ public class SignatureBinder
         public SolverReturnStatus update(BoundVariables bindings)
         {
             ImmutableList.Builder<TypeSignatureParameter> originalTypeTypeParametersBuilder = ImmutableList.builder();
-            List<TypeSignatureParameter> parameters = formalTypeSignature.getParameters();
-            for (int i = 0; i < parameters.size(); i++) {
-                TypeSignatureParameter typeSignatureParameter = parameters.get(i);
+            List<TypeSignatureParameter> formalTypeParameter = formalTypeSignature.getParameters();
+            for (int i = 0; i < formalTypeParameter.size(); i++) {
+                TypeSignatureParameter typeSignatureParameter = formalTypeParameter.get(i);
                 if (typeSignatureParameter.getKind() == ParameterKind.VARIABLE) {
                     if (bindings.containsLongVariable(typeSignatureParameter.getVariable())) {
                         originalTypeTypeParametersBuilder.add(TypeSignatureParameter.numericParameter(bindings.getLongVariable(typeSignatureParameter.getVariable())));
@@ -855,6 +855,9 @@ public class SignatureBinder
                             return SolverReturnStatus.UNSOLVABLE;
                         }
                         TypeSignature typeSignature = type.get().getTypeSignature();
+                        verify(formalTypeSignature.getBase().equalsIgnoreCase(typeSignature.getBase()) &&
+                                        formalTypeSignature.getParameters().size() == typeSignature.getParameters().size(),
+                                format("Base mismatch: formal=%s, coerced=%s, actual=%s", formalTypeSignature, typeSignature, actualType));
                         originalTypeTypeParametersBuilder.add(TypeSignatureParameter.numericParameter(typeSignature.getParameters().get(i).getLongLiteral()));
                     }
                 }
@@ -873,8 +876,8 @@ public class SignatureBinder
                 return SolverReturnStatus.UNSOLVABLE;
             }
             SolverReturnStatus result = SolverReturnStatus.UNCHANGED_SATISFIED;
-            for (int i = 0; i < parameters.size(); i++) {
-                TypeSignatureParameter typeSignatureParameter = parameters.get(i);
+            for (int i = 0; i < formalTypeParameter.size(); i++) {
+                TypeSignatureParameter typeSignatureParameter = formalTypeParameter.get(i);
                 long commonSuperLongLiteral = commonSuperTypeSignature.getParameters().get(i).getLongLiteral();
                 if (typeSignatureParameter.getKind() == ParameterKind.VARIABLE) {
                     String variableName = typeSignatureParameter.getVariable();
