@@ -18,9 +18,20 @@ import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
+import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.NOT_SUPPORTED;
+
 public class FileHiveMetastoreConfig
 {
+    public static final String VERSION_COMPATIBILITY_CONFIG = "hive.metastore.version-compatibility";
+
+    public enum VersionCompatibility
+    {
+        NOT_SUPPORTED,
+        UNSAFE_ASSUME_COMPATIBILITY,
+    }
+
     private String catalogDirectory;
+    private VersionCompatibility versionCompatibility = NOT_SUPPORTED;
     private String metastoreUser = "presto";
     private boolean assumeCanonicalPartitionKeys;
 
@@ -35,6 +46,19 @@ public class FileHiveMetastoreConfig
     public FileHiveMetastoreConfig setCatalogDirectory(String catalogDirectory)
     {
         this.catalogDirectory = catalogDirectory;
+        return this;
+    }
+
+    @NotNull
+    public VersionCompatibility getVersionCompatibility()
+    {
+        return versionCompatibility;
+    }
+
+    @Config(VERSION_COMPATIBILITY_CONFIG)
+    public FileHiveMetastoreConfig setVersionCompatibility(VersionCompatibility versionCompatibility)
+    {
+        this.versionCompatibility = versionCompatibility;
         return this;
     }
 
