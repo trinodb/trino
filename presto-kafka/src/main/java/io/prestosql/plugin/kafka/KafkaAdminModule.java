@@ -11,20 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.prestosql.plugin.kafka;
 
-import org.apache.kafka.clients.admin.Admin;
-import org.apache.kafka.clients.admin.KafkaAdminClient;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-import java.util.Properties;
-
-public interface KafkaAdminFactory
+public class KafkaAdminModule
+        implements Module
 {
-    default Admin create()
+    @Override
+    public void configure(Binder binder)
     {
-        return KafkaAdminClient.create(configure());
+        binder.bind(KafkaAdminFactory.class).to(PlainTextKafkaAdminFactory.class).in(Scopes.SINGLETON);
     }
-
-    Properties configure();
 }
