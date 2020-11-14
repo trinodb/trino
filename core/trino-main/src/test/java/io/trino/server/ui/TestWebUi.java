@@ -70,6 +70,7 @@ import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.FORWARD_DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
@@ -153,6 +154,54 @@ public class TestWebUi
     }
 
     @Test
+    public void testRedirectHttpToHttps()
+            throws Exception
+    {
+        verifyRedirectHttpToHttps(false);
+        verifyRedirectHttpToHttps(true);
+    }
+
+    private void verifyRedirectHttpToHttps(boolean processForwardedHeaders)
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("http-server.https.enabled", "true")
+                        .put("http-server.https.keystore.path", LOCALHOST_KEYSTORE)
+                        .put("http-server.https.keystore.key", "")
+                        .put("http-server.authentication.type", "password")
+                        .put("http-server.process-forwarded", String.valueOf(processForwardedHeaders))
+                        .build())
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestWebUi::authenticate);
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            URI secureUri = httpServerInfo.getHttpsUri();
+            URI insecureUri = httpServerInfo.getHttpUri();
+
+            // https works as normal (redirects to login)
+            assertRedirect(client, getUiLocation(secureUri), getLoginHtmlLocation(secureUri), false);
+
+            // http redirects to https
+            assertRedirect(client, getUiLocation(insecureUri), getUiLocation(secureUri), false);
+
+            // Test a forwarded request
+            OkHttpClient forwardedClient = client.newBuilder()
+                    .addInterceptor(chain -> chain.proceed(chain.request().newBuilder()
+                            .addHeader("Forwarded", "host=example.com;proto=http")
+                            .build()))
+                    .build();
+            if (processForwardedHeaders) {
+                // proxied requests are send to the disabled page because we do not know the location of the HTTPS address
+                assertRedirect(forwardedClient, getUiLocation(insecureUri), getDisabledLocation(URI.create("http://example.com")), false);
+            }
+            else {
+                // Requests with unprocessed forwarded headers get redirected to the forwarded disabled error page
+                assertRedirect(forwardedClient, getUiLocation(insecureUri), getForwardDisabledLocation(insecureUri), false);
+            }
+        }
+    }
+
+    @Test
     public void testPasswordAuthenticator()
             throws Exception
     {
@@ -197,15 +246,21 @@ public class TestWebUi
     private void testLoggedOut(URI baseUri)
             throws IOException
     {
-        assertRedirect(client, getUiLocation(baseUri), getLoginHtmlLocation(baseUri));
+        testLoggedOut(baseUri, baseUri);
+    }
 
-        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(baseUri, LOGIN_FORM, "/ui/query.html?abc123"), false);
+    private void testLoggedOut(URI baseUri, URI redirectBaseUri)
+            throws IOException
+    {
+        assertRedirect(client, getUiLocation(baseUri), getLoginHtmlLocation(redirectBaseUri));
 
-        assertResponseCode(client, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
+        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(redirectBaseUri, LOGIN_FORM, "/ui/query.html?abc123"), false);
 
-        assertOk(client, getValidAssetsLocation(baseUri));
+        assertResponseCode(client, getValidApiLocation(redirectBaseUri), SC_UNAUTHORIZED);
 
-        assertOk(client, getValidVendorLocation(baseUri));
+        assertOk(client, getValidAssetsLocation(redirectBaseUri));
+
+        assertOk(client, getValidVendorLocation(redirectBaseUri));
     }
 
     private void testLogIn(URI baseUri, boolean sendPassword)
@@ -859,6 +914,11 @@ public class TestWebUi
     private static String getDisabledLocation(URI baseUri)
     {
         return getLocation(baseUri, DISABLED_LOCATION);
+    }
+
+    private static String getForwardDisabledLocation(URI baseUri)
+    {
+        return getLocation(baseUri, FORWARD_DISABLED_LOCATION);
     }
 
     private static String getValidApiLocation(URI baseUri)

@@ -15,6 +15,8 @@ package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
+import io.airlift.http.server.HttpServerConfig;
+import io.airlift.http.server.HttpServerInfo;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -25,6 +27,7 @@ import io.trino.spi.security.Identity;
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Cookie;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.NewCookie;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
@@ -58,6 +61,8 @@ public class FormWebUiAuthenticationFilter
     static final URI LOGIN_FORM_URI = URI.create(LOGIN_FORM);
     static final String DISABLED_LOCATION = "/ui/disabled.html";
     static final URI DISABLED_LOCATION_URI = URI.create(DISABLED_LOCATION);
+    static final String FORWARD_DISABLED_LOCATION = "/ui/forward_disabled.html";
+    static final URI FORWARD_DISABLED_LOCATION_URI = URI.create(FORWARD_DISABLED_LOCATION);
     public static final String UI_LOCATION = "/ui/";
     static final URI UI_LOCATION_URI = URI.create(UI_LOCATION);
     static final String UI_LOGIN = "/ui/login";
@@ -68,11 +73,16 @@ public class FormWebUiAuthenticationFilter
     private final FormAuthenticator formAuthenticator;
     private final Optional<Authenticator> authenticator;
 
+    private final HttpServerInfo serverInfo;
+    private final boolean processForwarded;
+
     @Inject
     public FormWebUiAuthenticationFilter(
             FormWebUiConfig config,
             FormAuthenticator formAuthenticator,
-            @ForWebUi Optional<Authenticator> authenticator)
+            @ForWebUi Optional<Authenticator> authenticator,
+            HttpServerInfo serverInfo,
+            HttpServerConfig httpServerConfig)
     {
         byte[] hmac;
         if (config.getSharedSecret().isPresent()) {
@@ -90,6 +100,9 @@ public class FormWebUiAuthenticationFilter
 
         this.formAuthenticator = requireNonNull(formAuthenticator, "formAuthenticator is null");
         this.authenticator = requireNonNull(authenticator, "authenticator is null");
+
+        this.serverInfo = requireNonNull(serverInfo, "serverInfo is null");
+        this.processForwarded = requireNonNull(httpServerConfig, "httpServerConfig is null").isProcessForwarded();
     }
 
     @Override
@@ -98,7 +111,7 @@ public class FormWebUiAuthenticationFilter
         String path = request.getUriInfo().getRequestUri().getPath();
 
         // disabled page is always visible
-        if (path.equals(DISABLED_LOCATION)) {
+        if (path.equals(DISABLED_LOCATION) || path.equals(FORWARD_DISABLED_LOCATION)) {
             return;
         }
 
@@ -132,6 +145,19 @@ public class FormWebUiAuthenticationFilter
         }
 
         if (!isAuthenticationEnabled(request.getSecurityContext().isSecure())) {
+            // if the request contains unprocessed forwarded headers, send to disabled page with information about forwarding
+            if (hasUnprocessedForwardedHeaders(request)) {
+                request.abortWith(Response.seeOther(FORWARD_DISABLED_LOCATION_URI).build());
+                return;
+            }
+
+            // if this is a direct, not forwarded, request to an unsecured port, attempt to redirect to the secure port
+            Optional<URI> secureRedirectLocation = getSecureRedirectLocation(request);
+            if (secureRedirectLocation.isPresent()) {
+                request.abortWith(Response.seeOther(secureRedirectLocation.get()).build());
+                return;
+            }
+
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
@@ -284,6 +310,66 @@ public class FormWebUiAuthenticationFilter
     boolean isAuthenticationEnabled(boolean secure)
     {
         return formAuthenticator.isLoginEnabled(secure) || authenticator.isPresent();
+    }
+
+    private boolean hasUnprocessedForwardedHeaders(ContainerRequestContext requestContext)
+    {
+        if (processForwarded) {
+            return false;
+        }
+
+        MultivaluedMap<String, String> headers = requestContext.getHeaders();
+        return headers.containsKey("Forwarded") ||
+                headers.containsKey("X-Forwarded-Proto") ||
+                headers.containsKey("X-Forwarded-Host") ||
+                headers.containsKey("X-Forwarded-Server") ||
+                headers.containsKey("X-Forwarded-Port");
+    }
+
+    private Optional<URI> getSecureRedirectLocation(ContainerRequestContext requestContext)
+    {
+        if (requestContext.getSecurityContext().isSecure()) {
+            // already a secure request
+            return Optional.empty();
+        }
+
+        if (isSameServer(serverInfo.getHttpUri(), requestContext.getUriInfo().getBaseUri())) {
+            return getRedirectLocation(requestContext, serverInfo.getHttpsUri());
+        }
+        if (isSameServer(serverInfo.getHttpUri(), requestContext.getUriInfo().getBaseUri())) {
+            return getRedirectLocation(requestContext, serverInfo.getHttpsExternalUri());
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<URI> getRedirectLocation(ContainerRequestContext requestContext, URI baseUri)
+    {
+        return Optional.of(requestContext.getUriInfo().getRequestUriBuilder()
+                .scheme(baseUri.getScheme())
+                .host(baseUri.getHost())
+                .port(baseUri.getPort())
+                .build());
+    }
+
+    private static boolean isSameServer(URI left, URI right)
+    {
+        return left.getScheme().equals(right.getScheme()) &&
+                getPort(left) == getPort(right) &&
+                left.getHost().equals(right.getHost());
+    }
+
+    private static int getPort(URI uri)
+    {
+        int port = uri.getPort();
+        if (port == -1) {
+            if ("http".equals(uri.getScheme())) {
+                return 80;
+            }
+            if ("https".equals(uri.getScheme())) {
+                return 443;
+            }
+        }
+        return port;
     }
 
     private static String generateJwt(byte[] hmac, String username, long sessionTimeoutNanos)
