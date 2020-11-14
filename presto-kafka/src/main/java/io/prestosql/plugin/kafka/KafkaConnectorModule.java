@@ -67,7 +67,6 @@ public class KafkaConnectorModule
 
         binder.install(new DecoderModule());
         binder.install(new EncoderModule());
-        binder.install(new KafkaProducerModule());
     }
 
     private static final class TypeDeserializer
