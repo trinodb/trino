@@ -14,6 +14,7 @@
 package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.HealthCheck;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -25,6 +26,7 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
 import net.jodah.failsafe.function.CheckedRunnable;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
@@ -46,7 +48,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -387,25 +388,20 @@ public class DockerContainer
         }
     }
 
-    public void tryStop()
+    public void killContainer()
     {
-        if (!isRunning()) {
-            log.warn("Could not stop already stopped container: %s", logicalName);
+        String containerId = getContainerId();
+        if (containerId == null) {
             return;
         }
 
         try {
-            executor.runAsync(this::stop).get();
+            DockerClientFactory.lazyClient()
+                    .killContainerCmd(containerId)
+                    .exec();
         }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
+        catch (NotFoundException ignore) {
         }
-        catch (ExecutionException | RuntimeException e) {
-            log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
-        }
-
-        checkState(!isRunning(), "Container %s is still running", logicalName);
     }
 
     public enum OutputMode
