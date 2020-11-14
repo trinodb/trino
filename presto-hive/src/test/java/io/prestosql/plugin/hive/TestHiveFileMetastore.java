@@ -31,6 +31,7 @@ public class TestHiveFileMetastore
     {
         File baseDir = new File(tempDir, "metastore");
         return new FileHiveMetastore(
+                new NodeVersion("test_version"),
                 HDFS_ENVIRONMENT,
                 new MetastoreConfig()
                         .setHideDeltaLakeTables(true),
