@@ -93,6 +93,7 @@ public final class HiveQueryRunner
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             return new FileHiveMetastore(
+                    new NodeVersion("test_version"),
                     HDFS_ENVIRONMENT,
                     new MetastoreConfig(),
                     new FileHiveMetastoreConfig()

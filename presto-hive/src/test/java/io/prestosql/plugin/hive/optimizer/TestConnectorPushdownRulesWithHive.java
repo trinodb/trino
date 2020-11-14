@@ -29,6 +29,7 @@ import io.prestosql.plugin.hive.HiveColumnProjectionInfo;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
+import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -103,6 +104,7 @@ public class TestConnectorPushdownRulesWithHive
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
         metastore = new FileHiveMetastore(
+                new NodeVersion("test_version"),
                 environment,
                 new MetastoreConfig(),
                 new FileHiveMetastoreConfig()

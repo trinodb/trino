@@ -28,6 +28,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.PartitionNotFoundException;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.SchemaAlreadyExistsException;
@@ -132,6 +133,7 @@ public class FileHiveMetastore
     private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
+    private final String currentVersion;
     private final HdfsEnvironment hdfsEnvironment;
     private final Path catalogDirectory;
     private final HdfsContext hdfsContext;
@@ -153,6 +155,7 @@ public class FileHiveMetastore
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(
+                new NodeVersion("test_version"),
                 hdfsEnvironment,
                 new MetastoreConfig(),
                 new FileHiveMetastoreConfig()
@@ -161,8 +164,9 @@ public class FileHiveMetastore
     }
 
     @Inject
-    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, MetastoreConfig metastoreConfig, FileHiveMetastoreConfig config)
+    public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, MetastoreConfig metastoreConfig, FileHiveMetastoreConfig config)
     {
+        this.currentVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         requireNonNull(metastoreConfig, "metastoreConfig is null");
         requireNonNull(config, "config is null");
