@@ -21,6 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        i: [1,2,3,4]
         config:
           - config-default
           - config-hdp3
