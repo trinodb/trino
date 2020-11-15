@@ -183,7 +183,6 @@ public final class TestRun
                 log.error("Test execution exceeded timeout of %s", timeout);
             }
             catch (Throwable e) {
-                // log failure (tersely) because cleanup may take some time
                 log.error("Failure: %s", getStackTraceAsString(e));
             }
 
