@@ -43,11 +43,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.ofBytes;
@@ -184,12 +184,12 @@ public class DockerContainer
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
         try {
-            executor.runAsync(copy).whenComplete((ignore, throwable) -> {
+            ((CompletableFuture<?>) executor.runAsync(copy)).whenComplete((Object ignore, Throwable throwable) -> {
                 if (throwable == null) {
                     log.info("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
                 }
                 else {
-                    log.warn("Could not copy files into %s %s: %s", this, containerPath, getStackTraceAsString((Throwable) throwable));
+                    log.warn(throwable, "Could not copy files into %s %s", this, containerPath);
                 }
             }).get();
         }
@@ -276,7 +276,7 @@ public class DockerContainer
             throw new RuntimeException(e);
         }
         catch (ExecutionException | RuntimeException e) {
-            log.warn("Could not copy logs archive from %s: %s", logicalName, getStackTraceAsString(e));
+            log.warn(e, "Could not copy logs archive from %s", logicalName);
         }
     }
 
@@ -311,7 +311,7 @@ public class DockerContainer
             throw new RuntimeException(e);
         }
         catch (ExecutionException | RuntimeException e) {
-            log.warn("Could not copy file from %s to %s: %s", filename, targetPath, getStackTraceAsString(e));
+            log.warn(e, "Could not copy file from %s to %s", filename, targetPath);
         }
     }
 
@@ -323,7 +323,7 @@ public class DockerContainer
                     .splitToList(execCommand("/usr/bin/find", path, "-type", "f", "-print"));
         }
         catch (RuntimeException e) {
-            log.warn("Could not list files in container '%s' path %s: %s", logicalName, path, e);
+            log.warn(e, "Could not list files in container '%s' path %s", logicalName, path);
         }
 
         return ImmutableList.of();
@@ -402,7 +402,7 @@ public class DockerContainer
             throw new RuntimeException(e);
         }
         catch (ExecutionException | RuntimeException e) {
-            log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
+            log.warn(e, "Could not stop container correctly");
         }
 
         checkState(!isRunning(), "Container %s is still running", logicalName);

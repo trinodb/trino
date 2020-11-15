@@ -45,7 +45,6 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
@@ -183,7 +182,7 @@ public final class TestRun
                 log.error("Test execution exceeded timeout of %s", timeout);
             }
             catch (Throwable e) {
-                log.error("Failure: %s", getStackTraceAsString(e));
+                log.error(e, "Failure");
             }
 
             return ExitCode.SOFTWARE;
@@ -195,7 +194,7 @@ public final class TestRun
                 return toIntExact(environment.awaitTestsCompletion());
             }
             catch (RuntimeException e) {
-                log.warn("Failed to execute tests: %s", getStackTraceAsString(e));
+                log.warn(e, "Failed to execute tests");
                 return ExitCode.SOFTWARE;
             }
         }

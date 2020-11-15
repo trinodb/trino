@@ -23,7 +23,6 @@ import org.testcontainers.DockerClientFactory;
 import java.io.IOException;
 import java.util.List;
 
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.killContainers;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.removeNetworks;
@@ -53,7 +52,7 @@ public final class Environments
                     listContainersCmd -> listContainersCmd.withLabelFilter(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)));
         }
         catch (RuntimeException e) {
-            log.warn("Could not prune containers correctly: %s", getStackTraceAsString(e));
+            log.warn(e, "Could not prune containers correctly");
         }
     }
 
@@ -66,7 +65,7 @@ public final class Environments
                     listNetworksCmd -> listNetworksCmd.withNameFilter(PRODUCT_TEST_LAUNCHER_NETWORK));
         }
         catch (RuntimeException e) {
-            log.warn("Could not prune networks correctly: %s", getStackTraceAsString(e));
+            log.warn(e, "Could not prune networks correctly");
         }
     }
 

@@ -14,7 +14,6 @@
 package io.prestosql.tests.product.launcher.cli;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
@@ -207,8 +206,11 @@ public class SuiteRun
             if (result.isSuccessful()) {
                 log.info("PASSED %s with %s [took %s]", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration());
             }
+            else if (result.getThrowable().isPresent()) {
+                log.error(result.getThrowable().get(), "FAILED %s with %s [took %s]", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration());
+            }
             else {
-                log.error("FAILED %s with %s [took %s]:\n%s", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration(), result.getThrowable().map(Throwables::getStackTraceAsString).orElse("no stacktrace"));
+                log.error("FAILED %s with %s [took %s]", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration());
             }
         }
 
