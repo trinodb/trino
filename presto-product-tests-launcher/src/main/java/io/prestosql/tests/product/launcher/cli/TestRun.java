@@ -37,16 +37,23 @@ import picocli.CommandLine.Parameters;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.lang.management.ThreadInfo;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
@@ -54,7 +61,12 @@ import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TEST
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.lang.StrictMath.toIntExact;
+import static java.lang.management.ManagementFactory.getThreadMXBean;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
 import static picocli.CommandLine.Command;
@@ -68,6 +80,8 @@ public final class TestRun
         implements Callable<Integer>
 {
     private static final Logger log = Logger.get(TestRun.class);
+
+    private static final ScheduledExecutorService diagnosticExecutor = newScheduledThreadPool(2, daemonThreadsNamed("TestRun-diagnostic"));
 
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     @SuppressWarnings("unused")
@@ -170,9 +184,20 @@ public final class TestRun
         @Override
         public Integer call()
         {
+            AtomicBoolean finished = new AtomicBoolean();
+            Future<?> diagnosticFlow = immediateFuture(null);
             try {
+                long timeoutMillis = timeout.toMillis();
+                long marginMillis = SECONDS.toMillis(10);
+                if (timeoutMillis < marginMillis) {
+                    log.error("Unsupported small timeout value: %s ms", timeoutMillis);
+                    return ExitCode.SOFTWARE;
+                }
+
+                diagnosticFlow = diagnosticExecutor.schedule(() -> reportSuspectedTimeout(finished), timeoutMillis - marginMillis, MILLISECONDS);
+
                 int exitCode = Failsafe
-                        .with(Timeout.of(java.time.Duration.ofMillis(timeout.toMillis()))
+                        .with(Timeout.of(java.time.Duration.ofMillis(timeoutMillis))
                                 .withCancel(true))
                         .get(this::tryExecuteTests);
 
@@ -185,6 +210,10 @@ public final class TestRun
             catch (Throwable e) {
                 // log failure (tersely) because cleanup may take some time
                 log.error("Failure: %s", getStackTraceAsString(e));
+            }
+            finally {
+                finished.set(true);
+                diagnosticFlow.cancel(true);
             }
 
             return ExitCode.SOFTWARE;
@@ -280,6 +309,24 @@ public final class TestRun
             builder.setAttached(attach);
 
             return builder.build(getStandardListeners(logsDirBase));
+        }
+
+        private void reportSuspectedTimeout(AtomicBoolean finished)
+        {
+            if (finished.get()) {
+                return;
+            }
+
+            // Test may not complete on time because they take too long (legitimate from Launcher's perspective), or because Launcher hangs.
+            // In the latter case it's worth reporting Launcher's threads.
+
+            // Log something immediately before getting thread information
+            log.warn("Test execution is not finished yet, a deadlock or hang is suspected. Thread dump will follow.");
+            log.warn(
+                    "Full Thread Dump:\n%s",
+                    Arrays.stream(getThreadMXBean().dumpAllThreads(true, true))
+                            .map(ThreadInfo::toString)
+                            .collect(joining("\n")));
         }
 
         private static Iterable<? extends String> reportsDirOptions(Path path)
