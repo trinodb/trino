@@ -23,6 +23,7 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.type.DateTimes;
 
+import java.time.DateTimeException;
 import java.time.ZonedDateTime;
 import java.util.regex.Matcher;
 
@@ -53,6 +54,11 @@ public final class VarcharToTimestampCast
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
         }
+        catch (DateTimeException e) {
+            //Leverage highly specific error message from the source exception.
+            throw new PrestoException(INVALID_CAST_ARGUMENT,
+                    String.format("Value cannot be cast to timestamp; %s. ", e.getMessage()), e);
+        }
     }
 
     @LiteralParameters({"x", "p"})
@@ -64,6 +70,11 @@ public final class VarcharToTimestampCast
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
+        }
+        catch (DateTimeException e) {
+            //Leverage highly specific error message from the source exception.
+            throw new PrestoException(INVALID_CAST_ARGUMENT,
+                    String.format("Value cannot be cast to timestamp; %s. ", e.getMessage()), e);
         }
     }
 
