@@ -208,7 +208,7 @@ public class SuiteRun
                 log.info("PASSED %s with %s [took %s]", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration());
             }
             else {
-                log.info("FAILED %s with %s [took %s]:\n%s", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration(), result.getThrowable().map(Throwables::getStackTraceAsString).orElse("no stacktrace"));
+                log.error("FAILED %s with %s [took %s]:\n%s", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration(), result.getThrowable().map(Throwables::getStackTraceAsString).orElse("no stacktrace"));
             }
         }
 
