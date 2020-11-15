@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -61,7 +60,7 @@ public class StatisticsFetcher
             throw new UncheckedIOException(e);
         }
         catch (RuntimeException e) {
-            log.error("Could not fetch container %s statistics: %s", container.getLogicalName(), getStackTraceAsString(e));
+            log.error(e, "Could not fetch container %s statistics", container.getLogicalName());
             return lastStats.get();
         }
     }

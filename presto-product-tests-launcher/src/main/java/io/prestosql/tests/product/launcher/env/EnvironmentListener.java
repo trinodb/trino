@@ -30,7 +30,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.function.Consumer;
 
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
@@ -84,7 +83,7 @@ public interface EnvironmentListener
                 throw new RuntimeException(e);
             }
             catch (ExecutionException | RuntimeException e) {
-                log.error("Could not invoke listener %s due to %s", listener.getClass().getSimpleName(), getStackTraceAsString(e));
+                log.error(e, "Could not invoke listener %s", listener.getClass().getSimpleName());
             }
         });
     }
