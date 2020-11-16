@@ -145,6 +145,7 @@ public class LogTestDurationListener
     {
         LOG.warn("%s\n\nFull Thread Dump:\n%s", message,
                 Arrays.stream(getThreadMXBean().dumpAllThreads(true, true))
+                        // TODO ThreadInfo.toString truncates stacktrace to java.lang.management.ThreadInfo#MAX_FRAMES
                         .map(ThreadInfo::toString)
                         .collect(joining("\n")));
     }
