@@ -7442,13 +7442,15 @@ public class TestHiveIntegrationSmokeTest
             return;
         }
 
-        String createTable = "CREATE TABLE test_timestamp_precision (ts TIMESTAMP) WITH (format = '%s')";
-        @Language("SQL") String insert = "INSERT INTO test_timestamp_precision VALUES (TIMESTAMP '%s')";
+        String tableName = "test_timestamp_precision_" + randomTableSuffix();
+        String createTable = "CREATE TABLE " + tableName + " (ts TIMESTAMP) WITH (format = '%s')";
+        @Language("SQL") String insert = "INSERT INTO " + tableName + " VALUES (TIMESTAMP '%s')";
 
         testTimestampPrecisionWrites(
                 session,
+                tableName,
                 (ts, precision) -> {
-                    assertUpdate("DROP TABLE IF EXISTS test_timestamp_precision");
+                    assertUpdate("DROP TABLE IF EXISTS " + tableName);
                     assertUpdate(format(createTable, storageFormat));
                     assertUpdate(withTimestampPrecision(session, precision), format(insert, ts), 1);
                 });
@@ -7467,20 +7469,22 @@ public class TestHiveIntegrationSmokeTest
             return;
         }
 
-        String createTableAs = "CREATE TABLE test_timestamp_precision WITH (format = '%s') AS SELECT TIMESTAMP '%s' ts";
+        String tableName = "test_timestamp_precision_" + randomTableSuffix();
+        String createTableAs = "CREATE TABLE " + tableName + " WITH (format = '%s') AS SELECT TIMESTAMP '%s' ts";
 
         testTimestampPrecisionWrites(
                 session,
+                tableName,
                 (ts, precision) -> {
-                    assertUpdate("DROP TABLE IF EXISTS test_timestamp_precision");
+                    assertUpdate("DROP TABLE IF EXISTS " + tableName);
                     assertUpdate(withTimestampPrecision(session, precision), format(createTableAs, storageFormat, ts), 1);
                 });
     }
 
-    private void testTimestampPrecisionWrites(Session session, BiConsumer<String, HiveTimestampPrecision> populateData)
+    private void testTimestampPrecisionWrites(Session session, String tableName, BiConsumer<String, HiveTimestampPrecision> populateData)
     {
         populateData.accept("2019-02-03 18:30:00.123", HiveTimestampPrecision.MILLISECONDS);
-        @Language("SQL") String sql = "SELECT ts FROM test_timestamp_precision";
+        @Language("SQL") String sql = "SELECT ts FROM " + tableName;
         assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MILLISECONDS), sql, "VALUES ('2019-02-03 18:30:00.123')");
         assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MICROSECONDS), sql, "VALUES ('2019-02-03 18:30:00.123')");
         assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.NANOSECONDS), sql, "VALUES ('2019-02-03 18:30:00.123')");
