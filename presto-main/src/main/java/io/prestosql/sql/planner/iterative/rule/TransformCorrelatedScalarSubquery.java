@@ -80,7 +80,7 @@ import static java.util.Objects.requireNonNull;
  *       - non scalar subquery
  * </pre>
  * <p>
- * This must be run after {@link TransformCorrelatedScalarAggregationToJoin}
+ * This must be run after aggregation decorrelation rules.
  */
 public class TransformCorrelatedScalarSubquery
         implements Rule<CorrelatedJoinNode>

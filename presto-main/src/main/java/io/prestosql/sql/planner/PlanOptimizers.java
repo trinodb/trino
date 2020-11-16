@@ -177,9 +177,14 @@ import io.prestosql.sql.planner.iterative.rule.RewriteSpatialPartitioningAggrega
 import io.prestosql.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.prestosql.sql.planner.iterative.rule.SimplifyExpressions;
 import io.prestosql.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
+import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedDistinctAggregationWithProjection;
+import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedDistinctAggregationWithoutProjection;
+import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedGlobalAggregationWithProjection;
+import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedGlobalAggregationWithoutProjection;
+import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedGroupedAggregationWithProjection;
+import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedGroupedAggregationWithoutProjection;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedInPredicateToJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedJoinToJoin;
-import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import io.prestosql.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
@@ -500,15 +505,18 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.<Rule<?>>builder()
-                                .add(
-                                        new RemoveRedundantEnforceSingleRowNode(),
-                                        new RemoveUnreferencedScalarSubqueries(),
-                                        new TransformUncorrelatedSubqueryToJoin(),
-                                        new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                                        new TransformCorrelatedJoinToJoin(metadata))
-                                .addAll(new TransformCorrelatedScalarAggregationToJoin(metadata).rules())
-                                .build()),
+                        ImmutableSet.of(
+                                new RemoveRedundantEnforceSingleRowNode(),
+                                new RemoveUnreferencedScalarSubqueries(),
+                                new TransformUncorrelatedSubqueryToJoin(),
+                                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
+                                new TransformCorrelatedJoinToJoin(metadata),
+                                new TransformCorrelatedGlobalAggregationWithProjection(metadata),
+                                new TransformCorrelatedGlobalAggregationWithoutProjection(metadata),
+                                new TransformCorrelatedDistinctAggregationWithProjection(metadata),
+                                new TransformCorrelatedDistinctAggregationWithoutProjection(metadata),
+                                new TransformCorrelatedGroupedAggregationWithProjection(metadata),
+                                new TransformCorrelatedGroupedAggregationWithoutProjection(metadata))),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -516,7 +524,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarApplyNodes(),
                                 new TransformCorrelatedInPredicateToJoin(metadata), // must be run after columnPruningOptimizer
-                                new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedScalarAggregationToJoin
+                                new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedAggregation rules
                                 new TransformCorrelatedJoinToJoin(metadata),
                                 new ImplementFilteredAggregations(metadata))),
                 new IterativeOptimizer(

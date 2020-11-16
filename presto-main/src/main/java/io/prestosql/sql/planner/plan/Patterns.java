@@ -17,6 +17,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.matching.Property;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type;
 import io.prestosql.sql.tree.Expression;
 
 import java.util.List;
@@ -289,6 +290,11 @@ public final class Patterns
         public static Property<CorrelatedJoinNode, Lookup, Expression> filter()
         {
             return property("filter", CorrelatedJoinNode::getFilter);
+        }
+
+        public static Property<CorrelatedJoinNode, Lookup, Type> type()
+        {
+            return property("type", CorrelatedJoinNode::getType);
         }
     }
 
