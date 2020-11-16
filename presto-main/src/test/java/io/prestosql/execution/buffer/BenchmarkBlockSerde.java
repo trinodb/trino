@@ -50,6 +50,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -60,6 +61,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
@@ -78,13 +80,13 @@ public class BenchmarkBlockSerde
     private static final int MAX_STRING = 19;
 
     @Benchmark
-    public Object serializeLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
+    public Object serializeLongDecimalNoNull(LongDecimalBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeLongDecimalNoNull(LongDecimalNoNullBenchmarkData data)
+    public Object deserializeLongDecimalNoNull(LongDecimalBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
@@ -102,13 +104,13 @@ public class BenchmarkBlockSerde
     }
 
     @Benchmark
-    public Object serializeLongNoNull(BigintNoNullBenchmarkData data)
+    public Object serializeLongNoNull(BigintBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeLongNoNull(BigintNoNullBenchmarkData data)
+    public Object deserializeLongNoNull(BigintBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
@@ -126,13 +128,13 @@ public class BenchmarkBlockSerde
     }
 
     @Benchmark
-    public Object serializeSliceDirectNoNull(VarcharDirectNoNullBenchmarkData data)
+    public Object serializeSliceDirectNoNull(VarcharDirectBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeSliceDirectNoNull(VarcharDirectNoNullBenchmarkData data)
+    public Object deserializeSliceDirectNoNull(VarcharDirectBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
@@ -245,22 +247,55 @@ public class BenchmarkBlockSerde
         }
     }
 
-    @State(Thread)
-    public static class LongDecimalNoNullBenchmarkData
+    public abstract static class TypeBenchmarkDataWithNull<T>
+            extends TypeBenchmarkData<T>
+    {
+        public TypeBenchmarkDataWithNull(Type type, Function<Random, T> valueGenerator)
+        {
+            super(type, valueGenerator);
+        }
+
+        @Override
+        protected double getNullChance()
+        {
+            return .5;
+        }
+    }
+
+    public abstract static class TypeBenchmarkData<T>
             extends BenchmarkData
     {
+        private final Type type;
+        private final Function<Random, T> valueGenerator;
+
+        public TypeBenchmarkData(Type type, Function<Random, T> valueGenerator)
+        {
+            this.type = requireNonNull(type, "type is null");
+            this.valueGenerator = requireNonNull(valueGenerator, "valueGenerator is null");
+        }
+
+        protected double getNullChance()
+        {
+            return 0;
+        }
+
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(LONG_DECIMAL_TYPE, createValues());
+            setup(type, createValues());
         }
 
-        private Iterator<?> createValues()
+        private Iterator<T> createValues()
         {
-            List<SqlDecimal> values = new ArrayList<>();
+            List<T> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(new SqlDecimal(new BigInteger(96, random), 30, 5));
+                if (random.nextDouble() > getNullChance()) {
+                    values.add(valueGenerator.apply(random));
+                }
+                else {
+                    values.add(null);
+                }
             }
             return values.iterator();
         }
@@ -268,121 +303,61 @@ public class BenchmarkBlockSerde
 
     @State(Thread)
     public static class LongDecimalWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkDataWithNull<SqlDecimal>
     {
-        @Setup
-        public void setup()
-                throws Exception
+        public LongDecimalWithNullBenchmarkData()
         {
-            setup(LONG_DECIMAL_TYPE, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<SqlDecimal> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(new SqlDecimal(new BigInteger(96, random), 30, 5));
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            super(LONG_DECIMAL_TYPE, BenchmarkBlockSerde::randomLongDecimal);
         }
     }
 
     @State(Thread)
-    public static class BigintNoNullBenchmarkData
-            extends BenchmarkData
+    public static class LongDecimalBenchmarkData
+            extends TypeBenchmarkData<SqlDecimal>
     {
-        @Setup
-        public void setup()
-                throws Exception
+        public LongDecimalBenchmarkData()
         {
-            setup(BIGINT, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Long> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextLong());
-            }
-            return values.iterator();
+            super(LONG_DECIMAL_TYPE, BenchmarkBlockSerde::randomLongDecimal);
         }
     }
 
     @State(Thread)
     public static class BigintWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkDataWithNull<Long>
     {
-        @Setup
-        public void setup()
-                throws Exception
+        public BigintWithNullBenchmarkData()
         {
-            setup(BIGINT, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Long> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(random.nextLong());
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            super(BIGINT, Random::nextLong);
         }
     }
 
     @State(Thread)
-    public static class VarcharDirectNoNullBenchmarkData
-            extends BenchmarkData
+    public static class BigintBenchmarkData
+            extends TypeBenchmarkData<Long>
     {
-        @Setup
-        public void setup()
-                throws Exception
+        public BigintBenchmarkData()
         {
-            setup(VARCHAR, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<String> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(randomAsciiString(random));
-            }
-            return values.iterator();
+            super(BIGINT, Random::nextLong);
         }
     }
 
     @State(Thread)
     public static class VarcharDirectWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkDataWithNull<String>
     {
-        @Setup
-        public void setup()
-                throws Exception
+        public VarcharDirectWithNullBenchmarkData()
         {
-            setup(VARCHAR, createValues());
+            super(VARCHAR, BenchmarkBlockSerde::randomAsciiString);
         }
+    }
 
-        private Iterator<?> createValues()
+    @State(Thread)
+    public static class VarcharDirectBenchmarkData
+            extends TypeBenchmarkData<String>
+    {
+        public VarcharDirectBenchmarkData()
         {
-            List<String> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(randomAsciiString(random));
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            super(VARCHAR, BenchmarkBlockSerde::randomAsciiString);
         }
     }
 
@@ -405,6 +380,11 @@ public class BenchmarkBlockSerde
             value[i] = (char) random.nextInt(Byte.MAX_VALUE);
         }
         return new String(value);
+    }
+
+    private static SqlDecimal randomLongDecimal(Random random)
+    {
+        return new SqlDecimal(new BigInteger(96, random), 30, 5);
     }
 
     @Test
