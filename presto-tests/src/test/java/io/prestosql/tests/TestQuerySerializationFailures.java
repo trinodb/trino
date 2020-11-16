@@ -23,6 +23,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.Set;
@@ -47,6 +48,7 @@ public class TestQuerySerializationFailures
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4173", match = "\\QExpected query to fail: SELECT * FROM (VALUES BOGUS(true), BOGUS(false), BOGUS(true))")
     public void shouldFailOnFirstSerializationError()
     {
         // BOGUS(value) returns BogusType that fails to serialize when value is true
