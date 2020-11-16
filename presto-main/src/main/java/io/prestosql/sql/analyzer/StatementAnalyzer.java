@@ -1683,26 +1683,6 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitIntersect(Intersect node, Optional<Scope> scope)
-        {
-            if (!node.isDistinct()) {
-                throw semanticException(NOT_SUPPORTED, node, "INTERSECT ALL not yet implemented");
-            }
-
-            return visitSetOperation(node, scope);
-        }
-
-        @Override
-        protected Scope visitExcept(Except node, Optional<Scope> scope)
-        {
-            if (!node.isDistinct()) {
-                throw semanticException(NOT_SUPPORTED, node, "EXCEPT ALL not yet implemented");
-            }
-
-            return visitSetOperation(node, scope);
-        }
-
-        @Override
         protected Scope visitJoin(Join node, Optional<Scope> scope)
         {
             JoinCriteria criteria = node.getCriteria().orElse(null);

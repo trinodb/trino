@@ -27,6 +27,7 @@ import io.prestosql.sql.tree.GenericLiteral;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.ExpressionUtils.and;
+import static io.prestosql.sql.planner.plan.Patterns.Intersect.distinct;
 import static io.prestosql.sql.planner.plan.Patterns.intersect;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
@@ -63,7 +64,9 @@ import static java.util.Objects.requireNonNull;
 public class ImplementIntersectDistinctAsUnion
         implements Rule<IntersectNode>
 {
-    private static final Pattern<IntersectNode> PATTERN = intersect();
+    private static final Pattern<IntersectNode> PATTERN = intersect()
+            .with(distinct().equalTo(true));
+
     private final Metadata metadata;
 
     public ImplementIntersectDistinctAsUnion(Metadata metadata)
@@ -81,7 +84,7 @@ public class ImplementIntersectDistinctAsUnion
     public Result apply(IntersectNode node, Captures captures, Context context)
     {
         SetOperationNodeTranslator translator = new SetOperationNodeTranslator(metadata, context.getSymbolAllocator(), context.getIdAllocator());
-        SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlan(node);
+        SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForDistinct(node);
 
         // intersect predicate: the row must be present in every source
         Expression predicate = and(result.getCountSymbols().stream()

@@ -1113,7 +1113,8 @@ public class UnaliasSymbolReferences
                                     .map(PlanAndMappings::getRoot)
                                     .collect(toImmutableList()),
                             newOutputToInputs,
-                            newOutputs),
+                            newOutputs,
+                            node.isDistinct()),
                     mapping);
         }
 
@@ -1141,7 +1142,8 @@ public class UnaliasSymbolReferences
                                     .map(PlanAndMappings::getRoot)
                                     .collect(toImmutableList()),
                             newOutputToInputs,
-                            newOutputs),
+                            newOutputs,
+                            node.isDistinct()),
                     mapping);
         }
 

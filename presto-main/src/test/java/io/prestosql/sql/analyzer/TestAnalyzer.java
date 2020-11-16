@@ -2032,20 +2032,31 @@ public class TestAnalyzer
                 .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in INTERSECT");
 
         assertFails("(VALUES approx_set(1)) INTERSECT ALL (VALUES approx_set(2))")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(TYPE_MISMATCH);
 
         assertFails("(VALUES approx_set(1)) EXCEPT DISTINCT (VALUES approx_set(2))")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in EXCEPT");
 
         assertFails("(VALUES approx_set(1)) EXCEPT ALL (VALUES approx_set(2))")
-                .hasErrorCode(NOT_SUPPORTED);
+                .hasErrorCode(TYPE_MISMATCH);
 
         assertFails("(VALUES approx_set(1)) UNION DISTINCT (VALUES approx_set(2))")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:24: Type HyperLogLog is not comparable and therefore cannot be used in UNION DISTINCT");
 
         analyze("(VALUES approx_set(1)) UNION ALL (VALUES approx_set(2))");
+    }
+
+    @Test
+    public void testSetOperation()
+    {
+        analyze("VALUES (1, 'a') UNION ALL VALUES (2, 'b')");
+        analyze("VALUES (1, 'a') UNION DISTINCT VALUES (2, 'b')");
+        analyze("VALUES (1, 'a') INTERSECT ALL VALUES (2, 'b')");
+        analyze("VALUES (1, 'a') INTERSECT DISTINCT VALUES (2, 'b')");
+        analyze("VALUES (1, 'a') EXCEPT ALL VALUES (2, 'b')");
+        analyze("VALUES (1, 'a') EXCEPT DISTINCT VALUES (2, 'b')");
     }
 
     @Test
