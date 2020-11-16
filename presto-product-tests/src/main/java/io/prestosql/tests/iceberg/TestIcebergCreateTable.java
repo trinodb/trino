@@ -16,7 +16,6 @@ package io.prestosql.tests.iceberg;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.query.QueryExecutor;
 import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.Test;
 
@@ -46,41 +45,37 @@ public class TestIcebergCreateTable
     @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
     public void testCreateTable()
     {
-        String tableName = "test_create_table_" + randomTableSuffix();
-        QueryExecutor queryExecutor = onPresto();
-        queryExecutor.executeQuery("use iceberg.iceberg");
-        queryExecutor.executeQuery("CREATE TABLE " + tableName + "(a bigint, b varchar)");
-        queryExecutor.executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +
+        String tableName = "iceberg.iceberg.test_create_table_" + randomTableSuffix();
+        onPresto().executeQuery("CREATE TABLE " + tableName + "(a bigint, b varchar)");
+        onPresto().executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +
                 "(NULL, NULL), " +
                 "(-42, 'abc'), " +
                 "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')");
-        assertThat(queryExecutor.executeQuery("SELECT * FROM " + tableName))
+        assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
                 .containsOnly(
                         row(null, null),
                         row(-42, "abc"),
                         row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
-        queryExecutor.executeQuery("DROP TABLE " + tableName);
+        onPresto().executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
     @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
     public void testCreateTableAsSelect()
     {
-        String tableName = "test_create_table_as_select_" + randomTableSuffix();
-        QueryExecutor queryExecutor = onPresto();
-        queryExecutor.executeQuery("use iceberg.iceberg");
-        queryExecutor.executeQuery("" +
+        String tableName = "iceberg.iceberg.test_create_table_as_select_" + randomTableSuffix();
+        onPresto().executeQuery("" +
                 "CREATE TABLE " + tableName + " AS " +
                 "SELECT * FROM (VALUES " +
                 "  (NULL, NULL), " +
                 "  (-42, 'abc'), " +
                 "  (9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')" +
                 ") t(a, b)");
-        assertThat(queryExecutor.executeQuery("SELECT * FROM " + tableName))
+        assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
                 .containsOnly(
                         row(null, null),
                         row(-42, "abc"),
                         row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
-        queryExecutor.executeQuery("DROP TABLE " + tableName);
+        onPresto().executeQuery("DROP TABLE " + tableName);
     }
 }
