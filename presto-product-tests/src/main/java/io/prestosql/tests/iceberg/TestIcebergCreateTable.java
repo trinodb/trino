@@ -13,6 +13,8 @@
  */
 package io.prestosql.tests.iceberg;
 
+import io.prestosql.tempto.AfterTestWithContext;
+import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.query.QueryExecutor;
 import io.prestosql.testng.services.Flaky;
@@ -22,52 +24,63 @@ import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.ICEBERG;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
+import static io.prestosql.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 
 public class TestIcebergCreateTable
         extends ProductTest
 {
+    @BeforeTestWithContext
+    public void setUp()
+    {
+        onPresto().executeQuery("CREATE SCHEMA iceberg.iceberg");
+    }
+
+    @AfterTestWithContext
+    public void cleanUp()
+    {
+        onPresto().executeQuery("DROP SCHEMA iceberg.iceberg");
+    }
+
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
     @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
     public void testCreateTable()
     {
+        String tableName = "test_create_table_" + randomTableSuffix();
         QueryExecutor queryExecutor = onPresto();
-        queryExecutor.executeQuery("CREATE SCHEMA iceberg.iceberg");
         queryExecutor.executeQuery("use iceberg.iceberg");
-        queryExecutor.executeQuery("CREATE TABLE test_create_table(a bigint, b varchar)");
-        queryExecutor.executeQuery("INSERT INTO test_create_table(a, b) VALUES " +
+        queryExecutor.executeQuery("CREATE TABLE " + tableName + "(a bigint, b varchar)");
+        queryExecutor.executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +
                 "(NULL, NULL), " +
                 "(-42, 'abc'), " +
                 "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')");
-        assertThat(queryExecutor.executeQuery("SELECT * FROM test_create_table"))
+        assertThat(queryExecutor.executeQuery("SELECT * FROM " + tableName))
                 .containsOnly(
                         row(null, null),
                         row(-42, "abc"),
                         row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
-        queryExecutor.executeQuery("DROP TABLE test_create_table");
-        queryExecutor.executeQuery("DROP SCHEMA iceberg.iceberg");
+        queryExecutor.executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
     @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
     public void testCreateTableAsSelect()
     {
+        String tableName = "test_create_table_as_select_" + randomTableSuffix();
         QueryExecutor queryExecutor = onPresto();
-        queryExecutor.executeQuery("CREATE SCHEMA iceberg.iceberg");
         queryExecutor.executeQuery("use iceberg.iceberg");
         queryExecutor.executeQuery("" +
-                "CREATE TABLE test_create_table_as_select AS " +
+                "CREATE TABLE " + tableName + " AS " +
                 "SELECT * FROM (VALUES " +
                 "  (NULL, NULL), " +
                 "  (-42, 'abc'), " +
                 "  (9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')" +
                 ") t(a, b)");
-        assertThat(queryExecutor.executeQuery("SELECT * FROM test_create_table_as_select"))
+        assertThat(queryExecutor.executeQuery("SELECT * FROM " + tableName))
                 .containsOnly(
                         row(null, null),
                         row(-42, "abc"),
                         row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
-        queryExecutor.executeQuery("DROP TABLE test_create_table_as_select");
-        queryExecutor.executeQuery("DROP SCHEMA iceberg.iceberg");
+        queryExecutor.executeQuery("DROP TABLE " + tableName);
     }
 }
