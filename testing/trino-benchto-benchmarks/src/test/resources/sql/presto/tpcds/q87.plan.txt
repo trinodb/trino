@@ -9,9 +9,9 @@ final aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["c_first_name_4", "c_last_name_5", "d_date_3"])
                                         partial aggregation over (c_first_name_4, c_last_name_5, d_date_3)
-                                            join (INNER, PARTITIONED):
+                                            join (INNER, PARTITIONED, can skip output duplicates):
                                                 remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
-                                                    join (INNER, REPLICATED):
+                                                    join (INNER, REPLICATED, can skip output duplicates):
                                                         scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -24,9 +24,9 @@ final aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["c_first_name_42", "c_last_name_43", "d_date_8"])
                                         partial aggregation over (c_first_name_42, c_last_name_43, d_date_8)
-                                            join (INNER, PARTITIONED):
+                                            join (INNER, PARTITIONED, can skip output duplicates):
                                                 remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk"])
-                                                    join (INNER, REPLICATED):
+                                                    join (INNER, REPLICATED, can skip output duplicates):
                                                         scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -39,9 +39,9 @@ final aggregation over ()
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["c_first_name_88", "c_last_name_89", "d_date_54"])
                                         partial aggregation over (c_first_name_88, c_last_name_89, d_date_54)
-                                            join (INNER, PARTITIONED):
+                                            join (INNER, PARTITIONED, can skip output duplicates):
                                                 remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk"])
-                                                    join (INNER, REPLICATED):
+                                                    join (INNER, REPLICATED, can skip output duplicates):
                                                         scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

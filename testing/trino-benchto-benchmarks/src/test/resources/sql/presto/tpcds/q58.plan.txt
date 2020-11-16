@@ -19,7 +19,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["d_date_109"])
                                                                         partial aggregation over (d_date_109)
-                                                                            join (INNER, REPLICATED):
+                                                                            join (INNER, REPLICATED, can skip output duplicates):
                                                                                 scan date_dim
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -46,7 +46,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPARTITION, HASH, ["d_date_218"])
                                                                         partial aggregation over (d_date_218)
-                                                                            join (INNER, REPLICATED):
+                                                                            join (INNER, REPLICATED, can skip output duplicates):
                                                                                 scan date_dim
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -73,7 +73,7 @@ local exchange (GATHER, SINGLE, [])
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["d_date_2"])
                                                                     partial aggregation over (d_date_2)
-                                                                        join (INNER, REPLICATED):
+                                                                        join (INNER, REPLICATED, can skip output duplicates):
                                                                             scan date_dim
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
