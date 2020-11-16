@@ -761,6 +761,7 @@ public class TestLogicalPlanner
                                 singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
+                                ImmutableList.of("non_null"),
                                 Optional.empty(),
                                 SINGLE,
                                 node(JoinNode.class,
@@ -769,7 +770,9 @@ public class TestLogicalPlanner
                                                         anyTree(
                                                                 tableScan("nation", ImmutableMap.of("n_name", "name", "n_regionkey", "regionkey"))))),
                                         anyTree(
-                                                tableScan("region", ImmutableMap.of("r_name", "name")))))));
+                                                project(
+                                                        ImmutableMap.of("non_null", expression("true")),
+                                                        tableScan("region", ImmutableMap.of("r_name", "name"))))))));
 
         // Don't use equi-clauses to trigger replicated join
         assertDistributedPlan(
@@ -779,13 +782,16 @@ public class TestLogicalPlanner
                                 singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
+                                ImmutableList.of("non_null"),
                                 Optional.empty(),
                                 SINGLE,
                                 node(JoinNode.class,
                                         assignUniqueId("unique",
                                                 tableScan("nation", ImmutableMap.of("n_name", "name", "n_regionkey", "regionkey"))),
                                         anyTree(
-                                                tableScan("region", ImmutableMap.of("r_name", "name")))))));
+                                                project(
+                                                        ImmutableMap.of("non_null", expression("true")),
+                                                        tableScan("region", ImmutableMap.of("r_name", "name"))))))));
     }
 
     @Test
@@ -906,9 +912,16 @@ public class TestLogicalPlanner
                 anyTree(
                         filter("FINAL_COUNT > BIGINT '0'",
                                 project(
-                                        aggregation(ImmutableMap.of("FINAL_COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                        aggregation(
+                                                singleGroupingSet("ORDERKEY", "UNIQUE"),
+                                                ImmutableMap.of(Optional.of("FINAL_COUNT"), functionCall("count", ImmutableList.of())),
+                                                ImmutableList.of("ORDERKEY", "UNIQUE"),
+                                                ImmutableList.of("NON_NULL"),
+                                                Optional.empty(),
+                                                SINGLE,
                                                 join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
-                                                        any(
+                                                        assignUniqueId(
+                                                                "UNIQUE",
                                                                 tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
                                                         project(ImmutableMap.of("NON_NULL", expression("true")),
                                                                 node(ValuesNode.class))))))));
