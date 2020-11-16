@@ -89,7 +89,7 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  * <p>
  *
- * @see TransformCorrelatedScalarAggregationToJoin
+ * @see TransformCorrelatedGlobalAggregationWithProjection
  */
 public class TransformCorrelatedInPredicateToJoin
         implements Rule<ApplyNode>

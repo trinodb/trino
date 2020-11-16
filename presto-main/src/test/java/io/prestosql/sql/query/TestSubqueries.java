@@ -60,7 +60,7 @@ public class TestSubqueries
                 "VALUES true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
@@ -74,7 +74,7 @@ public class TestSubqueries
                 "VALUES false",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
@@ -348,7 +348,7 @@ public class TestSubqueries
                 "VALUES false, true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
@@ -373,7 +373,7 @@ public class TestSubqueries
                 "VALUES false, true",
                 anyTree(
                         aggregation(
-                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of("NON_NULL"))),
+                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
                                 aggregation -> aggregation.isStreamable() && aggregation.getStep() == SINGLE,
                                 node(JoinNode.class,
                                         anyTree(
