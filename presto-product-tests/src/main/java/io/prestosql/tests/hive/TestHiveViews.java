@@ -13,20 +13,20 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.Requires;
 import io.prestosql.tempto.assertions.QueryAssert;
-import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.sql.Date;
+import java.time.LocalDate;
 import java.util.function.Consumer;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_VIEWS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
@@ -34,16 +34,13 @@ import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
+@Requires({
+        ImmutableNationTable.class,
+        ImmutableOrdersTable.class,
+})
 public class TestHiveViews
         extends HiveProductTest
-        implements RequirementsProvider
 {
-    @Override
-    public Requirement getRequirements(Configuration configuration)
-    {
-        return immutableTable(NATION);
-    }
-
     @Test(groups = HIVE_VIEWS)
     public void testSelectOnView()
     {
@@ -172,19 +169,24 @@ public class TestHiveViews
                 "   CASE WHEN n_name = \"BRAZIL\" THEN 'is BRAZIL' WHEN n_name = \"ALGERIA\" THEN 'is ALGERIA' ELSE \"\" END is_something,\n" + // searched CASE, double quote string literals
                 "   COALESCE(IF(n_name LIKE 'A%', NULL, n_name), 'A%') AS coalesced_name, \n" + // coalesce
                 "   round(tan(n_nationkey), 3) AS rounded_tan, \n" + // functions
+                "   o_orderdate AS the_orderdate, \n" +
                 "   `n`.`n_nationkey` + `n_nationkey` + n.n_nationkey + n_nationkey + 10000 - -1 AS arithmetic--some comment without leading space \n" +
-                "FROM `default`.`nation` AS `n`");
+                "FROM `default`.`nation` AS `n` \n" +
+                // join, subquery
+                "LEFT JOIN (SELECT * FROM orders WHERE o_custkey > 1000) `o` ON `o`.`o_orderkey` = `n`.`n_nationkey` ");
         assertViewQuery("" +
-                        "SELECT n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contains_n, is_something, coalesced_name, rounded_tan, arithmetic " +
+                        "SELECT" +
+                        "   n_nationkey, n_name, region_between_1_2, starts_with_a, not_peru, contains_n, is_something, coalesced_name," +
+                        "   rounded_tan, the_orderdate, arithmetic " +
                         "FROM view_with_rich_syntax " +
                         "WHERE n_regionkey < 3 AND (n_nationkey < 5 OR n_nationkey IN (12, 17))",
                 queryAssert -> queryAssert.containsOnly(
-                        row(0, "ALGERIA", false, 1, 1, 0, "is ALGERIA", "A%", 0.0, 10001),
-                        row(1, "ARGENTINA", true, 1, 1, 1, "", "A%", 1.557, 10005),
-                        row(2, "BRAZIL", true, 0, 1, 0, "is BRAZIL", "BRAZIL", -2.185, 10009),
-                        row(3, "CANADA", true, 0, 1, 1, "", "CANADA", -0.143, 10013),
-                        row(12, "JAPAN", true, 0, 1, 1, "", "JAPAN", -0.636, 10049),
-                        row(17, "PERU", true, 0, 0, 0, "", "PERU", 3.494, 10069)));
+                        row(0, "ALGERIA", false, 1, 1, 0, "is ALGERIA", "A%", 0.0, null, 10001),
+                        row(1, "ARGENTINA", true, 1, 1, 1, "", "A%", 1.557, sqlDate(1996, 1, 2), 10005),
+                        row(2, "BRAZIL", true, 0, 1, 0, "is BRAZIL", "BRAZIL", -2.185, sqlDate(1996, 12, 1), 10009),
+                        row(3, "CANADA", true, 0, 1, 1, "", "CANADA", -0.143, sqlDate(1993, 10, 14), 10013),
+                        row(12, "JAPAN", true, 0, 1, 1, "", "JAPAN", -0.636, null, 10049),
+                        row(17, "PERU", true, 0, 0, 0, "", "PERU", 3.494, null, 10069)));
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -267,5 +269,10 @@ public class TestHiveViews
         // Ensure Hive and Presto view compatibility by comparing the results
         assertion.accept(assertThat(onHive().executeQuery(query)));
         assertion.accept(assertThat(onPresto().executeQuery(query)));
+    }
+
+    private static Date sqlDate(int year, int month, int day)
+    {
+        return Date.valueOf(LocalDate.of(year, month, day));
     }
 }
