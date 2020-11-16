@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.IntersectNode;
+import io.prestosql.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.intersect;
@@ -107,5 +109,67 @@ public class TestMergeIntersect
                             ImmutableList.of(p.values(1, a), p.values(1, b)));
                 })
                 .doesNotFire();
+    }
+
+    @Test
+    public void testQuantifiers()
+    {
+        tester().assertThat(new MergeIntersect())
+                .on(p -> buildNestedIntersect(p, true, true, true))
+                .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
+
+        tester().assertThat(new MergeIntersect())
+                .on(p -> buildNestedIntersect(p, true, true, false))
+                .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
+
+        tester().assertThat(new MergeIntersect())
+                .on(p -> buildNestedIntersect(p, true, false, true))
+                .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
+
+        tester().assertThat(new MergeIntersect())
+                .on(p -> buildNestedIntersect(p, false, true, true))
+                .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
+
+        tester().assertThat(new MergeIntersect())
+                .on(p -> buildNestedIntersect(p, true, false, false))
+                .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
+
+        tester().assertThat(new MergeIntersect())
+                .on(p -> buildNestedIntersect(p, false, false, true))
+                .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
+
+        tester().assertThat(new MergeIntersect())
+                .on(p -> buildNestedIntersect(p, false, true, false))
+                .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
+
+        tester().assertThat(new MergeIntersect())
+                .on(p -> buildNestedIntersect(p, false, false, false))
+                .matches(intersect(false, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
+    }
+
+    private PlanNode buildNestedIntersect(PlanBuilder builder, boolean lefSourceDistinct, boolean rightSourceDistinct, boolean parentDistinct)
+    {
+        Symbol v1 = builder.symbol("v_1");
+        Symbol v2 = builder.symbol("v_2");
+        Symbol v3 = builder.symbol("v_3");
+        Symbol v4 = builder.symbol("v_4");
+        Symbol a = builder.symbol("a");
+        Symbol b = builder.symbol("b");
+        Symbol c = builder.symbol("c");
+
+        IntersectNode child1 = builder.intersect(
+                ImmutableListMultimap.of(a, v1, a, v2),
+                ImmutableList.of(builder.values(v1), builder.values(v2)),
+                lefSourceDistinct);
+
+        IntersectNode child2 = builder.intersect(
+                ImmutableListMultimap.of(b, v3, b, v4),
+                ImmutableList.of(builder.values(v3), builder.values(v4)),
+                rightSourceDistinct);
+
+        return builder.intersect(
+                ImmutableListMultimap.of(c, a, c, b),
+                ImmutableList.of(child1, child2),
+                parentDistinct);
     }
 }

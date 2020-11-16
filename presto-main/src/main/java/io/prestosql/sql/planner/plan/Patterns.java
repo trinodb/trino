@@ -347,4 +347,20 @@ public final class Patterns
                     (SemiJoinNode semiJoin, Lookup lookup) -> lookup.resolve(semiJoin.getFilteringSource()));
         }
     }
+
+    public static final class Intersect
+    {
+        public static Property<IntersectNode, Lookup, Boolean> distinct()
+        {
+            return property("distinct", IntersectNode::isDistinct);
+        }
+    }
+
+    public static final class Except
+    {
+        public static Property<ExceptNode, Lookup, Boolean> distinct()
+        {
+            return property("distinct", ExceptNode::isDistinct);
+        }
+    }
 }

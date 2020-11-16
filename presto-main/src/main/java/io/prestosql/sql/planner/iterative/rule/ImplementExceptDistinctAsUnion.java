@@ -27,6 +27,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.GenericLiteral;
 
 import static io.prestosql.sql.ExpressionUtils.and;
+import static io.prestosql.sql.planner.plan.Patterns.Except.distinct;
 import static io.prestosql.sql.planner.plan.Patterns.except;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -64,7 +65,9 @@ import static java.util.Objects.requireNonNull;
 public class ImplementExceptDistinctAsUnion
         implements Rule<ExceptNode>
 {
-    private static final Pattern<ExceptNode> PATTERN = except();
+    private static final Pattern<ExceptNode> PATTERN = except()
+            .with(distinct().equalTo(true));
+
     private final Metadata metadata;
 
     public ImplementExceptDistinctAsUnion(Metadata metadata)
@@ -82,7 +85,7 @@ public class ImplementExceptDistinctAsUnion
     public Result apply(ExceptNode node, Captures captures, Context context)
     {
         SetOperationNodeTranslator translator = new SetOperationNodeTranslator(metadata, context.getSymbolAllocator(), context.getIdAllocator());
-        SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlan(node);
+        SetOperationNodeTranslator.TranslationResult result = translator.makeSetContainmentPlanForDistinct(node);
 
         // except predicate: the row must be present in the first source and absent in all the other sources
         ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();

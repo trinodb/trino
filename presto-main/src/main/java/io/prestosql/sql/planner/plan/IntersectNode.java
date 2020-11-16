@@ -26,14 +26,24 @@ import java.util.List;
 public class IntersectNode
         extends SetOperationNode
 {
+    private final boolean distinct;
+
     @JsonCreator
     public IntersectNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("outputToInputs") ListMultimap<Symbol, Symbol> outputToInputs,
-            @JsonProperty("outputs") List<Symbol> outputs)
+            @JsonProperty("outputs") List<Symbol> outputs,
+            @JsonProperty("distinct") boolean distinct)
     {
         super(id, sources, outputToInputs, outputs);
+        this.distinct = distinct;
+    }
+
+    @JsonProperty
+    public boolean isDistinct()
+    {
+        return distinct;
     }
 
     @Override
@@ -45,6 +55,6 @@ public class IntersectNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new IntersectNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols());
+        return new IntersectNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols(), isDistinct());
     }
 }

@@ -57,7 +57,7 @@ public class MergeIntersect
     @Override
     public Result apply(IntersectNode node, Captures captures, Context context)
     {
-        SetOperationMerge mergeOperation = new SetOperationMerge(node, context, IntersectNode::new);
+        SetOperationMerge mergeOperation = new SetOperationMerge(node, context);
         Optional<SetOperationNode> result = mergeOperation.merge();
         return result.map(Result::ofPlanNode).orElseGet(Result::empty);
     }
