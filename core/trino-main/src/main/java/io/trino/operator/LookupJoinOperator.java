@@ -77,7 +77,8 @@ public class LookupJoinOperator
     private final SpillingJoinProcessor joinProcessor;
     private final JoinStatisticsCounter statisticsCounter;
 
-    LookupJoinOperator(List<Type> probeTypes,
+    LookupJoinOperator(
+            List<Type> probeTypes,
             List<Type> buildOutputTypes,
             JoinType joinType,
             LookupSourceFactory lookupSourceFactory,
