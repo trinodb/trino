@@ -15,7 +15,6 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.execution.EventsCollector.EventFilters;
@@ -45,7 +44,6 @@ import org.testng.annotations.Test;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -56,14 +54,13 @@ import static io.prestosql.execution.TestQueues.createResourceGroupId;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestEventListener
+public class TestEventListenerBasic
         extends AbstractTestQueryFramework
 {
     private static final int SPLITS_PER_NODE = 3;
@@ -127,36 +124,6 @@ public class TestEventListener
             throws Exception
     {
         return queries.runQueryAndWaitForEvents(sql, numEventsExpected, getSession());
-    }
-
-    @Test
-    public void testConstantQuery()
-            throws Exception
-    {
-        // QueryCreated: 1, QueryCompleted: 1, Splits: 1
-        runQueryAndWaitForEvents("SELECT 1", 3);
-
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
-        assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
-        assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
-        assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getContext().getQueryType().get(), QueryType.SELECT);
-        assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT 1");
-        assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
-
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), 0L);
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getQueryType().get(), QueryType.SELECT);
-
-        List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
-        assertEquals(splitCompletedEvents.get(0).getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertEquals(splitCompletedEvents.get(0).getStatistics().getCompletedPositions(), 1);
     }
 
     @Test
@@ -255,87 +222,6 @@ public class TestEventListener
         QueryFailureInfo failureInfo = queryCompletedEvent.getFailureInfo()
                 .orElseThrow(() -> new AssertionError("Expected query event to be failed"));
         assertEquals(expectedFailure, failureInfo.getFailureMessage().orElse(null));
-    }
-
-    @Test
-    public void testNormalQuery()
-            throws Exception
-    {
-        // We expect the following events
-        // QueryCreated: 1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
-        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
-        runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
-
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
-        assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
-        assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
-        assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT sum(linenumber) FROM lineitem");
-        assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
-
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
-        assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
-        assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 1);
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName(), "tpch");
-        assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
-        assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 2);
-
-        List<SplitCompletedEvent> splitCompletedEvents = generatedEvents.getSplitCompletedEvents();
-        assertEquals(splitCompletedEvents.size(), SPLITS_PER_NODE + 2); // leaf splits + aggregation split
-
-        // All splits must have the same query ID
-        Set<String> actual = splitCompletedEvents.stream()
-                .map(SplitCompletedEvent::getQueryId)
-                .collect(toSet());
-        assertEquals(actual, ImmutableSet.of(queryCompletedEvent.getMetadata().getQueryId()));
-
-        // Sum of row count processed by all leaf stages is equal to the number of rows in the table
-        long actualCompletedPositions = splitCompletedEvents.stream()
-                .filter(e -> !e.getStageId().endsWith(".0"))    // filter out the root stage
-                .mapToLong(e -> e.getStatistics().getCompletedPositions())
-                .sum();
-
-        MaterializedResult result = runQueryAndWaitForEvents("SELECT count(*) FROM lineitem", expectedEvents);
-        long expectedCompletedPositions = (long) result.getMaterializedRows().get(0).getField(0);
-        assertEquals(actualCompletedPositions, expectedCompletedPositions);
-
-        QueryStatistics statistics = queryCompletedEvent.getStatistics();
-        // Aggregation can have memory pool usage
-        assertTrue(statistics.getPeakUserMemoryBytes() >= 0);
-        assertTrue(statistics.getPeakTaskUserMemory() >= 0);
-        assertTrue(statistics.getPeakTaskTotalMemory() >= 0);
-        assertTrue(statistics.getCumulativeMemory() >= 0);
-
-        // Not a write query
-        assertEquals(statistics.getWrittenBytes(), 0);
-        assertEquals(statistics.getWrittenRows(), 0);
-        assertEquals(statistics.getStageGcStatistics().size(), 2);
-
-        // Deterministic statistics
-        assertEquals(statistics.getPhysicalInputBytes(), 0);
-        assertEquals(statistics.getPhysicalInputRows(), expectedCompletedPositions);
-        assertEquals(statistics.getInternalNetworkBytes(), 369);
-        assertEquals(statistics.getInternalNetworkRows(), 3);
-        assertEquals(statistics.getTotalBytes(), 0);
-        assertEquals(statistics.getOutputBytes(), 9);
-        assertEquals(statistics.getOutputRows(), 1);
-        assertTrue(statistics.isComplete());
-
-        // Check only the presence because they are non-deterministic.
-        assertTrue(statistics.getResourceWaitingTime().isPresent());
-        assertTrue(statistics.getAnalysisTime().isPresent());
-        assertTrue(statistics.getPlanningTime().isPresent());
-        assertTrue(statistics.getExecutionTime().isPresent());
-        assertTrue(statistics.getPlanNodeStatsAndCosts().isPresent());
-        assertTrue(statistics.getCpuTime().getSeconds() >= 0);
-        assertTrue(statistics.getWallTime().getSeconds() >= 0);
-        assertTrue(statistics.getCpuTimeDistribution().size() > 0);
-        assertTrue(statistics.getOperatorSummaries().size() > 0);
     }
 
     @Test
