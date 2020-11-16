@@ -310,7 +310,8 @@ jobs:
             suite: suite-8-non-generic
           - config: config-cdh5
             suite: suite-tpcds
-    timeout-minutes: 120
+    # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
+    timeout-minutes: 140
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
