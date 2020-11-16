@@ -25,6 +25,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.TestingBlockEncodingSerde;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
@@ -59,6 +60,11 @@ import static io.prestosql.execution.buffer.PagesSerdeUtil.writePages;
 import static io.prestosql.plugin.tpch.TpchTables.getTablePages;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_PICOS;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.util.Objects.requireNonNull;
@@ -104,6 +110,30 @@ public class BenchmarkBlockSerde
     }
 
     @Benchmark
+    public Object serializeInt96NoNull(LongTimestampBenchmarkData data)
+    {
+        return serializePages(data);
+    }
+
+    @Benchmark
+    public Object deserializeInt96NoNull(LongTimestampBenchmarkData data)
+    {
+        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+    }
+
+    @Benchmark
+    public Object serializeInt96WithNull(LongTimestampWithNullBenchmarkData data)
+    {
+        return serializePages(data);
+    }
+
+    @Benchmark
+    public Object deserializeInt96WithNull(LongTimestampWithNullBenchmarkData data)
+    {
+        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+    }
+
+    @Benchmark
     public Object serializeLongNoNull(BigintBenchmarkData data)
     {
         return serializePages(data);
@@ -123,6 +153,78 @@ public class BenchmarkBlockSerde
 
     @Benchmark
     public Object deserializeLongWithNull(BigintWithNullBenchmarkData data)
+    {
+        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+    }
+
+    @Benchmark
+    public Object serializeIntegerNoNull(IntegerBenchmarkData data)
+    {
+        return serializePages(data);
+    }
+
+    @Benchmark
+    public Object deserializeIntegerNoNull(IntegerBenchmarkData data)
+    {
+        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+    }
+
+    @Benchmark
+    public Object serializeIntegerWithNull(IntegerWithNullBenchmarkData data)
+    {
+        return serializePages(data);
+    }
+
+    @Benchmark
+    public Object deserializeIntegerWithNull(IntegerWithNullBenchmarkData data)
+    {
+        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+    }
+
+    @Benchmark
+    public Object serializeShortNoNull(SmallintBenchmarkData data)
+    {
+        return serializePages(data);
+    }
+
+    @Benchmark
+    public Object deserializeShortNoNull(SmallintBenchmarkData data)
+    {
+        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+    }
+
+    @Benchmark
+    public Object serializeShortWithNull(SmallintWithNullBenchmarkData data)
+    {
+        return serializePages(data);
+    }
+
+    @Benchmark
+    public Object deserializeShortWithNull(SmallintWithNullBenchmarkData data)
+    {
+        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+    }
+
+    @Benchmark
+    public Object serializeByteNoNull(TinyintBenchmarkData data)
+    {
+        return serializePages(data);
+    }
+
+    @Benchmark
+    public Object deserializeByteNoNull(TinyintBenchmarkData data)
+    {
+        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
+    }
+
+    @Benchmark
+    public Object serializeByteWithNull(TinyintWithNullBenchmarkData data)
+    {
+        return serializePages(data);
+    }
+
+    @Benchmark
+    public Object deserializeByteWithNull(TinyintWithNullBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
@@ -210,6 +312,18 @@ public class BenchmarkBlockSerde
                 else if (type instanceof VarcharType) {
                     Slice slice = truncateToLength(utf8Slice((String) value), type);
                     type.writeSlice(blockBuilder, slice);
+                }
+                else if (TIMESTAMP_PICOS.equals(type)) {
+                    TIMESTAMP_PICOS.writeObject(blockBuilder, value);
+                }
+                else if (INTEGER.equals(type)) {
+                    blockBuilder.writeInt((int) value);
+                }
+                else if (SMALLINT.equals(type)) {
+                    blockBuilder.writeShort((short) value);
+                }
+                else if (TINYINT.equals(type)) {
+                    blockBuilder.writeByte((byte) value);
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported type " + type);
@@ -322,6 +436,26 @@ public class BenchmarkBlockSerde
     }
 
     @State(Thread)
+    public static class LongTimestampWithNullBenchmarkData
+            extends TypeBenchmarkDataWithNull<LongTimestamp>
+    {
+        public LongTimestampWithNullBenchmarkData()
+        {
+            super(TIMESTAMP_PICOS, BenchmarkBlockSerde::randomTimestamp);
+        }
+    }
+
+    @State(Thread)
+    public static class LongTimestampBenchmarkData
+            extends TypeBenchmarkData<LongTimestamp>
+    {
+        public LongTimestampBenchmarkData()
+        {
+            super(TIMESTAMP_PICOS, BenchmarkBlockSerde::randomTimestamp);
+        }
+    }
+
+    @State(Thread)
     public static class BigintWithNullBenchmarkData
             extends TypeBenchmarkDataWithNull<Long>
     {
@@ -338,6 +472,66 @@ public class BenchmarkBlockSerde
         public BigintBenchmarkData()
         {
             super(BIGINT, Random::nextLong);
+        }
+    }
+
+    @State(Thread)
+    public static class IntegerWithNullBenchmarkData
+            extends TypeBenchmarkDataWithNull<Integer>
+    {
+        public IntegerWithNullBenchmarkData()
+        {
+            super(INTEGER, Random::nextInt);
+        }
+    }
+
+    @State(Thread)
+    public static class IntegerBenchmarkData
+            extends TypeBenchmarkData<Integer>
+    {
+        public IntegerBenchmarkData()
+        {
+            super(INTEGER, Random::nextInt);
+        }
+    }
+
+    @State(Thread)
+    public static class SmallintWithNullBenchmarkData
+            extends TypeBenchmarkDataWithNull<Short>
+    {
+        public SmallintWithNullBenchmarkData()
+        {
+            super(SMALLINT, random -> (short) random.nextInt(0xFFFF));
+        }
+    }
+
+    @State(Thread)
+    public static class SmallintBenchmarkData
+            extends TypeBenchmarkData<Short>
+    {
+        public SmallintBenchmarkData()
+        {
+            super(SMALLINT, random -> (short) random.nextInt(0xFFFF));
+        }
+    }
+
+    @State(Thread)
+    public static class TinyintWithNullBenchmarkData
+            extends TypeBenchmarkDataWithNull<Byte>
+    {
+        public TinyintWithNullBenchmarkData()
+        {
+            super(TINYINT, random -> (byte) random.nextInt(0xFF));
+        }
+    }
+
+    @State(Thread)
+    public static class TinyintBenchmarkData
+            extends TypeBenchmarkData<Byte>
+    {
+        public TinyintBenchmarkData()
+        {
+            super(TINYINT, random -> (byte) random.nextInt(0xFF));
         }
     }
 
@@ -385,6 +579,11 @@ public class BenchmarkBlockSerde
     private static SqlDecimal randomLongDecimal(Random random)
     {
         return new SqlDecimal(new BigInteger(96, random), 30, 5);
+    }
+
+    private static LongTimestamp randomTimestamp(Random random)
+    {
+        return new LongTimestamp(random.nextLong(), random.nextInt(PICOSECONDS_PER_MICROSECOND));
     }
 
     @Test
