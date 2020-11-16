@@ -4,8 +4,8 @@ local exchange (GATHER, SINGLE, [])
             local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["i_product_name"])
                     partial aggregation over (i_product_name)
-                        cross join:
-                            join (LEFT, REPLICATED):
+                        cross join (can skip output duplicates):
+                            join (LEFT, REPLICATED, can skip output duplicates):
                                 scan item
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])

@@ -105,7 +105,8 @@ public class TestFeaturesConfig
                 .setIgnoreDownstreamPreferences(false)
                 .setOmitDateTimeTypePrecision(false)
                 .setIterativeRuleBasedColumnPruning(true)
-                .setRewriteFilteringSemiJoinToInnerJoin(true));
+                .setRewriteFilteringSemiJoinToInnerJoin(true)
+                .setOptimizeDuplicateInsensitiveJoins(true));
     }
 
     @Test
@@ -176,6 +177,7 @@ public class TestFeaturesConfig
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("optimizer.iterative-rule-based-column-pruning", "false")
                 .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
+                .put("optimizer.optimize-duplicate-insensitive-joins", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -242,7 +244,8 @@ public class TestFeaturesConfig
                 .setIgnoreDownstreamPreferences(true)
                 .setOmitDateTimeTypePrecision(true)
                 .setIterativeRuleBasedColumnPruning(false)
-                .setRewriteFilteringSemiJoinToInnerJoin(false);
+                .setRewriteFilteringSemiJoinToInnerJoin(false)
+                .setOptimizeDuplicateInsensitiveJoins(false);
         assertFullMapping(properties, expected);
     }
 }

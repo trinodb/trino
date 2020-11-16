@@ -224,6 +224,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     TEST_PLAN_NODE_ID,
                     lookupSourceFactory,
                     types,
+                    false,
                     hashChannels,
                     hashChannel,
                     Optional.of(outputChannels),
