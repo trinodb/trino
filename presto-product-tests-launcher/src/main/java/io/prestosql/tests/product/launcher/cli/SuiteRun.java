@@ -37,21 +37,32 @@ import picocli.CommandLine.Option;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.lang.management.ThreadInfo;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.lang.management.ManagementFactory.getThreadMXBean;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 
 @Command(
         name = "run",
@@ -61,6 +72,8 @@ public class SuiteRun
         implements Callable<Integer>
 {
     private static final Logger log = Logger.get(SuiteRun.class);
+
+    private static final ScheduledExecutorService diagnosticExecutor = newScheduledThreadPool(2, daemonThreadsNamed("TestRun-diagnostic"));
 
     private final Module additionalEnvironments;
     private final Module additionalSuites;
@@ -118,7 +131,9 @@ public class SuiteRun
     public static class Execution
             implements Callable<Integer>
     {
+        // TODO do not store mutable state
         private final SuiteRunOptions suiteRunOptions;
+        // TODO do not store mutable state
         private final EnvironmentOptions environmentOptions;
         private final SuiteFactory suiteFactory;
         private final EnvironmentFactory environmentFactory;
@@ -143,6 +158,28 @@ public class SuiteRun
 
         @Override
         public Integer call()
+        {
+            AtomicBoolean finished = new AtomicBoolean();
+            Future<?> diagnosticFlow = immediateFuture(null);
+            try {
+                long timeoutMillis = suiteRunOptions.timeout.toMillis();
+                long marginMillis = SECONDS.toMillis(10);
+                if (timeoutMillis < marginMillis) {
+                    log.error("Unsupported small timeout value: %s ms", timeoutMillis);
+                    return ExitCode.SOFTWARE;
+                }
+
+                diagnosticFlow = diagnosticExecutor.schedule(() -> reportSuspectedTimeout(finished), timeoutMillis - marginMillis, MILLISECONDS);
+
+                return runSuite();
+            }
+            finally {
+                finished.set(true);
+                diagnosticFlow.cancel(true);
+            }
+        }
+
+        private int runSuite()
         {
             String suiteName = requireNonNull(suiteRunOptions.suite, "suiteRunOptions.suite is null");
 
@@ -269,6 +306,25 @@ public class SuiteRun
         {
             long remainingNanos = suiteRunOptions.timeout.roundTo(NANOSECONDS) - nanosSince(suiteStartTime).roundTo(NANOSECONDS);
             return succinctNanos(max(remainingNanos, 0));
+        }
+
+        private void reportSuspectedTimeout(AtomicBoolean finished)
+        {
+            if (finished.get()) {
+                return;
+            }
+
+            // Test may not complete on time because they take too long (legitimate from Launcher's perspective), or because Launcher hangs.
+            // In the latter case it's worth reporting Launcher's threads.
+
+            // Log something immediately before getting thread information
+            log.warn("Test execution is not finished yet, a deadlock or hang is suspected. Thread dump will follow.");
+            log.warn(
+                    "Full Thread Dump:\n%s",
+                    Arrays.stream(getThreadMXBean().dumpAllThreads(true, true))
+                            // TODO ThreadInfo.toString truncates stacktrace to java.lang.management.ThreadInfo#MAX_FRAMES
+                            .map(ThreadInfo::toString)
+                            .collect(joining("\n")));
         }
 
         private static String suiteRunId(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
