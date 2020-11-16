@@ -235,6 +235,15 @@ public class TestTimestamp
     }
 
     @Test
+    public void testCastInvalidVarcharToTimestamp()
+    {
+        assertInvalidCast("cast('2020-13-01 23:59:01' as timestamp)",
+                "Value cannot be cast to timestamp; Invalid value for MonthOfYear (valid values 1 - 12): 13.");
+        assertInvalidCast("cast('2020-12-01 24:00:00' as timestamp)",
+                "Value cannot be cast to timestamp; Invalid value for HourOfDay (valid values 0 - 23): 24.");
+    }
+
+    @Test
     public void testCastToSlice()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as varchar)", VARCHAR, "2001-01-22 03:04:05.321");
