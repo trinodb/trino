@@ -25,7 +25,7 @@ local exchange (GATHER, SINGLE, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["i_item_sk_9"])
                                                                 partial aggregation over (i_item_sk_9)
-                                                                    join (INNER, PARTITIONED):
+                                                                    join (INNER, PARTITIONED, can skip output duplicates):
                                                                         final aggregation over (brand_id, category_id, class_id)
                                                                             local exchange (REPARTITION, HASH, ["brand_id", "category_id", "class_id"])
                                                                                 remote exchange (REPARTITION, HASH, ["i_brand_id_64", "i_category_id_68", "i_class_id_66"])
@@ -107,7 +107,7 @@ local exchange (GATHER, SINGLE, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["i_item_sk_473"])
                                                                 partial aggregation over (i_item_sk_473)
-                                                                    join (INNER, PARTITIONED):
+                                                                    join (INNER, PARTITIONED, can skip output duplicates):
                                                                         final aggregation over (brand_id_495, category_id_497, class_id_496)
                                                                             local exchange (REPARTITION, HASH, ["brand_id_495", "category_id_497", "class_id_496"])
                                                                                 remote exchange (REPARTITION, HASH, ["i_brand_id_531", "i_category_id_535", "i_class_id_533"])
@@ -189,7 +189,7 @@ local exchange (GATHER, SINGLE, [])
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["i_item_sk_1015"])
                                                                 partial aggregation over (i_item_sk_1015)
-                                                                    join (INNER, PARTITIONED):
+                                                                    join (INNER, PARTITIONED, can skip output duplicates):
                                                                         final aggregation over (brand_id_1037, category_id_1039, class_id_1038)
                                                                             local exchange (REPARTITION, HASH, ["brand_id_1037", "category_id_1039", "class_id_1038"])
                                                                                 remote exchange (REPARTITION, HASH, ["i_brand_id_1073", "i_category_id_1077", "i_class_id_1075"])

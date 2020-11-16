@@ -12,9 +12,9 @@ remote exchange (GATHER, SINGLE, [])
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["suppkey_4"])
                             partial aggregation over (suppkey_4)
-                                cross join:
-                                    join (LEFT, PARTITIONED):
-                                        join (INNER, PARTITIONED):
+                                cross join (can skip output duplicates):
+                                    join (LEFT, PARTITIONED, can skip output duplicates):
+                                        join (INNER, PARTITIONED, can skip output duplicates):
                                             remote exchange (REPARTITION, HASH, ["partkey"])
                                                 scan partsupp
                                             final aggregation over (partkey_8)

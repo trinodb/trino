@@ -13,10 +13,21 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.trino.sql.planner.plan.JoinNode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static java.util.function.Predicate.not;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -179,5 +190,36 @@ public class TestJoin
         //   with mixed references to both sides of the join. For that, the Expression needs to be analyzed against a hybrid scope made of both branches
         //   of the join, instead of using the output scope of the Join node. This, in turn requires adding support for multiple scopes in ExpressionAnalyzer
         assertThatThrownBy(() -> assertions.query("SELECT * FROM (VALUES 1, 2, NULL) t(x) RIGHT JOIN (VALUES 1, 3, NULL) u(x) ON t.x + u.x > ALL (VALUES 1)"));
+    }
+
+    @Test
+    public void testOutputDuplicatesInsensitiveJoin()
+    {
+        assertions.assertQueryAndPlan(
+                "SELECT t.x, count(*) FROM (VALUES 1, 2) t(x) JOIN (VALUES 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
+                "VALUES (2, BIGINT '2')",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("COUNT", functionCall("count", ImmutableList.of())),
+                                anyTree(
+                                        join(INNER, ImmutableList.of(),
+                                                anyTree(
+                                                        values("y")),
+                                                values())
+                                                .with(JoinNode.class, not(JoinNode::isMaySkipOutputDuplicates))))));
+
+        assertions.assertQueryAndPlan(
+                "SELECT t.x FROM (VALUES 1, 2) t(x) JOIN (VALUES 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
+                "VALUES 2",
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of(),
+                                FINAL,
+                                anyTree(
+                                        join(INNER, ImmutableList.of(),
+                                                anyTree(
+                                                        values("y")),
+                                                values())
+                                                .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)))));
     }
 }

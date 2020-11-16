@@ -95,6 +95,7 @@ public class HashBuildBenchmark
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
                 ImmutableList.of(BIGINT),
+                false,
                 Ints.asList(0),
                 OptionalInt.empty(),
                 Optional.empty(),

@@ -105,6 +105,7 @@ public class HashJoinBenchmark
                     new PlanNodeId("test"),
                     lookupSourceFactoryManager,
                     lineItemTypes,
+                    false,
                     Ints.asList(0),
                     OptionalInt.empty(),
                     Optional.empty(),

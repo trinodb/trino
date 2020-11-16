@@ -16,12 +16,16 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.execution.QueryStats;
+import io.trino.operator.OperatorStats;
 import io.trino.spi.type.Decimals;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.tests.QueryTemplate;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -2278,5 +2282,64 @@ public abstract class AbstractTestJoinQueries
                         "WHERE lineitem.orderkey = 31718 " +
                         "AND customer.name >= 'Customer#000001463' ",
                 "VALUES 3");
+    }
+
+    @Test
+    public void testOutputDuplicatesInsensitiveJoin()
+    {
+        assertJoinOutputPositions(
+                "SELECT n.nationkey, count(*) FROM nation n JOIN (VALUES 0, 0) t(x) ON n.nationkey = t.x GROUP BY n.nationkey",
+                2);
+
+        assertJoinOutputPositions(
+                "SELECT n.nationkey FROM nation n JOIN (VALUES 0, 0) t(x) ON n.nationkey = t.x GROUP BY n.nationkey",
+                1);
+
+        assertJoinOutputPositions(
+                "SELECT n.nationkey FROM nation n LEFT JOIN (VALUES 0, 0) t(x) ON n.nationkey = t.x WHERE n.nationkey = 0 GROUP BY n.nationkey",
+                1);
+
+        assertJoinOutputPositions(
+                "SELECT n.nationkey FROM nation n RIGHT JOIN (VALUES 0, 0) t(x) ON n.nationkey = t.x GROUP BY n.nationkey",
+                2);
+
+        // nation has 25 rows, so two '0' build rows are matched
+        assertJoinOutputPositions(
+                "SELECT t.x FROM nation n FULL JOIN (VALUES BIGINT '0', BIGINT '0') t(x) ON n.nationkey = t.x WHERE (n.nationkey <= 0 OR n.nationkey IS NULL) GROUP BY t.x",
+                26);
+
+        assertJoinOutputPositions(
+                "SELECT n.nationkey FROM nation n JOIN (VALUES 0, 0) t(x) ON n.nationkey = t.x GROUP BY GROUPING SETS (n.nationkey), (n.nationkey, n.nationkey)",
+                1);
+
+        assertJoinOutputPositions(
+                "SELECT t.x FROM nation n JOIN (VALUES BIGINT '0', BIGINT '0', BIGINT '-1') t(x) ON n.nationkey = t.x GROUP BY t.x",
+                1);
+
+        assertJoinOutputPositions(
+                "SELECT t.y FROM nation n JOIN (VALUES (BIGINT '0', BIGINT '0'), (BIGINT '0', BIGINT '0'), (BIGINT '-1', BIGINT '0')) t(x, y) ON n.nationkey = t.x GROUP BY t.y",
+                2);
+    }
+
+    private void assertJoinOutputPositions(@Language("SQL") String sql, int expectedJoinOutputPositions)
+    {
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
+                Session.builder(getSession())
+                        .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                        .build(),
+                sql);
+        assertEquals(result.getResult().getMaterializedRows().get(0).getField(0), 0L);
+        QueryStats stats = getDistributedQueryRunner()
+                .getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.getQueryId())
+                .getQueryStats();
+        int actualJoinOutputPositions = stats.getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().equals("LookupJoinOperator"))
+                .map(OperatorStats::getOutputPositions)
+                .mapToInt(Math::toIntExact)
+                .sum();
+        assertEquals(actualJoinOutputPositions, expectedJoinOutputPositions);
     }
 }
