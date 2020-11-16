@@ -36,6 +36,7 @@ import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
@@ -364,6 +365,9 @@ public class BenchmarkBlockSerde
     public abstract static class TypeBenchmarkDataWithNull<T>
             extends TypeBenchmarkData<T>
     {
+        @Param({".01", ".10", ".50", ".90", ".99"})
+        private double nullChance;
+
         public TypeBenchmarkDataWithNull(Type type, Function<Random, T> valueGenerator)
         {
             super(type, valueGenerator);
@@ -372,7 +376,7 @@ public class BenchmarkBlockSerde
         @Override
         protected double getNullChance()
         {
-            return .5;
+            return nullChance;
         }
     }
 
