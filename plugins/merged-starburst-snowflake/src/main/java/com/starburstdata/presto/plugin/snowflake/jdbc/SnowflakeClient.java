@@ -147,8 +147,8 @@ public class SnowflakeClient
                         new ImplementCount(bigintTypeHandle),
                         new ImplementMinMax(),
                         new ImplementSum(SnowflakeClient::decimalTypeHandle),
-                        new ImplementAvgFloatingPoint(),
-                        new ImplementAvgDecimal()));
+                        new ImplementAvgDecimal(),
+                        new ImplementAvgFloatingPoint()));
     }
 
     private static Optional<JdbcTypeHandle> decimalTypeHandle(DecimalType decimalType)

@@ -370,6 +370,7 @@ public class SnowflakeSplitSource
                 new HiveMetastoreClosure(metastore),
                 executorService,
                 executorService,
+                executorService,
                 hiveConfig.isSkipDeletionForAlter(),
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 Optional.of(new Duration(5, SECONDS)),
