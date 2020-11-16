@@ -1727,10 +1727,32 @@ public class LocalExecutionPlanner
             OptionalInt totalOperatorsCount = context.getDriverInstanceCount();
             switch (node.getType()) {
                 case INNER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty(), totalOperatorsCount, unsupportedPartitioningSpillerFactory(), blockTypeOperators);
+                    lookupJoinOperatorFactory = lookupJoinOperators.innerJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            lookupSourceFactoryManager,
+                            probeSource.getTypes(),
+                            false,
+                            probeChannels,
+                            probeHashChannel,
+                            Optional.empty(),
+                            totalOperatorsCount,
+                            unsupportedPartitioningSpillerFactory(),
+                            blockTypeOperators);
                     break;
                 case SOURCE_OUTER:
-                    lookupJoinOperatorFactory = lookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeSource.getTypes(), probeChannels, probeHashChannel, Optional.empty(), totalOperatorsCount, unsupportedPartitioningSpillerFactory(), blockTypeOperators);
+                    lookupJoinOperatorFactory = lookupJoinOperators.probeOuterJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            lookupSourceFactoryManager,
+                            probeSource.getTypes(),
+                            false,
+                            probeChannels,
+                            probeHashChannel,
+                            Optional.empty(),
+                            totalOperatorsCount,
+                            unsupportedPartitioningSpillerFactory(),
+                            blockTypeOperators);
                     break;
                 default:
                     throw new AssertionError("Unknown type: " + node.getType());
@@ -2298,11 +2320,42 @@ public class LocalExecutionPlanner
             OptionalInt totalOperatorsCount = context.getDriverInstanceCount();
             checkState(!spillEnabled || totalOperatorsCount.isPresent(), "A fixed distribution is required for JOIN when spilling is enabled");
 
+            // Implementation of hash join operator may only take advantage of output duplicates insensitive joins when:
+            // 1. Join is of INNER or LEFT type. For right or full joins all matching build rows must be tagged as visited.
+            // 2. Right (build) output symbols are subset of equi-clauses right symbols. If additional build symbols
+            //    are produced, then skipping build rows could skip some distinct rows.
+            boolean outputSingleMatch = node.isMaySkipOutputDuplicates() &&
+                    node.getCriteria().stream()
+                            .map(JoinNode.EquiJoinClause::getRight)
+                            .collect(toImmutableSet())
+                            .containsAll(node.getRightOutputSymbols());
             switch (node.getType()) {
                 case INNER:
-                    return lookupJoinOperators.innerJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
+                    return lookupJoinOperators.innerJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            lookupSourceFactoryManager,
+                            probeTypes,
+                            outputSingleMatch,
+                            probeJoinChannels,
+                            probeHashChannel,
+                            Optional.of(probeOutputChannels),
+                            totalOperatorsCount,
+                            partitioningSpillerFactory,
+                            blockTypeOperators);
                 case LEFT:
-                    return lookupJoinOperators.probeOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
+                    return lookupJoinOperators.probeOuterJoin(
+                            context.getNextOperatorId(),
+                            node.getId(),
+                            lookupSourceFactoryManager,
+                            probeTypes,
+                            outputSingleMatch,
+                            probeJoinChannels,
+                            probeHashChannel,
+                            Optional.of(probeOutputChannels),
+                            totalOperatorsCount,
+                            partitioningSpillerFactory,
+                            blockTypeOperators);
                 case RIGHT:
                     return lookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
                 case FULL:

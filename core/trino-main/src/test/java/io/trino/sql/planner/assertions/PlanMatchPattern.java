@@ -844,6 +844,28 @@ public final class PlanMatchPattern
         return match(newAliases.build());
     }
 
+    public <T extends PlanNode> PlanMatchPattern with(Class<T> clazz, Predicate<T> predicate)
+    {
+        return with(new Matcher()
+        {
+            @Override
+            public boolean shapeMatches(PlanNode node)
+            {
+                return clazz.isInstance(node);
+            }
+
+            @Override
+            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            {
+                if (predicate.test((T) node)) {
+                    return match();
+                }
+
+                return NO_MATCH;
+            }
+        });
+    }
+
     public PlanMatchPattern with(Matcher matcher)
     {
         matchers.add(matcher);
