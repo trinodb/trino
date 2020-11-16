@@ -176,7 +176,7 @@ public final class PlanCopier
             List<PlanNode> copiedSources = node.getSources().stream()
                     .map(context::rewrite)
                     .collect(toImmutableList());
-            return new IntersectNode(idAllocator.getNextId(), copiedSources, node.getSymbolMapping(), node.getOutputSymbols());
+            return new IntersectNode(idAllocator.getNextId(), copiedSources, node.getSymbolMapping(), node.getOutputSymbols(), node.isDistinct());
         }
 
         @Override
@@ -185,7 +185,7 @@ public final class PlanCopier
             List<PlanNode> copiedSources = node.getSources().stream()
                     .map(context::rewrite)
                     .collect(toImmutableList());
-            return new ExceptNode(idAllocator.getNextId(), copiedSources, node.getSymbolMapping(), node.getOutputSymbols());
+            return new ExceptNode(idAllocator.getNextId(), copiedSources, node.getSymbolMapping(), node.getOutputSymbols(), node.isDistinct());
         }
 
         @Override

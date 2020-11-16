@@ -908,14 +908,24 @@ public class PlanBuilder
 
     public IntersectNode intersect(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
     {
+        return intersect(outputsToInputs, sources, true);
+    }
+
+    public IntersectNode intersect(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources, boolean distinct)
+    {
         List<Symbol> outputs = ImmutableList.copyOf(outputsToInputs.keySet());
-        return new IntersectNode(idAllocator.getNextId(), sources, outputsToInputs, outputs);
+        return new IntersectNode(idAllocator.getNextId(), sources, outputsToInputs, outputs, distinct);
     }
 
     public ExceptNode except(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
     {
+        return except(outputsToInputs, sources, true);
+    }
+
+    public ExceptNode except(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources, boolean distinct)
+    {
         List<Symbol> outputs = ImmutableList.copyOf(outputsToInputs.keySet());
-        return new ExceptNode(idAllocator.getNextId(), sources, outputsToInputs, outputs);
+        return new ExceptNode(idAllocator.getNextId(), sources, outputsToInputs, outputs, distinct);
     }
 
     public TableWriterNode tableWriter(List<Symbol> columns, List<String> columnNames, PlanNode source)

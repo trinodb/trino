@@ -57,7 +57,7 @@ public class MergeUnion
     @Override
     public Result apply(UnionNode node, Captures captures, Context context)
     {
-        SetOperationMerge mergeOperation = new SetOperationMerge(node, context, UnionNode::new);
+        SetOperationMerge mergeOperation = new SetOperationMerge(node, context);
         Optional<SetOperationNode> result = mergeOperation.merge();
         return result.map(Result::ofPlanNode).orElseGet(Result::empty);
     }
