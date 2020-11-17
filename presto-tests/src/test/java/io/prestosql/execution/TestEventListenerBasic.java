@@ -335,6 +335,7 @@ public class TestEventListenerBasic
         assertEquals(statistics.getCpuTime().toMillis(), queryStats.getTotalCpuTime().toMillis());
         assertEquals(statistics.getWallTime().toMillis(), queryStats.getElapsedTime().toMillis());
         assertEquals(statistics.getQueuedTime().toMillis(), queryStats.getQueuedTime().toMillis());
+        assertEquals(statistics.getScheduledTime().get().toMillis(), queryStats.getTotalScheduledTime().toMillis());
         assertEquals(statistics.getResourceWaitingTime().get().toMillis(), queryStats.getResourceWaitingTime().toMillis());
         assertEquals(statistics.getAnalysisTime().get().toMillis(), queryStats.getAnalysisTime().toMillis());
         assertEquals(statistics.getPlanningTime().get().toMillis(), queryStats.getPlanningTime().toMillis());
