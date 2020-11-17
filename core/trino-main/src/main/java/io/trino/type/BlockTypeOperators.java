@@ -38,6 +38,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.util.Objects.requireNonNull;
@@ -128,9 +130,14 @@ public final class BlockTypeOperators
         boolean isDistinctFrom(Block left, int leftPosition, Block right, int rightPosition);
     }
 
-    public BlockPositionComparison getComparisonOperator(Type type)
+    public BlockPositionComparison getComparisonUnorderedLastOperator(Type type)
     {
-        return getBlockOperator(type, BlockPositionComparison.class, () -> typeOperators.getComparisonOperator(type, COMPARISON_CONVENTION));
+        return getBlockOperator(type, BlockPositionComparison.class, () -> typeOperators.getComparisonUnorderedLastOperator(type, COMPARISON_CONVENTION), Optional.of(COMPARISON_UNORDERED_LAST));
+    }
+
+    public BlockPositionComparison getComparisonUnorderedFirstOperator(Type type)
+    {
+        return getBlockOperator(type, BlockPositionComparison.class, () -> typeOperators.getComparisonUnorderedFirstOperator(type, COMPARISON_CONVENTION), Optional.of(COMPARISON_UNORDERED_FIRST));
     }
 
     public interface BlockPositionComparison
@@ -165,7 +172,7 @@ public final class BlockTypeOperators
         public long compare(Block leftBlock, int leftIndex, Block rightBlock, int rightIndex)
         {
             // TODO generate this so it becomes mono monomorphic
-            return comparison.compare(rightBlock, rightIndex, leftBlock, leftIndex);
+            return -comparison.compare(leftBlock, leftIndex, rightBlock, rightIndex);
         }
     }
 

@@ -167,7 +167,7 @@ public class BenchmarkArraySort
         benchmark(BenchmarkArraySort.class).run();
     }
 
-    private static final BlockPositionComparison VARCHAR_COMPARISON = new BlockTypeOperators(new TypeOperators()).getComparisonOperator(VARCHAR);
+    private static final BlockPositionComparison VARCHAR_COMPARISON = new BlockTypeOperators(new TypeOperators()).getComparisonUnorderedLastOperator(VARCHAR);
 
     @ScalarFunction
     @SqlType("array(varchar)")

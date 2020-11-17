@@ -80,11 +80,11 @@ import static io.trino.operator.aggregation.minmaxby.TwoNullableValueStateMappin
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.COMPARISON;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
 import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.MinMaxCompare.getMinMaxCompareFunctionDependencies;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Arrays.stream;
 
@@ -120,9 +120,7 @@ public abstract class AbstractMinMaxBy
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(COMPARISON, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
-                .build();
+        return getMinMaxCompareFunctionDependencies(new TypeSignature("K"), min);
     }
 
     @Override
