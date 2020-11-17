@@ -13,40 +13,19 @@
  */
 package io.prestosql.plugin.mongodb;
 
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test
-public class TestMongoDistributedQueries
+public abstract class BaseMongoDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private MongoServer server;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        this.server = new MongoServer();
-        return createMongoQueryRunner(server, ImmutableMap.of(), TpchTable.getTables());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        server.close();
-    }
-
     @Override
     protected boolean supportsDelete()
     {
