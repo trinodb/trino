@@ -263,7 +263,7 @@ public interface EnvironmentListener
 
     static EnvironmentListener getStandardListeners(Optional<Path> logsDirBase)
     {
-        EnvironmentListener listener = compose(loggingListener(), statsPrintingListener());
+        EnvironmentListener listener = compose(loggingListener());
 
         if (logsDirBase.isPresent()) {
             return compose(listener, logCopyingListener(logsDirBase.get()));
