@@ -30,6 +30,7 @@ import java.util.Optional;
 import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.iterative.rule.PushAggregationIntoTableScan.pushAggregationIntoTableScan;
+import static io.prestosql.sql.planner.plan.Patterns.DistinctLimit.isPartial;
 import static io.prestosql.sql.planner.plan.Patterns.distinctLimit;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.tableScan;
@@ -42,6 +43,7 @@ public class PushDistinctLimitIntoTableScan
 
     private static final Pattern<DistinctLimitNode> PATTERN =
             distinctLimit()
+                    .with(isPartial().equalTo(false))
                     .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
 
     private final Metadata metadata;

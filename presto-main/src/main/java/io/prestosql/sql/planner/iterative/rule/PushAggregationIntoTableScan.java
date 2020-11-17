@@ -54,6 +54,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.planner.plan.Patterns.Aggregation.step;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.tableScan;
@@ -65,6 +66,7 @@ public class PushAggregationIntoTableScan
 
     private static final Pattern<AggregationNode> PATTERN =
             aggregation()
+                    .with(step().equalTo(AggregationNode.Step.SINGLE))
                     // skip arguments that are, for instance, lambda expressions
                     .matching(PushAggregationIntoTableScan::allArgumentsAreSimpleReferences)
                     .matching(node -> node.getGroupingSets().getGroupingSetCount() <= 1)
