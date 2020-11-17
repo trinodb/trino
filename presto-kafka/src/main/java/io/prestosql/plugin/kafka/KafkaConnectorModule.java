@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.decoder.DecoderModule;
@@ -24,6 +25,8 @@ import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProv
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
+import io.prestosql.plugin.kafka.confluent.ConfluentModule;
+import io.prestosql.plugin.kafka.confluent.ConfluentSchemaRegistryTableDescriptionSupplier;
 import io.prestosql.plugin.kafka.encoder.EncoderModule;
 import io.prestosql.plugin.kafka.schemareader.ContentSchemaReader;
 import io.prestosql.plugin.kafka.schemareader.DefaultContentSchemaReader;
@@ -32,14 +35,18 @@ import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import java.util.List;
+
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -76,6 +83,8 @@ public class KafkaConnectorModule
         binder.bind(DispatchingContentSchemaReader.class).in(Scopes.SINGLETON);
         MapBinder<String, ContentSchemaReader> schemaReaders = newMapBinder(binder, String.class, ContentSchemaReader.class);
         schemaReaders.addBinding(DefaultContentSchemaReader.NAME).to(DefaultContentSchemaReader.class).in(Scopes.SINGLETON);
+        newMapBinder(binder, new TypeLiteral<String>(){}, new TypeLiteral<List<PropertyMetadata<?>>>() {}, ForKafka.class);
+        bindConfluentModule();
     }
 
     private static final class TypeDeserializer
@@ -97,5 +106,13 @@ public class KafkaConnectorModule
         {
             return typeManager.getType(TypeId.of(value));
         }
+    }
+
+    private void bindConfluentModule()
+    {
+        install(installModuleIf(
+                KafkaConfig.class,
+                config -> config.getTableDescriptionSuppliers().contains(ConfluentSchemaRegistryTableDescriptionSupplier.NAME),
+                new ConfluentModule()));
     }
 }

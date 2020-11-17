@@ -15,6 +15,7 @@
 package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Map;
@@ -40,7 +41,7 @@ public class MapBasedTableDescriptionSupplier
     }
 
     @Override
-    public Optional<KafkaTopicDescription> getTopicDescription(SchemaTableName schemaTableName)
+    public Optional<KafkaTopicDescription> getTopicDescription(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return Optional.ofNullable(map.get(schemaTableName));
     }

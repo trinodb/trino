@@ -14,6 +14,7 @@
 package io.prestosql.plugin.kafka.confluent;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -23,6 +24,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.plugin.kafka.confluent.AvroSchemaConverter.EmptyFieldStrategy.ADD_DUMMY;
 import static io.prestosql.plugin.kafka.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestConfluentSchemaRegistryConfig
 {
@@ -32,7 +34,8 @@ public class TestConfluentSchemaRegistryConfig
         assertRecordedDefaults(recordDefaults(ConfluentSchemaRegistryConfig.class)
                 .setConfluentSchemaRegistryUrl(null)
                 .setConfluentSchemaRegistryClientCacheSize(1000)
-                .setEmptyFieldStrategy(IGNORE));
+                .setEmptyFieldStrategy(IGNORE)
+                .setConfluentSubjectsCacheRefreshInterval(new Duration(1, SECONDS)));
     }
 
     @Test
@@ -42,12 +45,14 @@ public class TestConfluentSchemaRegistryConfig
                 .put("kafka.confluent-schema-registry-url", "http://schema-registry:8081")
                 .put("kafka.confluent-schema-registry-client-cache-size", "1500")
                 .put("kafka.empty-field-strategy", "ADD_DUMMY")
+                .put("kafka.confluent-subjects-cache-refresh-interval", "2s")
                 .build();
 
         ConfluentSchemaRegistryConfig expected = new ConfluentSchemaRegistryConfig()
                 .setConfluentSchemaRegistryUrl("http://schema-registry:8081")
                 .setConfluentSchemaRegistryClientCacheSize(1500)
-                .setEmptyFieldStrategy(ADD_DUMMY);
+                .setEmptyFieldStrategy(ADD_DUMMY)
+                .setConfluentSubjectsCacheRefreshInterval(new Duration(2, SECONDS));
 
         assertFullMapping(properties, expected);
     }

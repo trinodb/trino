@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.kafka;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -20,19 +21,26 @@ import io.prestosql.spi.session.PropertyMetadata;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 
 public final class KafkaSessionProperties
 {
     private static final String TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED = "timestamp_upper_bound_force_push_down_enabled";
+    @VisibleForTesting
+    public static final String EMPTY_FIELD_STRATEGY = "empty_field_strategy";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
-    public KafkaSessionProperties(KafkaConfig kafkaConfig)
+    public KafkaSessionProperties(KafkaConfig kafkaConfig, @ForKafka Map<String, List<PropertyMetadata<?>>> extraProperties)
     {
-        sessionProperties = ImmutableList.of(PropertyMetadata.booleanProperty(
-                TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
-                "Enable or disable timestamp upper bound push down for topic createTime mode",
-                kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
+        ImmutableList.Builder<PropertyMetadata<?>> sessionPropertiesBuilder = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(PropertyMetadata.booleanProperty(
+                        TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
+                        "Enable or disable timestamp upper bound push down for topic createTime mode",
+                        kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
+        extraProperties.values().stream()
+                .forEach(sessionPropertiesBuilder::addAll);
+        sessionProperties = sessionPropertiesBuilder.build();
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

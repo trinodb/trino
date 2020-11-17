@@ -16,15 +16,22 @@ package io.prestosql.plugin.kafka.confluent;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.prestosql.decoder.avro.AvroReaderSupplierFactory;
+import io.prestosql.plugin.kafka.ForKafka;
+import io.prestosql.plugin.kafka.TableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schemareader.ContentSchemaReader;
+import io.prestosql.spi.session.PropertyMetadata;
 
 import javax.inject.Singleton;
 
+import java.util.List;
+
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class ConfluentModule
@@ -36,6 +43,12 @@ public class ConfluentModule
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         newMapBinder(binder, String.class, AvroReaderSupplierFactory.class).addBinding(ConfluentAvroReaderSupplier.NAME).to(ConfluentAvroReaderSupplier.Factory.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, ContentSchemaReader.class).addBinding(ConfluentAvroReaderSupplier.NAME).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
+        newMapBinder(binder, new TypeLiteral<String>(){}, new TypeLiteral<List<PropertyMetadata<?>>>(){}, ForKafka.class)
+                .addBinding(ConfluentAvroReaderSupplier.NAME)
+                .toProvider(ConfluentSessionProperties.class)
+                .in(Scopes.SINGLETON);
+
+        newSetBinder(binder, TableDescriptionSupplier.class).addBinding().toProvider(ConfluentSchemaRegistryTableDescriptionSupplier.Factory.class).in(Scopes.SINGLETON);
     }
 
     @Provides

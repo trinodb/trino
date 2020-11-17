@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Locale.ENGLISH;
 
 @DefunctConfig("kafka.connect-timeout")
 public class KafkaConfig
@@ -45,6 +46,7 @@ public class KafkaConfig
     private boolean hideInternalColumns = true;
     private int messagesPerSplit = 100_000;
     private boolean timestampUpperBoundPushDownEnabled;
+    private Set<String> tableDescriptionSuppliers = ImmutableSet.of();
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -99,6 +101,28 @@ public class KafkaConfig
     {
         this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
         return this;
+    }
+
+    @NotNull
+    public Set<String> getTableDescriptionSuppliers()
+    {
+        return tableDescriptionSuppliers;
+    }
+
+    @Config("kafka.table-description-suppliers")
+    @ConfigDescription("Set of additional table description suppliers")
+    public KafkaConfig setTableDescriptionSuppliers(String tableDescriptionSuppliers)
+    {
+        this.tableDescriptionSuppliers = parseTableDescriptionSuppliers(tableDescriptionSuppliers);
+        return this;
+    }
+
+    private static ImmutableSet<String> parseTableDescriptionSuppliers(String tableDescriptionSuppliers)
+    {
+        Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
+        return StreamSupport.stream(splitter.split(tableDescriptionSuppliers).spliterator(), false)
+                .map(tableDescriptionSupplier -> tableDescriptionSupplier.toUpperCase(ENGLISH))
+                .collect(toImmutableSet());
     }
 
     public boolean isHideInternalColumns()

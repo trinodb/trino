@@ -36,7 +36,8 @@ public class TestKafkaConfig
                 .setTableDescriptionDir(new File("etc/kafka/"))
                 .setHideInternalColumns(true)
                 .setMessagesPerSplit(100_000)
-                .setTimestampUpperBoundPushDownEnabled(false));
+                .setTimestampUpperBoundPushDownEnabled(false)
+                .setTableDescriptionSuppliers(""));
     }
 
     @Test
@@ -51,6 +52,7 @@ public class TestKafkaConfig
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
                 .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
+                .put("kafka.table-description-suppliers", "Confluent, db")
                 .build();
 
         KafkaConfig expected = new KafkaConfig()
@@ -61,7 +63,8 @@ public class TestKafkaConfig
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
                 .setMessagesPerSplit(1)
-                .setTimestampUpperBoundPushDownEnabled(true);
+                .setTimestampUpperBoundPushDownEnabled(true)
+                .setTableDescriptionSuppliers("CONFLUENT, DB");
 
         assertFullMapping(properties, expected);
     }
