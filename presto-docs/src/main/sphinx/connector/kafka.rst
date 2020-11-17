@@ -67,6 +67,11 @@ Property Name                                              Description
 ``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not
 ``kafka.messages-per-split``                               Number of messages that are processed by each Presto split, defaults to 100000
 ``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp push down is enabled for topics using ``CreateTime`` mode
+``kafka.table-description-suppliers``                      List of table description suppliers to include in addition to the default supplier
+``kafka.confluent-schema-registry-url``                    The url of the confluent schema registry
+``kafka.confluent-schema-registry-client-cache-size``      The cache size of the confluent schema registry client
+``kafka.confluent-subjects-cache-refresh-interval``        The interval that metadata is refreshed from the schema registry
+``kafka.empty-field-strategy``                             How to handle avro records with no fields: IGNORE, FAIL, or ADD_DUMMY
 ========================================================== ==============================================================================
 
 ``kafka.table-names``
@@ -82,7 +87,7 @@ exist. If no table description file exists, the table name is used as the
 topic name on Kafka and no data columns are mapped into the table. The
 table still contains all internal columns (see below).
 
-This property is required; there is no default and at least one table must be defined.
+This property is required unless a ``kafka.confluent-schema-registry-url`` is supplied; there is no default and at least one table must be defined.
 
 ``kafka.default-schema``
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -143,6 +148,63 @@ these columns are hidden, they can still be used in queries but do not
 show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 
 This property is optional; the default is ``true``.
+
+``kafka.table-description-suppliers``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The list of table description suppliers in addition to the default KafkaTableDescriptionSupplier.
+
+This property is optional; there is no default.
+
+``kafka.confluent-schema-registry-url``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The url of the Confluent Schema Registry. If ``kafka.table-description-suppliers`` includes
+``CONFLUENT`` then the connector can decode messages serialized by the KafkaAvroSerializer.
+The KafkaAvroSerializer stores an integer id with the message instead of storing the schema.
+The confluent schema registry is used to look up the schema based on the schema id.
+This results in smaller messages.
+
+This property is optional; there is no default.
+
+``kafka.confluent-schema-registry-client-cache-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Sets the cache size of the Confluent Schema Registry client,
+which reduces calls to the schema registry to look up schemas.
+This cache stores the schemas for registered subjects.
+
+This property is optional; the default is ``1000``
+
+``kafka.confluent-subjects-cache-refresh-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Sets the interval that the Confluent Schema Registry topic to subjects
+mapping is refreshed. A topic can have a registered schema for both key and message.
+This cache is used internally to lookup the subjects associated with a topic.
+
+This property is optional; the default is ``1s``
+
+.. note::
+
+    This cache only stores subjects which use the default subject name strategy.
+    If the record was produced using another subject name strategy,
+    a `custom subject <#subject-naming-strategy>`__  can be supplied.
+
+``kafka.empty-field-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Controls handling of records with no fields. The strategies are IGNORE,
+FAIL and ADD_DUMMY which adds a boolean field named ``dummy``.
+
+This can occur if an avro record was serialized using the KafkaAvroSerializer.
+Although a record with no fields is valid in avro, Presto does not allow struct
+types with no fields.
+
+.. note::
+
+    This parameter is only used if the ``CONFLUENT`` table description supplier
+    is configured.
 
 Internal Columns
 ----------------
@@ -755,6 +817,7 @@ The Kafka connector contains the following decoders:
 * ``csv`` - Kafka message is interpreted as comma separated message, and fields are mapped to table columns
 * ``json`` - Kafka message is parsed as JSON and JSON fields are mapped to table columns
 * ``avro`` - Kafka message is parsed based on an Avro schema and Avro fields are mapped to table columns
+* ``avro-confluent`` - Kafka message is parsed based on the Avro schema which is supplied by the Confluent Schema Registry
 
 .. note::
 
@@ -985,3 +1048,64 @@ The schema evolution behavior is as follows:
 
 * Changing type of column in the new schema:
   If the type coercion is supported by Avro, then the conversion happens. An error is thrown for incompatible types.
+
+``avro-confluent`` Decoder
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The AvroConfluent decoder converts bytes representing a message or key in
+Avro format based on the schema which is stored in the Confluent Schema Registry.
+This format stores an integer representing the schemaId which is looked up by
+the schema registry so there is no need to supply a table description.
+
+The decoder uses the ``avro`` decoder to decode columns once the schema is retrieved
+from the schema registry. The only exception is when a key or message is a simple type.
+In this case the column name will be set to the subject name. This provides the ability
+to use the schema registry to serialize simple types, e.g. for keys. An example:
+
+For a topic ``my-topic``, with a key of type ``Long`` and message of type GenericRecord,
+assuming the default subject naming strategy is used, the subject for the key will be
+``my-topic-key`` and the subject for the message will be ``my-topic-value``.
+The key schema will be converted to a column named ``my-topic-key`` with type ``bigint``.
+The message schema will be converted as it would be using the ``avro`` decoder.
+
+.. note::
+
+    This decoder type will be set automatically for all topics which map to subjects
+    registered with the Confluent Schema Registry.
+
+Integration with Confluent Schema Registry
+------------------------------------------
+
+The connector can integrate with Confluent Schema Registry to automatically resolve avro schemas
+without the need to supply table description files. If a kafka topic is created and data is serialized
+using the KafkaAvroSerializer then the connector can resolve the schema dynamically.
+
+If the ``kafka.confluent-schema-registry-url`` is supplied then any topics which were serialized using
+the KafkaAvroSerializer will have schemas registered with the schema registry. Simply use the topic name
+and the connector will resolve the key and message schemas if they are registered using the default subject
+naming strategy.
+
+Subject Naming Strategy
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The default behavior is to use the default subject name strategy which is ``topic``-key for keys and
+``topic``-value for messages. The other subject naming strategies require data to resolve the subject
+name and require special handling described below.
+
+An example:
+Given a kafka message with key type Long and message type GenericRecord(col_1: long, col_2: string),
+the following query can be used to retrieve the data from kafka:
+
+.. code-block:: none
+
+    SELECT "my-topic-key", col_1, col_2 FROM "my-topic"
+
+If a non default subject name strategy was used when registering the schema, the subject names can
+be encoded into the table name as follows:
+
+.. code-block:: none
+
+    SELECT my_custom_key, col_1, col_2 FROM "my-topic&key-subject=my_custom_key&message-subject=my_record_name"
+
+The ``key-subject`` and ``message-subject`` are optional, neither, one or both may be specified. If they
+are specified the ``avro-confluent`` decoder will look up the corresponding subject to retrieve the schema.
