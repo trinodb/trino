@@ -260,7 +260,6 @@ public class TestPostgreSqlIntegrationSmokeTest
     public void testCharPredicatePushdown()
             throws Exception
     {
-        // TODO test that that predicate is actually pushed down (here we test only correctness)
         try (AutoCloseable ignoreTable = withTable("tpch.test_char_pushdown",
                 "(char_1 char(1), char_5 char(5), char_10 char(10))")) {
             execute("INSERT INTO tpch.test_char_pushdown VALUES" +
