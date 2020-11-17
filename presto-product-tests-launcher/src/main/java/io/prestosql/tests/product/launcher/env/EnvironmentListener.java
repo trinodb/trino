@@ -14,23 +14,25 @@
 package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.google.common.base.Strings;
 import io.airlift.log.Logger;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.function.Consumer;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.tests.product.launcher.env.StatisticsFetcher.Stats.makeHeader;
+import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -216,40 +218,33 @@ public interface EnvironmentListener
     static EnvironmentListener statsPrintingListener()
     {
         ScheduledExecutorService executorService = Executors.newScheduledThreadPool(2, daemonThreadsNamed("container-stats-%d"));
-        List<ScheduledFuture<?>> futures = new ArrayList<>();
+        Map<String, StatisticsFetcher> fetchers = new TreeMap<>(); // keep map sorted
 
         return new EnvironmentListener()
         {
             @Override
-            public void containerStarting(DockerContainer container, InspectContainerResponse response)
+            public void containerStarted(DockerContainer container, InspectContainerResponse response)
             {
-                // Print stats every 30 seconds
-                futures.add(executorService.scheduleWithFixedDelay(() ->
-                {
-                    StatisticsFetcher.Stats stats = container.getStats();
-                    if (stats.areCalculated()) {
-                        log.info("%s - %s", container.getLogicalName(), container.getStats());
-                    }
-                }, 5 * 1000L, 30 * 1000L, MILLISECONDS));
-            }
-
-            @Override
-            public void containerStopping(DockerContainer container, InspectContainerResponse response)
-            {
-                log.info("Container %s final statistics - %s", container, container.getStats());
-            }
-
-            @Override
-            public void containerStarted(DockerContainer container, InspectContainerResponse containerInfo)
-            {
-                // Force fetching of stats so CPU usage can be calculated from delta
-                container.getStats();
+                // Start listening on statistics stream
+                fetcher(container).start();
             }
 
             @Override
             public void environmentStopping(Environment environment)
             {
-                futures.forEach(future -> future.cancel(true));
+                fetchers.values().forEach(StatisticsFetcher::close);
+                executorService.shutdownNow();
+                printContainerStats();
+            }
+
+            @Override
+            public void environmentStarted(Environment environment)
+            {
+                // Print stats for all containers every 30s after environment is started
+                executorService.scheduleWithFixedDelay(() ->
+                {
+                    printContainerStats();
+                }, 5 * 1000L, 30 * 1000L, MILLISECONDS);
             }
 
             @Override
@@ -257,12 +252,34 @@ public interface EnvironmentListener
             {
                 executorService.shutdown();
             }
+
+            private StatisticsFetcher fetcher(DockerContainer container)
+            {
+                return fetchers.computeIfAbsent(container.getLogicalName(), key -> StatisticsFetcher.create(container));
+            }
+
+            private void printContainerStats()
+            {
+                int maxLength = fetchers.keySet().stream()
+                        .mapToInt(String::length)
+                        .max()
+                        .orElse(0);
+
+                String header = makeHeader(maxLength);
+                String separator = format("+%s+", Strings.repeat("-", header.length() + 2));
+
+                log.info(separator);
+                log.info("| %s |", header);
+                log.info(separator);
+                fetchers.entrySet().forEach(entry -> log.info("| %s | %s |", Strings.padEnd(entry.getKey(), maxLength, ' '), entry.getValue().get()));
+                log.info(separator);
+            }
         };
     }
 
     static EnvironmentListener getStandardListeners(Optional<Path> logsDirBase)
     {
-        EnvironmentListener listener = compose(loggingListener());
+        EnvironmentListener listener = compose(loggingListener(), statsPrintingListener());
 
         if (logsDirBase.isPresent()) {
             return compose(listener, logCopyingListener(logsDirBase.get()));
