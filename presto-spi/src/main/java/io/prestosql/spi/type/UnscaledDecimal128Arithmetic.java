@@ -625,10 +625,10 @@ public final class UnscaledDecimal128Arithmetic
         long r0 = low(right);
         long r1 = high(right);
 
-        long z0 = 0;
-        long z1 = 0;
-        long z2 = 0;
-        long z3 = 0;
+        long z0;
+        long z1;
+        long z2;
+        long z3;
 
         long accumulator = r0 * l0;
         z0 = low(accumulator);

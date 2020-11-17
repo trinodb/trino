@@ -96,7 +96,6 @@ public class TestFileBasedSystemAccessControl
     private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot add a column to table .*";
     private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop a column from table .*";
     private static final String RENAME_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename a column in table .*";
-    private static final String AUTH_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for table .* to .*";
     private static final String AUTH_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for view .* to .*";
     private static final String TABLE_COMMENT_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot comment table to .*";
     private static final String INSERT_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot insert into table .*";
