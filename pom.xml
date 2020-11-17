@@ -1536,6 +1536,7 @@
                                     -Xep:MissingOverride:ERROR
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
+                                    -Xep:UnusedVariable:ERROR
                                 </arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
