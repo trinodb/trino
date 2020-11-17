@@ -29,14 +29,14 @@ import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
 
-public class GenericComparisonOperator
+public class GenericComparisonUnorderedLastOperator
         extends SqlOperator
 {
     private final TypeOperators typeOperators;
 
-    public GenericComparisonOperator(TypeOperators typeOperators)
+    public GenericComparisonUnorderedLastOperator(TypeOperators typeOperators)
     {
-        super(OperatorType.COMPARISON,
+        super(OperatorType.COMPARISON_UNORDERED_LAST,
                 ImmutableList.of(orderableTypeParameter("T")),
                 ImmutableList.of(),
                 INTEGER.getTypeSignature(),
@@ -50,7 +50,7 @@ public class GenericComparisonOperator
     {
         Type type = functionBinding.getTypeVariable("T");
         return invocationConvention -> {
-            MethodHandle methodHandle = typeOperators.getComparisonOperator(type, invocationConvention);
+            MethodHandle methodHandle = typeOperators.getComparisonUnorderedLastOperator(type, invocationConvention);
             return new FunctionInvoker(methodHandle, Optional.empty());
         };
     }

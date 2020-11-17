@@ -15,8 +15,6 @@ package io.trino.operator.aggregation.minmaxby;
 
 import io.trino.type.BlockTypeOperators;
 
-import static io.trino.util.MinMaxCompare.getMaxCompare;
-
 public class MaxByNAggregationFunction
         extends AbstractMinMaxByNAggregationFunction
 {
@@ -25,7 +23,7 @@ public class MaxByNAggregationFunction
     public MaxByNAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
         super(NAME,
-                type -> getMaxCompare(blockTypeOperators, type),
+                blockTypeOperators::getComparisonUnorderedFirstOperator,
                 "Returns the values of the first argument associated with the maximum values of the second argument");
     }
 }
