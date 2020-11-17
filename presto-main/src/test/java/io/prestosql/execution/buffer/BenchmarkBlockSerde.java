@@ -284,7 +284,7 @@ public class BenchmarkBlockSerde
         public void setup(Iterator<Page> pagesIterator)
                 throws Exception
         {
-            pagesSerde = new TestingPagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
+            pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
 
             this.pages = ImmutableList.copyOf(pagesIterator);
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);
@@ -295,7 +295,7 @@ public class BenchmarkBlockSerde
         public void setup(Type type, Iterator<?> values)
                 throws Exception
         {
-            pagesSerde = new TestingPagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
+            pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
             ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builder();
