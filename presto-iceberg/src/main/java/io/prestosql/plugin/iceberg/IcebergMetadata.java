@@ -849,11 +849,9 @@ public class IcebergMetadata
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
 
         org.apache.iceberg.Table icebergTable = transaction.table();
-        List<CommitTaskData> commitTasks = ImmutableList.of();
-
-        commitTasks = fragments.stream()
-            .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
-            .collect(toImmutableList());
+        List<CommitTaskData> commitTasks = fragments.stream()
+                .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
+                .collect(toImmutableList());
 
         Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
             .map(field -> field.transform().getResultType(

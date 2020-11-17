@@ -465,13 +465,8 @@ public class TestAnnotationEngineForScalars
     @Description("Parametric scalar with type injected though constructor")
     public static class ConstructorInjectionScalarFunction
     {
-        private final Type type;
-
         @TypeParameter("T")
-        public ConstructorInjectionScalarFunction(@TypeParameter("T") Type type)
-        {
-            this.type = type;
-        }
+        public ConstructorInjectionScalarFunction(@TypeParameter("T") Type type) {}
 
         @SqlType(StandardTypes.BIGINT)
         @TypeParameter("T")

@@ -134,18 +134,21 @@ public final class UnknownType
         blockBuilder.appendNull();
     }
 
+    @SuppressWarnings("unused")
     @ScalarOperator(EQUAL)
     private static boolean equalOperator(boolean left, boolean right)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
+    @SuppressWarnings("unused")
     @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(boolean value)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
+    @SuppressWarnings("unused")
     @ScalarOperator(COMPARISON)
     private static long comparisonOperator(boolean left, boolean right)
     {
