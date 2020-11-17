@@ -59,6 +59,7 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -624,6 +625,38 @@ public class TestArrayOperators
         assertDecimalFunction("ARRAY_MIN(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.111111222111111114111"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [1.9, 2, 2.3])", decimal("0000000001.9"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [2.22222222222222222, 2.3])", decimal("2.22222222222222222"));
+
+        assertFunction("ARRAY_MIN(ARRAY [ROW(NaN()), ROW(2), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [ROW(2), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [ROW(2), ROW(3), ROW(NaN())])", anonymousRow(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [NULL, ROW(NaN()), ROW(1)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(NaN()), NULL, ROW(3.0)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(1.0E0), NULL, ROW(3)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(1.0), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(1.0));
+
+        assertFunction("ARRAY_MIN(ARRAY [ROW(CAST(NaN() AS REAL)), ROW(REAL '2'), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [ROW(REAL '2'), ROW(CAST(NaN() AS REAL)), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [ROW(REAL '2'), ROW(REAL '3'), ROW(CAST(NaN() AS REAL))])", anonymousRow(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [NULL, ROW(CAST(NaN() AS REAL)), ROW(REAL '1')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(CAST(NaN() AS REAL)), NULL, ROW(REAL '3')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(REAL '1'), NULL, ROW(REAL '3')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ROW(REAL '1'), ROW(CAST(NaN() AS REAL)), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(1.0f));
+
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[NaN()], ARRAY[2], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[2], ARRAY[NaN()], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[2], ARRAY[3], ARRAY[NaN()]])", new ArrayType(DOUBLE), ImmutableList.of(2.0));
+        assertFunction("ARRAY_MIN(ARRAY [NULL, ARRAY[NaN()], ARRAY[1]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[NaN()], NULL, ARRAY[3.0]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[1.0E0], NULL, ARRAY[3]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[1.0], ARRAY[NaN()], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(1.0));
+
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '2'], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[REAL '2'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[REAL '2'], ARRAY[REAL '3'], ARRAY[CAST(NaN() AS REAL)]])", new ArrayType(REAL), ImmutableList.of(2.0f));
+        assertFunction("ARRAY_MIN(ARRAY [NULL, ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '1']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[CAST(NaN() AS REAL)], NULL, ARRAY[REAL '3']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[REAL '1'], NULL, ARRAY[REAL '3']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MIN(ARRAY [ARRAY[REAL '1'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(1.0f));
     }
 
     @Test
@@ -668,6 +701,38 @@ public class TestArrayOperators
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.222222222222223000000"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [1.9, 2, 2.3])", decimal("0000000002.3"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.22222222222222222, 2.3])", decimal("2.30000000000000000"));
+
+        assertFunction("ARRAY_MAX(ARRAY [ROW(NaN()), ROW(2), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [ROW(2), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [ROW(2), ROW(3), ROW(NaN())])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [NULL, ROW(NaN()), ROW(1)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(NaN()), NULL, ROW(3.0)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(1.0E0), NULL, ROW(3)])", anonymousRow(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(1.0), ROW(NaN()), ROW(3)])", anonymousRow(DOUBLE), ImmutableList.of(3.0));
+
+        assertFunction("ARRAY_MAX(ARRAY [ROW(CAST(NaN() AS REAL)), ROW(REAL '2'), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [ROW(REAL '2'), ROW(CAST(NaN() AS REAL)), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [ROW(REAL '2'), ROW(REAL '3'), ROW(CAST(NaN() AS REAL))])", anonymousRow(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [NULL, ROW(CAST(NaN() AS REAL)), ROW(REAL '1')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(CAST(NaN() AS REAL)), NULL, ROW(REAL '3')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(REAL '1'), NULL, ROW(REAL '3')])", anonymousRow(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ROW(REAL '1'), ROW(CAST(NaN() AS REAL)), ROW(REAL '3')])", anonymousRow(REAL), ImmutableList.of(3.0f));
+
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[NaN()], ARRAY[2], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[2], ARRAY[NaN()], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[2], ARRAY[3], ARRAY[NaN()]])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+        assertFunction("ARRAY_MAX(ARRAY [NULL, ARRAY[NaN()], ARRAY[1]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[NaN()], NULL, ARRAY[3.0]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[1.0E0], NULL, ARRAY[3]])", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[1.0], ARRAY[NaN()], ARRAY[3]])", new ArrayType(DOUBLE), ImmutableList.of(3.0));
+
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '2'], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[REAL '2'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[REAL '2'], ARRAY[REAL '3'], ARRAY[CAST(NaN() AS REAL)]])", new ArrayType(REAL), ImmutableList.of(3.0f));
+        assertFunction("ARRAY_MAX(ARRAY [NULL, ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '1']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[CAST(NaN() AS REAL)], NULL, ARRAY[REAL '3']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[REAL '1'], NULL, ARRAY[REAL '3']])", new ArrayType(REAL), null);
+        assertFunction("ARRAY_MAX(ARRAY [ARRAY[REAL '1'], ARRAY[CAST(NaN() AS REAL)], ARRAY[REAL '3']])", new ArrayType(REAL), ImmutableList.of(3.0f));
     }
 
     @Test

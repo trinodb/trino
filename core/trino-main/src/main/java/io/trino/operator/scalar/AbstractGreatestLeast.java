@@ -61,12 +61,12 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.COMPARISON;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
+import static io.trino.util.MinMaxCompare.getMinMaxCompareFunctionDependencies;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
@@ -99,9 +99,7 @@ public abstract class AbstractGreatestLeast
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(COMPARISON, ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")))
-                .build();
+        return getMinMaxCompareFunctionDependencies(new TypeSignature("E"), min);
     }
 
     @Override

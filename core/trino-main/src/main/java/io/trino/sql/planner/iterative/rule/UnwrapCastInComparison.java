@@ -516,7 +516,8 @@ public class UnwrapCastInComparison
         {
             requireNonNull(first, "first is null");
             requireNonNull(second, "second is null");
-            MethodHandle comparisonOperator = typeOperators.getComparisonOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            // choice of placing unordered values first or last does not matter for this code
+            MethodHandle comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
             try {
                 return (int) (long) comparisonOperator.invoke(first, second);
             }
