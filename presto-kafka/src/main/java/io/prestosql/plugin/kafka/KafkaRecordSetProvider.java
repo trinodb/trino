@@ -53,13 +53,14 @@ public class KafkaRecordSetProvider
     {
         KafkaSplit kafkaSplit = convertSplit(split);
 
+        KafkaTableHandle handle = (KafkaTableHandle) table;
         List<KafkaColumnHandle> kafkaColumns = columns.stream()
                 .map(KafkaHandleResolver::convertColumnHandle)
                 .collect(toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(
                 kafkaSplit.getKeyDataFormat(),
-                getDecoderParameters(kafkaSplit.getKeyDataSchemaContents()),
+                getKeyDecoderParameters(kafkaSplit, handle),
                 kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(KafkaColumnHandle::isKeyCodec)
@@ -67,7 +68,7 @@ public class KafkaRecordSetProvider
 
         RowDecoder messageDecoder = decoderFactory.create(
                 kafkaSplit.getMessageDataFormat(),
-                getDecoderParameters(kafkaSplit.getMessageDataSchemaContents()),
+                getMessageDecoderParameters(kafkaSplit, handle),
                 kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(col -> !col.isKeyCodec())
@@ -76,10 +77,21 @@ public class KafkaRecordSetProvider
         return new KafkaRecordSet(kafkaSplit, consumerFactory, kafkaColumns, keyDecoder, messageDecoder);
     }
 
-    private Map<String, String> getDecoderParameters(Optional<String> dataSchema)
+    private Map<String, String> getKeyDecoderParameters(KafkaSplit split, KafkaTableHandle handle)
+    {
+        return getDecoderParameters(split.getKeyDataSchemaContents(), handle.getKeyDecoderParams());
+    }
+
+    private Map<String, String> getMessageDecoderParameters(KafkaSplit split, KafkaTableHandle handle)
+    {
+        return getDecoderParameters(split.getMessageDataSchemaContents(), handle.getMessageDecoderParams());
+    }
+
+    private Map<String, String> getDecoderParameters(Optional<String> dataSchema, Optional<Map<String, String>> decoderParams)
     {
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
         dataSchema.ifPresent(schema -> parameters.put("dataSchema", schema));
+        decoderParams.ifPresent(params -> parameters.putAll(params));
         return parameters.build();
     }
 }

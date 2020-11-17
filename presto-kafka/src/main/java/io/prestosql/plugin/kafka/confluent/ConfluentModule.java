@@ -20,6 +20,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.prestosql.decoder.avro.AvroReaderSupplierFactory;
+import io.prestosql.plugin.kafka.schemareader.ContentSchemaReader;
 
 import javax.inject.Singleton;
 
@@ -34,6 +35,7 @@ public class ConfluentModule
     {
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         newMapBinder(binder, String.class, AvroReaderSupplierFactory.class).addBinding(ConfluentAvroReaderSupplier.NAME).to(ConfluentAvroReaderSupplier.Factory.class).in(Scopes.SINGLETON);
+        newMapBinder(binder, String.class, ContentSchemaReader.class).addBinding(ConfluentAvroReaderSupplier.NAME).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
     }
 
     @Provides

@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.MapBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.decoder.DecoderModule;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
@@ -24,6 +25,9 @@ import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetPro
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
 import io.prestosql.plugin.kafka.encoder.EncoderModule;
+import io.prestosql.plugin.kafka.schemareader.ContentSchemaReader;
+import io.prestosql.plugin.kafka.schemareader.DefaultContentSchemaReader;
+import io.prestosql.plugin.kafka.schemareader.DispatchingContentSchemaReader;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
@@ -34,6 +38,7 @@ import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -68,6 +73,9 @@ public class KafkaConnectorModule
         binder.install(new DecoderModule());
         binder.install(new EncoderModule());
         binder.install(new KafkaProducerModule());
+        binder.bind(DispatchingContentSchemaReader.class).in(Scopes.SINGLETON);
+        MapBinder<String, ContentSchemaReader> schemaReaders = newMapBinder(binder, String.class, ContentSchemaReader.class);
+        schemaReaders.addBinding(DefaultContentSchemaReader.NAME).to(DefaultContentSchemaReader.class).in(Scopes.SINGLETON);
     }
 
     private static final class TypeDeserializer

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -30,16 +31,19 @@ public class KafkaTopicFieldGroup
 {
     private final String dataFormat;
     private final Optional<String> dataSchema;
+    private final Optional<Map<String, String>> decoderParams;
     private final List<KafkaTopicFieldDescription> fields;
 
     @JsonCreator
     public KafkaTopicFieldGroup(
             @JsonProperty("dataFormat") String dataFormat,
             @JsonProperty("dataSchema") Optional<String> dataSchema,
+            @JsonProperty("decoderParams") Optional<Map<String, String>> decoderParams,
             @JsonProperty("fields") List<KafkaTopicFieldDescription> fields)
     {
         this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
         this.dataSchema = requireNonNull(dataSchema, "dataSchema is null");
+        this.decoderParams = requireNonNull(decoderParams, "decoderParams is null");
         this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
     }
 
@@ -61,12 +65,19 @@ public class KafkaTopicFieldGroup
         return dataSchema;
     }
 
+    @JsonProperty
+    public Optional<Map<String, String>> getDecoderParams()
+    {
+        return decoderParams;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("dataFormat", dataFormat)
                 .add("dataSchema", dataSchema)
+                .add("decoderParams", decoderParams)
                 .add("fields", fields)
                 .toString();
     }

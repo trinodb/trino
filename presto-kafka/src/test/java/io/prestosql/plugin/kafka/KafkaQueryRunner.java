@@ -200,12 +200,14 @@ public final class KafkaQueryRunner
                 .map(keyTemplate -> new KafkaTopicFieldGroup(
                         keyTemplate.getDataFormat(),
                         keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        Optional.empty(),
                         keyTemplate.getFields()));
 
         Optional<KafkaTopicFieldGroup> message = tableTemplate.getMessage()
                 .map(keyTemplate -> new KafkaTopicFieldGroup(
                         keyTemplate.getDataFormat(),
                         keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        Optional.empty(),
                         keyTemplate.getFields()));
 
         return new KafkaTopicDescription(

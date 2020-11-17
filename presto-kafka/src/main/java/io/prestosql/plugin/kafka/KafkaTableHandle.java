@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -52,6 +53,8 @@ public final class KafkaTableHandle
     private final String messageDataFormat;
     private final Optional<String> keyDataSchemaLocation;
     private final Optional<String> messageDataSchemaLocation;
+    private final Optional<Map<String, String>> keyDecoderParams;
+    private final Optional<Map<String, String>> messageDecoderParams;
     private final List<KafkaColumnHandle> columns;
     private final TupleDomain<ColumnHandle> constraint;
 
@@ -64,6 +67,8 @@ public final class KafkaTableHandle
             @JsonProperty("messageDataFormat") String messageDataFormat,
             @JsonProperty("keyDataSchemaLocation") Optional<String> keyDataSchemaLocation,
             @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation,
+            @JsonProperty("keyDecoderParams") Optional<Map<String, String>> keyDecoderParams,
+            @JsonProperty("messageDecoderParams") Optional<Map<String, String>> messageDecoderParams,
             @JsonProperty("columns") List<KafkaColumnHandle> columns,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
@@ -74,6 +79,8 @@ public final class KafkaTableHandle
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
         this.keyDataSchemaLocation = requireNonNull(keyDataSchemaLocation, "keyDataSchemaLocation is null");
         this.messageDataSchemaLocation = requireNonNull(messageDataSchemaLocation, "messageDataSchemaLocation is null");
+        this.keyDecoderParams = requireNonNull(keyDecoderParams, "keyDecoderParams is null");
+        this.messageDecoderParams = requireNonNull(messageDecoderParams, "messageDecoderParams is null");
         this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
     }
@@ -121,6 +128,18 @@ public final class KafkaTableHandle
     }
 
     @JsonProperty
+    public Optional<Map<String, String>> getKeyDecoderParams()
+    {
+        return keyDecoderParams;
+    }
+
+    @JsonProperty
+    public Optional<Map<String, String>> getMessageDecoderParams()
+    {
+        return messageDecoderParams;
+    }
+
+    @JsonProperty
     public List<KafkaColumnHandle> getColumns()
     {
         return columns;
@@ -140,7 +159,18 @@ public final class KafkaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation, columns, constraint);
+        return Objects.hash(
+                schemaName,
+                tableName,
+                topicName,
+                keyDataFormat,
+                messageDataFormat,
+                keyDataSchemaLocation,
+                messageDataSchemaLocation,
+                keyDecoderParams,
+                messageDecoderParams,
+                columns,
+                constraint);
     }
 
     @Override
@@ -161,6 +191,8 @@ public final class KafkaTableHandle
                 && Objects.equals(this.messageDataFormat, other.messageDataFormat)
                 && Objects.equals(this.keyDataSchemaLocation, other.keyDataSchemaLocation)
                 && Objects.equals(this.messageDataSchemaLocation, other.messageDataSchemaLocation)
+                && Objects.equals(this.keyDecoderParams, other.keyDecoderParams)
+                && Objects.equals(this.messageDecoderParams, other.messageDecoderParams)
                 && Objects.equals(this.columns, other.columns)
                 && Objects.equals(this.constraint, other.constraint);
     }
@@ -176,6 +208,8 @@ public final class KafkaTableHandle
                 .add("messageDataFormat", messageDataFormat)
                 .add("keyDataSchemaLocation", keyDataSchemaLocation)
                 .add("messageDataSchemaLocation", messageDataSchemaLocation)
+                .add("keyDecoderParams", keyDecoderParams)
+                .add("messageDecoderParams", messageDecoderParams)
                 .add("columns", columns)
                 .add("constraint", constraint)
                 .toString();
