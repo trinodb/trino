@@ -52,7 +52,9 @@ public class StatisticsFetcher
         }
 
         try (InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>()) {
-            DockerClientFactory.lazyClient().statsCmd(container.getContainerId()).exec(callback);
+            DockerClientFactory.lazyClient().statsCmd(container.getContainerId())
+                    .withNoStream(true)
+                    .exec(callback);
 
             return lastStats.getAndUpdate(previousStats -> toStats((Statistics) executor.get(callback::awaitResult), previousStats));
         }
