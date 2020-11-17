@@ -31,12 +31,7 @@ public class TestingPagesSerdeFactory
     public TestingPagesSerdeFactory()
     {
         // compression should be enabled in as many tests as possible
-        this(createTestMetadataManager().getBlockEncodingSerde(), true);
-    }
-
-    public TestingPagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, boolean compressionEnabled)
-    {
-        super(blockEncodingSerde, compressionEnabled);
+        super(createTestMetadataManager().getBlockEncodingSerde(), true);
     }
 
     public static PagesSerde testingPagesSerde()
