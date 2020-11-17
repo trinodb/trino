@@ -27,7 +27,12 @@ public class MongoServer
 
     public MongoServer()
     {
-        this.dockerContainer = new MongoDBContainer("mongo:3.4.0")
+        this("mongo:3.4.0");
+    }
+
+    public MongoServer(String dockerImageName)
+    {
+        this.dockerContainer = new MongoDBContainer()
                 .withEnv("MONGO_INITDB_DATABASE", "tpch")
                 .withCommand("--bind_ip 0.0.0.0");
         this.dockerContainer.start();
