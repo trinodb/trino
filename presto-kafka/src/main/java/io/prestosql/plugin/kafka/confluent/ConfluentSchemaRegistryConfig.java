@@ -15,13 +15,17 @@ package io.prestosql.plugin.kafka.confluent;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.prestosql.plugin.kafka.confluent.AvroSchemaConverter.EmptyFieldStrategy;
 
 import javax.validation.constraints.NotNull;
+
+import static io.prestosql.plugin.kafka.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
 
 public class ConfluentSchemaRegistryConfig
 {
     private String confluentSchemaRegistryUrl;
     private int confluentSchemaRegistryClientCacheSize = 1000;
+    private EmptyFieldStrategy emptyFieldStrategy = IGNORE;
 
     @NotNull
     public String getConfluentSchemaRegistryUrl()
@@ -47,6 +51,19 @@ public class ConfluentSchemaRegistryConfig
     public ConfluentSchemaRegistryConfig setConfluentSchemaRegistryClientCacheSize(int confluentSchemaRegistryClientCacheSize)
     {
         this.confluentSchemaRegistryClientCacheSize = confluentSchemaRegistryClientCacheSize;
+        return this;
+    }
+
+    public EmptyFieldStrategy getEmptyFieldStrategy()
+    {
+        return emptyFieldStrategy;
+    }
+
+    @Config("kafka.empty-field-strategy")
+    @ConfigDescription("How to handle struct types with no fields: ignore, add a boolean field named 'dummy' or fail the query")
+    public ConfluentSchemaRegistryConfig setEmptyFieldStrategy(EmptyFieldStrategy emptyFieldStrategy)
+    {
+        this.emptyFieldStrategy = emptyFieldStrategy;
         return this;
     }
 }
