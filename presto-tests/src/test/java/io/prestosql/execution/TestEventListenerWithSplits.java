@@ -170,6 +170,7 @@ public class TestEventListenerWithSplits
         assertTrue(statistics.isComplete());
 
         // Check only the presence because they are non-deterministic.
+        assertTrue(statistics.getScheduledTime().isPresent());
         assertTrue(statistics.getResourceWaitingTime().isPresent());
         assertTrue(statistics.getAnalysisTime().isPresent());
         assertTrue(statistics.getPlanningTime().isPresent());
