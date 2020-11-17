@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.MemoryStatsConfig;
 import com.github.dockerjava.api.model.StatisticNetworksConfig;
 import com.github.dockerjava.api.model.Statistics;
@@ -20,10 +21,9 @@ import com.github.dockerjava.core.InvocationBuilder;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import net.jodah.failsafe.FailsafeExecutor;
+import net.jodah.failsafe.function.CheckedSupplier;
 import org.testcontainers.DockerClientFactory;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -37,6 +37,7 @@ public class StatisticsFetcher
     private final FailsafeExecutor executor;
     private static final Logger log = Logger.get(StatisticsFetcher.class);
     private AtomicReference<Stats> lastStats = new AtomicReference<>(new Stats());
+    private static final DockerClient client = DockerClientFactory.lazyClient();
 
     public StatisticsFetcher(DockerContainer container, FailsafeExecutor executor)
     {
@@ -51,18 +52,14 @@ public class StatisticsFetcher
             return lastStats.get();
         }
 
-        try (InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>()) {
-            DockerClientFactory.lazyClient().statsCmd(container.getContainerId()).exec(callback);
+        CheckedSupplier<Statistics> statisticsSupplier = () -> {
+            try (InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>()) {
+                client.statsCmd(container.getContainerId()).exec(callback);
+                return callback.awaitResult();
+            }
+        };
 
-            return lastStats.getAndUpdate(previousStats -> toStats((Statistics) executor.get(callback::awaitResult), previousStats));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        catch (RuntimeException e) {
-            log.error(e, "Could not fetch container %s statistics", container.getLogicalName());
-            return lastStats.get();
-        }
+        return lastStats.getAndUpdate(previousStats -> toStats((Statistics) executor.get(statisticsSupplier), previousStats));
     }
 
     private Stats toStats(Statistics statistics, Stats previousStats)
