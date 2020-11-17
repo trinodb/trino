@@ -73,7 +73,6 @@ public class DockerContainer
             .with(Executors.newCachedThreadPool(daemonThreadsNamed("docker-container-%d")));
 
     private String logicalName;
-    private final StatisticsFetcher statistics;
     private List<String> logPaths = new ArrayList<>();
     private Optional<EnvironmentListener> listener = Optional.empty();
 
@@ -81,7 +80,6 @@ public class DockerContainer
     {
         super(dockerImageName);
         this.logicalName = requireNonNull(logicalName, "logicalName is null");
-        this.statistics = new StatisticsFetcher(this, executor);
 
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
         setCopyToFileContainerPathMap(new LinkedHashMap<>());
@@ -278,11 +276,6 @@ public class DockerContainer
         catch (ExecutionException | RuntimeException e) {
             log.warn(e, "Could not copy logs archive from %s", logicalName);
         }
-    }
-
-    public StatisticsFetcher.Stats getStats()
-    {
-        return statistics.get();
     }
 
     public DockerContainer waitingForAll(WaitStrategy... strategies)
