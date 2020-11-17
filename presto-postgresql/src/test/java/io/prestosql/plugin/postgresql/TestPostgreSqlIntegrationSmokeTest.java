@@ -228,7 +228,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     public void testDecimalPredicatePushdown()
             throws Exception
     {
-        try (AutoCloseable ignoreTable = withTable("tpch.test_decimal_pushdown",
+        try (AutoCloseable ignore = withTable("tpch.test_decimal_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             execute("INSERT INTO tpch.test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
 
@@ -260,7 +260,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     public void testCharPredicatePushdown()
             throws Exception
     {
-        try (AutoCloseable ignoreTable = withTable("tpch.test_char_pushdown",
+        try (AutoCloseable ignore = withTable("tpch.test_char_pushdown",
                 "(char_1 char(1), char_5 char(5), char_10 char(10))")) {
             execute("INSERT INTO tpch.test_char_pushdown VALUES" +
                     "('0', '0'    , '0'         )," +
@@ -364,7 +364,7 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
 
         // decimals
-        try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+        try (AutoCloseable ignore = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
             execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
 
