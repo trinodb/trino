@@ -13,42 +13,21 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestCassandraDistributedQueries
+public abstract class BaseCassandraDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private CassandraServer server;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        this.server = new CassandraServer();
-        return createCassandraQueryRunner(server, ImmutableMap.of(), TpchTable.getTables());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        server.close();
-    }
-
     @Override
     protected boolean supportsDelete()
     {
