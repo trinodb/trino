@@ -56,9 +56,9 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.COMPARISON;
 import static io.trino.util.Failures.internalError;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
+import static io.trino.util.MinMaxCompare.getMinMaxCompareFunctionDependencies;
 import static io.trino.util.Reflection.methodHandle;
 
 public abstract class AbstractMinMaxAggregationFunction
@@ -106,9 +106,7 @@ public abstract class AbstractMinMaxAggregationFunction
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(COMPARISON, ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")))
-                .build();
+        return getMinMaxCompareFunctionDependencies(new TypeSignature("E"), min);
     }
 
     @Override

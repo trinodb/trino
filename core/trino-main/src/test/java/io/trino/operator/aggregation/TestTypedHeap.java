@@ -35,8 +35,8 @@ public class TestTypedHeap
     private static final int OUTPUT_SIZE = 1_000;
 
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
-    private static final BlockPositionComparison MAX_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonOperator(BIGINT);
-    private static final BlockPositionComparison MIN_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonOperator(BIGINT).reversed();
+    private static final BlockPositionComparison MAX_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonUnorderedFirstOperator(BIGINT);
+    private static final BlockPositionComparison MIN_ELEMENTS_COMPARATOR = TYPE_OPERATOR_FACTORY.getComparisonUnorderedLastOperator(BIGINT).reversed();
 
     @Test
     public void testAscending()
