@@ -250,6 +250,14 @@ public final class Patterns
         }
     }
 
+    public static final class DistinctLimit
+    {
+        public static Property<DistinctLimitNode, Lookup, Boolean> isPartial()
+        {
+            return property("isPartial", DistinctLimitNode::isPartial);
+        }
+    }
+
     public static final class Exchange
     {
         public static Property<ExchangeNode, Lookup, ExchangeNode.Scope> scope()
