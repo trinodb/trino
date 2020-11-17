@@ -14,7 +14,7 @@ import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveColumnHandle;
-import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
+import io.prestosql.plugin.hive.ReaderPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
@@ -133,7 +133,7 @@ class SnowflakePageSourceProvider
                     return transformedColumns.get(index);
                 });
 
-        ReaderPageSourceWithProjections pageSource = ParquetPageSourceFactory.createPageSource(
+        ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 path,
                 snowflakeSplit.getStart(),
                 snowflakeSplit.getLength(),
@@ -149,9 +149,9 @@ class SnowflakePageSourceProvider
                 parquetReaderConfig.toParquetReaderOptions()
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)));
 
-        verify(pageSource.getProjectedReaderColumns().isEmpty(), "All columns expected to be base columns");
+        verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 
-        return new TranslatingPageSource(pageSource.getConnectorPageSource(), hiveColumns);
+        return new TranslatingPageSource(pageSource.get(), hiveColumns);
     }
 
     // for more information see https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS%235_and_PKCS%237
