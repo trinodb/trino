@@ -24,6 +24,7 @@ public class QueryStatistics
     private final Duration cpuTime;
     private final Duration wallTime;
     private final Duration queuedTime;
+    private final Optional<Duration> scheduledTime;
     private final Optional<Duration> waitingTime;
     private final Optional<Duration> analysisTime;
     private final Optional<Duration> planningTime;
@@ -69,6 +70,7 @@ public class QueryStatistics
             Duration cpuTime,
             Duration wallTime,
             Duration queuedTime,
+            Optional<Duration> scheduledTime,
             Optional<Duration> waitingTime,
             Optional<Duration> analysisTime,
             Optional<Duration> planningTime,
@@ -97,8 +99,9 @@ public class QueryStatistics
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
-        this.waitingTime = requireNonNull(waitingTime, "waitingTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.scheduledTime = requireNonNull(scheduledTime, "scheduledTime is null");
+        this.waitingTime = requireNonNull(waitingTime, "waitingTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
@@ -138,6 +141,11 @@ public class QueryStatistics
     public Duration getQueuedTime()
     {
         return queuedTime;
+    }
+
+    public Optional<Duration> getScheduledTime()
+    {
+        return scheduledTime;
     }
 
     public Optional<Duration> getResourceWaitingTime()
