@@ -123,7 +123,7 @@ public final class TestRun
         @Option(names = "--startup-retries", paramLabel = "<retries>", description = "Environment startup retries " + DEFAULT_VALUE, defaultValue = "5")
         public Integer startupRetries = 5;
 
-        @Option(names = "--timeout", paramLabel = "<timeout>", description = "Maximum duration of tests execution " + DEFAULT_VALUE, converter = DurationConverter.class, defaultValue = "2h")
+        @Option(names = "--timeout", paramLabel = "<timeout>", description = "Maximum duration of tests execution " + DEFAULT_VALUE, converter = DurationConverter.class, defaultValue = "999d")
         public Duration timeout;
 
         @Parameters(paramLabel = "<argument>", description = "Test arguments")

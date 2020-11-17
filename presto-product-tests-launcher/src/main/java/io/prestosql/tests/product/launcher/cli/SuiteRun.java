@@ -122,7 +122,7 @@ public class SuiteRun
         @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE, converter = OptionalPathConverter.class, defaultValue = "")
         public Optional<Path> logsDirBase;
 
-        @Option(names = "--timeout", paramLabel = "<timeout>", description = "Maximum duration of suite execution " + DEFAULT_VALUE, converter = DurationConverter.class, defaultValue = "2h")
+        @Option(names = "--timeout", paramLabel = "<timeout>", description = "Maximum duration of suite execution " + DEFAULT_VALUE, converter = DurationConverter.class, defaultValue = "999d")
         public Duration timeout;
 
         public Module toModule()
