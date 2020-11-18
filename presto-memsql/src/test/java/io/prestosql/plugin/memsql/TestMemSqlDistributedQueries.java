@@ -97,6 +97,13 @@ public class TestMemSqlDistributedQueries
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getPrestoTypeName();
+
+        if (typeName.equals("boolean")) {
+            // MemSQL does not have built-in support for boolean type. MemSQL provides BOOLEAN as the synonym of TINYINT(1)
+            // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
+            return Optional.empty();
+        }
+
         if (typeName.equals("time")
                 || typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
