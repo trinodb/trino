@@ -29,7 +29,6 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.client.ClientSession.stripTransactionId;
 import static io.prestosql.client.OkHttpUtil.basicAuth;
-import static io.prestosql.client.OkHttpUtil.setupChannelSocket;
 import static io.prestosql.client.OkHttpUtil.setupCookieJar;
 import static io.prestosql.client.OkHttpUtil.setupHttpProxy;
 import static io.prestosql.client.OkHttpUtil.setupKerberos;
@@ -86,7 +85,6 @@ public class QueryRunner
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 
-        setupChannelSocket(builder);
         setupTimeouts(builder, 30, SECONDS);
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
