@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Functions.identity;
@@ -114,9 +115,18 @@ public class JdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         if (handle.getGroupingSets().isPresent()) {
-            // handle's aggregations are applied after constraint, so we cannot apply filter if aggregates is already set
-            // TODO (https://github.com/prestosql/presto/issues/4112) allow filter pushdown after aggregation pushdown
-            return Optional.empty();
+            if (constraint.getSummary().isNone()) {
+                return Optional.empty();
+            }
+
+            Set<ColumnHandle> constraintColumns = constraint.getSummary().getDomains().orElseThrow().keySet();
+            List<List<JdbcColumnHandle>> groupingSets = handle.getGroupingSets().get();
+            boolean canPushDown = groupingSets.stream()
+                    .allMatch(groupingSet -> ImmutableSet.copyOf(groupingSet).containsAll(constraintColumns));
+
+            if (!canPushDown) {
+                return Optional.empty();
+            }
         }
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
@@ -159,7 +169,7 @@ public class JdbcMetadata
                 handle.getSchemaTableName(),
                 handle.getRemoteTableName(),
                 newDomain,
-                Optional.empty(), // groupBy
+                handle.getGroupingSets(),
                 handle.getLimit(),
                 handle.getColumns());
 
