@@ -44,6 +44,7 @@ public final class ClientStandardTypes
     public static final String UUID = "uuid";
     public static final String GEOMETRY = "Geometry";
     public static final String BING_TILE = "BingTile";
+    public static final String TSRANGE = "tsrange";
 
     private ClientStandardTypes() {}
 }
