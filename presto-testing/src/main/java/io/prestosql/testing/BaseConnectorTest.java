@@ -26,37 +26,14 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DataProviders.toDataProvider;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
-/**
- * Any new test added here should also be added to {@link BaseConnectorTest}.
- *
- * Generic test for connectors exercising connector's read capabilities.
- * This is also the base class for connector-specific tests (not generic),
- * regardless whether they exercise read-only or read-write capabilities.
- *
- * @see AbstractTestDistributedQueries
- * @deprecated Use {@link BaseConnectorTest} instead.
- */
-@Deprecated
-public abstract class AbstractTestIntegrationSmokeTest
-        extends AbstractTestQueryFramework
+public abstract class BaseConnectorTest
+        extends AbstractTestDistributedQueries
 {
-    /**
-     * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
-     * shortcuts, not exercising certain aspects.
-     */
-    @Test
-    public void ensureDistributedQueryRunner()
-    {
-        assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
-                .isGreaterThanOrEqualTo(3);
-    }
-
     @Test
     public void testColumnsInReverseOrder()
     {
@@ -167,12 +144,6 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     @Test
-    public void testLimit()
-    {
-        assertEquals(computeActual("SELECT * FROM orders LIMIT 10").getRowCount(), 10);
-    }
-
-    @Test
     public void testMultipleRangesPredicate()
     {
         // List columns explicitly. Some connectors do not maintain column ordering.
@@ -264,27 +235,6 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     @Test
-    public void testShowSchemas()
-    {
-        MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
-
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
-                .row(getQueryRunner().getDefaultSession().getSchema().orElse("tpch"));
-
-        assertContains(actualSchemas, resultBuilder.build());
-    }
-
-    @Test
-    public void testShowTables()
-    {
-        MaterializedResult actualTables = computeActual("SHOW TABLES").toTestTypes();
-        MaterializedResult expectedTables = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
-                .row("orders")
-                .build();
-        assertContains(actualTables, expectedTables);
-    }
-
-    @Test
     public void testDescribeTable()
     {
         MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -329,16 +279,6 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders");
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
-    }
-
-    protected void assertExplainAnalyze(@Language("SQL") String query)
-    {
-        String value = (String) computeActual(query).getOnlyValue();
-
-        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
-
-        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
     }
 
     @Test

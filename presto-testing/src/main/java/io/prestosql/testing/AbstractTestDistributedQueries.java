@@ -83,7 +83,9 @@ import static org.testng.Assert.assertTrue;
  * Generic test for connectors exercising connector's read and write capabilities.
  *
  * @see AbstractTestIntegrationSmokeTest
+ * @deprecated Use {@link BaseConnectorTest} instead.
  */
+@Deprecated
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
