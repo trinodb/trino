@@ -73,6 +73,7 @@ public abstract class BaseH2JdbcTest
                 ImmutableList.of(
                         "1, NULL",
                         "2, 'POINT(7 52)'"))) {
+            getQueryRunner().execute("CALL system.flush_metadata_cache()");
             Session ignoreUnsupportedType = unsupportedTypeHandling(IGNORE);
             assertQuery(ignoreUnsupportedType, "SELECT int_column FROM " + table.getName(), "VALUES 1, 2");
             assertQuery(ignoreUnsupportedType, "SELECT * FROM " + table.getName(), "VALUES 1, 2");
@@ -100,6 +101,7 @@ public abstract class BaseH2JdbcTest
                 ImmutableList.of(
                         "1, NULL",
                         "2, 'POINT(7 52)'"))) {
+            getQueryRunner().execute("CALL system.flush_metadata_cache()");
             Session convertToVarcharUnsupportedTypes = unsupportedTypeHandling(CONVERT_TO_VARCHAR);
             assertQuery(convertToVarcharUnsupportedTypes, "SELECT int_column FROM " + table.getName(), "VALUES 1, 2");
             assertQuery(convertToVarcharUnsupportedTypes, "SELECT * FROM " + table.getName(), "VALUES (1, NULL), (2, 'POINT (7 52)')");

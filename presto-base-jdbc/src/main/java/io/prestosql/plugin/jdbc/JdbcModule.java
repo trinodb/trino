@@ -19,6 +19,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.prestosql.plugin.base.CatalogName;
+import io.prestosql.plugin.jdbc.procedures.FlushCachesProcedure;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
@@ -50,7 +51,8 @@ public class JdbcModule
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
 
-        procedureBinder(binder);
+        bindProcedure(binder, FlushCachesProcedure.class);
+
         tablePropertiesProviderBinder(binder);
 
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
@@ -65,6 +67,7 @@ public class JdbcModule
         bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
 
+        binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(ConnectionFactory.class).to(Key.get(ConnectionFactory.class, StatsCollecting.class));
     }
@@ -79,14 +82,9 @@ public class JdbcModule
         sessionPropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
     }
 
-    public static Multibinder<Procedure> procedureBinder(Binder binder)
-    {
-        return newSetBinder(binder, Procedure.class);
-    }
-
     public static void bindProcedure(Binder binder, Class<? extends Provider<? extends Procedure>> type)
     {
-        procedureBinder(binder).addBinding().toProvider(type).in(Scopes.SINGLETON);
+        newSetBinder(binder, Procedure.class).addBinding().toProvider(type).in(Scopes.SINGLETON);
     }
 
     public static Multibinder<TablePropertiesProvider> tablePropertiesProviderBinder(Binder binder)

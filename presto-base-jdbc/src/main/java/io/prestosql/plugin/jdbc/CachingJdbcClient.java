@@ -353,6 +353,13 @@ public class CachingJdbcClient
         return delegate.getTableScanRedirection(session, tableHandle);
     }
 
+    public void invalidateCache()
+    {
+        invalidateSchemasCache();
+        invalidateTablesCaches();
+        columnsCache.invalidateAll();
+    }
+
     private void invalidateSchemasCache()
     {
         schemaNamesCache.invalidateAll();

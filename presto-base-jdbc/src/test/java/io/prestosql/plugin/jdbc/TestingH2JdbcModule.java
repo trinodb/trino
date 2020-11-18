@@ -49,9 +49,15 @@ public class TestingH2JdbcModule
 
     public static Map<String, String> createProperties()
     {
+        return createProperties(ImmutableMap.of());
+    }
+
+    public static Map<String, String> createProperties(Map<String, String> additionalProperties)
+    {
         return ImmutableMap.<String, String>builder()
                 .put("connection-url", format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong()))
                 .put("allow-drop-table", "true")
+                .putAll(additionalProperties)
                 .build();
     }
 }
