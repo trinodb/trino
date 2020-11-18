@@ -166,7 +166,7 @@ public class CallTask
         List<Object> arguments = new ArrayList<>();
         Iterator<Object> valuesIterator = asList(values).iterator();
         for (Class<?> type : methodType.parameterList()) {
-            if (ConnectorSession.class.isAssignableFrom(type)) {
+            if (ConnectorSession.class.equals(type)) {
                 arguments.add(session.toConnectorSession(catalogName));
             }
             else {
