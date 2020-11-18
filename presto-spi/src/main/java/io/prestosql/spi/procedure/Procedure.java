@@ -57,7 +57,7 @@ public class Procedure
         checkArgument(methodHandle.type().returnType() == void.class, "Method must return void");
 
         long parameterCount = methodHandle.type().parameterList().stream()
-                .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
+                .filter(type -> !ConnectorSession.class.equals(type))
                 .count();
 
         checkArgument(parameterCount == arguments.size(), "Method parameter count must match arguments");
