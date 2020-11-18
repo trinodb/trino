@@ -86,18 +86,9 @@ public class JdkLdapAuthenticatorClient
     public boolean isGroupMember(String searchBase, String groupSearch, String contextUserDistinguishedName, String contextPassword)
             throws NamingException
     {
-        DirContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
-        try {
-            NamingEnumeration<SearchResult> search = searchContext(searchBase, groupSearch, context);
-            try {
-                return search.hasMore();
-            }
-            finally {
-                search.close();
-            }
-        }
-        finally {
-            context.close();
+        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
+                CloseableSearchResults search = searchContext(searchBase, groupSearch, context)) {
+            return search.hasMore();
         }
     }
 
@@ -105,34 +96,25 @@ public class JdkLdapAuthenticatorClient
     public Set<String> lookupUserDistinguishedNames(String searchBase, String searchFilter, String contextUserDistinguishedName, String contextPassword)
             throws NamingException
     {
-        DirContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
-        try {
+        try (CloseableContext context = createUserDirContext(contextUserDistinguishedName, contextPassword);
+                CloseableSearchResults search = searchContext(searchBase, searchFilter, context)) {
             ImmutableSet.Builder<String> distinguishedNames = ImmutableSet.builder();
-            NamingEnumeration<SearchResult> search = searchContext(searchBase, searchFilter, context);
-            try {
-                while (search.hasMore()) {
-                    distinguishedNames.add(search.next().getNameInNamespace());
-                }
-                return distinguishedNames.build();
+            while (search.hasMore()) {
+                distinguishedNames.add(search.next().getNameInNamespace());
             }
-            finally {
-                search.close();
-            }
-        }
-        finally {
-            context.close();
+            return distinguishedNames.build();
         }
     }
 
-    private static NamingEnumeration<SearchResult> searchContext(String searchBase, String searchFilter, DirContext context)
+    private static CloseableSearchResults searchContext(String searchBase, String searchFilter, CloseableContext context)
             throws NamingException
     {
         SearchControls searchControls = new SearchControls();
         searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-        return context.search(searchBase, searchFilter, searchControls);
+        return new CloseableSearchResults(context.search(searchBase, searchFilter, searchControls));
     }
 
-    private DirContext createUserDirContext(String userDistinguishedName, String password)
+    private CloseableContext createUserDirContext(String userDistinguishedName, String password)
             throws NamingException
     {
         Map<String, String> environment = createEnvironment(userDistinguishedName, password);
@@ -141,7 +123,7 @@ public class JdkLdapAuthenticatorClient
             // if the users password is not correct. Other exceptions may include IO (server not found) etc.
             DirContext context = createDirContext(environment);
             log.debug("Password validation successful for user DN [%s]", userDistinguishedName);
-            return context;
+            return new CloseableContext(context);
         }
         catch (AuthenticationException e) {
             log.debug("Password validation failed for user DN [%s]: %s", userDistinguishedName, e.getMessage());
@@ -186,6 +168,60 @@ public class JdkLdapAuthenticatorClient
         }
         catch (GeneralSecurityException | IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static class CloseableContext
+            implements AutoCloseable
+    {
+        private final DirContext context;
+
+        public CloseableContext(DirContext context)
+        {
+            this.context = requireNonNull(context, "context is null");
+        }
+
+        public NamingEnumeration<SearchResult> search(String name, String filter, SearchControls searchControls)
+                throws NamingException
+        {
+            return context.search(name, filter, searchControls);
+        }
+
+        @Override
+        public void close()
+                throws NamingException
+        {
+            context.close();
+        }
+    }
+
+    private static class CloseableSearchResults
+            implements AutoCloseable
+    {
+        private final NamingEnumeration<SearchResult> searchResults;
+
+        public CloseableSearchResults(NamingEnumeration<SearchResult> searchResults)
+        {
+            this.searchResults = requireNonNull(searchResults, "searchResults is null");
+        }
+
+        public SearchResult next()
+                throws NamingException
+        {
+            return searchResults.next();
+        }
+
+        public boolean hasMore()
+                throws NamingException
+        {
+            return searchResults.hasMore();
+        }
+
+        @Override
+        public void close()
+                throws NamingException
+        {
+            searchResults.close();
         }
     }
 }
