@@ -85,7 +85,7 @@ public class ProcedureRegistry
     private void validateProcedure(Procedure procedure)
     {
         List<Class<?>> parameters = procedure.getMethodHandle().type().parameterList().stream()
-                .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
+                .filter(type -> !ConnectorSession.class.equals(type))
                 .collect(toList());
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {
