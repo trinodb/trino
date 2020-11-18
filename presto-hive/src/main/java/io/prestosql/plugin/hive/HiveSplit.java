@@ -29,6 +29,7 @@ import java.util.Properties;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
 
 public class HiveSplit
@@ -247,6 +248,7 @@ public class HiveSplit
                 .put("table", table)
                 .put("forceLocalScheduling", forceLocalScheduling)
                 .put("partitionName", partitionName)
+                .put("deserializerClassName", getDeserializerClassName(schema))
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .build();
     }
