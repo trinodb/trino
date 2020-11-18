@@ -17,16 +17,29 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.AggregationApplicationResult;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.testing.TestingConnectorSession;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
@@ -36,6 +49,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -53,7 +67,7 @@ public class TestJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new JdbcMetadata(database.getJdbcClient(), false);
+        metadata = new JdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient()), false);
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -230,6 +244,131 @@ public class TestJdbcMetadata
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testApplyFilterAfterAggregationPushdown()
+    {
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setAggregationPushdownEnabled(true), Optional.empty()).getSessionProperties())
+                .build();
+        ColumnHandle groupByColumn = metadata.getColumnHandles(session, tableHandle).get("text");
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+        ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(groupByColumn)));
+
+        Domain domain = Domain.singleValue(VARCHAR, utf8Slice("one"));
+        JdbcTableHandle tableHandleWithFilter = applyConstraint(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, domain))));
+
+        assertEquals(tableHandleWithFilter.getConstraint().getDomains(), Optional.of(ImmutableMap.of(groupByColumn, domain)));
+    }
+
+    @Test
+    public void testCombineFiltersWithAggregationPushdown()
+    {
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setAggregationPushdownEnabled(true), Optional.empty()).getSessionProperties())
+                .build();
+        ColumnHandle groupByColumn = metadata.getColumnHandles(session, tableHandle).get("text");
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+
+        Domain firstDomain = Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("one"), utf8Slice("two")));
+        JdbcTableHandle filterResult = applyConstraint(session, baseTableHandle, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, firstDomain))));
+
+        ConnectorTableHandle aggregatedTable = applyCountAggregation(session, filterResult, ImmutableList.of(ImmutableList.of(groupByColumn)));
+
+        Domain secondDomain = Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("one"), utf8Slice("three")));
+        JdbcTableHandle tableHandleWithFilter = applyConstraint(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, secondDomain))));
+        assertEquals(
+                tableHandleWithFilter.getConstraint().getDomains(),
+                Optional.of(ImmutableMap.of(groupByColumn, Domain.singleValue(VARCHAR, utf8Slice("one")))));
+    }
+
+    @Test
+    public void testNonGroupKeyPredicatePushdown()
+    {
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setAggregationPushdownEnabled(true), Optional.empty()).getSessionProperties())
+                .build();
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        ColumnHandle groupByColumn = columnHandles.get("text");
+        ColumnHandle nonGroupByColumn = columnHandles.get("value");
+
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+        ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(groupByColumn)));
+
+        Domain domain = Domain.singleValue(BIGINT, 123L);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> filterResult = metadata.applyFilter(
+                session,
+                aggregatedTable,
+                new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(nonGroupByColumn, domain))));
+        assertThat(filterResult).isEmpty();
+    }
+
+    @Test
+    public void tesMultiGroupKeyPredicatePushdown()
+    {
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setAggregationPushdownEnabled(true), Optional.empty()).getSessionProperties())
+                .build();
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        ColumnHandle textColumn = columnHandles.get("text");
+        ColumnHandle valueColumn = columnHandles.get("value");
+
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+
+        ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(textColumn, valueColumn), ImmutableList.of(textColumn)));
+
+        Domain domain = Domain.singleValue(BIGINT, 123L);
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> filterResult = metadata.applyFilter(
+                session,
+                aggregatedTable,
+                new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(valueColumn, domain))));
+        assertThat(filterResult).isEmpty();
+    }
+
+    private JdbcTableHandle applyCountAggregation(ConnectorSession session, ConnectorTableHandle tableHandle, List<List<ColumnHandle>> groupByColumns)
+    {
+        Optional<AggregationApplicationResult<ConnectorTableHandle>> aggResult = metadata.applyAggregation(
+                session,
+                tableHandle,
+                ImmutableList.of(new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty())),
+                ImmutableMap.of(),
+                groupByColumns);
+        assertThat(aggResult).isPresent();
+        return (JdbcTableHandle) aggResult.get().getHandle();
+    }
+
+    private JdbcTableHandle applyConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    {
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> filterResult = metadata.applyFilter(
+                session,
+                tableHandle,
+                constraint);
+        assertThat(filterResult).isPresent();
+        return (JdbcTableHandle) filterResult.get().getHandle();
+    }
+
+    private static class GroupingSetsEnabledJdbcClient
+            extends ForwardingJdbcClient
+    {
+        private final JdbcClient delegate;
+
+        public GroupingSetsEnabledJdbcClient(JdbcClient jdbcClient)
+        {
+            this.delegate = jdbcClient;
+        }
+
+        @Override
+        protected JdbcClient delegate()
+        {
+            return delegate;
+        }
+
+        @Override
+        public boolean supportsGroupingSets()
+        {
+            return true;
         }
     }
 }
