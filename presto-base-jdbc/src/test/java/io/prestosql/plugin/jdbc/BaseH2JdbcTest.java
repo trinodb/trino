@@ -15,32 +15,52 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.JdbcSqlExecutor;
+import io.prestosql.testing.BaseConnectorTest;
+import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.util.Map;
-import java.util.Properties;
+import java.util.Optional;
 
-import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
 
-public class TestJdbcIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+public abstract class BaseH2JdbcTest
+        extends BaseConnectorTest
 {
-    private final Map<String, String> properties = TestingH2JdbcModule.createProperties();
+    protected abstract SqlExecutor getSqlExecutor();
 
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    protected boolean supportsDelete()
     {
-        return createH2QueryRunner(ImmutableList.copyOf(TpchTable.getTables()), properties);
+        return false;
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        throw new SkipException("H2 JDBC connector does not support comments on table");
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        throw new SkipException("H2 JDBC connector does not support comments on columnn");
+    }
+
+    @Override
+    public void testInsertArray()
+    {
+        throw new SkipException("H2 JDBC connector does not support insert array");
     }
 
     @Test
@@ -119,15 +139,39 @@ public class TestJdbcIntegrationSmokeTest
         }
     }
 
+    @Override
+    public void testLargeIn()
+    {
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.startsWith("time")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                getSqlExecutor(),
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
     private Session unsupportedTypeHandling(UnsupportedTypeHandling unsupportedTypeHandling)
     {
         return Session.builder(getSession())
                 .setCatalogSessionProperty("jdbc", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
                 .build();
-    }
-
-    private JdbcSqlExecutor getSqlExecutor()
-    {
-        return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
     }
 }

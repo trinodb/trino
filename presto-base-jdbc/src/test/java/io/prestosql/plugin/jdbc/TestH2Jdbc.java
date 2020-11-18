@@ -13,24 +13,31 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import io.prestosql.testing.AbstractTestQueries;
+import com.google.common.collect.ImmutableList;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.tpch.TpchTable;
+
+import java.util.Map;
+import java.util.Properties;
 
 import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
-public class TestJdbcDistributedQueries
-        extends AbstractTestQueries
+public class TestH2Jdbc
+        extends BaseH2JdbcTest
 {
+    private final Map<String, String> properties = TestingH2JdbcModule.createProperties();
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createH2QueryRunner(TpchTable.getTables());
+        return createH2QueryRunner(ImmutableList.copyOf(TpchTable.getTables()), properties);
     }
 
     @Override
-    public void testLargeIn()
+    protected JdbcSqlExecutor getSqlExecutor()
     {
+        return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
     }
 }
