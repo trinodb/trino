@@ -131,7 +131,7 @@ public class TestHiveViews
     public void testLateralViewExplode()
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS pageAds");
-        onPresto().executeQuery("CREATE TABLE pageAds(pageid, adid_list) AS " +
+        onPresto().executeQuery("CREATE TABLE pageAds(pageid, adid_list) WITH (format='TEXTFILE') AS " +
                 "VALUES " +
                 "  (CAST('two' AS varchar), ARRAY[11, 22]), " +
                 "  ('nothing', NULL), " +
@@ -193,7 +193,7 @@ public class TestHiveViews
     public void testIdentifierThatStartWithDigit()
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS \"7_table_with_number\"");
-        onPresto().executeQuery("CREATE TABLE \"7_table_with_number\" AS SELECT CAST('abc' AS varchar) x");
+        onPresto().executeQuery("CREATE TABLE \"7_table_with_number\" WITH (format='TEXTFILE') AS SELECT CAST('abc' AS varchar) x");
 
         onHive().executeQuery("DROP VIEW IF EXISTS view_on_identifiers_starting_with_numbers");
         onHive().executeQuery("CREATE VIEW view_on_identifiers_starting_with_numbers AS SELECT * FROM 7_table_with_number");
