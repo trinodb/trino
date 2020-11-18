@@ -188,9 +188,8 @@ public class InMemoryTransactionManager
     @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
     {
-        TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
-        return transactionMetadata.getConnectorId(catalogName)
-                .map(transactionMetadata::getTransactionCatalogMetadata);
+        return tryGetTransactionMetadata(transactionId).flatMap(transactionMetadata -> transactionMetadata.getConnectorId(catalogName)
+                .map(transactionMetadata::getTransactionCatalogMetadata));
     }
 
     @Override
