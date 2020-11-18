@@ -154,10 +154,20 @@ public abstract class AbstractCostBasedPlanTest
                     .orElseThrow(() -> new VerifyException("Expected distribution type to be set"));
             if (node.isCrossJoin()) {
                 checkState(node.getType() == INNER && distributionType == REPLICATED, "Expected CROSS JOIN to be INNER REPLICATED");
-                output(indent, "cross join:");
+                if (node.isMaySkipOutputDuplicates()) {
+                    output(indent, "cross join (can skip output duplicates):");
+                }
+                else {
+                    output(indent, "cross join:");
+                }
             }
             else {
-                output(indent, "join (%s, %s):", node.getType(), distributionType);
+                if (node.isMaySkipOutputDuplicates()) {
+                    output(indent, "join (%s, %s, can skip output duplicates):", node.getType(), distributionType);
+                }
+                else {
+                    output(indent, "join (%s, %s):", node.getType(), distributionType);
+                }
             }
 
             return visitPlan(node, indent + 1);
