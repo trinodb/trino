@@ -92,8 +92,8 @@ public class TestApplyTableScanRedirection
                     .on(p -> {
                         Symbol column = p.symbol(sourceColumnNameA, VARCHAR);
                         return p.tableScan(TEST_TABLE_HANDLE,
-                                        ImmutableList.of(column),
-                                        ImmutableMap.of(column, sourceColumnHandleA));
+                                ImmutableList.of(column),
+                                ImmutableMap.of(column, sourceColumnHandleA));
                     })
                     .withSession(MOCK_SESSION)
                     .doesNotFire();
