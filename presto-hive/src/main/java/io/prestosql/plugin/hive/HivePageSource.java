@@ -36,6 +36,7 @@ import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.RowBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
@@ -44,6 +45,7 @@ import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
@@ -58,6 +60,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -122,6 +125,7 @@ public class HivePageSource
 {
     private final List<ColumnMapping> columnMappings;
     private final Optional<BucketAdapter> bucketAdapter;
+    private final Optional<BucketValidator> bucketValidator;
     private final Object[] prefilledValues;
     private final Type[] types;
     private final List<Optional<Function<Block, Block>>> coercers;
@@ -132,6 +136,7 @@ public class HivePageSource
     public HivePageSource(
             List<ColumnMapping> columnMappings,
             Optional<BucketAdaptation> bucketAdaptation,
+            Optional<BucketValidator> bucketValidator,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
             TypeManager typeManager,
             ConnectorPageSource delegate)
@@ -142,6 +147,7 @@ public class HivePageSource
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = columnMappings;
         this.bucketAdapter = bucketAdaptation.map(BucketAdapter::new);
+        this.bucketValidator = requireNonNull(bucketValidator, "bucketValidator is null");
 
         this.projectionsAdapter = requireNonNull(projectionsAdapter, "projectionsAdapter is null");
 
@@ -306,7 +312,15 @@ public class HivePageSource
                         throw new UnsupportedOperationException();
                 }
             }
-            return new Page(batchSize, blocks.toArray(new Block[0]));
+
+            Page page = new Page(batchSize, blocks.toArray(new Block[0]));
+
+            // bucket adaptation already validates that data is in the right bucket
+            if (bucketAdapter.isEmpty()) {
+                bucketValidator.ifPresent(validator -> validator.validate(page));
+            }
+
+            return page;
         }
         catch (PrestoException e) {
             closeWithSuppression(e);
@@ -630,6 +644,63 @@ public class HivePageSource
                 return page;
             }
             return page.getPositions(ids.elements(), 0, retainedRowCount);
+        }
+    }
+
+    public static class BucketValidator
+    {
+        // validate every ~100 rows but using a prime number
+        public static final int VALIDATION_STRIDE = 97;
+
+        private final Path path;
+        private final int[] bucketColumnIndices;
+        private final List<TypeInfo> bucketColumnTypes;
+        private final BucketingVersion bucketingVersion;
+        private final int bucketCount;
+        private final int expectedBucket;
+
+        public BucketValidator(
+                Path path,
+                int[] bucketColumnIndices,
+                List<TypeInfo> bucketColumnTypes,
+                BucketingVersion bucketingVersion,
+                int bucketCount,
+                int expectedBucket)
+        {
+            this.path = requireNonNull(path, "path is null");
+            this.bucketColumnIndices = requireNonNull(bucketColumnIndices, "bucketColumnIndices is null");
+            this.bucketColumnTypes = requireNonNull(bucketColumnTypes, "bucketColumnTypes is null");
+            this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
+            this.bucketCount = bucketCount;
+            this.expectedBucket = expectedBucket;
+            checkArgument(bucketColumnIndices.length == bucketColumnTypes.size(), "indices and types counts mismatch");
+        }
+
+        public void validate(Page page)
+        {
+            Page bucketColumnsPage = page.getColumns(bucketColumnIndices);
+            for (int position = 0; position < page.getPositionCount(); position += VALIDATION_STRIDE) {
+                int bucket = getHiveBucket(bucketingVersion, bucketCount, bucketColumnTypes, bucketColumnsPage, position);
+                if (bucket != expectedBucket) {
+                    throw new PrestoException(HIVE_INVALID_BUCKET_FILES,
+                            format("Hive table is corrupt. File '%s' is for bucket %s, but contains a row for bucket %s.", path, expectedBucket, bucket));
+                }
+            }
+        }
+
+        public RecordCursor wrapRecordCursor(RecordCursor delegate, TypeManager typeManager)
+        {
+            return new HiveBucketValidationRecordCursor(
+                    path,
+                    bucketColumnIndices,
+                    bucketColumnTypes.stream()
+                            .map(HiveType::toHiveType)
+                            .collect(toImmutableList()),
+                    bucketingVersion,
+                    bucketCount,
+                    expectedBucket,
+                    typeManager,
+                    delegate);
         }
     }
 }

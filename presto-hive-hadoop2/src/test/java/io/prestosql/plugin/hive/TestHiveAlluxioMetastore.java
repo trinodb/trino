@@ -83,6 +83,13 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testBucketedTableValidation()
+            throws Exception
+    {
+        // Alluxio metastore does not support create operations
+    }
+
+    @Override
     public void testEmptyOrcFile()
     {
         // Alluxio metastore does not support create operations

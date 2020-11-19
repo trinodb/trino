@@ -394,6 +394,7 @@ public enum FileFormat
                 false,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 false,
                 Optional.empty());
 
