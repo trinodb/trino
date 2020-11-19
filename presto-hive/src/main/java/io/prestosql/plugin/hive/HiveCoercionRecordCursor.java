@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.prestosql.plugin.hive.util.ForwardingRecordCursor;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -48,7 +49,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveCoercionRecordCursor
-        implements RecordCursor
+        extends ForwardingRecordCursor
 {
     private final RecordCursor delegate;
     private final List<ColumnMapping> columnMappings;
@@ -81,15 +82,9 @@ public class HiveCoercionRecordCursor
     }
 
     @Override
-    public long getCompletedBytes()
+    protected RecordCursor delegate()
     {
-        return delegate.getCompletedBytes();
-    }
-
-    @Override
-    public Type getType(int field)
-    {
-        return delegate.getType(field);
+        return delegate;
     }
 
     @Override
@@ -155,24 +150,6 @@ public class HiveCoercionRecordCursor
             return delegate.isNull(field);
         }
         return coercers[field].isNull(delegate, field);
-    }
-
-    @Override
-    public void close()
-    {
-        delegate.close();
-    }
-
-    @Override
-    public long getReadTimeNanos()
-    {
-        return delegate.getReadTimeNanos();
-    }
-
-    @Override
-    public long getSystemMemoryUsage()
-    {
-        return delegate.getSystemMemoryUsage();
     }
 
     @VisibleForTesting

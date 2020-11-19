@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.ReaderProjectionsAdapter.ChannelMapping;
+import io.prestosql.plugin.hive.util.ForwardingRecordCursor;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.Type;
@@ -29,7 +30,7 @@ import static java.util.Objects.requireNonNull;
  * Applies projections on delegate fields provided by {@link ChannelMapping} to produce fields expected from this cursor.
  */
 public class HiveReaderProjectionsAdaptingRecordCursor
-        implements RecordCursor
+        extends ForwardingRecordCursor
 {
     private final RecordCursor delegate;
     private final ChannelMapping[] channelMappings;
@@ -64,27 +65,15 @@ public class HiveReaderProjectionsAdaptingRecordCursor
     }
 
     @Override
-    public long getCompletedBytes()
+    protected RecordCursor delegate()
     {
-        return delegate.getCompletedBytes();
-    }
-
-    @Override
-    public long getReadTimeNanos()
-    {
-        return delegate.getReadTimeNanos();
+        return delegate;
     }
 
     @Override
     public Type getType(int field)
     {
         return outputTypes[field];
-    }
-
-    @Override
-    public boolean advanceNextPosition()
-    {
-        return delegate.advanceNextPosition();
     }
 
     private Block applyDereferences(Block baseObject, List<Integer> dereferences, int length)
@@ -219,17 +208,5 @@ public class HiveReaderProjectionsAdaptingRecordCursor
 
         int finalDereference = Iterables.getLast(dereferences);
         return baseObject.isNull(finalDereference);
-    }
-
-    @Override
-    public long getSystemMemoryUsage()
-    {
-        return delegate.getSystemMemoryUsage();
-    }
-
-    @Override
-    public void close()
-    {
-        delegate.close();
     }
 }

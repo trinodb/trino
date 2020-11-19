@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import io.airlift.slice.Slice;
+import io.prestosql.plugin.hive.util.ForwardingRecordCursor;
 import io.prestosql.plugin.hive.util.HiveBucketing;
 import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.PrestoException;
@@ -32,7 +33,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveBucketAdapterRecordCursor
-        implements RecordCursor
+        extends ForwardingRecordCursor
 {
     private final RecordCursor delegate;
     private final int[] bucketColumnIndices;
@@ -75,15 +76,9 @@ public class HiveBucketAdapterRecordCursor
     }
 
     @Override
-    public long getCompletedBytes()
+    protected RecordCursor delegate()
     {
-        return delegate.getCompletedBytes();
-    }
-
-    @Override
-    public Type getType(int field)
-    {
-        return delegate.getType(field);
+        return delegate;
     }
 
     @Override
@@ -136,59 +131,5 @@ public class HiveBucketAdapterRecordCursor
                 return true;
             }
         }
-    }
-
-    @Override
-    public boolean getBoolean(int field)
-    {
-        return delegate.getBoolean(field);
-    }
-
-    @Override
-    public long getLong(int field)
-    {
-        return delegate.getLong(field);
-    }
-
-    @Override
-    public double getDouble(int field)
-    {
-        return delegate.getDouble(field);
-    }
-
-    @Override
-    public Slice getSlice(int field)
-    {
-        return delegate.getSlice(field);
-    }
-
-    @Override
-    public Object getObject(int field)
-    {
-        return delegate.getObject(field);
-    }
-
-    @Override
-    public boolean isNull(int field)
-    {
-        return delegate.isNull(field);
-    }
-
-    @Override
-    public void close()
-    {
-        delegate.close();
-    }
-
-    @Override
-    public long getReadTimeNanos()
-    {
-        return delegate.getReadTimeNanos();
-    }
-
-    @Override
-    public long getSystemMemoryUsage()
-    {
-        return delegate.getSystemMemoryUsage();
     }
 }
