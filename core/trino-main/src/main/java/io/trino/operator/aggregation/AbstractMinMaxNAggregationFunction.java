@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.trino.metadata.FunctionArgumentDefinition;
 import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
@@ -28,14 +30,14 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.type.BlockTypeOperators.BlockPositionComparison;
+import io.trino.util.MinMaxCompare;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
@@ -47,23 +49,26 @@ import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadat
 import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.trino.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Failures.checkCondition;
+import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMinMaxNAggregationFunction
         extends SqlAggregationFunction
 {
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "input", BlockPositionComparison.class, Type.class, MinMaxNState.class, Block.class, long.class, int.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "input", MethodHandle.class, Type.class, MinMaxNState.class, Block.class, long.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "combine", MinMaxNState.class, MinMaxNState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(AbstractMinMaxNAggregationFunction.class, "output", ArrayType.class, MinMaxNState.class, BlockBuilder.class);
     private static final long MAX_NUMBER_OF_VALUES = 10_000;
 
-    private final Function<Type, BlockPositionComparison> typeToComparator;
+    private final boolean min;
 
-    protected AbstractMinMaxNAggregationFunction(String name, Function<Type, BlockPositionComparison> typeToComparison, String description)
+    protected AbstractMinMaxNAggregationFunction(String name, boolean min, String description)
     {
         super(
                 new FunctionMetadata(
@@ -84,31 +89,36 @@ public abstract class AbstractMinMaxNAggregationFunction
                         AGGREGATE),
                 true,
                 false);
-        requireNonNull(typeToComparison);
-        this.typeToComparator = typeToComparison;
+        this.min = min;
     }
 
     @Override
     public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
         Type type = functionBinding.getTypeVariable("E");
-        return ImmutableList.of(new MinMaxNStateSerializer(typeToComparator.apply(type), type).getSerializedType().getTypeSignature());
+        return ImmutableList.of(RowType.anonymous(ImmutableList.of(BIGINT, type)).getTypeSignature());
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
-        Type type = functionBinding.getTypeVariable("E");
-        return generateAggregation(type);
+        return MinMaxCompare.getMinMaxCompareFunctionDependencies(functionBinding.getTypeVariable("E").getTypeSignature(), min);
     }
 
-    protected InternalAggregationFunction generateAggregation(Type type)
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        Type type = functionBinding.getTypeVariable("E");
+        MethodHandle compare = getMinMaxCompare(functionDependencies, type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION), min);
+        return generateAggregation(compare, type);
+    }
+
+    protected InternalAggregationFunction generateAggregation(MethodHandle compare, Type type)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(AbstractMinMaxNAggregationFunction.class.getClassLoader());
 
-        BlockPositionComparison comparison = typeToComparator.apply(type);
         List<Type> inputTypes = ImmutableList.of(type, BIGINT);
-        MinMaxNStateSerializer stateSerializer = new MinMaxNStateSerializer(comparison, type);
+        MinMaxNStateSerializer stateSerializer = new MinMaxNStateSerializer(compare, type);
         Type intermediateType = stateSerializer.getSerializedType();
         ArrayType outputType = new ArrayType(type);
 
@@ -122,7 +132,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(name, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
-                INPUT_FUNCTION.bindTo(comparison).bindTo(type),
+                INPUT_FUNCTION.bindTo(compare).bindTo(type),
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION.bindTo(outputType),
@@ -136,7 +146,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
-    public static void input(BlockPositionComparison comparison, Type type, MinMaxNState state, Block block, long n, int blockIndex)
+    public static void input(MethodHandle compare, Type type, MinMaxNState state, Block block, long n, int blockIndex)
     {
         TypedHeap heap = state.getTypedHeap();
         if (heap == null) {
@@ -144,7 +154,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "second argument of max_n/min_n must be positive");
             }
             checkCondition(n <= MAX_NUMBER_OF_VALUES, INVALID_FUNCTION_ARGUMENT, "second argument of max_n/min_n must be less than or equal to %s; found %s", MAX_NUMBER_OF_VALUES, n);
-            heap = new TypedHeap(comparison, type, toIntExact(n));
+            heap = new TypedHeap(compare, type, toIntExact(n));
             state.setTypedHeap(heap);
         }
         long startSize = heap.getEstimatedSize();
