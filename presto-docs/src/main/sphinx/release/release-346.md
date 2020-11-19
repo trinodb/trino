@@ -40,7 +40,7 @@
 
 * Support number accessor methods like `ResultSet.getLong()` or `ResultSet.getDouble()`
   on `decimal` values, as well as `char` or `varchar` values that can be unambiguously interpreted as numbers. ({issue}`5509`)
-* * Add `SSLVerification` JDBC connection parameter that allows configuring SSL verification. ({issue}`5610`)
+* Add `SSLVerification` JDBC connection parameter that allows configuring SSL verification. ({issue}`5610`)
 * Remove legacy `useSessionTimeZone` JDBC connection parameter. ({issue}`4521`)
 * Implement `ResultSet.getRow()`. ({issue}`5769`)
   
