@@ -75,7 +75,6 @@ public class TestApplyTableScanRedirection
     private static final String destinationColumnNameB = "destination_col_b";
     private static final ColumnHandle destinationColumnHandleB = new MockConnectorColumnHandle(destinationColumnNameB, VARCHAR);
     private static final String destinationColumnNameC = "destination_col_c";
-    private static final ColumnHandle destinationColumnHandleC = new MockConnectorColumnHandle(destinationColumnNameC, BIGINT);
 
     private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)
     {
