@@ -145,6 +145,8 @@ public class HiveConfig
 
     private boolean legacyHiveViewTranslation;
 
+    private String viewFsTemporaryStagingDirectoryPath = "../.hive-staging";
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1038,5 +1040,19 @@ public class HiveConfig
     public boolean isLegacyHiveViewTranslation()
     {
         return this.legacyHiveViewTranslation;
+    }
+
+    @Config("hive.viewfs-temporary-staging-directory-path")
+    @ConfigDescription("Location of ViewFS temporary staging directory for write operations")
+    public HiveConfig setViewFsTemporaryStagingDirectoryPath(String viewFsTemporaryStagingDirectoryPath)
+    {
+        this.viewFsTemporaryStagingDirectoryPath = viewFsTemporaryStagingDirectoryPath;
+        return this;
+    }
+
+    @NotNull
+    public String getViewFsTemporaryStagingDirectoryPath()
+    {
+        return viewFsTemporaryStagingDirectoryPath;
     }
 }

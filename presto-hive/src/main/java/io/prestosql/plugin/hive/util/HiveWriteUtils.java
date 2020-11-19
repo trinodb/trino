@@ -516,7 +516,7 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
+    public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath, String viewFsStagingDirectoryPath)
     {
         // use a per-user temporary directory to avoid permission problems
         String temporaryPrefix = getTemporaryStagingDirectoryPath(session)
@@ -524,7 +524,7 @@ public final class HiveWriteUtils
 
         // use relative temporary directory on ViewFS
         if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
-            temporaryPrefix = ".hive-staging";
+            temporaryPrefix = viewFsStagingDirectoryPath;
         }
 
         // create a temporary directory on the same filesystem

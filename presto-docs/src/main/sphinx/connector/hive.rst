@@ -316,6 +316,9 @@ Property Name                                      Description                  
 ``hive.legacy-hive-view-translation``              Use the legacy algorithm to translate Hive views. You can    ``false``
                                                    alternatively set the ``legacy_hive_view_translation``
                                                    session property to ``true``.
+
+``hive.viewfs-temporary-staging-directory-path``   Controls the location of temporary staging directory that    ``../.hive-staging``
+                                                   is used for write operations to ViewFS.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
