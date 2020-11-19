@@ -36,7 +36,7 @@ public class TestHiveCreateTable
         extends ProductTest
 {
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s.*)could only be replicated to 0 nodes instead of minReplication")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testCreateTable()
             throws SQLException
     {
@@ -57,7 +57,7 @@ public class TestHiveCreateTable
     }
 
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s.*)could only be replicated to 0 nodes instead of minReplication")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testCreateTableAsSelect()
             throws SQLException
     {
