@@ -22,8 +22,6 @@ public class MaxNAggregationFunction
 
     public MaxNAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
-        super(NAME,
-                blockTypeOperators::getComparisonUnorderedFirstOperator,
-                "Returns the maximum values of the argument");
+        super(NAME, false, "Returns the maximum values of the argument");
     }
 }
