@@ -175,9 +175,15 @@ public final class TestRun
         @Override
         public Integer call()
         {
+            long timeoutMillis = timeout.toMillis();
+            if (timeoutMillis == 0) {
+                log.error("Timeout %s exhausted", timeout);
+                return ExitCode.SOFTWARE;
+            }
+
             try {
                 int exitCode = Failsafe
-                        .with(Timeout.of(java.time.Duration.ofMillis(timeout.toMillis()))
+                        .with(Timeout.of(java.time.Duration.ofMillis(timeoutMillis))
                                 .withCancel(true))
                         .get(this::tryExecuteTests);
 
