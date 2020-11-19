@@ -143,37 +143,6 @@ public final class BlockTypeOperators
     public interface BlockPositionComparison
     {
         long compare(Block left, int leftPosition, Block right, int rightPosition);
-
-        default BlockPositionComparison reversed()
-        {
-            return ReversedBlockPositionComparison.createReversedBlockPositionComparison(this);
-        }
-    }
-
-    private static class ReversedBlockPositionComparison
-            implements BlockPositionComparison
-    {
-        private final BlockPositionComparison comparison;
-
-        static BlockPositionComparison createReversedBlockPositionComparison(BlockPositionComparison comparison)
-        {
-            if (comparison instanceof ReversedBlockPositionComparison) {
-                return ((ReversedBlockPositionComparison) comparison).comparison;
-            }
-            return new ReversedBlockPositionComparison(comparison);
-        }
-
-        private ReversedBlockPositionComparison(BlockPositionComparison comparison)
-        {
-            this.comparison = comparison;
-        }
-
-        @Override
-        public long compare(Block leftBlock, int leftIndex, Block rightBlock, int rightIndex)
-        {
-            // TODO generate this so it becomes mono monomorphic
-            return -comparison.compare(leftBlock, leftIndex, rightBlock, rightIndex);
-        }
     }
 
     public BlockPositionOrdering generateBlockPositionOrdering(Type type, SortOrder sortOrder)
