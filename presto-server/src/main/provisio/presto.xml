@@ -252,4 +252,11 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/yugabyte">
+        <artifact id="${project.groupId}:presto-yugabyte:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
 </runtime>
