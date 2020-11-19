@@ -20,6 +20,7 @@ import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
@@ -49,6 +50,18 @@ public final class MinMaxCompare
     {
         OperatorType comparisonOperator = min ? COMPARISON_UNORDERED_LAST : COMPARISON_UNORDERED_FIRST;
         MethodHandle handle = dependencies.getOperatorInvoker(comparisonOperator, List.of(type, type), convention).getMethodHandle();
+        return filterReturnValue(handle, min ? MIN_FUNCTION : MAX_FUNCTION);
+    }
+
+    public static MethodHandle getMinMaxCompare(TypeOperators typeOperators, Type type, InvocationConvention convention, boolean min)
+    {
+        MethodHandle handle;
+        if (min) {
+            handle = typeOperators.getComparisonUnorderedLastOperator(type, convention);
+        }
+        else {
+            handle = typeOperators.getComparisonUnorderedFirstOperator(type, convention);
+        }
         return filterReturnValue(handle, min ? MIN_FUNCTION : MAX_FUNCTION);
     }
 
