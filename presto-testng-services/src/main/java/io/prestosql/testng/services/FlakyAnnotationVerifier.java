@@ -23,10 +23,13 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.testng.services.Listeners.reportListenerFailure;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -76,13 +79,41 @@ public class FlakyAnnotationVerifier
                             .map(Method::toString)
                             .collect(joining("\n\t\t", "\n\t\t", "")));
         }
+
+        verifyFlakyAnnotations(realClass).ifPresent(error -> {
+            reportListenerFailure(
+                    FlakyAnnotationVerifier.class,
+                    "%s",
+                    error);
+        });
+    }
+
+    @VisibleForTesting
+    static Optional<String> verifyFlakyAnnotations(Class<?> realClass)
+    {
+        for (Method method : realClass.getMethods()) {
+            Optional<Flaky> flaky = findInheritableAnnotation(method, Flaky.class);
+            if (flaky.isEmpty()) {
+                continue;
+            }
+            if (flaky.get().issue().isBlank()) {
+                return Optional.of(format("Test method %s has empty @Flaky.issue", method));
+            }
+            try {
+                Pattern.compile(flaky.get().match());
+            }
+            catch (PatternSyntaxException e) {
+                return Optional.of(format("Test method %s has invalid @Flaky.match: %s", method, getStackTraceAsString(e)));
+            }
+        }
+        return Optional.empty();
     }
 
     @VisibleForTesting
     static List<Method> findMethodsWithFlakyAndNoTestAnnotation(Class<?> realClass)
     {
         return Arrays.stream(realClass.getMethods())
-                .filter(method -> hasOrInheritsAnnotation(method, Flaky.class))
+                .filter(method -> findInheritableAnnotation(method, Flaky.class).isPresent())
                 .filter(method -> !method.isAnnotationPresent(Test.class))
                 .collect(toImmutableList());
     }
@@ -90,15 +121,16 @@ public class FlakyAnnotationVerifier
     @Override
     public void onAfterClass(ITestClass testClass) {}
 
-    private static boolean hasOrInheritsAnnotation(Method method, Class<? extends Annotation> annotationClass)
+    private static <T extends Annotation> Optional<T> findInheritableAnnotation(Method method, Class<T> annotationClass)
     {
         while (method != null) {
-            if (method.isAnnotationPresent(annotationClass)) {
-                return true;
+            T annotation = method.getAnnotation(annotationClass);
+            if (annotation != null) {
+                return Optional.of(annotation);
             }
             method = getSuperMethod(method).orElse(null);
         }
-        return false;
+        return Optional.empty();
     }
 
     private static Optional<Method> getSuperMethod(Method method)

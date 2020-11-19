@@ -60,6 +60,16 @@ public class TestFlakyAnnotationVerifier
                 .contains("test");
     }
 
+    @Test
+    public void testInvalidPattern()
+    {
+        assertThat(FlakyAnnotationVerifier.verifyFlakyAnnotations(TestFlakyInvalidPattern.class))
+                .hasValueSatisfying(value -> {
+                    assertThat(value)
+                            .startsWith("Test method public void io.prestosql.testng.services.TestFlakyAnnotationVerifier$TestFlakyInvalidPattern.test() has invalid @Flaky.match: java.util.regex.PatternSyntaxException: Unclosed group near");
+                });
+    }
+
     private static class TestNotTestMethodWithFlaky
     {
         @Flaky(issue = "Blah", match = "Blah")
@@ -143,4 +153,11 @@ public class TestFlakyAnnotationVerifier
     private static class TestChildNoDeclarationFlakyInParent
             extends TestParentTestAndFlaky
     {}
+
+    private static class TestFlakyInvalidPattern
+    {
+        @Test
+        @Flaky(match = "unbalanaced (", issue = "x")
+        public void test() {}
+    }
 }
