@@ -43,7 +43,7 @@ docker exec -it presto presto --catalog tpch --schema sf1
 
 ## Configuration
 
-Configuration is expected to be mounted to either  to `/etc/presto` or
+Configuration is expected to be mounted to either to `/etc/presto` or
 `/usr/lib/presto/etc` (the latter takes precedence). If neither of these exists
 then the default single node configuration will be used.
 
