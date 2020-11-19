@@ -12,6 +12,8 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.presto.plugin.jdbc.redirection.RedirectionsProvider;
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
@@ -44,6 +46,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.Estimate;
@@ -90,6 +93,7 @@ public class StarburstOracleClient
     private final LicenseManager licenseManager;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private final TableStatisticsClient tableStatisticsClient;
+    private final TableScanRedirection tableScanRedirection;
 
     @Inject
     public StarburstOracleClient(
@@ -97,6 +101,7 @@ public class StarburstOracleClient
             BaseJdbcConfig config,
             JdbcMetadataConfig jdbcMetadataConfig,
             JdbcStatisticsConfig statisticsConfig,
+            RedirectionsProvider redirectionsProvider,
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory)
     {
@@ -119,6 +124,7 @@ public class StarburstOracleClient
                         .add(new ImplementOracleVariancePop())
                         .build());
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+        tableScanRedirection = new TableScanRedirection(redirectionsProvider);
 
         if (jdbcMetadataConfig.isAggregationPushdownEnabled()) {
             licenseManager.checkFeature(ORACLE_EXTENSIONS);
@@ -294,6 +300,12 @@ public class StarburstOracleClient
     public void dropSchema(JdbcIdentity identity, String schemaName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     @Override
