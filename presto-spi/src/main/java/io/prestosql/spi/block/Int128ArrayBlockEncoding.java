@@ -13,8 +13,10 @@
  */
 package io.prestosql.spi.block;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
 import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -38,11 +40,22 @@ public class Int128ArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, block);
 
-        for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
-                sliceOutput.writeLong(block.getLong(position, 0));
-                sliceOutput.writeLong(block.getLong(position, 8));
+        if (!block.mayHaveNull()) {
+            sliceOutput.writeBytes(getValuesSlice(block));
+        }
+        else {
+            long[] valuesWithoutNull = new long[positionCount * 2];
+            int nonNullPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                valuesWithoutNull[nonNullPositionCount] = block.getLong(i, 0);
+                valuesWithoutNull[nonNullPositionCount + 1] = block.getLong(i, 8);
+                if (!block.isNull(i)) {
+                    nonNullPositionCount += 2;
+                }
             }
+
+            sliceOutput.writeInt(nonNullPositionCount / 2);
+            sliceOutput.writeBytes(Slices.wrappedLongArray(valuesWithoutNull, 0, nonNullPositionCount));
         }
     }
 
@@ -54,13 +67,33 @@ public class Int128ArrayBlockEncoding
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         long[] values = new long[positionCount * 2];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                values[position * 2] = sliceInput.readLong();
-                values[(position * 2) + 1] = sliceInput.readLong();
+        if (valueIsNull == null) {
+            sliceInput.readBytes(Slices.wrappedLongArray(values));
+        }
+        else {
+            int nonNullPositionCount = sliceInput.readInt();
+            sliceInput.readBytes(Slices.wrappedLongArray(values, 0, nonNullPositionCount * 2));
+            int position = 2 * (nonNullPositionCount - 1);
+            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
+                System.arraycopy(values, position, values, 2 * i, 2);
+                if (!valueIsNull[i]) {
+                    position -= 2;
+                }
             }
         }
 
         return new Int128ArrayBlock(0, positionCount, valueIsNull, values);
+    }
+
+    private Slice getValuesSlice(Block block)
+    {
+        if (block instanceof Int128ArrayBlock) {
+            return ((Int128ArrayBlock) block).getValuesSlice();
+        }
+        else if (block instanceof Int128ArrayBlockBuilder) {
+            return ((Int128ArrayBlockBuilder) block).getValuesSlice();
+        }
+
+        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }
