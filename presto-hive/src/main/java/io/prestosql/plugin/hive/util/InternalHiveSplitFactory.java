@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
+import io.prestosql.plugin.hive.HiveSplit;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.plugin.hive.InternalHiveSplit;
 import io.prestosql.plugin.hive.InternalHiveSplit.InternalHiveBlock;
@@ -66,6 +67,7 @@ public class InternalHiveSplitFactory
     private final TableToPartitionMapping tableToPartitionMapping;
     private final BooleanSupplier partitionMatchSupplier;
     private final Optional<BucketConversion> bucketConversion;
+    private final Optional<HiveSplit.BucketValidation> bucketValidation;
     private final long minimumTargetSplitSizeInBytes;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
@@ -82,6 +84,7 @@ public class InternalHiveSplitFactory
             BooleanSupplier partitionMatchSupplier,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
+            Optional<HiveSplit.BucketValidation> bucketValidation,
             DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
             boolean s3SelectPushdownEnabled,
@@ -96,6 +99,7 @@ public class InternalHiveSplitFactory
         this.partitionMatchSupplier = requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
         this.tableToPartitionMapping = requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
+        this.bucketValidation = requireNonNull(bucketValidation, "bucketValidation is null");
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.transaction = requireNonNull(transaction, "transaction is null");
@@ -220,6 +224,7 @@ public class InternalHiveSplitFactory
                 forceLocalScheduling && allBlocksHaveAddress(blocks),
                 tableToPartitionMapping,
                 bucketConversion,
+                bucketValidation,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
                 acidInfo));
     }

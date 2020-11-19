@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
+import io.prestosql.plugin.hive.HiveSplit.BucketValidation;
 import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -95,6 +96,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HivePartitionManager.partitionMatches;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isForceLocalScheduling;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isValidateBucketing;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
 import static io.prestosql.plugin.hive.s3select.S3SelectPushdown.shouldEnablePushdownForTable;
@@ -398,6 +400,7 @@ public class BackgroundHiveSplitLoader
                         partitionMatchSupplier,
                         partition.getTableToPartitionMapping(),
                         Optional.empty(),
+                        Optional.empty(),
                         getMaxInitialSplitSize(session),
                         isForceLocalScheduling(session),
                         s3SelectPushdownEnabled,
@@ -428,6 +431,13 @@ public class BackgroundHiveSplitLoader
                 }
             }
         }
+
+        Optional<BucketValidation> bucketValidation = Optional.empty();
+        if (isValidateBucketing(session) && tableBucketInfo.isPresent()) {
+            BucketSplitInfo info = tableBucketInfo.get();
+            bucketValidation = Optional.of(new BucketValidation(info.getBucketingVersion(), info.getTableBucketCount(), info.getBucketColumns()));
+        }
+
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 fs,
                 partitionName,
@@ -438,6 +448,7 @@ public class BackgroundHiveSplitLoader
                 partitionMatchSupplier,
                 partition.getTableToPartitionMapping(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
+                bucketValidation,
                 getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled,
@@ -809,6 +820,7 @@ public class BackgroundHiveSplitLoader
 
     public static class BucketSplitInfo
     {
+        private final BucketingVersion bucketingVersion;
         private final List<HiveColumnHandle> bucketColumns;
         private final int tableBucketCount;
         private final int readBucketCount;
@@ -824,6 +836,7 @@ public class BackgroundHiveSplitLoader
                 return Optional.empty();
             }
 
+            BucketingVersion bucketingVersion = bucketHandle.get().getBucketingVersion();
             int tableBucketCount = bucketHandle.get().getTableBucketCount();
             int readBucketCount = bucketHandle.get().getReadBucketCount();
 
@@ -836,15 +849,21 @@ public class BackgroundHiveSplitLoader
             IntPredicate predicate = bucketFilter
                     .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)
                     .orElse(bucket -> true);
-            return Optional.of(new BucketSplitInfo(bucketColumns, tableBucketCount, readBucketCount, predicate));
+            return Optional.of(new BucketSplitInfo(bucketingVersion, bucketColumns, tableBucketCount, readBucketCount, predicate));
         }
 
-        private BucketSplitInfo(List<HiveColumnHandle> bucketColumns, int tableBucketCount, int readBucketCount, IntPredicate bucketFilter)
+        private BucketSplitInfo(BucketingVersion bucketingVersion, List<HiveColumnHandle> bucketColumns, int tableBucketCount, int readBucketCount, IntPredicate bucketFilter)
         {
+            this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
             this.bucketColumns = ImmutableList.copyOf(requireNonNull(bucketColumns, "bucketColumns is null"));
             this.tableBucketCount = tableBucketCount;
             this.readBucketCount = readBucketCount;
             this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
+        }
+
+        public BucketingVersion getBucketingVersion()
+        {
+            return bucketingVersion;
         }
 
         public List<HiveColumnHandle> getBucketColumns()

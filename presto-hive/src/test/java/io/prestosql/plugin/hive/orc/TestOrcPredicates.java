@@ -223,6 +223,7 @@ public class TestOrcPredicates
                 TYPE_MANAGER,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 false,
                 Optional.empty(),
                 false,
