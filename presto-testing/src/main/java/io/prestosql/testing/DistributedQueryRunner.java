@@ -81,6 +81,7 @@ public class DistributedQueryRunner
 
     private final TestingDiscoveryServer discoveryServer;
     private final TestingPrestoServer coordinator;
+    private TestingPrestoServer backupCoordinator;
     private List<TestingPrestoServer> servers;
 
     private final Closer closer = Closer.create();
@@ -105,7 +106,29 @@ public class DistributedQueryRunner
             List<SystemAccessControl> systemAccessControls)
             throws Exception
     {
+        this(defaultSession, nodeCount, extraProperties, coordinatorProperties, null, environment, additionalModule, baseDataDir, systemAccessControls);
+    }
+
+    private DistributedQueryRunner(
+            Session defaultSession,
+            int nodeCount,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> backupCoordinatorProperties,
+            String environment,
+            Module additionalModule,
+            Optional<Path> baseDataDir,
+            List<SystemAccessControl> systemAccessControls)
+            throws Exception
+    {
         requireNonNull(defaultSession, "defaultSession is null");
+
+        if (backupCoordinatorProperties != null) {
+            requireNonNull(coordinatorProperties, "coordinatorProperties cannot be null, if backupCoordinatorProperties is not null!");
+            requireNonNull(coordinatorProperties.get("http-server.http.port"), "the http-server.http.port of coordinatorProperties cannot be null, if backupCoordinatorProperties is not null!");
+            requireNonNull(backupCoordinatorProperties.get("http-server.http.port"), "the http-server.http.port of backupCoordinatorProperties cannot be null, if backupCoordinatorProperties is not null!");
+            Assertions.assertNotEquals(coordinatorProperties.get("http-server.http.port"), backupCoordinatorProperties.get("http-server.http.port"));
+        }
 
         try {
             long start = System.nanoTime();
@@ -115,7 +138,7 @@ public class DistributedQueryRunner
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
 
-            for (int i = 1; i < nodeCount; i++) {
+            for (int i = backupCoordinatorProperties == null ? 1 : 2; i < nodeCount; i++) {
                 TestingPrestoServer worker = closer.register(createTestingPrestoServer(
                         discoveryServer.getBaseUrl(),
                         false,
@@ -139,6 +162,20 @@ public class DistributedQueryRunner
                     baseDataDir,
                     systemAccessControls));
             servers.add(coordinator);
+            if (nodeCount >= 2 && backupCoordinatorProperties != null) {
+                Map<String, String> extraBackupCoordinatorProperties = new HashMap<>();
+                extraBackupCoordinatorProperties.putAll(extraProperties);
+                extraBackupCoordinatorProperties.putAll(backupCoordinatorProperties);
+                backupCoordinator = closer.register(createTestingPrestoServer(
+                        discoveryServer.getBaseUrl(),
+                        true,
+                        extraBackupCoordinatorProperties,
+                        environment,
+                        additionalModule,
+                        baseDataDir,
+                        systemAccessControls));
+                servers.add(backupCoordinator);
+            }
 
             this.servers = servers.build();
         }
@@ -535,6 +572,7 @@ public class DistributedQueryRunner
         private int nodeCount = 3;
         private Map<String, String> extraProperties = new HashMap<>();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
+        private Map<String, String> backupCoordinatorProperties;
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -576,6 +614,12 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setBackupCoordinatorProperties(Map<String, String> backupCoordinatorProperties)
+        {
+            this.backupCoordinatorProperties = backupCoordinatorProperties;
+            return this;
+        }
+
         /**
          * Sets coordinator properties being equal to a map containing given key and value.
          * Note, that calling this method OVERWRITES previously set property values.
@@ -584,6 +628,11 @@ public class DistributedQueryRunner
         public Builder setSingleCoordinatorProperty(String key, String value)
         {
             return setCoordinatorProperties(ImmutableMap.of(key, value));
+        }
+
+        public Builder setBackupSingleCoordinatorProperty(String key, String value)
+        {
+            return setBackupCoordinatorProperties(ImmutableMap.of(key, value));
         }
 
         public Builder setEnvironment(String environment)
@@ -625,6 +674,7 @@ public class DistributedQueryRunner
                     nodeCount,
                     extraProperties,
                     coordinatorProperties,
+                    backupCoordinatorProperties,
                     environment,
                     additionalModule,
                     baseDataDir,
