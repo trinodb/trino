@@ -42,6 +42,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.sql.planner.plan.Patterns.tableScan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -97,6 +98,22 @@ public class ApplyTableScanRedirection
                     if (destinationColumnHandle == null) {
                         throw new PrestoException(COLUMN_NOT_FOUND, format("Did not find handle for column %s in destination table %s", destinationColumn, destinationTable));
                     }
+
+                    // validate that redirected types match source types
+                    Type sourceType = context.getSymbolAllocator().getTypes().get(entry.getKey());
+                    Type redirectedType = metadata.getColumnMetadata(context.getSession(), destinationTableHandle.get(), destinationColumnHandle).getType();
+                    if (!sourceType.equals(redirectedType)) {
+                        throw new PrestoException(
+                                TYPE_MISMATCH,
+                                format("Redirected type (%s) for column %s and table %s does not match source type (%s) for source column %s and table %s",
+                                        redirectedType,
+                                        destinationColumn,
+                                        destinationTable,
+                                        sourceType,
+                                        entry.getValue(),
+                                        scanNode.getTable()));
+                    }
+
                     return destinationColumnHandle;
                 }));
 
