@@ -38,7 +38,7 @@ public class RedshiftClientModule
     @Singleton
     @Provides
     @ForBaseJdbc
-    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+    public static ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
         return new DriverConnectionFactory(new Driver(), config, credentialProvider);
     }
