@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.prestosql.plugin.hive.util.ForwardingRecordCursor;
 import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
@@ -62,7 +63,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class HiveRecordCursor
-        implements RecordCursor
+        extends ForwardingRecordCursor
 {
     private final RecordCursor delegate;
 
@@ -162,21 +163,15 @@ public class HiveRecordCursor
     }
 
     @Override
-    public long getCompletedBytes()
+    protected RecordCursor delegate()
     {
-        return delegate.getCompletedBytes();
+        return delegate;
     }
 
     @Override
     public Type getType(int field)
     {
         return types[field];
-    }
-
-    @Override
-    public boolean advanceNextPosition()
-    {
-        return delegate.advanceNextPosition();
     }
 
     @Override
@@ -237,24 +232,6 @@ public class HiveRecordCursor
             return delegate.isNull(columnMapping.getIndex());
         }
         return nulls[field];
-    }
-
-    @Override
-    public void close()
-    {
-        delegate.close();
-    }
-
-    @Override
-    public long getReadTimeNanos()
-    {
-        return delegate.getReadTimeNanos();
-    }
-
-    @Override
-    public long getSystemMemoryUsage()
-    {
-        return delegate.getSystemMemoryUsage();
     }
 
     @VisibleForTesting
