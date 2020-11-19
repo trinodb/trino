@@ -12,6 +12,8 @@ package com.starburstdata.presto.plugin.snowflake.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.starburstdata.presto.plugin.jdbc.redirection.RedirectionsProvider;
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import com.starburstdata.presto.plugin.toolkit.UtcTimeZoneCalendar;
@@ -43,6 +45,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.Estimate;
@@ -132,12 +135,19 @@ public class SnowflakeClient
 
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private final TableStatisticsClient tableStatisticsClient;
+    private final TableScanRedirection tableScanRedirection;
     private final boolean distributedConnector;
 
-    public SnowflakeClient(BaseJdbcConfig config, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory, boolean distributedConnector)
+    public SnowflakeClient(
+            BaseJdbcConfig config,
+            JdbcStatisticsConfig statisticsConfig,
+            RedirectionsProvider redirectionsProvider,
+            ConnectionFactory connectionFactory,
+            boolean distributedConnector)
     {
         super(config, IDENTIFIER_QUOTE, connectionFactory);
         this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+        this.tableScanRedirection = new TableScanRedirection(redirectionsProvider);
         this.distributedConnector = distributedConnector;
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
@@ -174,6 +184,12 @@ public class SnowflakeClient
             throws SQLException
     {
         return connectionFactory.openConnection(identity);
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     @Override

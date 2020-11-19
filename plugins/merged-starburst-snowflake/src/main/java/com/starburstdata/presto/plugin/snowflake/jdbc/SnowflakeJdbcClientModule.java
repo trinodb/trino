@@ -20,6 +20,8 @@ import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
+import com.starburstdata.presto.plugin.jdbc.redirection.RedirectionsProvider;
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.snowflake.SnowflakeConfig;
 import com.starburstdata.presto.plugin.snowflake.SnowflakeImpersonationType;
@@ -109,13 +111,18 @@ public class SnowflakeJdbcClientModule
                 SnowflakeConfig.class,
                 config -> config.getImpersonationType() == SnowflakeImpersonationType.ROLE_OKTA_LDAP_PASSTHROUGH,
                 oauthImpersonationModule(true)));
+        install(new TableScanRedirectionModule());
     }
 
     @Provides
     @Singleton
-    public SnowflakeClient getSnowflakeClient(BaseJdbcConfig config, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory)
+    public SnowflakeClient getSnowflakeClient(
+            BaseJdbcConfig config,
+            JdbcStatisticsConfig statisticsConfig,
+            RedirectionsProvider redirectionsProvider,
+            ConnectionFactory connectionFactory)
     {
-        return new SnowflakeClient(config, statisticsConfig, connectionFactory, distributedConnector);
+        return new SnowflakeClient(config, statisticsConfig, redirectionsProvider, connectionFactory, distributedConnector);
     }
 
     @Provides
