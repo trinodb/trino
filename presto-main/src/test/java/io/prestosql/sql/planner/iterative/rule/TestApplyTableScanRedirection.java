@@ -53,6 +53,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestApplyTableScanRedirection
 {
@@ -120,7 +121,7 @@ public class TestApplyTableScanRedirection
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Redirected type \\(bigint\\) for column destination_col_c and table .*target_table does not match source type \\(varchar\\) for source column .*source_col_a.* and table .*MockConnectorTableHandle.*")
+    @Test
     public void testMismatchedTypes()
     {
         try (RuleTester ruleTester = defaultRuleTester()) {
@@ -134,7 +135,9 @@ public class TestApplyTableScanRedirection
 
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
-                        ruleTester.getQueryRunner().createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP);
+                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
+                                .isInstanceOf(PrestoException.class)
+                                .hasMessageMatching("Redirected type \\(bigint\\) for column destination_col_c and table .*target_table does not match source type \\(varchar\\) for source column .*source_col_a.* and table .*MockConnectorTableHandle.*");
                     });
         }
     }
