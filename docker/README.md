@@ -16,7 +16,7 @@ The Presto node will function both as a coordinator and a worker.
 To launch it, execute the following:
 
 ```bash
-docker run -p 8080:8080 --name presto prestosql/presto
+docker run --rm -p 8080:8080 --name presto prestosql/presto
 ```
 
 Wait for the following message log line:
