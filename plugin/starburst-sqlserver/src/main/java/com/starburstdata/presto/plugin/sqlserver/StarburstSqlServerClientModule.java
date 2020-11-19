@@ -19,6 +19,7 @@ import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
@@ -64,6 +65,7 @@ public class StarburstSqlServerClientModule
                 SqlServerConfig::isImpersonationEnabled,
                 new ImpersonationModule(),
                 new NoImpersonationModule()));
+        install(new TableScanRedirectionModule());
     }
 
     @Provides

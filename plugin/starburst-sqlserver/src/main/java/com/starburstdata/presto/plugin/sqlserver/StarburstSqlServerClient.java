@@ -9,6 +9,8 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
+import com.starburstdata.presto.plugin.jdbc.redirection.RedirectionsProvider;
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.airlift.log.Logger;
@@ -20,6 +22,7 @@ import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.sqlserver.SqlServerClient;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.Estimate;
@@ -49,12 +52,24 @@ public class StarburstSqlServerClient
     private static final Logger log = Logger.get(StarburstSqlServerClient.class);
 
     private final TableStatisticsClient tableStatisticsClient;
+    private final TableScanRedirection tableScanRedirection;
 
     @Inject
-    public StarburstSqlServerClient(BaseJdbcConfig config, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory)
+    public StarburstSqlServerClient(
+            BaseJdbcConfig config,
+            JdbcStatisticsConfig statisticsConfig,
+            RedirectionsProvider redirectionsProvider,
+            ConnectionFactory connectionFactory)
     {
         super(config, connectionFactory);
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+        tableScanRedirection = new TableScanRedirection(redirectionsProvider);
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     @Override
