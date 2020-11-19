@@ -47,6 +47,12 @@ Configuration is expected to be mounted to either to `/etc/presto` or
 `/usr/lib/presto/etc` (the latter takes precedence). If neither of these exists
 then the default single node configuration will be used.
 
+You can mount local config directory `config` executing following command:
+
+```bash
+docker run --mount source=config,target=/usr/lib/presto/etc --rm -p 8080:8080 --name presto prestosql/presto
+```
+
 ### Specific Config Options
 
 #### `node.id`
