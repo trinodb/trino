@@ -137,7 +137,7 @@ public class TestApplyTableScanRedirection
                     .execute(MOCK_SESSION, session -> {
                         assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
                                 .isInstanceOf(PrestoException.class)
-                                .hasMessageMatching("Redirected type \\(bigint\\) for column destination_col_c and table .*target_table does not match source type \\(varchar\\) for source column .*source_col_a.* and table .*MockConnectorTableHandle.*");
+                                .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_c has type bigint, different from source column .*MockConnectorTableHandle.*source_col_a.* type: varchar");
                     });
         }
     }

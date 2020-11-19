@@ -103,15 +103,15 @@ public class ApplyTableScanRedirection
                     Type sourceType = context.getSymbolAllocator().getTypes().get(entry.getKey());
                     Type redirectedType = metadata.getColumnMetadata(context.getSession(), destinationTableHandle.get(), destinationColumnHandle).getType();
                     if (!sourceType.equals(redirectedType)) {
-                        throw new PrestoException(
-                                TYPE_MISMATCH,
-                                format("Redirected type (%s) for column %s and table %s does not match source type (%s) for source column %s and table %s",
-                                        redirectedType,
-                                        destinationColumn,
-                                        destinationTable,
-                                        sourceType,
-                                        entry.getValue(),
-                                        scanNode.getTable()));
+                        throw new PrestoException(TYPE_MISMATCH, format(
+                                "Redirected column %s.%s has type %s, different from source column %s.%s type: %s",
+                                destinationTable,
+                                destinationColumn,
+                                redirectedType,
+                                // TODO report source table and column name instead of ConnectorTableHandle, ConnectorColumnHandle toString
+                                scanNode.getTable(),
+                                entry.getValue(),
+                                sourceType));
                     }
 
                     return destinationColumnHandle;
