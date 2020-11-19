@@ -13,8 +13,10 @@
  */
 package io.prestosql.spi.block;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
 import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -38,10 +40,21 @@ public class ByteArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, block);
 
-        for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
-                sliceOutput.writeByte(block.getByte(position, 0));
+        if (!block.mayHaveNull()) {
+            sliceOutput.writeBytes(getValuesSlice(block));
+        }
+        else {
+            byte[] valuesWithoutNull = new byte[positionCount];
+            int nonNullPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                valuesWithoutNull[nonNullPositionCount] = block.getByte(i, 0);
+                if (!block.isNull(i)) {
+                    nonNullPositionCount++;
+                }
             }
+
+            sliceOutput.writeInt(nonNullPositionCount);
+            sliceOutput.writeBytes(Slices.wrappedBuffer(valuesWithoutNull, 0, nonNullPositionCount));
         }
     }
 
@@ -53,12 +66,33 @@ public class ByteArrayBlockEncoding
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         byte[] values = new byte[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                values[position] = sliceInput.readByte();
+        if (valueIsNull == null) {
+            sliceInput.readBytes(Slices.wrappedBuffer(values));
+        }
+        else {
+            int nonNullPositionCount = sliceInput.readInt();
+            sliceInput.readBytes(Slices.wrappedBuffer(values, 0, nonNullPositionCount));
+            int position = nonNullPositionCount - 1;
+            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
+                values[i] = values[position];
+                if (!valueIsNull[i]) {
+                    position--;
+                }
             }
         }
 
         return new ByteArrayBlock(0, positionCount, valueIsNull, values);
+    }
+
+    private Slice getValuesSlice(Block block)
+    {
+        if (block instanceof ByteArrayBlock) {
+            return ((ByteArrayBlock) block).getValuesSlice();
+        }
+        else if (block instanceof ByteArrayBlockBuilder) {
+            return ((ByteArrayBlockBuilder) block).getValuesSlice();
+        }
+
+        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }
