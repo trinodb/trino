@@ -379,6 +379,7 @@ class HiveSplitSource
                         internalSplit.isForceLocalScheduling(),
                         internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),
+                        internalSplit.getBucketValidation(),
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getAcidInfo()));
 

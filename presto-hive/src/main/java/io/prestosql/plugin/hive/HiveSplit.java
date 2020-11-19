@@ -50,6 +50,7 @@ public class HiveSplit
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
+    private final Optional<BucketValidation> bucketValidation;
     private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
 
@@ -71,6 +72,7 @@ public class HiveSplit
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
+            @JsonProperty("bucketValidation") Optional<BucketValidation> bucketValidation,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo)
     {
@@ -87,6 +89,7 @@ public class HiveSplit
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
 
         this.database = database;
@@ -105,6 +108,7 @@ public class HiveSplit
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
+        this.bucketValidation = bucketValidation;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
     }
@@ -204,6 +208,12 @@ public class HiveSplit
     public Optional<BucketConversion> getBucketConversion()
     {
         return bucketConversion;
+    }
+
+    @JsonProperty
+    public Optional<BucketValidation> getBucketValidation()
+    {
+        return bucketValidation;
     }
 
     @Override
@@ -316,6 +326,42 @@ public class HiveSplit
         public int hashCode()
         {
             return Objects.hash(tableBucketCount, partitionBucketCount, bucketColumnNames);
+        }
+    }
+
+    public static class BucketValidation
+    {
+        private final BucketingVersion bucketingVersion;
+        private final int bucketCount;
+        private final List<HiveColumnHandle> bucketColumns;
+
+        @JsonCreator
+        public BucketValidation(
+                @JsonProperty("bucketingVersion") BucketingVersion bucketingVersion,
+                @JsonProperty("bucketCount") int bucketCount,
+                @JsonProperty("bucketColumns") List<HiveColumnHandle> bucketColumns)
+        {
+            this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
+            this.bucketCount = bucketCount;
+            this.bucketColumns = ImmutableList.copyOf(requireNonNull(bucketColumns, "bucketColumns is null"));
+        }
+
+        @JsonProperty
+        public BucketingVersion getBucketingVersion()
+        {
+            return bucketingVersion;
+        }
+
+        @JsonProperty
+        public int getBucketCount()
+        {
+            return bucketCount;
+        }
+
+        @JsonProperty
+        public List<HiveColumnHandle> getBucketColumns()
+        {
+            return bucketColumns;
         }
     }
 }

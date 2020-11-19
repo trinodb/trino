@@ -104,6 +104,7 @@ public class TestNodeLocalDynamicSplitPruning
                 false,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 false,
                 Optional.empty());
 

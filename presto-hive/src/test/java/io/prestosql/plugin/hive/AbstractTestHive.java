@@ -194,6 +194,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.bucketColumnHandle;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
@@ -272,6 +273,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -1720,6 +1722,83 @@ public abstract class AbstractTestHive
                         .collect(onlyElement()),
                 3);
         assertEquals(idCount.keySet(), expectedIds);
+    }
+
+    @Test
+    public void testBucketedTableValidation()
+            throws Exception
+    {
+        for (HiveStorageFormat storageFormat : createTableFormats) {
+            SchemaTableName table = temporaryTable("bucket_validation");
+            try {
+                doTestBucketedTableValidation(storageFormat, table);
+            }
+            finally {
+                dropTable(table);
+            }
+        }
+    }
+
+    private void doTestBucketedTableValidation(HiveStorageFormat storageFormat, SchemaTableName tableName)
+            throws Exception
+    {
+        createEmptyTable(
+                tableName,
+                storageFormat,
+                ImmutableList.of(
+                        new Column("id", HIVE_LONG, Optional.empty()),
+                        new Column("name", HIVE_STRING, Optional.empty())),
+                ImmutableList.of(),
+                Optional.of(new HiveBucketProperty(ImmutableList.of("id"), BUCKETING_V1, 8, ImmutableList.of())));
+
+        MaterializedResult.Builder dataBuilder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR);
+        for (long id = 0; id < 100; id++) {
+            dataBuilder.row(id, String.valueOf(id));
+        }
+        insertData(tableName, dataBuilder.build());
+
+        try (Transaction transaction = newTransaction()) {
+            Set<String> files = listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName());
+
+            Path bucket2 = files.stream()
+                    .map(Path::new)
+                    .filter(path -> path.getName().startsWith("000002_0_"))
+                    .collect(onlyElement());
+
+            Path bucket5 = files.stream()
+                    .map(Path::new)
+                    .filter(path -> path.getName().startsWith("000005_0_"))
+                    .collect(onlyElement());
+
+            HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, bucket2);
+            fileSystem.delete(bucket2, false);
+            fileSystem.rename(bucket5, bucket2);
+        }
+
+        // read succeeds when validation is disabled
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession(ImmutableMap.of("validate_bucketing", false));
+            metadata.beginQuery(session);
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+            assertEquals(result.getRowCount(), 87); // fewer rows due to deleted file
+        }
+
+        // read fails due to validation failure
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            metadata.beginQuery(session);
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+            assertPrestoExceptionThrownBy(
+                    () -> readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat)))
+                    .hasErrorCode(HIVE_INVALID_BUCKET_FILES)
+                    .hasMessageMatching("Hive table is corrupt\\. File '.*/000002_0_.*' is for bucket 2, but contains a row for bucket 5.");
+        }
     }
 
     private void assertTableIsBucketed(ConnectorTableHandle tableHandle, Transaction transaction, ConnectorSession session)
@@ -4552,6 +4631,9 @@ public abstract class AbstractTestHive
         if (pageSource instanceof RecordPageSource) {
             RecordCursor hiveRecordCursor = ((RecordPageSource) pageSource).getCursor();
             hiveRecordCursor = ((HiveRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
+            if (hiveRecordCursor instanceof HiveBucketValidationRecordCursor) {
+                hiveRecordCursor = ((HiveBucketValidationRecordCursor) hiveRecordCursor).delegate();
+            }
             if (hiveRecordCursor instanceof HiveCoercionRecordCursor) {
                 hiveRecordCursor = ((HiveCoercionRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
             }

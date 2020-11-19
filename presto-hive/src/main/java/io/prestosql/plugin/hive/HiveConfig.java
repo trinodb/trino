@@ -90,6 +90,7 @@ public class HiveConfig
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
+    private boolean validateBucketing = true;
 
     private DataSize textMaxLineLength = DataSize.of(100, MEGABYTE);
 
@@ -543,6 +544,19 @@ public class HiveConfig
     public HiveConfig setWriteValidationThreads(int writeValidationThreads)
     {
         this.writeValidationThreads = writeValidationThreads;
+        return this;
+    }
+
+    public boolean isValidateBucketing()
+    {
+        return validateBucketing;
+    }
+
+    @Config("hive.validate-bucketing")
+    @ConfigDescription("Verify that data is bucketed correctly when reading")
+    public HiveConfig setValidateBucketing(boolean validateBucketing)
+    {
+        this.validateBucketing = validateBucketing;
         return this;
     }
 
