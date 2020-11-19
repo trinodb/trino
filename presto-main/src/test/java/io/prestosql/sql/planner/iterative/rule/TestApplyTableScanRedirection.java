@@ -20,7 +20,9 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.MockConnectorColumnHandle;
 import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.connector.MockConnectorTableHandle;
+import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -31,6 +33,7 @@ import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.RuleTester;
+import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
 
@@ -42,7 +45,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
@@ -50,6 +52,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 
 public class TestApplyTableScanRedirection
 {
@@ -62,15 +65,17 @@ public class TestApplyTableScanRedirection
     private static final Session MOCK_SESSION = testSessionBuilder().setCatalog(MOCK_CATALOG).setSchema(TEST_SCHEMA).build();
 
     private static final String sourceColumnNameA = "source_col_a";
-    private static final ColumnHandle sourceColumnHandleA = new MockConnectorColumnHandle(sourceColumnNameA, INTEGER);
+    private static final ColumnHandle sourceColumnHandleA = new MockConnectorColumnHandle(sourceColumnNameA, VARCHAR);
     private static final String sourceColumnNameB = "source_col_b";
-    private static final ColumnHandle sourceColumnHandleB = new MockConnectorColumnHandle(sourceColumnNameB, INTEGER);
+    private static final ColumnHandle sourceColumnHandleB = new MockConnectorColumnHandle(sourceColumnNameB, VARCHAR);
 
     private static final SchemaTableName destinationTable = new SchemaTableName("target_schema", "target_table");
     private static final String destinationColumnNameA = "destination_col_a";
-    private static final ColumnHandle destinationColumnHandleA = new MockConnectorColumnHandle(destinationColumnNameA, INTEGER);
+    private static final ColumnHandle destinationColumnHandleA = new MockConnectorColumnHandle(destinationColumnNameA, VARCHAR);
     private static final String destinationColumnNameB = "destination_col_b";
-    private static final ColumnHandle destinationColumnHandleB = new MockConnectorColumnHandle(destinationColumnNameB, INTEGER);
+    private static final ColumnHandle destinationColumnHandleB = new MockConnectorColumnHandle(destinationColumnNameB, VARCHAR);
+    private static final String destinationColumnNameC = "destination_col_c";
+    private static final ColumnHandle destinationColumnHandleC = new MockConnectorColumnHandle(destinationColumnNameC, BIGINT);
 
     private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)
     {
@@ -113,6 +118,25 @@ public class TestApplyTableScanRedirection
                     .on(p -> p.values(p.symbol("a", BIGINT)))
                     .withSession(MOCK_SESSION)
                     .doesNotFire();
+        }
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Redirected type \\(bigint\\) for column destination_col_c and table .*target_table does not match source type \\(varchar\\) for source column .*source_col_a.* and table .*MockConnectorTableHandle.*")
+    public void testMismatchedTypes()
+    {
+        try (RuleTester ruleTester = defaultRuleTester()) {
+            // make the mock connector return a table scan on different table
+            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
+                    ImmutableMap.of(sourceColumnHandleA, destinationColumnNameC));
+            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
+
+            LocalQueryRunner runner = ruleTester.getQueryRunner();
+            runner.createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
+
+            transaction(runner.getTransactionManager(), runner.getAccessControl())
+                    .execute(MOCK_SESSION, session -> {
+                        ruleTester.getQueryRunner().createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP);
+                    });
         }
     }
 
@@ -225,7 +249,8 @@ public class TestApplyTableScanRedirection
                     else if (schemaTableName.equals(destinationTable)) {
                         return ImmutableList.of(
                                 new ColumnMetadata(destinationColumnNameA, VARCHAR),
-                                new ColumnMetadata(destinationColumnNameB, VARCHAR));
+                                new ColumnMetadata(destinationColumnNameB, VARCHAR),
+                                new ColumnMetadata(destinationColumnNameC, BIGINT));
                     }
                     throw new IllegalArgumentException();
                 });
