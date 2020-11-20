@@ -266,7 +266,7 @@ The example below defines the following table access policy:
           "filter_environment": {
             "user": "admin"
           }
-        }
+        },
         {
           "catalog": "default",
           "schema": "default",
