@@ -105,7 +105,8 @@ public class TestKafkaIntegrationPushDown
     }
 
     @Test
-    public void testPartitionPushDown() throws ExecutionException, InterruptedException
+    public void testPartitionPushDown()
+            throws ExecutionException, InterruptedException
     {
         createMessages(topicNamePartition);
         String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1", topicNamePartition);
@@ -115,7 +116,8 @@ public class TestKafkaIntegrationPushDown
     }
 
     @Test
-    public void testOffsetPushDown() throws ExecutionException, InterruptedException
+    public void testOffsetPushDown()
+            throws ExecutionException, InterruptedException
     {
         createMessages(topicNameOffset);
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
@@ -136,7 +138,8 @@ public class TestKafkaIntegrationPushDown
     }
 
     @Test(retryAnalyzer = FixedCountRetryAnalyzer.class)
-    public void testTimestampCreateTimeModePushDown() throws ExecutionException, InterruptedException
+    public void testTimestampCreateTimeModePushDown()
+            throws ExecutionException, InterruptedException
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameCreateTime);
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
@@ -167,7 +170,8 @@ public class TestKafkaIntegrationPushDown
     }
 
     @Test(retryAnalyzer = FixedCountRetryAnalyzer.class)
-    public void testTimestampLogAppendModePushDown() throws ExecutionException, InterruptedException
+    public void testTimestampLogAppendModePushDown()
+            throws ExecutionException, InterruptedException
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameLogAppend);
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
@@ -186,10 +190,10 @@ public class TestKafkaIntegrationPushDown
     }
 
     private String buildDebugDumpString(String topic,
-                                        RecordMessage recordMessage,
-                                        DistributedQueryRunner queryRunner,
-                                        String sql,
-                                        ResultWithQueryId<MaterializedResult> queryResult)
+            RecordMessage recordMessage,
+            DistributedQueryRunner queryRunner,
+            String sql,
+            ResultWithQueryId<MaterializedResult> queryResult)
     {
         StringBuilder sb = new StringBuilder();
         // dump main messages
@@ -235,7 +239,8 @@ public class TestKafkaIntegrationPushDown
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
     }
 
-    private RecordMessage createTimestampTestMessages(String topicName) throws ExecutionException, InterruptedException
+    private RecordMessage createTimestampTestMessages(String topicName)
+            throws ExecutionException, InterruptedException
     {
         String startTime = null;
         String endTime = null;
