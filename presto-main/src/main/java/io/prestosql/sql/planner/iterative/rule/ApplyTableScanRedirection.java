@@ -103,15 +103,13 @@ public class ApplyTableScanRedirection
                     Type sourceType = context.getSymbolAllocator().getTypes().get(entry.getKey());
                     Type redirectedType = metadata.getColumnMetadata(context.getSession(), destinationTableHandle.get(), destinationColumnHandle).getType();
                     if (!sourceType.equals(redirectedType)) {
-                        throw new PrestoException(TYPE_MISMATCH, format(
-                                "Redirected column %s.%s has type %s, different from source column %s.%s type: %s",
+                        throwTypeMismatchException(
                                 destinationTable,
                                 destinationColumn,
                                 redirectedType,
-                                // TODO report source table and column name instead of ConnectorTableHandle, ConnectorColumnHandle toString
                                 scanNode.getTable(),
                                 entry.getValue(),
-                                sourceType));
+                                sourceType);
                     }
 
                     return destinationColumnHandle;
@@ -145,10 +143,23 @@ public class ApplyTableScanRedirection
                 // symbol should be mapped in redirected table scan
                 return symbol;
             }
-            // Column pruning after PPD into table scan can remove assignments for filter columns from the scan node
+
+            // validate that redirected types match source types
             Type domainType = requiredFilter.getDomains().get().get(destinationColumn).getType();
-            symbol = context.getSymbolAllocator().newSymbol(destinationColumn, domainType);
             ColumnHandle destinationColumnHandle = destinationColumnHandles.get(destinationColumn);
+            Type redirectedType = metadata.getColumnMetadata(context.getSession(), destinationTableHandle.get(), destinationColumnHandle).getType();
+            if (!domainType.equals(redirectedType)) {
+                throwTypeMismatchException(
+                        destinationTable,
+                        destinationColumn,
+                        redirectedType,
+                        scanNode.getTable(),
+                        sourceColumnHandle,
+                        domainType);
+            }
+
+            // Column pruning after predicate is pushed into table scan can remove assignments for filter columns from the scan node
+            symbol = context.getSymbolAllocator().newSymbol(destinationColumn, domainType);
             if (destinationColumnHandle == null) {
                 throw new PrestoException(COLUMN_NOT_FOUND, format("Did not find handle for column %s in destination table %s", destinationColumn, destinationTable));
             }
@@ -179,5 +190,24 @@ public class ApplyTableScanRedirection
                         context.getIdAllocator().getNextId(),
                         filterNode,
                         Assignments.identity(scanNode.getOutputSymbols())));
+    }
+
+    private static void throwTypeMismatchException(
+            CatalogSchemaTableName destinationTable,
+            String destinationColumn,
+            Type destinationType,
+            TableHandle sourceTable,
+            ColumnHandle sourceColumnHandle,
+            Type sourceType)
+    {
+        throw new PrestoException(TYPE_MISMATCH, format(
+                "Redirected column %s.%s has type %s, different from source column %s.%s type: %s",
+                destinationTable,
+                destinationColumn,
+                destinationType,
+                // TODO report source table and column name instead of ConnectorTableHandle, ConnectorColumnHandle toString
+                sourceTable,
+                sourceColumnHandle,
+                sourceType));
     }
 }
