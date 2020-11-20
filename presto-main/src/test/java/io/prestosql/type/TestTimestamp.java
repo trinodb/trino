@@ -238,9 +238,9 @@ public class TestTimestamp
     public void testCastInvalidVarcharToTimestamp()
     {
         assertInvalidCast("cast('2020-13-01 23:59:01' as timestamp)",
-                "Value cannot be cast to timestamp; Invalid value for MonthOfYear (valid values 1 - 12): 13.");
+                "Value cannot be cast to timestamp: '2020-13-01 23:59:01'. Invalid value for MonthOfYear (valid values 1 - 12): 13.");
         assertInvalidCast("cast('2020-12-01 24:00:00' as timestamp)",
-                "Value cannot be cast to timestamp; Invalid value for HourOfDay (valid values 0 - 23): 24.");
+                "Value cannot be cast to timestamp: '2020-12-01 24:00:00'. Invalid value for HourOfDay (valid values 0 - 23): 24.");
     }
 
     @Test

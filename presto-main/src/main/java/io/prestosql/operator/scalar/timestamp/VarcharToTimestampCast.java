@@ -57,7 +57,7 @@ public final class VarcharToTimestampCast
         catch (DateTimeException e) {
             //Leverage highly specific error message from the source exception.
             throw new PrestoException(INVALID_CAST_ARGUMENT,
-                    String.format("Value cannot be cast to timestamp; %s.", e.getMessage()), e);
+                    String.format("Value cannot be cast to timestamp: '%s'. %s.", value.toStringUtf8(), e.getMessage()), e);
         }
     }
 
@@ -74,7 +74,7 @@ public final class VarcharToTimestampCast
         catch (DateTimeException e) {
             //Leverage highly specific error message from the source exception.
             throw new PrestoException(INVALID_CAST_ARGUMENT,
-                    String.format("Value cannot be cast to timestamp; %s. ", e.getMessage()), e);
+                    String.format("Value cannot be cast to timestamp: '%s'. %s.", value.toStringUtf8(), e.getMessage()), e);
         }
     }
 
