@@ -70,7 +70,9 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunctio
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
@@ -89,8 +91,6 @@ import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.Decimals.encodeScaledValue;
-import static io.prestosql.spi.type.Decimals.encodeShortScaledValue;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -292,18 +292,17 @@ public class OracleClient
                     break;
                 }
                 DecimalType decimalType = createDecimalType(precision, scale);
-                int finalScale = scale;
                 // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
                 if (decimalType.isShort()) {
                     return Optional.of(ColumnMapping.longMapping(
                             decimalType,
-                            (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), finalScale, roundingMode),
+                            shortDecimalReadFunction(decimalType, roundingMode),
                             shortDecimalWriteFunction(decimalType),
                             OracleClient::fullPushdownIfSupported));
                 }
                 return Optional.of(ColumnMapping.sliceMapping(
                         decimalType,
-                        (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), finalScale, roundingMode),
+                        longDecimalReadFunction(decimalType, roundingMode),
                         longDecimalWriteFunction(decimalType),
                         OracleClient::fullPushdownIfSupported));
 
