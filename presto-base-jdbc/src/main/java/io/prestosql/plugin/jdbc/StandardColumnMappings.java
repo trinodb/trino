@@ -165,18 +165,24 @@ public final class StandardColumnMappings
 
     public static ColumnMapping decimalColumnMapping(DecimalType decimalType, RoundingMode roundingMode)
     {
-        // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-        int scale = decimalType.getScale();
         if (decimalType.isShort()) {
             return ColumnMapping.longMapping(
                     decimalType,
-                    (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale),
+                    shortDecimalReadFunction(decimalType, UNNECESSARY),
                     shortDecimalWriteFunction(decimalType));
         }
         return ColumnMapping.sliceMapping(
                 decimalType,
-                (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex).setScale(scale, roundingMode)),
+                longDecimalReadFunction(decimalType, roundingMode),
                 longDecimalWriteFunction(decimalType));
+    }
+
+    public static LongReadFunction shortDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
+    {
+        // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
+        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        requireNonNull(roundingMode, "roundingMode is null");
+        return (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale, roundingMode);
     }
 
     public static LongWriteFunction shortDecimalWriteFunction(DecimalType decimalType)
@@ -188,6 +194,14 @@ public final class StandardColumnMappings
             BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
             statement.setBigDecimal(index, bigDecimal);
         };
+    }
+
+    public static SliceReadFunction longDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
+    {
+        // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
+        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        requireNonNull(roundingMode, "roundingMode is null");
+        return (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex).setScale(scale, roundingMode));
     }
 
     public static SliceWriteFunction longDecimalWriteFunction(DecimalType decimalType)
