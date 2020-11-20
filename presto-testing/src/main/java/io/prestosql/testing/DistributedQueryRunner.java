@@ -130,6 +130,14 @@ public class DistributedQueryRunner
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
+
+            if (!extraCoordinatorProperties.containsKey("web-ui.authentication.type")) {
+                // Make it possible to use Presto UI when running multiple tests (or tests and SomeQueryRunner.main) at once.
+                // This is necessary since cookies are shared (don't discern port number) and logging into one instance logs you out from others.
+                extraCoordinatorProperties.put("web-ui.authentication.type", "fixed");
+                extraCoordinatorProperties.put("web-ui.user", "admin");
+            }
+
             coordinator = closer.register(createTestingPrestoServer(
                     discoveryServer.getBaseUrl(),
                     true,
