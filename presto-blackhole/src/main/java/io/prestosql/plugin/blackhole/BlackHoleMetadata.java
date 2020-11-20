@@ -32,6 +32,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -74,6 +75,7 @@ public class BlackHoleMetadata
 
     private final List<String> schemas = new ArrayList<>();
     private final Map<SchemaTableName, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, ConnectorViewDefinition> views = new ConcurrentHashMap<>();
 
     public BlackHoleMetadata()
     {
@@ -323,6 +325,36 @@ public class BlackHoleMetadata
     @Override
     public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
+    }
+
+    @Override
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
+    {
+        views.put(viewName, definition);
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        views.remove(viewName);
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return ImmutableList.copyOf(views.keySet());
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return ImmutableMap.copyOf(views);
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.ofNullable(views.get(viewName));
     }
 
     @Override
