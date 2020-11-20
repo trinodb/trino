@@ -54,16 +54,7 @@ public class FlakyTestRetryAnalyzer
             return false;
         }
 
-        String enabledSystemPropertyValue = System.getProperty(ENABLED_SYSTEM_PROPERTY);
-        if (enabledSystemPropertyValue != null) {
-            if (!parseBoolean(enabledSystemPropertyValue)) {
-                log.info("not retrying; FlakyTestRetryAnalyzer explicitly disabled ('%s' property set to '%s')", ENABLED_SYSTEM_PROPERTY, enabledSystemPropertyValue);
-                return false;
-            }
-        }
-        // Enable retry on CI by default
-        if (System.getenv("CONTINUOUS_INTEGRATION") == null) {
-            log.info("not retrying; FlakyTestRetryAnalyzer not enabled as CONTINUOUS_INTEGRATION environment was not detected");
+        if (!isEnabled()) {
             return false;
         }
 
@@ -105,6 +96,25 @@ public class FlakyTestRetryAnalyzer
                 method.getMethodName(),
                 retryCount);
         return true;
+    }
+
+    private static boolean isEnabled()
+    {
+        String enabledSystemPropertyValue = System.getProperty(ENABLED_SYSTEM_PROPERTY);
+        if (parseBoolean(enabledSystemPropertyValue)) {
+            return true;
+        }
+        // Enable retry on CI by default
+        if (System.getenv("CONTINUOUS_INTEGRATION") != null) {
+            return true;
+        }
+        log.info(
+                "not retrying; FlakyTestRetryAnalyzer not enabled because: " +
+                        "CONTINUOUS_INTEGRATION environment is not detected, " +
+                        "system property '%s' is not set to 'true' (but to '%s')",
+                ENABLED_SYSTEM_PROPERTY,
+                enabledSystemPropertyValue);
+        return false;
     }
 
     private static String getName(ITestNGMethod method, Object[] parameters)
