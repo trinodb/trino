@@ -32,6 +32,7 @@ import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
+import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.assertions.PlanAssert;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
@@ -127,7 +128,7 @@ public class TestTableScanRedirectionWithPushdown
         // make the mock connector return a table scan on destination table only if
         // the connector can detect a filter
         try (LocalQueryRunner queryRunner = createLocalQueryRunner(
-                getMockApplyRedirectAfterPredicatePushdown(redirectionMappingA),
+                getMockApplyRedirectAfterPredicatePushdown(redirectionMappingA, Optional.empty()),
                 Optional.empty(),
                 Optional.of(getMockApplyFilter(ImmutableSet.of(sourceColumnHandleA, destinationColumnHandleA))))) {
             assertPlan(
@@ -153,7 +154,7 @@ public class TestTableScanRedirectionWithPushdown
     public void testPredicatePushdownAfterRedirect()
     {
         try (LocalQueryRunner queryRunner = createLocalQueryRunner(
-                getMockApplyRedirectAfterPredicatePushdown(redirectionMappingAB),
+                getMockApplyRedirectAfterPredicatePushdown(redirectionMappingAB, Optional.empty()),
                 Optional.empty(),
                 Optional.of(getMockApplyFilter(ImmutableSet.of(sourceColumnHandleA, destinationColumnHandleB))))) {
             // Only 'source_col_a = 1' will get pushed down into source table scan
@@ -180,7 +181,7 @@ public class TestTableScanRedirectionWithPushdown
     public void testRedirectAfterColumnPruningOnPushedDownPredicate()
     {
         try (LocalQueryRunner queryRunner = createLocalQueryRunner(
-                getMockApplyRedirectAfterPredicatePushdown(redirectionMappingAB),
+                getMockApplyRedirectAfterPredicatePushdown(redirectionMappingAB, Optional.of(ImmutableSet.of(sourceColumnHandleB))),
                 Optional.of(this::mockApplyProjection),
                 Optional.of(getMockApplyFilter(ImmutableSet.of(sourceColumnHandleA, destinationColumnHandleA))))) {
             // After 'source_col_a = 1' is pushed into source table scan, it's possible for 'source_col_a' table scan assignment to be pruned
@@ -193,7 +194,9 @@ public class TestTableScanRedirectionWithPushdown
                             ImmutableList.of("DEST_COL_B"),
                             tableScan(
                                     equalTo(new MockConnectorTableHandle(destinationTable)),
-                                    TupleDomain.withColumnDomains(ImmutableMap.of(equalTo(destinationColumnHandleA), singleValue(INTEGER, 1L))),
+                                    // PushProjectionIntoTableScan does not preserve enforced constraint
+                                    // (issue: https://github.com/prestosql/presto/issues/6029)
+                                    TupleDomain.all(),
                                     ImmutableMap.of("DEST_COL_B", equalTo(destinationColumnHandleB)))));
         }
     }
@@ -235,7 +238,11 @@ public class TestTableScanRedirectionWithPushdown
     {
         MockConnectorTableHandle handle = (MockConnectorTableHandle) tableHandle;
 
-        List<ColumnHandle> newColumns = assignments.values().stream()
+        List<Variable> variables = projections.stream()
+                .map(Variable.class::cast)
+                .collect(toImmutableList());
+        List<ColumnHandle> newColumns = variables.stream()
+                .map(variable -> assignments.get(variable.getName()))
                 .collect(toImmutableList());
         if (handle.getColumns().isPresent() && newColumns.equals(handle.getColumns().get())) {
             return Optional.empty();
@@ -245,11 +252,11 @@ public class TestTableScanRedirectionWithPushdown
                 new ProjectionApplicationResult<>(
                         new MockConnectorTableHandle(handle.getTableName(), handle.getConstraint(), Optional.of(newColumns)),
                         projections,
-                        assignments.entrySet().stream()
-                                .map(assignment -> new Assignment(
-                                        assignment.getKey(),
-                                        assignment.getValue(),
-                                        ((MockConnectorColumnHandle) assignment.getValue()).getType()))
+                        variables.stream()
+                                .map(variable -> new Assignment(
+                                        variable.getName(),
+                                        assignments.get(variable.getName()),
+                                        ((MockConnectorColumnHandle) assignments.get(variable.getName())).getType()))
                                 .collect(toImmutableList())));
     }
 
@@ -299,12 +306,19 @@ public class TestTableScanRedirectionWithPushdown
         };
     }
 
-    private ApplyTableScanRedirect getMockApplyRedirectAfterPredicatePushdown(Map<ColumnHandle, String> redirectionMapping)
+    private ApplyTableScanRedirect getMockApplyRedirectAfterPredicatePushdown(
+            Map<ColumnHandle, String> redirectionMapping,
+            Optional<Set<ColumnHandle>> requiredProjections)
     {
         return (session, handle) -> {
             MockConnectorTableHandle mockConnectorTable = (MockConnectorTableHandle) handle;
             // make sure we do redirection after predicate is pushed down
             if (mockConnectorTable.getConstraint().isAll()) {
+                return Optional.empty();
+            }
+            Optional<List<ColumnHandle>> projectedColumns = mockConnectorTable.getColumns();
+            if (requiredProjections.isPresent()
+                    && (projectedColumns.isEmpty() || !requiredProjections.get().equals(ImmutableSet.copyOf(projectedColumns.get())))) {
                 return Optional.empty();
             }
             return Optional.of(
