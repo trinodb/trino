@@ -271,7 +271,7 @@ public class OracleClient
                         oracleDoubleWriteFunction(),
                         OracleClient::fullPushdownIfSupported));
             case OracleTypes.NUMBER:
-                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                int decimalDigits = typeHandle.getRequiredDecimalDigits();
                 // Map negative scale to decimal(p+s, 0).
                 int precision = columnSize + max(-decimalDigits, 0);
                 int scale = max(decimalDigits, 0);

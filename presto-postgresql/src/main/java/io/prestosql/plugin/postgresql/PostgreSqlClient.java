@@ -354,7 +354,7 @@ public class PostgreSqlClient
                 return Optional.of(jsonColumnMapping());
             case "timestamptz":
                 // PostgreSQL's "timestamp with time zone" is reported as Types.TIMESTAMP rather than Types.TIMESTAMP_WITH_TIMEZONE
-                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                int decimalDigits = typeHandle.getRequiredDecimalDigits();
                 return Optional.of(timestampWithTimeZoneColumnMapping(decimalDigits));
             case "hstore":
                 return Optional.of(hstoreColumnMapping(session));
@@ -364,11 +364,11 @@ public class PostgreSqlClient
             return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
         }
         if (typeHandle.getJdbcType() == Types.TIME) {
-            int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+            int decimalDigits = typeHandle.getRequiredDecimalDigits();
             return Optional.of(timeColumnMapping(decimalDigits));
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
-            int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+            int decimalDigits = typeHandle.getRequiredDecimalDigits();
             TimestampType timestampType = createTimestampType(decimalDigits);
             return Optional.of(ColumnMapping.longMapping(
                     timestampType,
@@ -382,7 +382,7 @@ public class PostgreSqlClient
                 return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
             }
             int precision = typeHandle.getColumnSize();
-            int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+            int decimalDigits = typeHandle.getRequiredDecimalDigits();
             if (precision > Decimals.MAX_PRECISION) {
                 int scale = min(decimalDigits, getDecimalDefaultScale(session));
                 return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));

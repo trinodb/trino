@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
@@ -88,6 +89,12 @@ public final class JdbcTypeHandle
     public Optional<Integer> getDecimalDigits()
     {
         return decimalDigits;
+    }
+
+    @JsonIgnore
+    public int getRequiredDecimalDigits()
+    {
+        return getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
     }
 
     @JsonProperty
