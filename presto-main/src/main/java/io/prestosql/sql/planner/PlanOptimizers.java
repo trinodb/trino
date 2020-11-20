@@ -551,6 +551,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new ApplyTableScanRedirection(metadata),
+                                new PushProjectionIntoTableScan(metadata, typeAnalyzer),
                                 new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))));
 
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
