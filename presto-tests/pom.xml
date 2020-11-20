@@ -172,6 +172,12 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
+            <artifactId>presto-blackhole</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-memory</artifactId>
             <scope>test</scope>
         </dependency>
