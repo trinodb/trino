@@ -21,6 +21,7 @@ import io.prestosql.connector.MockConnectorColumnHandle;
 import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.connector.MockConnectorTableHandle;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -53,11 +54,14 @@ import static io.prestosql.connector.MockConnectorFactory.ApplyProjection;
 import static io.prestosql.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTableScanRedirectionWithPushdown
 {
@@ -72,6 +76,8 @@ public class TestTableScanRedirectionWithPushdown
     private static final ColumnHandle sourceColumnHandleA = new MockConnectorColumnHandle(sourceColumnNameA, INTEGER);
     private static final String sourceColumnNameB = "source_col_b";
     private static final ColumnHandle sourceColumnHandleB = new MockConnectorColumnHandle(sourceColumnNameB, INTEGER);
+    private static final String sourceColumnNameC = "source_col_c";
+    private static final ColumnHandle sourceColumnHandleC = new MockConnectorColumnHandle(sourceColumnNameC, VARCHAR);
 
     private static final SchemaTableName destinationTable = new SchemaTableName("target_schema", "target_table");
     private static final String destinationColumnNameA = "destination_col_a";
@@ -84,6 +90,10 @@ public class TestTableScanRedirectionWithPushdown
     private static final Map<ColumnHandle, String> redirectionMappingAB = ImmutableMap.of(
             sourceColumnHandleA, destinationColumnNameA,
             sourceColumnHandleB, destinationColumnNameB);
+
+    private static final Map<ColumnHandle, String> typeMismatchedRedirectionMappingBC = ImmutableMap.of(
+            sourceColumnHandleB, destinationColumnNameB,
+            sourceColumnHandleC, destinationColumnNameA);
 
     @Test
     public void testRedirectionAfterProjectionPushdown()
@@ -201,6 +211,25 @@ public class TestTableScanRedirectionWithPushdown
         }
     }
 
+    @Test
+    public void testPredicateTypeMismatch()
+    {
+        try (LocalQueryRunner queryRunner = createLocalQueryRunner(
+                getMockApplyRedirectAfterPredicatePushdown(typeMismatchedRedirectionMappingBC, Optional.of(ImmutableSet.of(sourceColumnHandleB))),
+                Optional.of(this::mockApplyProjection),
+                Optional.of(getMockApplyFilter(ImmutableSet.of(sourceColumnHandleC))))) {
+            // After 'source_col_c = 1' is pushed into source table scan, it's possible for 'source_col_c' table scan assignment to be pruned
+            // Redirection results in Project('dest_col_b') -> Filter('dest_col_c = 1') -> TableScan for such case
+            // but dest_col_a has mismatched type compared to source domain
+            transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                    .execute(MOCK_SESSION, session -> {
+                        assertThatThrownBy(() -> queryRunner.createPlan(session, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'", WarningCollector.NOOP))
+                                .isInstanceOf(PrestoException.class)
+                                .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_a has type integer, different from source column .*MockConnectorTableHandle.*source_col_c.* type: varchar");
+                    });
+        }
+    }
+
     private LocalQueryRunner createLocalQueryRunner(
             ApplyTableScanRedirect applyTableScanRedirect,
             Optional<ApplyProjection> applyProjection,
@@ -213,7 +242,8 @@ public class TestTableScanRedirectionWithPushdown
                     if (name.equals(sourceTable)) {
                         return ImmutableList.of(
                                 new ColumnMetadata(sourceColumnNameA, INTEGER),
-                                new ColumnMetadata(sourceColumnNameB, INTEGER));
+                                new ColumnMetadata(sourceColumnNameB, INTEGER),
+                                new ColumnMetadata(sourceColumnNameC, VARCHAR));
                     }
                     else if (name.equals(destinationTable)) {
                         return ImmutableList.of(
