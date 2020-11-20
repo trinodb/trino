@@ -42,6 +42,7 @@ import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.spi.statistics.TableStatisticsMetadata;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -68,7 +69,7 @@ import static java.util.stream.Collectors.toSet;
 public class BlackHoleMetadata
         implements ConnectorMetadata
 {
-    public static final String SCHEMA_NAME = "default";
+    private static final String SCHEMA_NAME = "default";
 
     private final List<String> schemas = new ArrayList<>();
     private final Map<SchemaTableName, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
@@ -109,6 +110,29 @@ public class BlackHoleMetadata
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         return tables.get(tableName);
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
+    {
+        return getTableHandle(session, tableName);
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return TableStatisticsMetadata.empty();
+    }
+
+    @Override
+    public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return tableHandle;
+    }
+
+    @Override
+    public void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    {
     }
 
     @Override
