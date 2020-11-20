@@ -17,14 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
-import io.airlift.testing.Assertions;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
@@ -41,28 +39,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DataProviders.toDataProvider;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.QueryAssertions.getPrestoExceptionCause;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW_WITH_SELECT_COLUMNS;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_COLUMN;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.GRANT_EXECUTE_FUNCTION;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_COLUMN;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
-import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.assertions.Assert.assertEventually;
@@ -787,12 +769,6 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
         assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
         assertUpdate("DROP TABLE " + tableName);
-
-        // Test DELETE access control
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
-        assertAccessDenied("DELETE FROM " + tableName + " where orderkey < 12", "Cannot select from columns \\[orderkey\\] in table or view .*." + tableName + ".*", privilege(tableName + ".orderkey", SELECT_COLUMN));
-        assertAccessAllowed("DELETE FROM " + tableName + " where orderkey < 12", privilege(tableName + ".orderdate", SELECT_COLUMN));
-        assertAccessAllowed("DELETE FROM " + tableName, privilege("orders", SELECT_COLUMN));
     }
 
     @Test
@@ -1073,189 +1049,6 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
         assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testNonQueryAccessControl()
-    {
-        skipTestUnless(supportsViews());
-
-        assertAccessDenied("SET SESSION " + QUERY_MAX_MEMORY + " = '10MB'",
-                "Cannot set system session property " + QUERY_MAX_MEMORY,
-                privilege(QUERY_MAX_MEMORY, SET_SESSION));
-
-        assertAccessDenied("CREATE TABLE foo (pk bigint)", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
-        assertAccessDenied("DROP TABLE orders", "Cannot drop table .*.orders.*", privilege("orders", DROP_TABLE));
-        assertAccessDenied("ALTER TABLE orders RENAME TO foo", "Cannot rename table .*.orders.* to .*.foo.*", privilege("orders", RENAME_TABLE));
-        assertAccessDenied("ALTER TABLE orders ADD COLUMN foo bigint", "Cannot add a column to table .*.orders.*", privilege("orders", ADD_COLUMN));
-        assertAccessDenied("ALTER TABLE orders DROP COLUMN foo", "Cannot drop a column from table .*.orders.*", privilege("orders", DROP_COLUMN));
-        assertAccessDenied("ALTER TABLE orders RENAME COLUMN orderkey TO foo", "Cannot rename a column in table .*.orders.*", privilege("orders", RENAME_COLUMN));
-        assertAccessDenied("CREATE VIEW foo as SELECT * FROM orders", "Cannot create view .*.foo.*", privilege("foo", CREATE_VIEW));
-        // todo add DROP VIEW test... not all connectors have view support
-
-        try {
-            assertAccessDenied("SELECT 1", "Principal .* cannot become user " + getSession().getUser() + ".*", privilege(getSession().getUser(), SET_USER));
-        }
-        catch (AssertionError e) {
-            // There is no clean exception message for authorization failure.  We simply get a 403
-            Assertions.assertContains(e.getMessage(), "statusCode=403");
-        }
-    }
-
-    @Test
-    public void testViewColumnAccessControl()
-    {
-        skipTestUnless(supportsViews());
-
-        Session viewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(Identity.ofUser("test_view_access_owner"))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
-                .build();
-
-        String columnAccessViewName = "test_view_column_access_" + randomTableSuffix();
-
-        // TEST COLUMN-LEVEL PRIVILEGES
-        // view creation permissions are only checked at query time, not at creation
-        assertAccessAllowed(
-                viewOwnerSession,
-                "CREATE VIEW " + columnAccessViewName + " AS SELECT * FROM orders",
-                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
-
-        // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
-        assertAccessDenied(
-                "SELECT * FROM " + columnAccessViewName,
-                "View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders\\w*",
-                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
-
-        // verify the view owner can select from the view even without special view creation privileges
-        assertAccessAllowed(
-                viewOwnerSession,
-                "SELECT * FROM " + columnAccessViewName,
-                privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
-
-        // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
-        assertAccessAllowed(
-                "SELECT * FROM " + columnAccessViewName,
-                privilege(getSession().getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
-        assertAccessAllowed(
-                "SELECT * FROM " + columnAccessViewName,
-                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
-
-        Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(Identity.ofUser("test_nested_view_access_owner"))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
-                .build();
-
-        String nestedViewName = "test_nested_view_column_access_" + randomTableSuffix();
-        // view creation permissions are only checked at query time, not at creation
-        assertAccessAllowed(
-                nestedViewOwnerSession,
-                "CREATE VIEW " + nestedViewName + " AS SELECT * FROM " + columnAccessViewName,
-                privilege(columnAccessViewName, CREATE_VIEW_WITH_SELECT_COLUMNS));
-
-        // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
-        assertAccessDenied(
-                "SELECT * FROM " + nestedViewName,
-                "View owner does not have sufficient privileges: View owner 'test_nested_view_access_owner' cannot create view that selects from \\w+.\\w+.test_view_column_access\\w*",
-                privilege(nestedViewOwnerSession.getUser(), columnAccessViewName, CREATE_VIEW_WITH_SELECT_COLUMNS));
-
-        // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
-        assertAccessAllowed(
-                "SELECT * FROM " + nestedViewName,
-                privilege(getSession().getUser(), columnAccessViewName, CREATE_VIEW_WITH_SELECT_COLUMNS));
-        assertAccessAllowed(
-                "SELECT * FROM " + nestedViewName,
-                privilege(getSession().getUser(), columnAccessViewName, SELECT_COLUMN));
-
-        // verify that INVOKER security runs as session user
-        String invokerViewName = "test_invoker_view_column_access_" + randomTableSuffix();
-        assertAccessAllowed(
-                viewOwnerSession,
-                "CREATE VIEW " + invokerViewName + " SECURITY INVOKER AS SELECT * FROM orders",
-                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
-        assertAccessAllowed(
-                "SELECT * FROM " + invokerViewName,
-                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
-        assertAccessDenied(
-                "SELECT * FROM " + invokerViewName,
-                "Cannot select from columns \\[.*\\] in table .*.orders.*",
-                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
-
-        // verify that groups are set inside access control
-        executeExclusively(() -> {
-            try {
-                // require view owner to be in a group to access table
-                getQueryRunner().getAccessControl().denyIdentityTable((identity, table) -> identity.getGroups().contains("testgroup") || !table.equals("orders"));
-                assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName))
-                        .hasMessageMatching("Access Denied: View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders");
-
-                // verify view can be queried when owner is in group
-                getQueryRunner().getGroupProvider().setUserGroups(ImmutableMap.of(viewOwnerSession.getUser(), ImmutableSet.of("testgroup")));
-                getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName);
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-                getQueryRunner().getGroupProvider().reset();
-            }
-        });
-
-        // change access denied exception to view
-        assertAccessDenied("SHOW CREATE VIEW " + nestedViewName, "Cannot show create table for .*test_nested_view_column_access.*", privilege(nestedViewName, SHOW_CREATE_TABLE));
-        assertAccessAllowed("SHOW CREATE VIEW " + nestedViewName, privilege("test_denied_access_view", SHOW_CREATE_TABLE));
-
-        assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW " + nestedViewName);
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + columnAccessViewName);
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerViewName);
-    }
-
-    @Test
-    public void testViewFunctionAccessControl()
-    {
-        skipTestUnless(supportsViews());
-
-        Session viewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(Identity.ofUser("test_view_access_owner"))
-                .setCatalog(getSession().getCatalog().get())
-                .setSchema(getSession().getSchema().get())
-                .build();
-
-        // TEST FUNCTION PRIVILEGES
-        // view creation permissions are only checked at query time, not at creation
-        String functionAccessViewName = "test_view_function_access_" + randomTableSuffix();
-        assertAccessAllowed(
-                viewOwnerSession,
-                "CREATE VIEW " + functionAccessViewName + " AS SELECT abs(1) AS c",
-                privilege("abs", GRANT_EXECUTE_FUNCTION));
-
-        assertAccessDenied(
-                "SELECT * FROM " + functionAccessViewName,
-                "View owner does not have sufficient privileges: 'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
-                privilege(viewOwnerSession.getUser(), "abs", GRANT_EXECUTE_FUNCTION));
-
-        // verify executing from a view over a function does not require the session user to have execute privileges on the underlying function
-        assertAccessAllowed(
-                "SELECT * FROM " + functionAccessViewName,
-                privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
-
-        // TEST SECURITY INVOKER
-        // view creation permissions are only checked at query time, not at creation
-        String invokerFunctionAccessViewName = "test_invoker_view_function_access_" + randomTableSuffix();
-        assertAccessAllowed(
-                viewOwnerSession,
-                "CREATE VIEW " + invokerFunctionAccessViewName + " SECURITY INVOKER AS SELECT abs(1) AS c",
-                privilege("abs", GRANT_EXECUTE_FUNCTION));
-        assertAccessAllowed(
-                "SELECT * FROM " + invokerFunctionAccessViewName,
-                privilege(viewOwnerSession.getUser(), "abs", EXECUTE_FUNCTION));
-        assertAccessDenied(
-                "SELECT * FROM " + invokerFunctionAccessViewName,
-                "Cannot execute function abs",
-                privilege(getSession().getUser(), "abs", EXECUTE_FUNCTION));
-
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + functionAccessViewName);
-        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerFunctionAccessViewName);
     }
 
     @Test
