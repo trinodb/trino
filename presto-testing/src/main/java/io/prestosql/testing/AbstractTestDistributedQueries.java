@@ -65,6 +65,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
@@ -1011,15 +1012,15 @@ public abstract class AbstractTestDistributedQueries
     {
         QueryManager queryManager = getDistributedQueryRunner().getCoordinator().getQueryManager();
         executeExclusively(() -> {
-            assertUntilTimeout(
+            assertEventually(
+                    new Duration(1, MINUTES),
                     () -> assertEquals(
                             queryManager.getQueries().stream()
                                     .map(BasicQueryInfo::getQueryId)
                                     .map(queryManager::getFullQueryInfo)
                                     .filter(info -> !info.isFinalQueryInfo())
                                     .collect(toList()),
-                            ImmutableList.of()),
-                    new Duration(1, MINUTES));
+                            ImmutableList.of()));
 
             // We cannot simply get the number of completed queries as soon as all the queries are completed, because this counter may not be up-to-date at that point.
             // The completed queries counter is updated in a final query info listener, which is called eventually.
@@ -1035,9 +1036,9 @@ public abstract class AbstractTestDistributedQueries
             assertQueryFails("SELECT * FROM " + tableName, ".*Table .* does not exist");
 
             // TODO: Figure out a better way of synchronization
-            assertUntilTimeout(
-                    () -> assertEquals(dispatchManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount, 4),
-                    new Duration(1, MINUTES));
+            assertEventually(
+                    new Duration(1, MINUTES),
+                    () -> assertEquals(dispatchManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount, 4));
             assertEquals(dispatchManager.getStats().getSubmittedQueries().getTotalCount() - beforeSubmittedQueriesCount, 4);
         });
     }
@@ -1055,23 +1056,6 @@ public abstract class AbstractTestDistributedQueries
             lastValue = currentValue;
         }
         throw new UncheckedTimeoutException();
-    }
-
-    private static void assertUntilTimeout(Runnable assertion, Duration timeout)
-    {
-        long start = System.nanoTime();
-        while (!currentThread().isInterrupted()) {
-            try {
-                assertion.run();
-                return;
-            }
-            catch (AssertionError e) {
-                if (nanosSince(start).compareTo(timeout) > 0) {
-                    throw e;
-                }
-            }
-            sleepUninterruptibly(50, MILLISECONDS);
-        }
     }
 
     @Test
