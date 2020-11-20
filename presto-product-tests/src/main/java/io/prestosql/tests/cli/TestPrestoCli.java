@@ -15,6 +15,7 @@ package io.prestosql.tests.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
+import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.airlift.testing.TempFile;
@@ -27,9 +28,10 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestosql.tempto.process.CliProcess.trimLines;
 import static io.prestosql.tests.TestGroups.AUTHORIZATION;
@@ -105,8 +107,19 @@ public class TestPrestoCli
             throws IOException
     {
         launchPrestoCli("--version");
-        String version = firstNonNull(TestPrestoCli.class.getPackage().getImplementationVersion(), "(version unknown)");
-        assertThat(presto.readRemainingOutputLines()).containsExactly("Presto CLI " + version);
+        assertThat(presto.readRemainingOutputLines()).containsExactly("Presto CLI " + readPrestoCliVersion());
+    }
+
+    private static String readPrestoCliVersion()
+    {
+        try {
+            String version = Resources.toString(Resources.getResource("presto-cli-version.txt"), UTF_8).trim();
+            checkState(!version.isEmpty(), "version is empty");
+            return version;
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
