@@ -47,16 +47,20 @@ public class TestIcebergCreateTable
     {
         String tableName = "iceberg.iceberg.test_create_table_" + randomTableSuffix();
         onPresto().executeQuery("CREATE TABLE " + tableName + "(a bigint, b varchar)");
-        onPresto().executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +
-                "(NULL, NULL), " +
-                "(-42, 'abc'), " +
-                "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')");
-        assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
-                .containsOnly(
-                        row(null, null),
-                        row(-42, "abc"),
-                        row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
-        onPresto().executeQuery("DROP TABLE " + tableName);
+        try {
+            onPresto().executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +
+                    "(NULL, NULL), " +
+                    "(-42, 'abc'), " +
+                    "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')");
+            assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
+                    .containsOnly(
+                            row(null, null),
+                            row(-42, "abc"),
+                            row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
+        }
+        finally {
+            onPresto().executeQuery("DROP TABLE " + tableName);
+        }
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
@@ -71,11 +75,15 @@ public class TestIcebergCreateTable
                 "  (-42, 'abc'), " +
                 "  (9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')" +
                 ") t(a, b)");
-        assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
-                .containsOnly(
-                        row(null, null),
-                        row(-42, "abc"),
-                        row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
-        onPresto().executeQuery("DROP TABLE " + tableName);
+        try {
+            assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
+                    .containsOnly(
+                            row(null, null),
+                            row(-42, "abc"),
+                            row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
+        }
+        finally {
+            onPresto().executeQuery("DROP TABLE " + tableName);
+        }
     }
 }
