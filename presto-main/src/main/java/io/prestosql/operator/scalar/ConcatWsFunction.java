@@ -37,7 +37,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.addExact;
@@ -101,7 +101,7 @@ public final class ConcatWsFunction
                         VARCHAR.getTypeSignature(),
                         ImmutableList.of(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
                         true),
-                true,
+                false,
                 ImmutableList.of(new FunctionArgumentDefinition(false), new FunctionArgumentDefinition(true)),
                 false,
                 true,
@@ -122,7 +122,7 @@ public final class ConcatWsFunction
 
         return new ChoicesScalarFunctionImplementation(
                 binding,
-                NULLABLE_RETURN,
+                FAIL_ON_NULL,
                 ImmutableList.<InvocationConvention.InvocationArgumentConvention>builder()
                         .add(NEVER_NULL)
                         .addAll(Collections.nCopies(valueCount, BOXED_NULLABLE))
