@@ -391,58 +391,56 @@ abstract class AbstractPrestoResultSet
     public String getString(String columnLabel)
             throws SQLException
     {
-        Object value = column(columnLabel);
-        return (value != null) ? value.toString() : null;
+        return getString(columnIndex(columnLabel));
     }
 
     @Override
     public boolean getBoolean(String columnLabel)
             throws SQLException
     {
-        Object value = column(columnLabel);
-        return (value != null) ? (Boolean) value : false;
+        return getBoolean(columnIndex(columnLabel));
     }
 
     @Override
     public byte getByte(String columnLabel)
             throws SQLException
     {
-        return toNumber(column(columnLabel)).byteValue();
+        return getByte(columnIndex(columnLabel));
     }
 
     @Override
     public short getShort(String columnLabel)
             throws SQLException
     {
-        return toNumber(column(columnLabel)).shortValue();
+        return getShort(columnIndex(columnLabel));
     }
 
     @Override
     public int getInt(String columnLabel)
             throws SQLException
     {
-        return toNumber(column(columnLabel)).intValue();
+        return getInt(columnIndex(columnLabel));
     }
 
     @Override
     public long getLong(String columnLabel)
             throws SQLException
     {
-        return toNumber(column(columnLabel)).longValue();
+        return getLong(columnIndex(columnLabel));
     }
 
     @Override
     public float getFloat(String columnLabel)
             throws SQLException
     {
-        return toNumber(column(columnLabel)).floatValue();
+        return getFloat(columnIndex(columnLabel));
     }
 
     @Override
     public double getDouble(String columnLabel)
             throws SQLException
     {
-        return toNumber(column(columnLabel)).doubleValue();
+        return getDouble(columnIndex(columnLabel));
     }
 
     @Override
@@ -456,7 +454,7 @@ abstract class AbstractPrestoResultSet
     public byte[] getBytes(String columnLabel)
             throws SQLException
     {
-        return (byte[]) column(columnLabel);
+        return getBytes(columnIndex(columnLabel));
     }
 
     @Override
@@ -1725,16 +1723,6 @@ abstract class AbstractPrestoResultSet
             throw new SQLException("Invalid column index: " + index);
         }
         return columnInfoList.get(index - 1);
-    }
-
-    private Object column(String label)
-            throws SQLException
-    {
-        checkOpen();
-        checkValidRow();
-        Object value = row.get().get(columnIndex(label) - 1);
-        wasNull.set(value == null);
-        return value;
     }
 
     private int columnIndex(String label)
