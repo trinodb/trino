@@ -75,7 +75,6 @@ import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -315,7 +314,7 @@ public class MemSqlClient
             return Optional.of(bigintColumnMapping());
         }
         else if (typeName.equalsIgnoreCase("bigint unsigned")) {
-            return Optional.of(decimalColumnMapping(createDecimalType(20), UNNECESSARY));
+            return Optional.of(decimalColumnMapping(createDecimalType(20)));
         }
 
         return Optional.empty();

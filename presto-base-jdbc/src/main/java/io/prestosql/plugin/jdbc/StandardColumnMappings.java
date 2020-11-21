@@ -163,18 +163,29 @@ public final class StandardColumnMappings
         return PreparedStatement::setDouble;
     }
 
+    public static ColumnMapping decimalColumnMapping(DecimalType decimalType)
+    {
+        return decimalColumnMapping(decimalType, UNNECESSARY);
+    }
+
     public static ColumnMapping decimalColumnMapping(DecimalType decimalType, RoundingMode roundingMode)
     {
         if (decimalType.isShort()) {
+            checkArgument(roundingMode == UNNECESSARY, "Round mode is not supported for short decimal, map the type to long decimal instead");
             return ColumnMapping.longMapping(
                     decimalType,
-                    shortDecimalReadFunction(decimalType, UNNECESSARY),
+                    shortDecimalReadFunction(decimalType),
                     shortDecimalWriteFunction(decimalType));
         }
         return ColumnMapping.sliceMapping(
                 decimalType,
                 longDecimalReadFunction(decimalType, roundingMode),
                 longDecimalWriteFunction(decimalType));
+    }
+
+    public static LongReadFunction shortDecimalReadFunction(DecimalType decimalType)
+    {
+        return shortDecimalReadFunction(decimalType, UNNECESSARY);
     }
 
     public static LongReadFunction shortDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
@@ -194,6 +205,11 @@ public final class StandardColumnMappings
             BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
             statement.setBigDecimal(index, bigDecimal);
         };
+    }
+
+    public static SliceReadFunction longDecimalReadFunction(DecimalType decimalType)
+    {
+        return longDecimalReadFunction(decimalType, UNNECESSARY);
     }
 
     public static SliceReadFunction longDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
@@ -513,7 +529,7 @@ public final class StandardColumnMappings
                 if (precision > Decimals.MAX_PRECISION) {
                     return Optional.empty();
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
 
             case Types.CHAR:
             case Types.NCHAR:
