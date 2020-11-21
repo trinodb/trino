@@ -24,6 +24,7 @@ public class SplitCompletedEvent
     private final String queryId;
     private final String stageId;
     private final String taskId;
+    private final Optional<String> catalogName;
 
     private final Instant createTime;
     private final Optional<Instant> startTime;
@@ -38,6 +39,7 @@ public class SplitCompletedEvent
             String queryId,
             String stageId,
             String taskId,
+            Optional<String> catalogName,
             Instant createTime,
             Optional<Instant> startTime,
             Optional<Instant> endTime,
@@ -48,6 +50,7 @@ public class SplitCompletedEvent
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.stageId = requireNonNull(stageId, "stageId is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.startTime = requireNonNull(startTime, "startTime is null");
         this.endTime = requireNonNull(endTime, "endTime is null");
@@ -99,6 +102,11 @@ public class SplitCompletedEvent
     public String getPayload()
     {
         return payload;
+    }
+
+    public Optional<String> getCatalogName()
+    {
+        return catalogName;
     }
 
     @Override
