@@ -15,17 +15,23 @@ package io.prestosql.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.connector.CatalogName;
+
+import static java.util.Objects.requireNonNull;
 
 public class SplitOperatorInfo
         implements OperatorInfo
 {
+    private final CatalogName catalogName;
     // NOTE: this deserializes to a map instead of the expected type
     private final Object splitInfo;
 
     @JsonCreator
     public SplitOperatorInfo(
+            @JsonProperty("catalogName") CatalogName catalogName,
             @JsonProperty("splitInfo") Object splitInfo)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.splitInfo = splitInfo;
     }
 
@@ -39,5 +45,11 @@ public class SplitOperatorInfo
     public Object getSplitInfo()
     {
         return splitInfo;
+    }
+
+    @JsonProperty
+    public CatalogName getCatalogName()
+    {
+        return catalogName;
     }
 }

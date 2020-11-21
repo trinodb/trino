@@ -19,6 +19,8 @@ import io.airlift.log.Logger;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.TaskId;
 import io.prestosql.operator.DriverStats;
+import io.prestosql.operator.OperatorStats;
+import io.prestosql.operator.SplitOperatorInfo;
 import io.prestosql.spi.eventlistener.SplitCompletedEvent;
 import io.prestosql.spi.eventlistener.SplitFailureInfo;
 import io.prestosql.spi.eventlistener.SplitStatistics;
@@ -75,12 +77,20 @@ public class SplitMonitor
             splitFailureMetadata = Optional.of(new SplitFailureInfo(failureType, failureMessage != null ? failureMessage : ""));
         }
 
+        Optional<String> splitCatalog = driverStats.getOperatorStats().stream()
+                .map(OperatorStats::getInfo)
+                .filter(SplitOperatorInfo.class::isInstance)
+                .map(SplitOperatorInfo.class::cast)
+                .map(info -> info.getCatalogName().getCatalogName())
+                .findFirst();
+
         try {
             eventListenerManager.splitCompleted(
                     new SplitCompletedEvent(
                             taskId.getQueryId().toString(),
                             taskId.getStageId().toString(),
                             Integer.toString(taskId.getId()),
+                            splitCatalog,
                             driverStats.getCreateTime().toDate().toInstant(),
                             Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),
                             Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),
