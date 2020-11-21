@@ -131,7 +131,7 @@ public class IndexSourceOperator
 
         Object splitInfo = split.getInfo();
         if (splitInfo != null) {
-            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(splitInfo));
+            operatorContext.setInfoSupplier(() -> new SplitOperatorInfo(split.getCatalogName(), splitInfo));
         }
 
         return Optional::empty;
