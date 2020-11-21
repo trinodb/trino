@@ -32,7 +32,8 @@ public class TestIcebergCreateTable
     @BeforeTestWithContext
     public void setUp()
     {
-        onPresto().executeQuery("CREATE SCHEMA iceberg.iceberg");
+        // Use IF NOT EXISTS because the schema can be left behind after previous test, as the tests are @Flaky
+        onPresto().executeQuery("CREATE SCHEMA IF NOT EXISTS iceberg.iceberg");
     }
 
     @AfterTestWithContext
