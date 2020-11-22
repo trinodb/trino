@@ -44,12 +44,14 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
@@ -192,25 +194,12 @@ public class SuiteRun
             EnvironmentConfig environmentConfig = configFactory.getConfig(environmentOptions.config);
             List<SuiteTestRun> suiteTestRuns = suite.getTestRuns(environmentConfig);
 
-            log.info("Starting suite '%s' with config '%s' and test runs: ", suiteName, environmentConfig.getConfigName());
+            log.info("Starting suite '%s' with config '%s': ", suiteName, environmentConfig.getConfigName());
 
-            for (int runId = 0; runId < suiteTestRuns.size(); runId++) {
-                SuiteTestRun testRun = suiteTestRuns.get(runId);
-                log.info("#%02d %s - groups: %s, excluded groups: %s, tests: %s, excluded tests: %s",
-                        runId + 1,
-                        testRun.getEnvironmentName(),
-                        testRun.getGroups(),
-                        testRun.getExcludedGroups(),
-                        testRun.getTests(),
-                        testRun.getExcludedTests());
-            }
-            ImmutableList.Builder<TestRunResult> results = ImmutableList.builder();
+            List<TestRunResult> testRunsResults = suiteTestRuns.stream()
+                    .map(testRun -> executeSuiteTestRun(suiteName, testRun, environmentConfig))
+                    .collect(toImmutableList());
 
-            for (int runId = 0; runId < suiteTestRuns.size(); runId++) {
-                results.add(executeSuiteTestRun(runId + 1, suiteName, suiteTestRuns.get(runId), environmentConfig));
-            }
-
-            List<TestRunResult> testRunsResults = results.build();
             printTestRunsSummary(suiteName, testRunsResults);
 
             return getFailedCount(testRunsResults) == 0 ? ExitCode.OK : ExitCode.SOFTWARE;
@@ -232,8 +221,10 @@ public class SuiteRun
                     .count();
         }
 
-        public TestRunResult executeSuiteTestRun(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
+        public TestRunResult executeSuiteTestRun(String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
         {
+            String runId = generateRandomRunId();
+
             TestRun.TestRunOptions testRunOptions = createTestRunOptions(runId, suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
             if (testRunOptions.timeout.toMillis() == 0) {
                 return new TestRunResult(
@@ -244,19 +235,27 @@ public class SuiteRun
                         Optional.of(new Exception("Test execution not attempted because suite total running time limit was exhausted")));
             }
 
-            log.info("Starting test run #%02d %s with config %s and remaining timeout %s", runId, suiteTestRun, environmentConfig, testRunOptions.timeout);
+            log.info("Starting test run %s with config %s and remaining timeout %s", suiteTestRun, environmentConfig, testRunOptions.timeout);
             log.info("Execute this test run using:\n%s test run %s", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, testRunOptions));
 
             Stopwatch stopwatch = Stopwatch.createStarted();
-            Optional<Throwable> exception = runTest(environmentConfig, testRunOptions);
+            Optional<Throwable> exception = runTest(runId, environmentConfig, testRunOptions);
             return new TestRunResult(runId, suiteTestRun, environmentConfig, succinctNanos(stopwatch.stop().elapsed(NANOSECONDS)), exception);
         }
 
-        private Optional<Throwable> runTest(EnvironmentConfig environmentConfig, TestRun.TestRunOptions testRunOptions)
+        private static String generateRandomRunId()
+        {
+            return UUID.randomUUID().toString().replace("-", "");
+        }
+
+        private Optional<Throwable> runTest(String runId, EnvironmentConfig environmentConfig, TestRun.TestRunOptions testRunOptions)
         {
             try {
                 TestRun.Execution execution = new TestRun.Execution(environmentFactory, environmentOptions, environmentConfig, testRunOptions);
+
+                log.info("Test run %s started", runId);
                 int exitCode = execution.call();
+                log.info("Test run %s finished", runId);
 
                 if (exitCode > 0) {
                     return Optional.of(new RuntimeException(format("Tests exited with code %d", exitCode)));
@@ -269,7 +268,7 @@ public class SuiteRun
             }
         }
 
-        private TestRun.TestRunOptions createTestRunOptions(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig, Optional<Path> logsDirBase)
+        private TestRun.TestRunOptions createTestRunOptions(String runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig, Optional<Path> logsDirBase)
         {
             TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
@@ -309,25 +308,25 @@ public class SuiteRun
                             .collect(joining("\n")));
         }
 
-        private static String suiteRunId(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
+        private static String suiteRunId(String runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
         {
-            return format("%s-%s-%s-%02d", suiteName, suiteTestRun.getEnvironmentName(), environmentConfig.getConfigName(), runId);
+            return format("%s-%s-%s-%s", suiteName, suiteTestRun.getEnvironmentName(), environmentConfig.getConfigName(), runId);
         }
     }
 
     static class TestRunResult
     {
         public static final Object[] HEADER = {
-            "#", "suite", "environment", "config", "status", "elapsed", "error"
+            "id", "suite", "environment", "config", "status", "elapsed", "error"
         };
 
-        private final int runId;
+        private final String runId;
         private final SuiteTestRun suiteRun;
         private final EnvironmentConfig environmentConfig;
         private final Duration duration;
         private final Optional<Throwable> throwable;
 
-        public TestRunResult(int runId, SuiteTestRun suiteRun, EnvironmentConfig environmentConfig, Duration duration, Optional<Throwable> throwable)
+        public TestRunResult(String runId, SuiteTestRun suiteRun, EnvironmentConfig environmentConfig, Duration duration, Optional<Throwable> throwable)
         {
             this.runId = runId;
             this.suiteRun = requireNonNull(suiteRun, "suiteRun is null");
