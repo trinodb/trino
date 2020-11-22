@@ -13,14 +13,19 @@
  */
 package io.prestosql.tests.product.launcher.util;
 
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tests.product.launcher.util.ConsoleTable.Alignment.RIGHT;
+import static java.lang.Math.max;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class ConsoleTable
@@ -32,19 +37,22 @@ public class ConsoleTable
         builder.add(new TableSeparator());
     }
 
-    public void addHeader(Object... values)
+    public ConsoleTable addHeader(Object... values)
     {
         builder.add(new TableSeparator(), new TableRow(RIGHT, values), new TableSeparator());
+        return this;
     }
 
-    public void addRow(Object... values)
+    public ConsoleTable addRow(Object... values)
     {
         builder.add(new TableRow(RIGHT, values));
+        return this;
     }
 
-    public void addRow(Alignment alignment, Object... values)
+    public ConsoleTable addRow(Alignment alignment, Object... values)
     {
         builder.add(new TableRow(alignment, values));
+        return this;
     }
 
     public String render()
@@ -63,11 +71,9 @@ public class ConsoleTable
         int[] widths = new int[numberOfColumns];
 
         for (TableElement element : elements) {
-            if (element instanceof TableRow) {
-                int[] columnsLength = ((TableRow) element).columnsLength();
-                for (int i = 0; i < ((TableRow) element).getColumns(); i++) {
-                    widths[i] = Integer.max(widths[i], columnsLength[i]);
-                }
+            int[] columnsLength = element.columnsWidth();
+            for (int i = 0; i < element.columnsCount(); i++) {
+                widths[i] = Integer.max(widths[i], columnsLength[i]);
             }
         }
 
@@ -79,7 +85,7 @@ public class ConsoleTable
         return elements.stream()
                 .filter(element -> element instanceof TableRow)
                 .map(element -> (TableRow) element)
-                .map(TableRow::getColumns)
+                .map(TableRow::columnsCount)
                 .max(Integer::compareTo)
                 .orElse(0);
     }
@@ -93,11 +99,24 @@ public class ConsoleTable
     private interface TableElement
     {
         String render(int[] columnLengths);
+
+        default int columnsCount()
+        {
+            return 1;
+        }
+
+        default int[] columnsWidth()
+        {
+            return new int[] {1};
+        }
     }
 
     private static class TableRow
             implements TableElement
     {
+        public static final Splitter LINE_SPLITTER = Splitter.on('\n')
+                .omitEmptyStrings();
+
         private final Object[] values;
         private final int columns;
         private final Alignment alignment;
@@ -111,42 +130,95 @@ public class ConsoleTable
 
         public Object getValue(int column)
         {
-            if (column < 0 || column >= getColumns()) {
+            if (column < 0 || column >= columnsCount()) {
                 return "";
             }
 
             return values[column];
         }
 
-        public int getColumns()
+        @Override
+        public int columnsCount()
         {
             return columns;
         }
 
-        public int columnLength(int column)
+        public int columnWidth(int column)
         {
-            return getValue(column).toString().length();
+            return lines(column).stream()
+                    .map(String::length)
+                    .max(Integer::compareTo)
+                    .orElse(0);
         }
 
-        public int[] columnsLength()
+        public int columnHeight(int column)
+        {
+            return lines(column).size();
+        }
+
+        @Override
+        public int[] columnsWidth()
         {
             int[] lengths = new int[columns];
 
             for (int i = 0; i < columns; i++) {
-                lengths[i] = columnLength(i);
+                lengths[i] = columnWidth(i);
             }
             return lengths;
+        }
+
+        public int rowHeight()
+        {
+            int height = 0;
+            for (int i = 0; i < columns; i++) {
+                height = max(height, columnHeight(i));
+            }
+            return height;
+        }
+
+        private List<String> lines(int column)
+        {
+            return LINE_SPLITTER.splitToList(Objects.toString(getValue(column)));
+        }
+
+        private List<String> paddedLines(int column, int rowHeight)
+        {
+            List<String> lines = lines(column);
+            if (lines.size() < rowHeight) {
+                return ImmutableList.<String>builder()
+                        .addAll(lines)
+                        .addAll(nCopies(rowHeight - lines.size(), ""))
+                        .build();
+            }
+
+            return lines(column);
         }
 
         @Override
         public String render(int[] columnsWidth)
         {
             StringBuilder builder = new StringBuilder();
+            int rowHeight = rowHeight();
 
-            for (int i = 0; i < columnsWidth.length; i++) {
-                builder.append("|").append(" " + pad(getValue(i), columnsWidth[i], alignment) + " ");
-                if (i == columnsWidth.length - 1) {
-                    builder.append("|");
+            List<List<String>> lines = IntStream.range(0, columns)
+                    .mapToObj(column -> paddedLines(column, rowHeight))
+                    .collect(toImmutableList());
+
+            for (int row = 0; row < rowHeight; row++) {
+                for (int col = 0; col < columnsWidth.length; col++) {
+                    String value = "";
+                    if (col < lines.size()) {
+                        value = lines.get(col).get(row);
+                    }
+
+                    builder.append("|").append(" " + pad(value, columnsWidth[col], alignment) + " ");
+                    if (col == columnsWidth.length - 1) {
+                        builder.append("|");
+                    }
+                }
+
+                if (row < rowHeight - 1) {
+                    builder.append("\n");
                 }
             }
 
