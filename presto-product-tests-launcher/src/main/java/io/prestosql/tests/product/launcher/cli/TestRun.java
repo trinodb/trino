@@ -225,7 +225,7 @@ public final class TestRun
                         .collect(toImmutableList());
                 testsContainer.dependsOn(environmentContainers);
 
-                log.info("Starting the environment '%s' with configuration %s", this.environment, environmentConfig);
+                log.info("Starting environment '%s' with config '%s'", this.environment, environmentConfig.getConfigName());
                 environment.start();
             }
             else {
