@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
+import io.prestosql.tests.product.launcher.util.ConsoleTable;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.RetryPolicy;
@@ -113,13 +114,6 @@ public final class Environment
                 .get(this::tryStart);
     }
 
-    public List<String> getContainerNames()
-    {
-        return containers.values().stream()
-                .map(DockerContainer::getLogicalName)
-                .collect(toImmutableList());
-    }
-
     private Environment tryStart()
     {
         pruneEnvironment();
@@ -133,11 +127,21 @@ public final class Environment
         // Create new network when environment tries to start
         try (Network network = createNetwork(name)) {
             attachNetwork(containers, network);
-
-            String containerNames = Joiner.on(", ").join(getContainerNames());
-            log.info("Starting containers %s for environment %s", containerNames, name);
-
             Startables.deepStart(containers).get();
+
+            ConsoleTable table = new ConsoleTable();
+            table.addHeader("container", "name", "image", "startup", "ports");
+            Joiner joiner = Joiner.on(", ");
+
+            containers.forEach(container -> table.addRow(
+                    container.getLogicalName(),
+                    container.getContainerName().substring(1), // first char is always slash
+                    container.getDockerImageName(),
+                    container.getStartupTime(),
+                    joiner.join(container.getExposedPorts())));
+            table.addSeparator();
+
+            log.info("Started environment %s with containers:\n%s", name, table.render());
 
             // After deepStart all containers should be running and healthy
             checkState(allContainersHealthy(containers), "Not all containers are running or healthy");

@@ -21,6 +21,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.RecursiveDeleteOption;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
@@ -57,6 +58,7 @@ import static java.nio.file.Files.size;
 import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class DockerContainer
@@ -72,7 +74,8 @@ public class DockerContainer
             .with(asyncTimeout)
             .with(Executors.newCachedThreadPool(daemonThreadsNamed("docker-container-%d")));
 
-    private String logicalName;
+    private final String logicalName;
+    private final Stopwatch startupTime = Stopwatch.createUnstarted();
     private List<String> logPaths = new ArrayList<>();
     private Optional<EnvironmentListener> listener = Optional.empty();
 
@@ -149,9 +152,15 @@ public class DockerContainer
                 .withCreateContainerCmdModifier(command -> command.withHealthcheck(cmd));
     }
 
+    public Duration getStartupTime()
+    {
+        return Duration.succinctNanos(startupTime.elapsed(NANOSECONDS)).convertToMostSuccinctTimeUnit();
+    }
+
     @Override
     protected void containerIsStarting(InspectContainerResponse containerInfo)
     {
+        this.startupTime.start();
         super.containerIsStarting(containerInfo);
         this.listener.ifPresent(listener -> listener.containerStarting(this, containerInfo));
     }
@@ -159,6 +168,7 @@ public class DockerContainer
     @Override
     protected void containerIsStarted(InspectContainerResponse containerInfo)
     {
+        this.startupTime.stop();
         super.containerIsStarted(containerInfo);
         this.listener.ifPresent(listener -> listener.containerStarted(this, containerInfo));
     }
