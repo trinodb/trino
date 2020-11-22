@@ -28,6 +28,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.NodeUtils;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
+import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.FieldId;
 import io.trino.sql.analyzer.RelationType;
@@ -73,7 +74,6 @@ import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Union;
-import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.type.TypeCoercion;
 
@@ -91,6 +91,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -814,9 +815,15 @@ class QueryPlanner
         for (FunctionCall windowFunction : scopeAwareDistinct(subPlan, windowFunctions)) {
             checkArgument(windowFunction.getFilter().isEmpty(), "Window functions cannot have filter");
 
-            Window window = windowFunction.getWindow().get();
+            ResolvedWindow window = analysis.getWindow(windowFunction);
+            checkState(window != null, "no resolved window for: " + windowFunction);
 
-            // Pre-project inputs
+            // Pre-project inputs.
+            // Predefined window parts (specified in WINDOW clause) can only use source symbols, and no output symbols.
+            // It matters in case when this window planning takes place in ORDER BY clause, where both source and output
+            // symbols are visible.
+            // This issue is solved by analyzing window definitions in the source scope. After analysis, the expressions
+            // are recorded as belonging to the source scope, and consequentially source symbols will be used to plan them.
             ImmutableList.Builder<Expression> inputsBuilder = ImmutableList.<Expression>builder()
                     .addAll(windowFunction.getArguments().stream()
                             .filter(argument -> !(argument instanceof LambdaExpression)) // lambda expression is generated at execution time
@@ -882,13 +889,13 @@ class QueryPlanner
                 throw new IllegalArgumentException("unexpected window frame type: " + window.getFrame().get().getType());
             }
 
-            subPlan = planWindow(subPlan, windowFunction, coercions, frameStart, sortKeyCoercedForFrameStartComparison, frameEnd, sortKeyCoercedForFrameEndComparison);
+            subPlan = planWindow(subPlan, windowFunction, window, coercions, frameStart, sortKeyCoercedForFrameStartComparison, frameEnd, sortKeyCoercedForFrameEndComparison);
         }
 
         return subPlan;
     }
 
-    private FrameBoundPlanAndSymbols planFrameBound(PlanBuilder subPlan, PlanAndMappings coercions, Optional<Expression> frameOffset, Window window, Map<Type, Symbol> sortKeyCoercions)
+    private FrameBoundPlanAndSymbols planFrameBound(PlanBuilder subPlan, PlanAndMappings coercions, Optional<Expression> frameOffset, ResolvedWindow window, Map<Type, Symbol> sortKeyCoercions)
     {
         Optional<ResolvedFunction> frameBoundCalculationFunction = frameOffset.map(analysis::getFrameBoundCalculation);
 
@@ -1016,6 +1023,7 @@ class QueryPlanner
     private PlanBuilder planWindow(
             PlanBuilder subPlan,
             FunctionCall windowFunction,
+            ResolvedWindow window,
             PlanAndMappings coercions,
             Optional<Symbol> frameStartSymbol,
             Optional<Symbol> sortKeyCoercedForFrameStartComparison,
@@ -1029,7 +1037,6 @@ class QueryPlanner
         Optional<Expression> frameStartExpression = Optional.empty();
         Optional<Expression> frameEndExpression = Optional.empty();
 
-        Window window = windowFunction.getWindow().get();
         if (window.getFrame().isPresent()) {
             WindowFrame frame = window.getFrame().get();
             frameType = frame.getType();

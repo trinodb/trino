@@ -59,6 +59,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.SqlPath;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
+import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
@@ -160,7 +161,10 @@ import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Use;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.Window;
+import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowReference;
+import io.trino.sql.tree.WindowSpecification;
 import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 import io.trino.type.TypeCoercion;
@@ -195,6 +199,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
@@ -202,10 +207,13 @@ import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
+import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
+import static io.trino.spi.StandardErrorCode.INVALID_PARTITION_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
 import static io.trino.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_ALIASES;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_NAME;
@@ -250,11 +258,6 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.Join.Type.FULL;
 import static io.trino.sql.tree.Join.Type.INNER;
 import static io.trino.sql.tree.Join.Type.LEFT;
@@ -1552,6 +1555,9 @@ class StatementAnalyzer
 
             Scope sourceScope = analyzeFrom(node, scope);
 
+            analyzeWindowDefinitions(node, sourceScope);
+            resolveFunctionCallWindows(node);
+
             node.getWhere().ifPresent(where -> analyzeWhere(node, sourceScope, where));
 
             List<Expression> outputExpressions = analyzeSelect(node, sourceScope);
@@ -1592,6 +1598,21 @@ class StatementAnalyzer
                     .map(SelectExpression::getExpression)
                     .forEach(sourceExpressions::add);
             node.getHaving().ifPresent(sourceExpressions::add);
+            for (WindowDefinition windowDefinition : node.getWindows()) {
+                WindowSpecification window = windowDefinition.getWindow();
+                sourceExpressions.addAll(window.getPartitionBy());
+                getSortItemsFromOrderBy(window.getOrderBy()).stream()
+                        .map(SortItem::getSortKey)
+                        .forEach(sourceExpressions::add);
+                window.getFrame()
+                        .map(WindowFrame::getStart)
+                        .flatMap(FrameBound::getValue)
+                        .ifPresent(sourceExpressions::add);
+                window.getFrame()
+                        .flatMap(WindowFrame::getEnd)
+                        .flatMap(FrameBound::getValue)
+                        .ifPresent(sourceExpressions::add);
+            }
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
             analyzeAggregations(node, sourceScope, orderByScope, groupByAnalysis, sourceExpressions, orderByExpressions);
@@ -1753,6 +1774,7 @@ class StatementAnalyzer
             }
             if (criteria instanceof JoinOn) {
                 Expression expression = ((JoinOn) criteria).getExpression();
+                verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, "JOIN clause");
 
                 // Need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))
                 // Correlations are only currently support in the join criteria for INNER joins
@@ -1765,8 +1787,6 @@ class StatementAnalyzer
                     // coerce null to boolean
                     analysis.addCoercion(expression, BOOLEAN, false);
                 }
-
-                verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
                 analysis.setJoinCriteria(node, expression);
@@ -1949,6 +1969,133 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, fields);
         }
 
+        private void analyzeWindowDefinitions(QuerySpecification node, Scope scope)
+        {
+            for (WindowDefinition windowDefinition : node.getWindows()) {
+                CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(windowDefinition.getName());
+
+                if (analysis.getWindowDefinition(node, canonicalName) != null) {
+                    throw semanticException(DUPLICATE_WINDOW_NAME, windowDefinition, "WINDOW name '%s' specified more than once", windowDefinition.getName());
+                }
+
+                ResolvedWindow resolvedWindow = resolveWindowSpecification(node, windowDefinition.getWindow());
+
+                // Analyze window after it is resolved, because resolving might provide necessary information, e.g. ORDER BY necessary for frame analysis.
+                // Analyze only newly introduced window properties. Properties of the referenced window have been already analyzed.
+                analyzeWindow(node, resolvedWindow, scope, windowDefinition.getWindow());
+
+                analysis.addWindowDefinition(node, canonicalName, resolvedWindow);
+            }
+        }
+
+        private ResolvedWindow resolveWindowSpecification(QuerySpecification querySpecification, Window window)
+        {
+            if (window instanceof WindowReference) {
+                WindowReference windowReference = (WindowReference) window;
+                CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(windowReference.getName());
+                ResolvedWindow referencedWindow = analysis.getWindowDefinition(querySpecification, canonicalName);
+                if (referencedWindow == null) {
+                    throw semanticException(INVALID_WINDOW_REFERENCE, windowReference.getName(), "Cannot resolve WINDOW name " + windowReference.getName());
+                }
+
+                return new ResolvedWindow(
+                        referencedWindow.getPartitionBy(),
+                        referencedWindow.getOrderBy(),
+                        referencedWindow.getFrame(),
+                        !referencedWindow.getPartitionBy().isEmpty(),
+                        referencedWindow.getOrderBy().isPresent(),
+                        referencedWindow.getFrame().isPresent());
+            }
+
+            WindowSpecification windowSpecification = (WindowSpecification) window;
+
+            if (windowSpecification.getExistingWindowName().isPresent()) {
+                Identifier referencedName = windowSpecification.getExistingWindowName().get();
+                CanonicalizationAware<Identifier> canonicalName = canonicalizationAwareKey(referencedName);
+                ResolvedWindow referencedWindow = analysis.getWindowDefinition(querySpecification, canonicalName);
+                if (referencedWindow == null) {
+                    throw semanticException(INVALID_WINDOW_REFERENCE, referencedName, "Cannot resolve WINDOW name " + referencedName);
+                }
+
+                // analyze dependencies between this window specification and referenced window specification
+                if (!windowSpecification.getPartitionBy().isEmpty()) {
+                    throw semanticException(INVALID_PARTITION_BY, windowSpecification.getPartitionBy().get(0), "WINDOW specification with named WINDOW reference cannot specify PARTITION BY");
+                }
+                if (windowSpecification.getOrderBy().isPresent() && referencedWindow.getOrderBy().isPresent()) {
+                    throw semanticException(INVALID_ORDER_BY, windowSpecification.getOrderBy().get(), "Cannot specify ORDER BY if referenced named WINDOW specifies ORDER BY");
+                }
+                if (referencedWindow.getFrame().isPresent()) {
+                    throw semanticException(INVALID_WINDOW_REFERENCE, windowSpecification.getExistingWindowName().get(), "Cannot reference named WINDOW containing frame specification");
+                }
+
+                // resolve window
+                Optional<OrderBy> orderBy = windowSpecification.getOrderBy();
+                boolean orderByInherited = false;
+                if (orderBy.isEmpty() && referencedWindow.getOrderBy().isPresent()) {
+                    orderBy = referencedWindow.getOrderBy();
+                    orderByInherited = true;
+                }
+
+                List<Expression> partitionBy = windowSpecification.getPartitionBy();
+                boolean partitionByInherited = false;
+                if (!referencedWindow.getPartitionBy().isEmpty()) {
+                    partitionBy = referencedWindow.getPartitionBy();
+                    partitionByInherited = true;
+                }
+
+                Optional<WindowFrame> windowFrame = windowSpecification.getFrame();
+                boolean frameInherited = false;
+                if (windowFrame.isEmpty() && referencedWindow.getFrame().isPresent()) {
+                    windowFrame = referencedWindow.getFrame();
+                    frameInherited = true;
+                }
+
+                return new ResolvedWindow(partitionBy, orderBy, windowFrame, partitionByInherited, orderByInherited, frameInherited);
+            }
+
+            return new ResolvedWindow(windowSpecification.getPartitionBy(), windowSpecification.getOrderBy(), windowSpecification.getFrame(), false, false, false);
+        }
+
+        private void analyzeWindow(QuerySpecification querySpecification, ResolvedWindow window, Scope scope, Node originalNode)
+        {
+            ExpressionAnalysis expressionAnalysis = ExpressionAnalyzer.analyzeWindow(
+                    session,
+                    metadata,
+                    groupProvider,
+                    accessControl,
+                    sqlParser,
+                    scope,
+                    analysis,
+                    WarningCollector.NOOP,
+                    correlationSupport,
+                    window,
+                    originalNode);
+            analysis.recordSubqueries(querySpecification, expressionAnalysis);
+        }
+
+        private void resolveFunctionCallWindows(QuerySpecification querySpecification)
+        {
+            ImmutableList.Builder<Expression> expressions = ImmutableList.builder();
+
+            // SELECT expressions and ORDER BY expressions can contain window functions
+            for (SelectItem item : querySpecification.getSelect().getSelectItems()) {
+                if (item instanceof AllColumns) {
+                    ((AllColumns) item).getTarget().ifPresent(expressions::add);
+                }
+                else if (item instanceof SingleColumn) {
+                    expressions.add(((SingleColumn) item).getExpression());
+                }
+            }
+            for (SortItem sortItem : getSortItemsFromOrderBy(querySpecification.getOrderBy())) {
+                expressions.add(sortItem.getSortKey());
+            }
+
+            for (FunctionCall windowFunction : extractWindowFunctions(expressions.build())) {
+                ResolvedWindow resolvedWindow = resolveWindowSpecification(querySpecification, windowFunction.getWindow().get());
+                analysis.setWindow(windowFunction, resolvedWindow);
+            }
+        }
+
         private void analyzeWindowFunctions(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
         {
             analysis.setWindowFunctions(node, analyzeWindowFunctions(node, outputExpressions));
@@ -1975,31 +2122,21 @@ class StatementAnalyzer
                     throw semanticException(NOT_SUPPORTED, windowFunction, "Window function with ORDER BY is not supported");
                 }
 
-                Window window = windowFunction.getWindow().get();
-
-                ImmutableList.Builder<Node> toExtract = ImmutableList.builder();
-                toExtract.addAll(windowFunction.getArguments());
-                toExtract.addAll(window.getPartitionBy());
-                window.getOrderBy().ifPresent(orderBy -> toExtract.addAll(orderBy.getSortItems()));
-                window.getFrame().ifPresent(toExtract::add);
-
-                List<FunctionCall> nestedWindowFunctions = extractWindowFunctions(toExtract.build());
-
+                List<FunctionCall> nestedWindowFunctions = extractWindowFunctions(windowFunction.getArguments());
                 if (!nestedWindowFunctions.isEmpty()) {
-                    throw semanticException(NESTED_WINDOW, node, "Cannot nest window functions inside window function '%s': %s",
-                            windowFunction,
-                            windowFunctions);
+                    throw semanticException(NESTED_WINDOW, nestedWindowFunctions.get(0), "Cannot nest window functions inside window function arguments");
                 }
 
                 if (windowFunction.isDistinct()) {
                     throw semanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
                 }
 
+                ResolvedWindow window = analysis.getWindow(windowFunction);
                 // TODO get function requirements from window function metadata when we have it
                 String name = windowFunction.getName().toString().toLowerCase(ENGLISH);
                 if (name.equals("lag") || name.equals("lead")) {
                     if (window.getOrderBy().isEmpty()) {
-                        throw semanticException(MISSING_ORDER_BY, window, "%s function requires an ORDER BY window clause", windowFunction.getName());
+                        throw semanticException(MISSING_ORDER_BY, (Node) windowFunction.getWindow().get(), "%s function requires an ORDER BY window clause", windowFunction.getName());
                     }
                     if (window.getFrame().isPresent()) {
                         throw semanticException(INVALID_WINDOW_FRAME, window.getFrame().get(), "Cannot specify window frame for %s function", windowFunction.getName());
@@ -2008,10 +2145,6 @@ class StatementAnalyzer
 
                 if (!WINDOW_VALUE_FUNCTIONS.contains(name) && windowFunction.getNullTreatment().isPresent()) {
                     throw semanticException(NULL_TREATMENT_NOT_ALLOWED, windowFunction, "Cannot specify null treatment clause for %s function", windowFunction.getName());
-                }
-
-                if (window.getFrame().isPresent()) {
-                    analyzeWindowFrame(window.getFrame().get());
                 }
 
                 List<Type> argumentTypes = mappedCopy(windowFunction.getArguments(), analysis::getType);
@@ -2026,41 +2159,17 @@ class StatementAnalyzer
             return windowFunctions;
         }
 
-        private void analyzeWindowFrame(WindowFrame frame)
-        {
-            FrameBound.Type startType = frame.getStart().getType();
-            FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
-
-            if (startType == UNBOUNDED_FOLLOWING) {
-                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");
-            }
-            if (endType == UNBOUNDED_PRECEDING) {
-                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame end cannot be UNBOUNDED PRECEDING");
-            }
-            if ((startType == CURRENT_ROW) && (endType == PRECEDING)) {
-                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from CURRENT ROW cannot end with PRECEDING");
-            }
-            if ((startType == FOLLOWING) && (endType == PRECEDING)) {
-                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with PRECEDING");
-            }
-            if ((startType == FOLLOWING) && (endType == CURRENT_ROW)) {
-                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with CURRENT ROW");
-            }
-        }
-
         private void analyzeHaving(QuerySpecification node, Scope scope)
         {
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
+                List<FunctionCall> windowFunctions = extractWindowFunctions(ImmutableList.of(predicate));
+                if (!windowFunctions.isEmpty()) {
+                    throw semanticException(NESTED_WINDOW, windowFunctions.get(0), "HAVING clause cannot contain window functions");
+                }
+
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
-
-                expressionAnalysis.getWindowFunctions().stream()
-                        .findFirst()
-                        .ifPresent(function -> {
-                            throw semanticException(NESTED_WINDOW, function.getNode(), "HAVING clause cannot contain window functions");
-                        });
-
                 analysis.recordSubqueries(node, expressionAnalysis);
 
                 Type predicateType = expressionAnalysis.getType(predicate);
@@ -2134,6 +2243,7 @@ class StatementAnalyzer
                                 column = outputExpressions.get(toIntExact(ordinal - 1));
                             }
                             else {
+                                verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
                                 analyzeExpression(column, scope);
                             }
 
@@ -2142,7 +2252,6 @@ class StatementAnalyzer
                                 sets.add(ImmutableList.of(ImmutableSet.of(field.getFieldId())));
                             }
                             else {
-                                verifyNoAggregateWindowOrGroupingFunctions(metadata, column, "GROUP BY clause");
                                 analysis.recordSubqueries(node, analyzeExpression(column, scope));
                                 complexExpressions.add(column);
                             }
@@ -2718,6 +2827,9 @@ class StatementAnalyzer
             }
 
             analysis.registerTableForRowFiltering(name, currentIdentity);
+
+            verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, format("Row filter for '%s'", name));
+
             ExpressionAnalysis expressionAnalysis;
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
@@ -2738,8 +2850,6 @@ class StatementAnalyzer
             finally {
                 analysis.unregisterTableForRowFiltering(name, currentIdentity);
             }
-
-            verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, format("Row filter for '%s'", name));
 
             analysis.recordSubqueries(expression, expressionAnalysis);
 
@@ -2774,6 +2884,9 @@ class StatementAnalyzer
 
             ExpressionAnalysis expressionAnalysis;
             analysis.registerTableForColumnMasking(tableName, column, currentIdentity);
+
+            verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, format("Column mask for '%s.%s'", table.getName(), column));
+
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(mask.getCatalog(), mask.getSchema(), Identity.forUser(mask.getIdentity()).build(), session.getPath()), // TODO: path should be included in row filter
@@ -2793,8 +2906,6 @@ class StatementAnalyzer
             finally {
                 analysis.unregisterTableForColumnMasking(tableName, column, currentIdentity);
             }
-
-            verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, format("Column mask for '%s.%s'", table.getName(), column));
 
             analysis.recordSubqueries(expression, expressionAnalysis);
 

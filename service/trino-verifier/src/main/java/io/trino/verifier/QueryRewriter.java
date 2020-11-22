@@ -203,6 +203,7 @@ public class QueryRewriter
                     querySpecification.getWhere(),
                     querySpecification.getGroupBy(),
                     querySpecification.getHaving(),
+                    querySpecification.getWindows(),
                     querySpecification.getOrderBy(),
                     querySpecification.getOffset(),
                     Optional.of(new Limit(new LongLiteral("0"))));
@@ -253,7 +254,7 @@ public class QueryRewriter
         }
 
         Select select = new Select(false, selectItems.build());
-        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()));
     }
 
     private static String dropTableSql(QualifiedName table)
