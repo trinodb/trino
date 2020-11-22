@@ -62,6 +62,7 @@ import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowSpecification;
 
 import javax.annotation.Nullable;
 
@@ -407,8 +408,11 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getWindow().isPresent() && !process(node.getWindow().get(), context)) {
-                return false;
+            if (node.getWindow().isPresent()) {
+                Window window = node.getWindow().get();
+                if (window instanceof WindowSpecification && !process((WindowSpecification) window, context)) {
+                    return false;
+                }
             }
 
             return node.getArguments().stream().allMatch(expression -> process(expression, context));
@@ -432,7 +436,7 @@ class AggregationAnalyzer
         }
 
         @Override
-        protected Boolean visitWindow(Window node, Void context)
+        protected Boolean visitWindowSpecification(WindowSpecification node, Void context)
         {
             for (Expression expression : node.getPartitionBy()) {
                 if (!process(expression, context)) {
