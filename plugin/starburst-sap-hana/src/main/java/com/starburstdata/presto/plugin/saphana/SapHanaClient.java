@@ -9,7 +9,12 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
+import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
@@ -39,6 +44,11 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.statistics.ColumnStatistics;
+import io.prestosql.spi.statistics.DoubleRange;
+import io.prestosql.spi.statistics.Estimate;
+import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.Chars;
 import io.prestosql.spi.type.DecimalType;
@@ -48,9 +58,13 @@ import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -63,10 +77,13 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.TimeZone;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -131,7 +148,9 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
 public class SapHanaClient
@@ -139,15 +158,18 @@ public class SapHanaClient
 {
     private static final Logger log = Logger.get(SapHanaClient.class);
 
+    private static final JsonCodec<DataStatisticsContent> STATISTICS_CONTENT_JSON_CODEC = jsonCodec(DataStatisticsContent.class);
+
     private static final int SAP_HANA_CHAR_LENGTH_LIMIT = 2000;
     private static final int SAP_HANA_VARCHAR_LENGTH_LIMIT = 5000;
 
     private static final TimeZone UTC_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of("UTC"));
 
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private final TableStatisticsClient tableStatisticsClient;
 
     @Inject
-    public SapHanaClient(BaseJdbcConfig baseJdbcConfig, ConnectionFactory connectionFactory)
+    public SapHanaClient(BaseJdbcConfig baseJdbcConfig, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory)
     {
         super(baseJdbcConfig, "\"", connectionFactory);
 
@@ -167,6 +189,7 @@ public class SapHanaClient
                         .add(new ImplementVariance())
                         .add(new ImplementVariancePop())
                         .build());
+        tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
@@ -586,5 +609,247 @@ public class SapHanaClient
         Calendar calendar = new GregorianCalendar(UTC_TIME_ZONE, ENGLISH);
         calendar.setTime(new Date(0));
         return calendar;
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return tableStatisticsClient.getTableStatistics(session, handle, tupleDomain);
+    }
+
+    private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        if (table.getGroupingSets().isPresent()) {
+            // TODO(https://starburstdata.atlassian.net/browse/PRESTO-4856) retrieve statistics for base table and derive statistics for the aggregation
+            return Optional.empty();
+        }
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                Handle handle = Jdbi.open(connection)) {
+            String schemaName = table.getRemoteTableName().getSchemaName().orElseThrow();
+            String tableName = table.getRemoteTableName().getTableName();
+
+            StatisticsDao statisticsDao = new StatisticsDao(handle);
+            Long rowCount = statisticsDao.getRowCount(schemaName, tableName);
+            log.debug("Estimated row count of table %s is %s", table, rowCount);
+
+            if (rowCount == null) {
+                // Table not found, or is a view.
+                return Optional.empty();
+            }
+
+            TableStatistics.Builder tableStatistics = TableStatistics.builder();
+            tableStatistics.setRowCount(Estimate.of(rowCount));
+
+            if (rowCount == 0) {
+                return Optional.of(tableStatistics.build());
+            }
+
+            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(schemaName, tableName).stream()
+                    .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
+
+            if (columnStatistics.isEmpty()) {
+                // No more information to work on
+                return Optional.of(tableStatistics.build());
+            }
+
+            for (JdbcColumnHandle column : getColumns(session, table)) {
+                ColumnStatistics.Builder builder = ColumnStatistics.builder();
+
+                ColumnStatisticsResult columnStatisticsResult = columnStatistics.get(column.getColumnName());
+                if (columnStatisticsResult != null) {
+                    if (columnStatisticsResult.getDistinctValuesCount().orElse(0L) == 1) {
+                        // SAP HANA returns NDV = 1 even if all values are NULL so we skip this column to avoid passing misleading stats to optimizer
+                        continue;
+                    }
+
+                    builder.setNullsFraction(columnStatisticsResult.getNullsFraction().map(Estimate::of).orElseGet(Estimate::unknown));
+                    builder.setDistinctValuesCount(columnStatisticsResult.getDistinctValuesCount().map(Estimate::of).orElseGet(Estimate::unknown));
+                    // set range statistics only for numeric columns
+                    if (isNumericType(column.getColumnType()) && (columnStatisticsResult.getMin().isPresent() || columnStatisticsResult.getMax().isPresent())) {
+                        builder.setRange(new DoubleRange(
+                                columnStatisticsResult.getMin().map(BigDecimal::new).map(BigDecimal::doubleValue).orElse(Double.NEGATIVE_INFINITY),
+                                columnStatisticsResult.getMax().map(BigDecimal::new).map(BigDecimal::doubleValue).orElse(Double.POSITIVE_INFINITY)));
+                    }
+
+                    tableStatistics.setColumnStatistics(column, builder.build());
+                }
+            }
+
+            return Optional.of(tableStatistics.build());
+        }
+    }
+
+    private static boolean isNumericType(Type type)
+    {
+        return type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type == REAL || type == DOUBLE || type instanceof DecimalType;
+    }
+
+    private static class StatisticsDao
+    {
+        private final Handle handle;
+
+        public StatisticsDao(Handle handle)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+        }
+
+        @Nullable
+        Long getRowCount(String schema, String tableName)
+        {
+            OptionalLong rowCount = handle.createQuery("" +
+                    "SELECT RECORD_COUNT " +
+                    "FROM SYS.M_TABLES " +
+                    "WHERE SCHEMA_NAME = :schema " +
+                    "  AND TABLE_NAME = :table_name")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .collectInto(OptionalLong.class);
+            if (rowCount.isPresent()) {
+                return rowCount.getAsLong();
+            }
+            return null;
+        }
+
+        List<ColumnStatisticsResult> getColumnStatistics(String schema, String tableName)
+        {
+            return handle.createQuery("" +
+                    "SELECT DATA_SOURCE_COLUMN_NAMES AS COLUMN_NAME, DATA_STATISTICS_CONTENT AS STATISTICS " +
+                    "FROM SYS.M_DATA_STATISTICS " +
+                    "WHERE DATA_STATISTICS_TYPE = 'SIMPLE' " +
+                    "  AND DATA_SOURCE_SCHEMA_NAME = :schema " +
+                    "  AND DATA_SOURCE_OBJECT_NAME = :table_name")
+                    .bind("schema", schema)
+                    .bind("table_name", tableName)
+                    .map((rs, ctx) -> {
+                        String columnName = requireNonNull(rs.getString("COLUMN_NAME"), "COLUMN_NAME is null");
+                        String statsJson = rs.getString("STATISTICS");
+
+                        return toColumnStatisticsResult(columnName, statsJson);
+                    })
+                    .list();
+        }
+
+        private static ColumnStatisticsResult toColumnStatisticsResult(String columnName, String statsJson)
+        {
+            Optional<DataStatisticsContent> stats = Optional.empty();
+            try {
+                stats = Optional.of(STATISTICS_CONTENT_JSON_CODEC.fromJson(statsJson));
+            }
+            catch (RuntimeException e) {
+                log.warn(e, "Failed to parse column statistics histogram: %s", statsJson);
+            }
+
+            if (stats.isPresent() && stats.get().lastRefreshProperties.isPresent()) {
+                LastRefreshProperties props = stats.get().lastRefreshProperties.get();
+                Optional<Float> nullFraction = Optional.empty();
+                if (props.count.isPresent() && props.nullCount.isPresent() && props.count.get() != 0) {
+                    nullFraction = Optional.of((float) props.nullCount.get() / props.count.get());
+                }
+                return new ColumnStatisticsResult(columnName, props.distinctCount, nullFraction, props.minValue, props.maxValue);
+            }
+
+            return new ColumnStatisticsResult(columnName, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        }
+    }
+
+    public static class DataStatisticsContent
+    {
+        private final Optional<LastRefreshProperties> lastRefreshProperties;
+
+        @JsonCreator
+        public DataStatisticsContent(
+                @JsonProperty("LastRefreshProperties") Optional<LastRefreshProperties> lastRefreshProperties)
+        {
+            this.lastRefreshProperties = lastRefreshProperties;
+        }
+    }
+
+    /**
+     * Summarised statistics common for all statistics types.
+     * See https://help.sap.com/viewer/4fe29514fd584807ac9f2a04f6754767/2.0.01/en-US/4f74378472cb46a6bbff3582b1863bac.html.
+     */
+    public static class LastRefreshProperties
+    {
+        private final Optional<Long> distinctCount;
+        private final Optional<Long> nullCount;
+        private final Optional<String> minValue;
+        private final Optional<String> maxValue;
+        private final Optional<Long> count;
+
+        @JsonCreator
+        public LastRefreshProperties(
+                @JsonProperty("DISTINCT COUNT") Optional<String> distinctCount,
+                @JsonProperty("NULL COUNT") Optional<String> nullCount,
+                @JsonProperty("MIN VALUE") Optional<String> minValue,
+                @JsonProperty("MAX VALUE") Optional<String> maxValue,
+                @JsonProperty("COUNT") Optional<String> count,
+                @JsonProperty("MIN MAX IS VALID") Optional<String> minMaxIsValid)
+        {
+            this.distinctCount = distinctCount.map(Long::valueOf);
+            this.nullCount = nullCount.map(Long::valueOf);
+            this.count = count.map(Long::valueOf);
+
+            requireNonNull(minValue, "minValue is null");
+            requireNonNull(maxValue, "maxValue is null");
+            boolean isValid = minMaxIsValid.isPresent() && minMaxIsValid.get().equals("1");
+            if (isValid) {
+                this.minValue = minValue;
+                this.maxValue = maxValue;
+            }
+            else {
+                this.minValue = Optional.empty();
+                this.maxValue = Optional.empty();
+            }
+        }
+    }
+
+    private static class ColumnStatisticsResult
+    {
+        private final String columnName;
+        private final Optional<Long> distinctValuesCount;
+        private final Optional<Float> nullsFraction;
+        private final Optional<String> min;
+        private final Optional<String> max;
+
+        public ColumnStatisticsResult(
+                String columnName,
+                Optional<Long> distinctValuesCount,
+                Optional<Float> nullsFraction,
+                Optional<String> min,
+                Optional<String> max)
+        {
+            this.columnName = requireNonNull(columnName, "columnName is null");
+            this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
+            this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction is null");
+            this.min = requireNonNull(min, "min is null");
+            this.max = requireNonNull(max, "max is null");
+        }
+
+        public String getColumnName()
+        {
+            return columnName;
+        }
+
+        public Optional<Long> getDistinctValuesCount()
+        {
+            return distinctValuesCount;
+        }
+
+        public Optional<Float> getNullsFraction()
+        {
+            return nullsFraction;
+        }
+
+        public Optional<String> getMin()
+        {
+            return min;
+        }
+
+        public Optional<String> getMax()
+        {
+            return max;
+        }
     }
 }
