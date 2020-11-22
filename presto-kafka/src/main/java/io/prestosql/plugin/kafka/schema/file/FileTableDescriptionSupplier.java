@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.kafka;
+package io.prestosql.plugin.kafka.schema.file;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -20,6 +20,11 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.prestosql.decoder.dummy.DummyRowDecoder;
+import io.prestosql.plugin.kafka.KafkaConfig;
+import io.prestosql.plugin.kafka.KafkaTopicDescription;
+import io.prestosql.plugin.kafka.KafkaTopicFieldGroup;
+import io.prestosql.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
+import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.inject.Inject;
@@ -39,10 +44,12 @@ import static java.nio.file.Files.readAllBytes;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
-public class KafkaTableDescriptionSupplier
+public class FileTableDescriptionSupplier
         implements Provider<TableDescriptionSupplier>
 {
-    private static final Logger log = Logger.get(KafkaTableDescriptionSupplier.class);
+    public static final String NAME = "file";
+
+    private static final Logger log = Logger.get(FileTableDescriptionSupplier.class);
 
     private final JsonCodec<KafkaTopicDescription> topicDescriptionCodec;
     private final File tableDescriptionDir;
@@ -50,13 +57,14 @@ public class KafkaTableDescriptionSupplier
     private final Set<String> tableNames;
 
     @Inject
-    KafkaTableDescriptionSupplier(KafkaConfig kafkaConfig, JsonCodec<KafkaTopicDescription> topicDescriptionCodec)
+    FileTableDescriptionSupplier(FileTableDescriptionSupplierConfig config, KafkaConfig kafkaConfig, JsonCodec<KafkaTopicDescription> topicDescriptionCodec)
     {
         this.topicDescriptionCodec = requireNonNull(topicDescriptionCodec, "topicDescriptionCodec is null");
+        requireNonNull(config, "config is null");
         requireNonNull(kafkaConfig, "kafkaConfig is null");
-        this.tableDescriptionDir = kafkaConfig.getTableDescriptionDir();
+        this.tableDescriptionDir = config.getTableDescriptionDir();
         this.defaultSchema = kafkaConfig.getDefaultSchema();
-        this.tableNames = ImmutableSet.copyOf(kafkaConfig.getTableNames());
+        this.tableNames = ImmutableSet.copyOf(config.getTableNames());
     }
 
     @Override

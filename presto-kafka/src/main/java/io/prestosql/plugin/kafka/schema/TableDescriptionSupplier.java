@@ -12,8 +12,9 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.kafka;
+package io.prestosql.plugin.kafka.schema;
 
+import io.prestosql.plugin.kafka.KafkaTopicDescription;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Optional;

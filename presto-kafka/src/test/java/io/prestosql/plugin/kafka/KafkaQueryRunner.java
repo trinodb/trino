@@ -22,6 +22,8 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
+import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
 import io.prestosql.plugin.kafka.util.CodecSupplier;
 import io.prestosql.plugin.kafka.util.TestUtils;
 import io.prestosql.plugin.tpch.TpchPlugin;
@@ -39,7 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.ByteStreams.toByteArray;
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
@@ -58,6 +60,7 @@ public final class KafkaQueryRunner
 
     private static final Logger log = Logger.get(KafkaQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
+    private static final String TEST = "test";
 
     public static Builder builder(TestingKafka testingKafka)
     {
@@ -160,16 +163,18 @@ public final class KafkaQueryRunner
                     .build();
             KafkaPlugin kafkaPlugin = new KafkaPlugin(combine(
                     extensions,
-                    binder -> newSetBinder(binder, TableDescriptionSupplier.class)
-                            .addBinding()
-                            .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))));
+                    installModuleIf(
+                            KafkaConfig.class,
+                            kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
+                            binder -> binder.bind(TableDescriptionSupplier.class)
+                                    .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions)))));
             queryRunner.installPlugin(kafkaPlugin);
 
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
             kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
+            kafkaProperties.putIfAbsent("kafka.table-description-supplier", TEST);
             kafkaProperties.putIfAbsent("kafka.default-schema", "default");
             kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
-            kafkaProperties.putIfAbsent("kafka.table-description-dir", "write-test");
             queryRunner.createCatalog("kafka", "kafka", kafkaProperties);
 
             TestingPrestoClient prestoClient = queryRunner.getClient();
