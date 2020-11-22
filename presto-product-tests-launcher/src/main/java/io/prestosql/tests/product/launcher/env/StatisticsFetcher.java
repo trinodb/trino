@@ -17,8 +17,6 @@ import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.model.MemoryStatsConfig;
 import com.github.dockerjava.api.model.StatisticNetworksConfig;
 import com.github.dockerjava.api.model.Statistics;
-import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import org.testcontainers.DockerClientFactory;
@@ -180,7 +178,17 @@ public class StatisticsFetcher
 
     public static class Stats
     {
-        private static final int COLUMN_PADDING = 8;
+        public static final String[] HEADER = {
+                "container",
+                "cpu",
+                "mem",
+                "max mem",
+                "mem %",
+                "peak mem",
+                "pids",
+                "net in",
+                "net out"
+        };
 
         private long systemCpuUsage = -1;
         private long totalCpuUsage = -1;
@@ -198,46 +206,23 @@ public class StatisticsFetcher
             return cpuUsagePerc > 0.0;
         }
 
-        @Override
-        public String toString()
+        public String[] toRow(String name)
         {
             if (!areCalculated()) {
-                return "n/a";
+                return new String[] {name, "n/a"};
             }
 
-            return Joiner.on(" | ").join(
-                pad("%.2f%%", cpuUsagePerc, COLUMN_PADDING),
-                pad("%s", memoryUsage, COLUMN_PADDING),
-                pad("%s", memoryLimit, COLUMN_PADDING),
-                pad("%.2f%%", memoryUsagePerc, COLUMN_PADDING),
-                pad("%s", memoryMaxUsage, COLUMN_PADDING),
-                pad("%d", pids, COLUMN_PADDING),
-                pad("%s", networkReceived, COLUMN_PADDING),
-                pad("%s", networkSent, COLUMN_PADDING));
-        }
-
-        private static String pad(String format, Object value, int length)
-        {
-            return Strings.padStart(format(format, value), length, ' ');
-        }
-
-        private static String pad(String value, int length)
-        {
-            return Strings.padStart(value, length, ' ');
-        }
-
-        public static String makeHeader(int containerNamePadding)
-        {
-            return Joiner.on(" | ").join(
-                    pad("container", containerNamePadding),
-                    pad("cpu", COLUMN_PADDING),
-                    pad("mem", COLUMN_PADDING),
-                    pad("max mem", COLUMN_PADDING),
-                    pad("mem %", COLUMN_PADDING),
-                    pad("peak mem", COLUMN_PADDING),
-                    pad("pids", COLUMN_PADDING),
-                    pad("net in", COLUMN_PADDING),
-                    pad("net out", COLUMN_PADDING));
+            return new String[] {
+                    name,
+                    format("%.2f%%", cpuUsagePerc),
+                    memoryLimit.toString(),
+                    memoryUsage.toString(),
+                    format("%.2f%%", memoryUsagePerc),
+                    memoryMaxUsage.toString(),
+                    format("%d", pids),
+                    format("%s", networkReceived),
+                    format("%s", networkSent)
+            };
         }
 
         public static boolean statisticsAreEmpty(Statistics statistics)

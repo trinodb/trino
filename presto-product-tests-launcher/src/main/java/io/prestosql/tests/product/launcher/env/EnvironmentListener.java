@@ -14,8 +14,8 @@
 package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.google.common.base.Strings;
 import io.airlift.log.Logger;
+import io.prestosql.tests.product.launcher.util.ConsoleTable;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
@@ -31,8 +31,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.tests.product.launcher.env.StatisticsFetcher.Stats.makeHeader;
-import static java.lang.String.format;
+import static io.prestosql.tests.product.launcher.env.StatisticsFetcher.Stats.HEADER;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -260,19 +259,17 @@ public interface EnvironmentListener
 
             private void printContainerStats()
             {
-                int maxLength = fetchers.keySet().stream()
-                        .mapToInt(String::length)
-                        .max()
-                        .orElse(0);
+                ConsoleTable statistics = new ConsoleTable();
+                statistics.addHeader(HEADER);
+                fetchers.entrySet().forEach(entry -> statistics.addRow(entry.getValue().get().toRow(entry.getKey())));
+                statistics.addSeparator();
 
-                String header = makeHeader(maxLength);
-                String separator = format("+%s+", Strings.repeat("-", header.length() + 2));
-
-                log.info(separator);
-                log.info("| %s |", header);
-                log.info(separator);
-                fetchers.entrySet().forEach(entry -> log.info("| %s | %s |", Strings.padEnd(entry.getKey(), maxLength, ' '), entry.getValue().get()));
-                log.info(separator);
+                try {
+                    log.info("Container stats:\n%s", statistics.render());
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         };
     }
