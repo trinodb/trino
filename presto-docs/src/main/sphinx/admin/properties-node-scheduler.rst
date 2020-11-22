@@ -2,6 +2,9 @@
 Node Scheduler Properties
 =========================
 
+Splits
+------
+
 ``node-scheduler.max-splits-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -63,6 +66,9 @@ distribution across all hosts. ``topology`` tries to schedule splits according t
 the topology distance between nodes and splits. It is recommended to use ``uniform``
 for clusters where distributed storage runs on the same nodes as Presto workers.
 
+Network Topology
+----------------
+
 ``node-scheduler.network-topology.segments``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -76,12 +82,24 @@ For example, setting ``region,rack,machine`` means a network location contains t
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``string``
-* **Allowed values:** ``flat``, ``file``
+* **Allowed values:** ``flat``, ``file``, ``subnet``
 * **Default value:** ``flat``
 
-Sets the network topology type. To use this option, ``node-scheduler.policy`` must be set to
-``topology``. ``flat`` has only one segment, with one value for each machine.
-``file`` loads the topology from a file as described below.
+Sets the network topology type. To use this option, ``node-scheduler.policy``
+must be set to ``topology``.
+
+- ``flat``: the topology has only one segment, with one value for each machine.
+- ``file``: the topology is loaded from a file using the properties
+  ``node-scheduler.network-topology.file`` and
+  ``node-scheduler.network-topology.refresh-period`` described in the
+  following sections.
+- ``subnet``: the topology is derived based on subnet configuration provided
+  through properties ``node-scheduler.network-topology.subnet.cidr-prefix-lengths``
+  and ``node-scheduler.network-topology.subnet.ip-address-protocol`` described
+  in the following sections.
+
+File Based Network Topology
+---------------------------
 
 ``node-scheduler.network-topology.file``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -108,3 +126,31 @@ network location, separated by whitespace. Network location must begin with a le
 
 Controls how often the network topology file is reloaded.  To use this option,
 ``node-scheduler.network-topology.type`` must be set to ``file``.
+
+Subnet Based Network Topology
+-----------------------------
+
+``node-scheduler.network-topology.subnet.ip-address-protocol``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``IPv4``, ``IPv6``
+* **Default value:** ``IPv4``
+
+Sets the IP address protocol to be used for computing subnet based
+topology.  To use this option, ``node-scheduler.network-topology.type`` must
+be set to ``subnet``.
+
+``node-scheduler.network-topology.subnet.cidr-prefix-lengths``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A comma-separated list of integers defining CIDR prefix lengths for
+subnet masks. The prefix lengths must be in increasing order. The maximum prefix
+length values for IPv4 and IPv6 protocols are 32 and 128 respectively. To use
+this option, ``node-scheduler.network-topology.type`` must be set to ``subnet``.
+
+For example, the value ``24,25,27`` for this property with IPv4 protocol means
+that masks applied on the IP address to compute location segments are
+``255.255.255.0``, ``255.255.255.128`` and ``255.255.255.224``. So the segments
+created for an address ``192.168.0.172`` are ``[192.168.0.0, 192.168.0.128,
+192.168.0.160, 192.168.0.172]``.
