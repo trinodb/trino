@@ -199,7 +199,7 @@ public abstract class DefaultTraversalVisitor<C>
         }
 
         if (node.getWindow().isPresent()) {
-            process(node.getWindow().get(), context);
+            process((Node) node.getWindow().get(), context);
         }
 
         if (node.getFilter().isPresent()) {
@@ -227,8 +227,20 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    public Void visitWindow(Window node, C context)
+    protected Void visitWindowReference(WindowReference node, C context)
     {
+        process(node.getName(), context);
+
+        return null;
+    }
+
+    @Override
+    public Void visitWindowSpecification(WindowSpecification node, C context)
+    {
+        if (node.getExistingWindowName().isPresent()) {
+            process(node.getExistingWindowName().get(), context);
+        }
+
         for (Expression expression : node.getPartitionBy()) {
             process(expression, context);
         }
@@ -240,6 +252,14 @@ public abstract class DefaultTraversalVisitor<C>
         if (node.getFrame().isPresent()) {
             process(node.getFrame().get(), context);
         }
+
+        return null;
+    }
+
+    @Override
+    protected Void visitWindowDefinition(WindowDefinition node, C context)
+    {
+        process(node.getWindow());
 
         return null;
     }
@@ -449,6 +469,9 @@ public abstract class DefaultTraversalVisitor<C>
         }
         if (node.getHaving().isPresent()) {
             process(node.getHaving().get(), context);
+        }
+        for (WindowDefinition windowDefinition : node.getWindows()) {
+            process(windowDefinition, context);
         }
         if (node.getOrderBy().isPresent()) {
             process(node.getOrderBy().get(), context);

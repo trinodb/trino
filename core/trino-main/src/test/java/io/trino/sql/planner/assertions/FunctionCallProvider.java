@@ -22,6 +22,7 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.WindowFrame;
+import io.trino.sql.tree.WindowSpecification;
 
 import java.util.List;
 import java.util.Objects;
@@ -138,7 +139,8 @@ class FunctionCallProvider
 
             return Objects.equals(name, other.getName()) &&
                     other.getWindow().isPresent() &&
-                    Objects.equals(frame, other.getWindow().get().getFrame()) &&
+                    other.getWindow().get() instanceof WindowSpecification &&
+                    Objects.equals(frame, ((WindowSpecification) other.getWindow().get()).getFrame()) &&
                     Objects.equals(distinct, other.isDistinct()) &&
                     Objects.equals(getArguments(), other.getArguments());
         }

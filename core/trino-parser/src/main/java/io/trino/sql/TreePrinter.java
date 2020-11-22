@@ -51,6 +51,9 @@ import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Values;
+import io.trino.sql.tree.WindowDefinition;
+import io.trino.sql.tree.WindowReference;
+import io.trino.sql.tree.WindowSpecification;
 
 import java.io.PrintStream;
 import java.util.IdentityHashMap;
@@ -162,6 +165,13 @@ public class TreePrinter
                     process(node.getHaving().get(), indentLevel + 1);
                 }
 
+                if (!node.getWindows().isEmpty()) {
+                    print(indentLevel, "Window");
+                    for (WindowDefinition windowDefinition : node.getWindows()) {
+                        process(windowDefinition, indentLevel + 1);
+                    }
+                }
+
                 if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
                     process(node.getOrderBy().get(), indentLevel + 1);
@@ -179,6 +189,50 @@ public class TreePrinter
             {
                 for (SortItem sortItem : node.getSortItems()) {
                     process(sortItem, indentLevel);
+                }
+
+                return null;
+            }
+
+            @Override
+            protected Void visitWindowDefinition(WindowDefinition node, Integer indentLevel)
+            {
+                print(indentLevel, "WindowDefinition[" + node.getName() + "]");
+                process(node.getWindow(), indentLevel + 1);
+
+                return null;
+            }
+
+            @Override
+            protected Void visitWindowReference(WindowReference node, Integer indentLevel)
+            {
+                print(indentLevel, "WindowReference[" + node.getName() + "]");
+
+                return null;
+            }
+
+            @Override
+            public Void visitWindowSpecification(WindowSpecification node, Integer indentLevel)
+            {
+                if (node.getExistingWindowName().isPresent()) {
+                    print(indentLevel, "ExistingWindowName " + node.getExistingWindowName().get());
+                }
+
+                if (!node.getPartitionBy().isEmpty()) {
+                    print(indentLevel, "PartitionBy");
+                    for (Expression expression : node.getPartitionBy()) {
+                        process(expression, indentLevel + 1);
+                    }
+                }
+
+                if (node.getOrderBy().isPresent()) {
+                    print(indentLevel, "OrderBy");
+                    process(node.getOrderBy().get(), indentLevel + 1);
+                }
+
+                if (node.getFrame().isPresent()) {
+                    print(indentLevel, "Frame");
+                    process(node.getFrame().get(), indentLevel + 1);
                 }
 
                 return null;
