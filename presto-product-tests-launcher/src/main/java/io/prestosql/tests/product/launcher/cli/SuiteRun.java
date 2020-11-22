@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
@@ -192,9 +193,14 @@ public class SuiteRun
 
             Suite suite = suiteFactory.getSuite(suiteName);
             EnvironmentConfig environmentConfig = configFactory.getConfig(environmentOptions.config);
-            List<SuiteTestRun> suiteTestRuns = suite.getTestRuns(environmentConfig);
+            List<SuiteTestRun> suiteTestRuns = suite.getTestRuns(environmentConfig).stream()
+                    .map(suiteRun -> suiteRun.withConfigApplied(environmentConfig))
+                    .collect(toImmutableList());
 
-            log.info("Starting suite '%s' with config '%s': ", suiteName, environmentConfig.getConfigName());
+            log.info("Starting suite '%s' with config '%s' and test runs:\n%s",
+                    suiteName,
+                    environmentConfig.getConfigName(),
+                    formatSuiteTestRuns(suiteTestRuns));
 
             List<TestRunResult> testRunsResults = suiteTestRuns.stream()
                     .map(testRun -> executeSuiteTestRun(suiteName, testRun, environmentConfig))
@@ -203,6 +209,21 @@ public class SuiteRun
             printTestRunsSummary(suiteName, testRunsResults);
 
             return getFailedCount(testRunsResults) == 0 ? ExitCode.OK : ExitCode.SOFTWARE;
+        }
+
+        private String formatSuiteTestRuns(List<SuiteTestRun> suiteTestRuns)
+        {
+            Joiner joiner = Joiner.on("\n");
+
+            ConsoleTable table = new ConsoleTable();
+            table.addHeader("environment", "groups", "excluded groups", "tests", "excluded tests");
+            suiteTestRuns.forEach(testRun -> table.addRow(
+                    testRun.getEnvironmentName(),
+                    joiner.join(testRun.getGroups()),
+                    joiner.join(testRun.getExcludedGroups()),
+                    joiner.join(testRun.getTests()),
+                    joiner.join(testRun.getExcludedTests())).addSeparator());
+            return table.render();
         }
 
         private void printTestRunsSummary(String suiteName, List<TestRunResult> results)
@@ -272,7 +293,7 @@ public class SuiteRun
         {
             TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
-            testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
+            testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = suiteRunOptions.testJar;
             testRunOptions.cliJar = suiteRunOptions.cliJar;
             String suiteRunId = suiteRunId(runId, suiteName, suiteTestRun, environmentConfig);

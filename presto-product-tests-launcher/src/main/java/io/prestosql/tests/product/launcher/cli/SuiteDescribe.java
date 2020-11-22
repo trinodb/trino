@@ -153,7 +153,7 @@ public class SuiteDescribe
         {
             TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
-            testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
+            testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments();
             testRunOptions.testJar = testJar;
             testRunOptions.reportsDir = Paths.get(format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
             testRunOptions.startupRetries = null;
