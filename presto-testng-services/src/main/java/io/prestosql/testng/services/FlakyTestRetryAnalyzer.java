@@ -24,12 +24,12 @@ import javax.annotation.concurrent.GuardedBy;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 
 public class FlakyTestRetryAnalyzer
@@ -54,7 +54,15 @@ public class FlakyTestRetryAnalyzer
             return false;
         }
 
-        if (!isEnabled()) {
+        Optional<String> enabledSystemPropertyValue = Optional.ofNullable(System.getProperty(ENABLED_SYSTEM_PROPERTY));
+        if (!enabledSystemPropertyValue.map(Boolean::parseBoolean)
+                .orElse(System.getenv("CONTINUOUS_INTEGRATION") != null)) {
+            log.info(
+                    "FlakyTestRetryAnalyzer not enabled: " +
+                            "CONTINUOUS_INTEGRATION environment is not detected or " +
+                            "system property '%s' is not set to 'true' (actual: %s)",
+                    ENABLED_SYSTEM_PROPERTY,
+                    enabledSystemPropertyValue.orElse("<not set>"));
             return false;
         }
 
@@ -96,25 +104,6 @@ public class FlakyTestRetryAnalyzer
                 method.getMethodName(),
                 retryCount);
         return true;
-    }
-
-    private static boolean isEnabled()
-    {
-        String enabledSystemPropertyValue = System.getProperty(ENABLED_SYSTEM_PROPERTY);
-        if (parseBoolean(enabledSystemPropertyValue)) {
-            return true;
-        }
-        // Enable retry on CI by default
-        if (System.getenv("CONTINUOUS_INTEGRATION") != null) {
-            return true;
-        }
-        log.info(
-                "not retrying; FlakyTestRetryAnalyzer not enabled because: " +
-                        "CONTINUOUS_INTEGRATION environment is not detected, " +
-                        "system property '%s' is not set to 'true' (but to '%s')",
-                ENABLED_SYSTEM_PROPERTY,
-                enabledSystemPropertyValue);
-        return false;
     }
 
     private static String getName(ITestNGMethod method, Object[] parameters)
