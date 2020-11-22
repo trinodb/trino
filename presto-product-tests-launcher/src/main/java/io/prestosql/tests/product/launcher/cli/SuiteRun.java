@@ -29,6 +29,7 @@ import io.prestosql.tests.product.launcher.suite.Suite;
 import io.prestosql.tests.product.launcher.suite.SuiteFactory;
 import io.prestosql.tests.product.launcher.suite.SuiteModule;
 import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
+import io.prestosql.tests.product.launcher.util.ConsoleTable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
@@ -54,6 +55,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.cli.SuiteRun.TestRunResult.HEADER;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
@@ -216,22 +218,11 @@ public class SuiteRun
 
         private void printTestRunsSummary(String suiteName, List<TestRunResult> results)
         {
-            long failedRuns = getFailedCount(results);
-
-            if (failedRuns > 0) {
-                log.info("Suite %s failed in %s (%d passed, %d failed): ", suiteName, nanosSince(suiteStartTime), results.size() - failedRuns, failedRuns);
-            }
-            else {
-                log.info("Suite %s succeeded in %s: ", suiteName, nanosSince(suiteStartTime));
-            }
-
-            results.stream()
-                    .filter(TestRunResult::isSuccessful)
-                    .forEach(Execution::printTestRunSummary);
-
-            results.stream()
-                    .filter(TestRunResult::hasFailed)
-                    .forEach(Execution::printTestRunSummary);
+            ConsoleTable table = new ConsoleTable();
+            table.addHeader(HEADER);
+            results.forEach(result -> table.addRow(result.toRow(suiteName)));
+            table.addSeparator();
+            log.info("Suite tests results:\n%s", table.render());
         }
 
         private static long getFailedCount(List<TestRunResult> results)
@@ -239,19 +230,6 @@ public class SuiteRun
             return results.stream()
                     .filter(TestRunResult::hasFailed)
                     .count();
-        }
-
-        private static void printTestRunSummary(TestRunResult result)
-        {
-            if (result.isSuccessful()) {
-                log.info("PASSED %s with %s [took %s]", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration());
-            }
-            else if (result.getThrowable().isPresent()) {
-                log.error(result.getThrowable().get(), "FAILED %s with %s [took %s]", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration());
-            }
-            else {
-                log.error("FAILED %s with %s [took %s]", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration());
-            }
         }
 
         public TestRunResult executeSuiteTestRun(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
@@ -337,8 +315,12 @@ public class SuiteRun
         }
     }
 
-    private static class TestRunResult
+    static class TestRunResult
     {
+        public static final Object[] HEADER = {
+            "#", "suite", "environment", "config", "status", "elapsed", "error"
+        };
+
         private final int runId;
         private final SuiteTestRun suiteRun;
         private final EnvironmentConfig environmentConfig;
@@ -354,39 +336,9 @@ public class SuiteRun
             this.throwable = requireNonNull(throwable, "throwable is null");
         }
 
-        public int getRunId()
-        {
-            return this.runId;
-        }
-
-        public SuiteTestRun getSuiteRun()
-        {
-            return this.suiteRun;
-        }
-
-        public EnvironmentConfig getSuiteConfig()
-        {
-            return this.environmentConfig;
-        }
-
-        public Duration getDuration()
-        {
-            return this.duration;
-        }
-
-        public boolean isSuccessful()
-        {
-            return this.throwable.isEmpty();
-        }
-
         public boolean hasFailed()
         {
             return this.throwable.isPresent();
-        }
-
-        public Optional<Throwable> getThrowable()
-        {
-            return this.throwable;
         }
 
         @Override
@@ -399,6 +351,18 @@ public class SuiteRun
                     .add("duration", duration)
                     .add("throwable", throwable)
                     .toString();
+        }
+
+        public Object[] toRow(String suiteName)
+        {
+            return new Object[] {
+                runId,
+                suiteName,
+                suiteRun.getEnvironmentName(),
+                environmentConfig.getConfigName(),
+                hasFailed() ? "FAILED" : "SUCCESS",
+                duration,
+                throwable.map(Throwable::getMessage).orElse("-")};
         }
     }
 }
