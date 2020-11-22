@@ -20,13 +20,13 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import io.prestosql.spi.HostAddress;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
-import java.io.File;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 
@@ -40,11 +40,10 @@ public class KafkaConfig
     private Set<HostAddress> nodes = ImmutableSet.of();
     private DataSize kafkaBufferSize = DataSize.of(64, Unit.KILOBYTE);
     private String defaultSchema = "default";
-    private Set<String> tableNames = ImmutableSet.of();
-    private File tableDescriptionDir = new File("etc/kafka/");
     private boolean hideInternalColumns = true;
     private int messagesPerSplit = 100_000;
     private boolean timestampUpperBoundPushDownEnabled;
+    private String tableDescriptionSupplier = FileTableDescriptionSupplier.NAME;
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -88,16 +87,16 @@ public class KafkaConfig
     }
 
     @NotNull
-    public Set<String> getTableNames()
+    public String getTableDescriptionSupplier()
     {
-        return tableNames;
+        return tableDescriptionSupplier;
     }
 
-    @Config("kafka.table-names")
-    @ConfigDescription("Set of tables known to this connector")
-    public KafkaConfig setTableNames(String tableNames)
+    @Config("kafka.table-description-supplier")
+    @ConfigDescription("The table description supplier to use, default is FILE")
+    public KafkaConfig setTableDescriptionSupplier(String tableDescriptionSupplier)
     {
-        this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
+        this.tableDescriptionSupplier = tableDescriptionSupplier;
         return this;
     }
 
@@ -111,20 +110,6 @@ public class KafkaConfig
     public KafkaConfig setHideInternalColumns(boolean hideInternalColumns)
     {
         this.hideInternalColumns = hideInternalColumns;
-        return this;
-    }
-
-    @NotNull
-    public File getTableDescriptionDir()
-    {
-        return tableDescriptionDir;
-    }
-
-    @Config("kafka.table-description-dir")
-    @ConfigDescription("Folder holding JSON description files for Kafka topics")
-    public KafkaConfig setTableDescriptionDir(File tableDescriptionDir)
-    {
-        this.tableDescriptionDir = tableDescriptionDir;
         return this;
     }
 

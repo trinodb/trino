@@ -14,9 +14,9 @@
 package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -32,8 +32,7 @@ public class TestKafkaConfig
                 .setNodes("")
                 .setKafkaBufferSize("64kB")
                 .setDefaultSchema("default")
-                .setTableNames("")
-                .setTableDescriptionDir(new File("etc/kafka/"))
+                .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
                 .setMessagesPerSplit(100_000)
                 .setTimestampUpperBoundPushDownEnabled(false));
@@ -43,9 +42,8 @@ public class TestKafkaConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("kafka.table-description-dir", "/var/lib/kafka")
-                .put("kafka.table-names", "table1, table2, table3")
                 .put("kafka.default-schema", "kafka")
+                .put("kafka.table-description-supplier", "test")
                 .put("kafka.nodes", "localhost:12345,localhost:23456")
                 .put("kafka.buffer-size", "1MB")
                 .put("kafka.hide-internal-columns", "false")
@@ -54,9 +52,8 @@ public class TestKafkaConfig
                 .build();
 
         KafkaConfig expected = new KafkaConfig()
-                .setTableDescriptionDir(new File("/var/lib/kafka"))
-                .setTableNames("table1, table2, table3")
                 .setDefaultSchema("kafka")
+                .setTableDescriptionSupplier("test")
                 .setNodes("localhost:12345, localhost:23456")
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
