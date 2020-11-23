@@ -17,6 +17,7 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -52,8 +53,14 @@ public class TestPostgreSqlIntegrationSmokeTest
             postgreSqlServer.close();
             postgreSqlServer = null;
         });
-        execute("CREATE EXTENSION file_fdw");
         return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, CUSTOMER, NATION, ORDERS, REGION);
+    }
+
+    @BeforeClass
+    public void setExtensions()
+            throws SQLException
+    {
+        execute("CREATE EXTENSION file_fdw");
     }
 
     @Test
