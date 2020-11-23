@@ -23,9 +23,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class ColumnMapping
 {
-    public static final PredicatePushdownController FULL_PUSHDOWN = domain -> new DomainPushdownResult(domain, Domain.all(domain.getType()));
-    public static final PredicatePushdownController PUSHDOWN_AND_KEEP = domain -> new DomainPushdownResult(domain, domain);
-    public static final PredicatePushdownController DISABLE_PUSHDOWN = domain -> new DomainPushdownResult(Domain.all(domain.getType()), domain);
+    public static final PredicatePushdownController FULL_PUSHDOWN = (session, domain) -> new DomainPushdownResult(domain, Domain.all(domain.getType()));
+    public static final PredicatePushdownController PUSHDOWN_AND_KEEP = (session, domain) -> new DomainPushdownResult(domain, domain);
+    public static final PredicatePushdownController DISABLE_PUSHDOWN = (session, domain) -> new DomainPushdownResult(Domain.all(domain.getType()), domain);
 
     public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction)
     {
