@@ -13,29 +13,46 @@
  */
 package io.prestosql.spi.block;
 
-import io.airlift.slice.DynamicSliceOutput;
+import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.block.BlockTestUtils.assertBlockEquals;
+import java.util.Random;
+
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public class TestVariableWidthBlockEncoding
+        extends BaseBlockEncodingTest<String>
 {
-    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+    @Override
+    protected Type getType()
+    {
+        return VARCHAR;
+    }
+
+    @Override
+    protected void write(BlockBuilder blockBuilder, String value)
+    {
+        VARCHAR.writeString(blockBuilder, value);
+    }
+
+    @Override
+    protected String randomValue(Random random)
+    {
+        char[] value = new char[random.nextInt(16)];
+        for (int i = 0; i < value.length; i++) {
+            value[i] = (char) random.nextInt(Byte.MAX_VALUE);
+        }
+        return new String(value);
+    }
 
     @Test
-    public void testRoundTrip()
+    public void testUnicode()
     {
-        BlockBuilder expectedBlockBuilder = VARCHAR.createBlockBuilder(null, 4);
-        VARCHAR.writeString(expectedBlockBuilder, "alice");
-        VARCHAR.writeString(expectedBlockBuilder, "bob");
-        VARCHAR.writeString(expectedBlockBuilder, "charlie");
-        VARCHAR.writeString(expectedBlockBuilder, "dave");
-        Block expectedBlock = expectedBlockBuilder.build();
-
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        blockEncodingSerde.writeBlock(sliceOutput, expectedBlock);
-        Block actualBlock = blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
-        assertBlockEquals(VARCHAR, actualBlock, expectedBlock);
+        roundTrip(
+                "\u0000",
+                "Ní hé lá na gaoithe lá na scolb",
+                "لولا اختلاف النظر، لبارت السلع",
+                "△△▿▿◁▷◁▷BA",
+                "Something in ASCII, latin ÿ, some İ and I, geometry ▦ and finally an emoji \uD83D\uDE0D");
     }
 }
