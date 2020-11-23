@@ -13,14 +13,12 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 
 import java.util.HashMap;
@@ -36,12 +34,6 @@ public final class PostgreSqlQueryRunner
     private PostgreSqlQueryRunner() {}
 
     private static final String TPCH_SCHEMA = "tpch";
-
-    public static QueryRunner createPostgreSqlQueryRunner(TestingPostgreSqlServer server, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createPostgreSqlQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.copyOf(tables));
-    }
 
     public static DistributedQueryRunner createPostgreSqlQueryRunner(
             TestingPostgreSqlServer server,
