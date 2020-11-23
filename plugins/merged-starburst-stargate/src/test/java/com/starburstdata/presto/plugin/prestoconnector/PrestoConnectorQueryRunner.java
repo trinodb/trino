@@ -90,7 +90,7 @@ public final class PrestoConnectorQueryRunner
             }
 
             queryRunner.installPlugin(new TestingPrestoConnectorPlugin());
-            queryRunner.createCatalog(catalogName, "presto-connector-jdbc", connectorProperties);
+            queryRunner.createCatalog(catalogName, "presto-connector", connectorProperties);
 
             return queryRunner;
         }

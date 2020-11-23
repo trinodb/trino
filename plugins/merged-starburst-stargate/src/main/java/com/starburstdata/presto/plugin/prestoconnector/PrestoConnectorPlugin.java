@@ -36,9 +36,8 @@ public class PrestoConnectorPlugin
     {
         requireNonNull(licenseManager, "licenseManager is null");
         return new DynamicFilteringJdbcConnectorFactory(
-                // "presto-connector" is reserved for the parallel variant
-                // TODO maybe we want to choose variants with a config toggle instead?
-                "presto-connector-jdbc",
+                // "presto-connector" will be used also for the parallel variant, with implementation chosen by a configuration property
+                "presto-connector",
                 (String catalogName) -> combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         new PrestoConnectorModule()),
