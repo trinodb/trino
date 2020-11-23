@@ -167,7 +167,7 @@ public class QueryBuilder
     {
         return client.toPrestoType(session, connection, column.getJdbcTypeHandle())
                 .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
-                .getPredicatePushdownController().apply(domain).getPushedDown();
+                .getPredicatePushdownController().apply(session, domain).getPushedDown();
     }
 
     private List<String> toConjuncts(
