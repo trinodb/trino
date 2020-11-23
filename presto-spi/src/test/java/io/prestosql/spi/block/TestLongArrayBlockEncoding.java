@@ -13,48 +13,30 @@
  */
 package io.prestosql.spi.block;
 
-import io.airlift.slice.DynamicSliceOutput;
-import org.testng.annotations.Test;
+import io.prestosql.spi.type.Type;
 
-import static io.prestosql.spi.block.BlockTestUtils.assertBlockEquals;
+import java.util.Random;
+
 import static io.prestosql.spi.type.BigintType.BIGINT;
 
 public class TestLongArrayBlockEncoding
+        extends BaseBlockEncodingTest<Long>
 {
-    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-    @Test
-    public void testRoundTripNoNull()
+    @Override
+    protected Type getType()
     {
-        BlockBuilder expectedBlockBuilder = BIGINT.createBlockBuilder(null, 4);
-        BIGINT.writeLong(expectedBlockBuilder, 1);
-        BIGINT.writeLong(expectedBlockBuilder, 2);
-        BIGINT.writeLong(expectedBlockBuilder, 3);
-        BIGINT.writeLong(expectedBlockBuilder, 4);
-        Block expectedBlock = expectedBlockBuilder.build();
-
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        blockEncodingSerde.writeBlock(sliceOutput, expectedBlock);
-        Block actualBlock = blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
-        assertBlockEquals(BIGINT, actualBlock, expectedBlock);
+        return BIGINT;
     }
 
-    @Test
-    public void testRoundTripWithNull()
+    @Override
+    protected void write(BlockBuilder blockBuilder, Long value)
     {
-        BlockBuilder expectedBlockBuilder = BIGINT.createBlockBuilder(null, 7);
-        expectedBlockBuilder.appendNull();
-        expectedBlockBuilder.appendNull();
-        BIGINT.writeLong(expectedBlockBuilder, 1);
-        expectedBlockBuilder.appendNull();
-        BIGINT.writeLong(expectedBlockBuilder, 3);
-        expectedBlockBuilder.appendNull();
-        expectedBlockBuilder.appendNull();
-        Block expectedBlock = expectedBlockBuilder.build();
+        BIGINT.writeLong(blockBuilder, value);
+    }
 
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
-        blockEncodingSerde.writeBlock(sliceOutput, expectedBlock);
-        Block actualBlock = blockEncodingSerde.readBlock(sliceOutput.slice().getInput());
-        assertBlockEquals(BIGINT, actualBlock, expectedBlock);
+    @Override
+    protected Long randomValue(Random random)
+    {
+        return random.nextLong();
     }
 }
