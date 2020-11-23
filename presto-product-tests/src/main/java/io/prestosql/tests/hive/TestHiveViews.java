@@ -264,6 +264,22 @@ public class TestHiveViews
                 queryAssert -> queryAssert.containsOnly(row("hive")));
     }
 
+    @Test(groups = HIVE_VIEWS)
+    public void testNestedHiveViews()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS nested_base_view");
+        onHive().executeQuery("DROP VIEW IF EXISTS nested_middle_view");
+        onHive().executeQuery("DROP VIEW IF EXISTS nested_top_view");
+
+        onHive().executeQuery("CREATE VIEW nested_base_view AS SELECT n_nationkey as k, n_name as n, n_regionkey as r, n_comment as c FROM nation");
+        onHive().executeQuery("CREATE VIEW nested_middle_view AS SELECT n, c FROM nested_base_view WHERE k = 14");
+        onHive().executeQuery("CREATE VIEW nested_top_view AS SELECT n AS n_renamed FROM nested_middle_view");
+
+        assertViewQuery(
+                "SELECT n_renamed FROM nested_top_view",
+                queryAssert -> queryAssert.containsOnly(row("KENYA")));
+    }
+
     private static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
     {
         // Ensure Hive and Presto view compatibility by comparing the results
