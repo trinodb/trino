@@ -15,7 +15,6 @@ package io.prestosql.plugin.phoenix;
 
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcMetadata;
 import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
@@ -74,7 +73,7 @@ public class PhoenixMetadata
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return phoenixClient.getTableHandle(JdbcIdentity.from(session), schemaTableName)
+        return phoenixClient.getTableHandle(session, schemaTableName)
                 .map(tableHandle -> new JdbcTableHandle(
                         schemaTableName,
                         tableHandle.getCatalogName(),
@@ -96,7 +95,7 @@ public class PhoenixMetadata
                 .filter(column -> rowkeyRequired || !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
-        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata, phoenixClient.getTableProperties(JdbcIdentity.from(session), handle));
+        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata, phoenixClient.getTableProperties(session, handle));
     }
 
     @Override
@@ -120,7 +119,7 @@ public class PhoenixMetadata
 
     private String toMetadataCasing(ConnectorSession session, String schemaName)
     {
-        try (Connection connection = phoenixClient.getConnection(JdbcIdentity.from(session))) {
+        try (Connection connection = phoenixClient.getConnection(session)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             if (uppercase) {
                 schemaName = schemaName.toUpperCase(ENGLISH);
@@ -218,7 +217,7 @@ public class PhoenixMetadata
             JdbcTableHandle jdbcHandle = (JdbcTableHandle) tableHandle;
             phoenixClient.execute(session, format("DROP SEQUENCE %s", getEscapedTableName(Optional.ofNullable(jdbcHandle.getSchemaName()), jdbcHandle.getTableName() + "_sequence")));
         }
-        phoenixClient.dropTable(JdbcIdentity.from(session), (JdbcTableHandle) tableHandle);
+        phoenixClient.dropTable(session, (JdbcTableHandle) tableHandle);
     }
 
     @Override

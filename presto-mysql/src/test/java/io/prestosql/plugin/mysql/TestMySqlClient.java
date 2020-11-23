@@ -62,7 +62,7 @@ public class TestMySqlClient
 
     private static final JdbcClient JDBC_CLIENT = new MySqlClient(
             new BaseJdbcConfig(),
-            identity -> {
+            session -> {
                 throw new UnsupportedOperationException();
             },
             TYPE_MANAGER);

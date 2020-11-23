@@ -15,6 +15,7 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.base.Throwables;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeException;
 import net.jodah.failsafe.RetryPolicy;
@@ -45,12 +46,12 @@ public class RetryingConnectionFactory
     }
 
     @Override
-    public Connection openConnection(JdbcIdentity identity)
+    public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
         try {
             return Failsafe.with(RETRY_POLICY)
-                    .get(() -> delegate.openConnection(identity));
+                    .get(() -> delegate.openConnection(session));
         }
         catch (FailsafeException ex) {
             if (ex.getCause() instanceof SQLException) {

@@ -17,7 +17,6 @@ import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
@@ -73,27 +72,27 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public boolean schemaExists(JdbcIdentity identity, String schema)
+    public boolean schemaExists(ConnectorSession session, String schema)
     {
-        return stats.getSchemaExists().wrap(() -> delegate().schemaExists(identity, schema));
+        return stats.getSchemaExists().wrap(() -> delegate().schemaExists(session, schema));
     }
 
     @Override
-    public Set<String> getSchemaNames(JdbcIdentity identity)
+    public Set<String> getSchemaNames(ConnectorSession session)
     {
-        return stats.getGetSchemaNames().wrap(() -> delegate().getSchemaNames(identity));
+        return stats.getGetSchemaNames().wrap(() -> delegate().getSchemaNames(session));
     }
 
     @Override
-    public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
+    public List<SchemaTableName> getTableNames(ConnectorSession session, Optional<String> schema)
     {
-        return stats.getGetTableNames().wrap(() -> delegate().getTableNames(identity, schema));
+        return stats.getGetTableNames().wrap(() -> delegate().getTableNames(session, schema));
     }
 
     @Override
-    public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return stats.getGetTableHandle().wrap(() -> delegate().getTableHandle(identity, schemaTableName));
+        return stats.getGetTableHandle().wrap(() -> delegate().getTableHandle(session, schemaTableName));
     }
 
     @Override
@@ -139,10 +138,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Connection getConnection(JdbcIdentity identity, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException
     {
-        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(identity, split));
+        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split));
     }
 
     @Override
@@ -160,9 +159,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
-        stats.getSetColumnComment().wrap(() -> delegate().setColumnComment(identity, handle, column, comment));
+        stats.getSetColumnComment().wrap(() -> delegate().setColumnComment(session, handle, column, comment));
     }
 
     @Override
@@ -172,21 +171,21 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
+    public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        stats.getDropColumn().wrap(() -> delegate().dropColumn(identity, handle, column));
+        stats.getDropColumn().wrap(() -> delegate().dropColumn(session, handle, column));
     }
 
     @Override
-    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        stats.getRenameColumn().wrap(() -> delegate().renameColumn(identity, handle, jdbcColumn, newColumnName));
+        stats.getRenameColumn().wrap(() -> delegate().renameColumn(session, handle, jdbcColumn, newColumnName));
     }
 
     @Override
-    public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName)
+    public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
-        stats.getRenameTable().wrap(() -> delegate().renameTable(identity, handle, newTableName));
+        stats.getRenameTable().wrap(() -> delegate().renameTable(session, handle, newTableName));
     }
 
     @Override
@@ -202,9 +201,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        stats.getCommitCreateTable().wrap(() -> delegate().commitCreateTable(identity, handle));
+        stats.getCommitCreateTable().wrap(() -> delegate().commitCreateTable(session, handle));
     }
 
     @Override
@@ -214,21 +213,21 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        stats.getFinishInsertTable().wrap(() -> delegate().finishInsertTable(identity, handle));
+        stats.getFinishInsertTable().wrap(() -> delegate().finishInsertTable(session, handle));
     }
 
     @Override
-    public void dropTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle)
+    public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
-        stats.getDropTable().wrap(() -> delegate().dropTable(identity, jdbcTableHandle));
+        stats.getDropTable().wrap(() -> delegate().dropTable(session, jdbcTableHandle));
     }
 
     @Override
-    public void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        stats.getRollbackCreateTable().wrap(() -> delegate().rollbackCreateTable(identity, handle));
+        stats.getRollbackCreateTable().wrap(() -> delegate().rollbackCreateTable(session, handle));
     }
 
     @Override
@@ -238,10 +237,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Connection getConnection(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return stats.getGetConnectionWithHandle().wrap(() -> delegate().getConnection(identity, handle));
+        return stats.getGetConnectionWithHandle().wrap(() -> delegate().getConnection(session, handle));
     }
 
     @Override
@@ -270,15 +269,15 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void createSchema(JdbcIdentity identity, String schemaName)
+    public void createSchema(ConnectorSession session, String schemaName)
     {
-        stats.getCreateSchema().wrap(() -> delegate().createSchema(identity, schemaName));
+        stats.getCreateSchema().wrap(() -> delegate().createSchema(session, schemaName));
     }
 
     @Override
-    public void dropSchema(JdbcIdentity identity, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName)
     {
-        stats.getDropSchema().wrap(() -> delegate().dropSchema(identity, schemaName));
+        stats.getDropSchema().wrap(() -> delegate().dropSchema(session, schemaName));
     }
 
     @Override
@@ -300,9 +299,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return delegate().getTableProperties(identity, tableHandle);
+        return delegate().getTableProperties(session, tableHandle);
     }
 
     @Override
