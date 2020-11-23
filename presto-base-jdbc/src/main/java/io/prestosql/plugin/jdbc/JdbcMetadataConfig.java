@@ -17,10 +17,18 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 
+import javax.validation.constraints.Min;
+
 public class JdbcMetadataConfig
 {
     private boolean allowDropTable;
     private boolean aggregationPushdownEnabled = true;
+    // Pushed domains are transformed into SQL IN lists
+    // (or sequence of range predicates) in JDBC connectors.
+    // Too large IN lists cause significant performance regression.
+    // Use 32 as compaction threshold as it provides reasonable balance
+    // between performance and pushdown capabilities
+    private int domainCompactionThreshold = 32;
 
     public boolean isAllowDropTable()
     {
@@ -46,6 +54,20 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setAggregationPushdownEnabled(boolean aggregationPushdownEnabled)
     {
         this.aggregationPushdownEnabled = aggregationPushdownEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getDomainCompactionThreshold()
+    {
+        return domainCompactionThreshold;
+    }
+
+    @Config("domain-compaction-threshold")
+    @ConfigDescription("Maximum ranges to allow in a tuple domain without compacting it")
+    public JdbcMetadataConfig setDomainCompactionThreshold(int domainCompactionThreshold)
+    {
+        this.domainCompactionThreshold = domainCompactionThreshold;
         return this;
     }
 }
