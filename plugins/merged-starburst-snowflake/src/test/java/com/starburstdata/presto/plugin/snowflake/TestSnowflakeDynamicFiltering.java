@@ -53,7 +53,7 @@ public class TestSnowflakeDynamicFiltering
     }
 
     @Override
-    protected boolean isAssertNumberOfSplits()
+    protected boolean supportsSplitDynamicFiltering()
     {
         return true;
     }
