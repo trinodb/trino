@@ -32,7 +32,7 @@ public class TestOracleDynamicFiltering
     }
 
     @Override
-    protected boolean isAssertNumberOfSplits()
+    protected boolean supportsSplitDynamicFiltering()
     {
         return false; // Dynamic filters do not allow Oracle to eliminate splits
     }
