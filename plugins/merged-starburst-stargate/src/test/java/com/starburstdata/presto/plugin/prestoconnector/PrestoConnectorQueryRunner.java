@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.prestoconnector;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
+import io.prestosql.plugin.jmx.JmxPlugin;
 import io.prestosql.plugin.memory.MemoryPlugin;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -67,6 +68,9 @@ public final class PrestoConnectorQueryRunner
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
+
+            queryRunner.installPlugin(new JmxPlugin());
+            queryRunner.createCatalog("jmx", "jmx");
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-user", "p2p");
