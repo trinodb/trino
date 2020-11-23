@@ -470,6 +470,9 @@ Property Name                                Description
 Table Statistics
 ----------------
 
+The Hive connector supports collecting and managing :doc:`table statistics
+</optimizer/statistics>` to improve query processing performance.
+
 When writing data, the Hive connector always collects basic statistics
 (``numFiles``, ``numRows``, ``rawDataSize``, ``totalSize``)
 and by default will also collect column level statistics:
