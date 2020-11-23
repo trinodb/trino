@@ -89,7 +89,7 @@ public class TestJdbcQueryBuilder
 {
     private static final RemoteTableName TEST_TABLE = new RemoteTableName(Optional.empty(), Optional.empty(), "test_table");
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
-            .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig()).getSessionProperties())
+            .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
             .build();
 
     private TestingDatabase database;

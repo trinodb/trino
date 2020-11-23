@@ -14,6 +14,7 @@
 package io.prestosql.plugin.oracle;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -23,6 +24,7 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.prestosql.plugin.jdbc.RetryingConnectionFactory;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import oracle.jdbc.OracleConnection;
@@ -31,8 +33,10 @@ import oracle.jdbc.OracleDriver;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.prestosql.plugin.oracle.OracleClient.ORACLE_MAX_LIST_EXPRESSIONS;
 
 public class OracleClientModule
         implements Module
@@ -43,6 +47,7 @@ public class OracleClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(OracleClient.class).in(Scopes.SINGLETON);
         bindSessionPropertiesProvider(binder, OracleSessionProperties.class);
         configBinder(binder).bindConfig(OracleConfig.class);
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(ORACLE_MAX_LIST_EXPRESSIONS);
     }
 
     @Provides

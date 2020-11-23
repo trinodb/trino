@@ -67,6 +67,8 @@ public class JdbcModule
 
         binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(ConnectionFactory.class).to(Key.get(ConnectionFactory.class, StatsCollecting.class));
+
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
     }
 
     public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)
