@@ -25,7 +25,6 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.TestingBlockEncodingSerde;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
@@ -46,8 +45,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
 
-import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
@@ -56,6 +53,7 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.execution.buffer.BenchmarkDataGenerator.createValues;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.readPages;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.writePages;
 import static io.prestosql.plugin.tpch.TpchTables.getTablePages;
@@ -64,11 +62,9 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_PICOS;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
@@ -84,7 +80,6 @@ public class BenchmarkBlockSerde
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 5);
 
     public static final int ROWS = 10_000_000;
-    private static final int MAX_STRING = 19;
 
     @Benchmark
     public Object serializeLongDecimal(LongDecimalBenchmarkData data)
@@ -190,31 +185,20 @@ public class BenchmarkBlockSerde
                 .collect(toImmutableList());
     }
 
-    public abstract static class BenchmarkData
+    public abstract static class TypeBenchmarkData
+            extends BenchmarkData
     {
-        protected final Random random = new Random(0);
-        private Slice dataSource;
-        private PagesSerde pagesSerde;
-        private List<Page> pages;
+        @Param({"0", ".01", ".10", ".50", ".90", ".99"})
+        private double nullChance;
 
-        public void setup(Iterator<Page> pagesIterator)
-                throws Exception
+        public void setup(Type type, Function<Random, ?> valueGenerator)
         {
-            pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
-
-            this.pages = ImmutableList.copyOf(pagesIterator);
-            DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);
-            writePages(pagesSerde, new OutputStreamSliceOutput(sliceOutput), pages.listIterator());
-            dataSource = sliceOutput.slice();
-        }
-
-        public void setup(Type type, Iterator<?> values)
-                throws Exception
-        {
-            pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
+            PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
             BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
             ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builder();
+
+            Iterator<?> values = createValues(ROWS, valueGenerator, nullChance);
             while (values.hasNext()) {
                 Object value = values.next();
                 if (value == null) {
@@ -256,10 +240,25 @@ public class BenchmarkBlockSerde
                 pagesBuilder.add(pageBuilder.build());
             }
 
-            pages = pagesBuilder.build();
+            List<Page> pages = pagesBuilder.build();
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);
             writePages(pagesSerde, new OutputStreamSliceOutput(sliceOutput), pages.iterator());
-            dataSource = sliceOutput.slice();
+
+            setup(sliceOutput.slice(), pagesSerde, pages);
+        }
+    }
+
+    public abstract static class BenchmarkData
+    {
+        private Slice dataSource;
+        private PagesSerde pagesSerde;
+        private List<Page> pages;
+
+        public void setup(Slice dataSource, PagesSerde pagesSerde, List<Page> pages)
+        {
+            this.dataSource = dataSource;
+            this.pagesSerde = pagesSerde;
+            this.pages = pages;
         }
 
         public List<Page> getPages()
@@ -278,115 +277,80 @@ public class BenchmarkBlockSerde
         }
     }
 
-    public abstract static class TypeBenchmarkData<T>
-            extends BenchmarkData
-    {
-        private final Type type;
-        private final Function<Random, T> valueGenerator;
-
-        @Param({"0", ".01", ".10", ".50", ".90", ".99"})
-        private double nullChance;
-
-        public TypeBenchmarkData(Type type, Function<Random, T> valueGenerator)
-        {
-            this.type = requireNonNull(type, "type is null");
-            this.valueGenerator = requireNonNull(valueGenerator, "valueGenerator is null");
-        }
-
-        protected double getNullChance()
-        {
-            return nullChance;
-        }
-
-        @Setup
-        public void setup()
-                throws Exception
-        {
-            setup(type, createValues());
-        }
-
-        private Iterator<T> createValues()
-        {
-            List<T> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextDouble() > getNullChance()) {
-                    values.add(valueGenerator.apply(random));
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
-        }
-    }
-
     @State(Thread)
     public static class LongDecimalBenchmarkData
-            extends TypeBenchmarkData<SqlDecimal>
+            extends TypeBenchmarkData
     {
-        public LongDecimalBenchmarkData()
+        @Setup
+        public void setup()
         {
-            super(LONG_DECIMAL_TYPE, BenchmarkBlockSerde::randomLongDecimal);
+            super.setup(LONG_DECIMAL_TYPE, BenchmarkDataGenerator::randomLongDecimal);
         }
     }
 
     @State(Thread)
     public static class LongTimestampBenchmarkData
-            extends TypeBenchmarkData<LongTimestamp>
+            extends TypeBenchmarkData
     {
-        public LongTimestampBenchmarkData()
+        @Setup
+        public void setup()
         {
-            super(TIMESTAMP_PICOS, BenchmarkBlockSerde::randomTimestamp);
+            super.setup(TIMESTAMP_PICOS, BenchmarkDataGenerator::randomTimestamp);
         }
     }
 
     @State(Thread)
     public static class BigintBenchmarkData
-            extends TypeBenchmarkData<Long>
+            extends TypeBenchmarkData
     {
-        public BigintBenchmarkData()
+        @Setup
+        public void setup()
         {
-            super(BIGINT, Random::nextLong);
+            super.setup(BIGINT, Random::nextLong);
         }
     }
 
     @State(Thread)
     public static class IntegerBenchmarkData
-            extends TypeBenchmarkData<Integer>
+            extends TypeBenchmarkData
     {
-        public IntegerBenchmarkData()
+        @Setup
+        public void setup()
         {
-            super(INTEGER, Random::nextInt);
+            super.setup(INTEGER, Random::nextInt);
         }
     }
 
     @State(Thread)
     public static class SmallintBenchmarkData
-            extends TypeBenchmarkData<Short>
+            extends TypeBenchmarkData
     {
-        public SmallintBenchmarkData()
+        @Setup
+        public void setup()
         {
-            super(SMALLINT, random -> (short) random.nextInt(0xFFFF));
+            super.setup(SMALLINT, BenchmarkDataGenerator::randomShort);
         }
     }
 
     @State(Thread)
     public static class TinyintBenchmarkData
-            extends TypeBenchmarkData<Byte>
+            extends TypeBenchmarkData
     {
-        public TinyintBenchmarkData()
+        @Setup
+        public void setup()
         {
-            super(TINYINT, random -> (byte) random.nextInt(0xFF));
+            super.setup(TINYINT, BenchmarkDataGenerator::randomByte);
         }
     }
 
     @State(Thread)
     public static class VarcharDirectBenchmarkData
-            extends TypeBenchmarkData<String>
+            extends TypeBenchmarkData
     {
-        public VarcharDirectBenchmarkData()
+        @Setup
+        public void setup()
         {
-            super(VARCHAR, BenchmarkBlockSerde::randomAsciiString);
+            super.setup(VARCHAR, BenchmarkDataGenerator::randomAsciiString);
         }
     }
 
@@ -396,34 +360,18 @@ public class BenchmarkBlockSerde
     {
         @Setup
         public void setup()
-                throws Exception
         {
-            setup(getTablePages("lineitem", 0.1));
+            PagesSerde pagesSerde = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false).createPagesSerde();
+
+            List<Page> pages = ImmutableList.copyOf(getTablePages("lineitem", 0.1));
+            DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);
+            writePages(pagesSerde, new OutputStreamSliceOutput(sliceOutput), pages.listIterator());
+            setup(sliceOutput.slice(), pagesSerde, pages);
         }
-    }
-
-    private static String randomAsciiString(Random random)
-    {
-        char[] value = new char[random.nextInt(MAX_STRING)];
-        for (int i = 0; i < value.length; i++) {
-            value[i] = (char) random.nextInt(Byte.MAX_VALUE);
-        }
-        return new String(value);
-    }
-
-    private static SqlDecimal randomLongDecimal(Random random)
-    {
-        return new SqlDecimal(new BigInteger(96, random), 30, 5);
-    }
-
-    private static LongTimestamp randomTimestamp(Random random)
-    {
-        return new LongTimestamp(random.nextLong(), random.nextInt(PICOSECONDS_PER_MICROSECOND));
     }
 
     @Test
     public void test()
-            throws Exception
     {
         LineitemBenchmarkData data = new LineitemBenchmarkData();
         data.setup();
