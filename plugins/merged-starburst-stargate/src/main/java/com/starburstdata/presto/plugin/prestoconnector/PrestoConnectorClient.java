@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static java.lang.String.format;
 
@@ -52,5 +53,17 @@ public class PrestoConnectorClient
                 quoted(column.getColumnName()),
                 comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
         execute(identity, sql);
+    }
+
+    @Override
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
     }
 }
