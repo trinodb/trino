@@ -20,7 +20,6 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
@@ -166,10 +165,10 @@ public class PhoenixClient
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
     }
 
-    public PhoenixConnection getConnection(JdbcIdentity identity)
+    public PhoenixConnection getConnection(ConnectorSession session)
             throws SQLException
     {
-        return connectionFactory.openConnection(identity).unwrap(PhoenixConnection.class);
+        return connectionFactory.openConnection(session).unwrap(PhoenixConnection.class);
     }
 
     public org.apache.hadoop.hbase.client.Connection getHConnection()
@@ -178,9 +177,10 @@ public class PhoenixClient
         return HBaseFactoryProvider.getHConnectionFactory().createConnection(configuration);
     }
 
+    @Override
     public void execute(ConnectorSession session, String statement)
     {
-        execute(JdbcIdentity.from(session), statement);
+        super.execute(session, statement);
     }
 
     @Override
@@ -349,11 +349,11 @@ public class PhoenixClient
         Optional<String> schema = Optional.of(schemaTableName.getSchemaName());
         String table = schemaTableName.getTableName();
 
-        if (!getSchemaNames(JdbcIdentity.from(session)).contains(schema.orElse(null))) {
+        if (!getSchemaNames(session).contains(schema.orElse(null))) {
             throw new SchemaNotFoundException(schema.orElse(null));
         }
 
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+        try (Connection connection = connectionFactory.openConnection(session)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             if (uppercase) {
                 schema = schema.map(schemaName -> schemaName.toUpperCase(ENGLISH));
@@ -432,11 +432,11 @@ public class PhoenixClient
     }
 
     @Override
-    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle handle)
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle handle)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
 
-        try (PhoenixConnection connection = (PhoenixConnection) connectionFactory.openConnection(identity);
+        try (PhoenixConnection connection = (PhoenixConnection) connectionFactory.openConnection(session);
                 HBaseAdmin admin = connection.getQueryServices().getAdmin()) {
             String schemaName = toPhoenixSchemaName(Optional.ofNullable(handle.getSchemaName())).orElse(null);
             PTable table = getTable(connection, SchemaUtil.getTableName(schemaName, handle.getTableName()));

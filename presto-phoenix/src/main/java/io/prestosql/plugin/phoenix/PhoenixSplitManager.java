@@ -16,7 +16,6 @@ package io.prestosql.plugin.phoenix;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.spi.HostAddress;
@@ -79,7 +78,7 @@ public class PhoenixSplitManager
             DynamicFilter dynamicFilter)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        try (PhoenixConnection connection = phoenixClient.getConnection(JdbcIdentity.from(session))) {
+        try (PhoenixConnection connection = phoenixClient.getConnection(session)) {
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
                     .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));

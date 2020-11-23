@@ -16,6 +16,7 @@ package io.prestosql.plugin.jdbc;
 import io.prestosql.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -66,9 +67,10 @@ public class DriverConnectionFactory
     }
 
     @Override
-    public Connection openConnection(JdbcIdentity identity)
+    public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
+        JdbcIdentity identity = JdbcIdentity.from(session);
         Properties properties = getCredentialProperties(identity);
         Connection connection = driver.connect(connectionUrl.apply(identity), properties);
         checkState(connection != null, "Driver returned null connection");
