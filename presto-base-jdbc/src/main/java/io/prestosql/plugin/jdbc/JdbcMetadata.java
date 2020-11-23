@@ -142,7 +142,7 @@ public class JdbcMetadata
             for (int i = 0; i < columnHandles.size(); i++) {
                 JdbcColumnHandle column = columnHandles.get(i);
                 ColumnMapping mapping = columnMappings.get(i);
-                DomainPushdownResult pushdownResult = mapping.getPredicatePushdownController().apply(domains.get(column));
+                DomainPushdownResult pushdownResult = mapping.getPredicatePushdownController().apply(session, domains.get(column));
                 supported.put(column, pushdownResult.getPushedDown());
                 unsupported.put(column, pushdownResult.getRemainingFilter());
             }
