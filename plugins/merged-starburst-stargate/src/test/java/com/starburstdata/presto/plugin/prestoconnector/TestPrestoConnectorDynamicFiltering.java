@@ -10,12 +10,15 @@
 package com.starburstdata.presto.plugin.prestoconnector;
 
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 
 import java.util.List;
 import java.util.Map;
 
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorLoopbackQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 
 public class TestPrestoConnectorDynamicFiltering
@@ -25,12 +28,15 @@ public class TestPrestoConnectorDynamicFiltering
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPrestoConnectorLoopbackQueryRunner(
-                3,
+        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
                 Map.of(),
                 false,
+                List.of(ORDERS)));
+        return createPrestoConnectorQueryRunner(
                 Map.of(),
-                List.of(ORDERS));
+                Map.of(
+                        "connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"),
+                        "allow-drop-table", "true"));
     }
 
     @Override

@@ -33,36 +33,55 @@ public final class PrestoConnectorQueryRunner
 {
     private PrestoConnectorQueryRunner() {}
 
-    /**
-     * Creates a {@link DistributedQueryRunner} with {@link PrestoConnectorPlugin} installed
-     * and connected to some other catalog on the same Presto instance.
-     */
-    // TODO use separate query runner for remote Presto
-    public static DistributedQueryRunner createPrestoConnectorLoopbackQueryRunner(
-            int nodeCount,
+    public static DistributedQueryRunner createRemotePrestoQueryRunner(
             Map<String, String> extraProperties,
             boolean readOnly,
-            Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> requiredTables)
             throws Exception
     {
-        String catalogName = readOnly
-                ? "remote_tpch"
-                : "remote_memory";
+        DistributedQueryRunner queryRunner = null;
+        try {
+            queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
+                    .setNodeCount(1) // 1 is perfectly enough until we do parallel Presto Connector
+                    .setExtraProperties(extraProperties)
+                    .build();
 
-        String schemaName = readOnly
-                ? "tiny" // from tpch connector
-                : "tpch_tiny"; // from memory connector
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
 
+            if (!readOnly) {
+                queryRunner.installPlugin(new MemoryPlugin());
+                queryRunner.createCatalog("memory", "memory");
+
+                queryRunner.execute("CREATE SCHEMA memory.tiny");
+                Session tpchSetupSession = testSessionBuilder()
+                        .setCatalog("memory")
+                        .setSchema("tiny")
+                        .build();
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTables);
+            }
+
+            return queryRunner;
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
+    }
+
+    public static DistributedQueryRunner createPrestoConnectorQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties)
+            throws Exception
+    {
         Session session = testSessionBuilder()
-                .setCatalog(catalogName)
-                .setSchema(schemaName)
+                .setCatalog("p2p_remote")
+                .setSchema("tiny")
                 .build();
 
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(session)
-                    .setNodeCount(nodeCount)
                     .setExtraProperties(extraProperties)
                     .build();
 
@@ -75,26 +94,8 @@ public final class PrestoConnectorQueryRunner
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-user", "p2p");
 
-            if (readOnly) {
-                connectorProperties.putIfAbsent("connection-url", connectionUrl(queryRunner.getCoordinator().getBaseUrl(), "tpch"));
-            }
-            else {
-                queryRunner.installPlugin(new MemoryPlugin());
-                queryRunner.createCatalog("memory", "memory");
-
-                queryRunner.execute("CREATE SCHEMA memory." + schemaName);
-                Session tpchSetupSession = testSessionBuilder()
-                        .setCatalog("memory")
-                        .setSchema(schemaName)
-                        .build();
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTables);
-
-                connectorProperties.putIfAbsent("connection-url", connectionUrl(queryRunner.getCoordinator().getBaseUrl(), "memory"));
-                connectorProperties.putIfAbsent("allow-drop-table", "true");
-            }
-
             queryRunner.installPlugin(new TestingPrestoConnectorPlugin());
-            queryRunner.createCatalog(catalogName, "presto-connector", connectorProperties);
+            queryRunner.createCatalog("p2p_remote", "presto-connector", connectorProperties);
 
             return queryRunner;
         }
@@ -102,6 +103,11 @@ public final class PrestoConnectorQueryRunner
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    public static String prestoConnectorConnectionUrl(DistributedQueryRunner remotePresto, String catalog)
+    {
+        return connectionUrl(remotePresto.getCoordinator().getBaseUrl(), catalog);
     }
 
     private static String connectionUrl(URI prestoUri, String catalog)

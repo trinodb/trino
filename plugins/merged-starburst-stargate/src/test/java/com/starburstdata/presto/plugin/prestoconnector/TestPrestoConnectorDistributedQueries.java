@@ -9,18 +9,19 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.testng.services.Flaky;
 import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
-import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorLoopbackQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPrestoConnectorDistributedQueries
@@ -30,12 +31,15 @@ public class TestPrestoConnectorDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPrestoConnectorLoopbackQueryRunner(
-                3,
-                ImmutableMap.of(),
+        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
+                Map.of(),
                 false,
-                ImmutableMap.of(),
-                TpchTable.getTables());
+                TpchTable.getTables()));
+        return createPrestoConnectorQueryRunner(
+                Map.of(),
+                Map.of(
+                        "connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"),
+                        "allow-drop-table", "true"));
     }
 
     @Override
@@ -117,24 +121,13 @@ public class TestPrestoConnectorDistributedQueries
     }
 
     @Override
-    @Test
-    // The test is flaky because super uses assertEventually. Since the expected condition is never satisfied,
-    // super ends up throwing a "random" failure (the last failure).
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = ".")
-    public void testQueryLoggingCount()
-    {
-        // TODO use separate query runner for remote cluster
-        assertThatThrownBy(super::testQueryLoggingCount)
-                .hasToString("java.lang.AssertionError: expected [4] but found [32]");
-    }
-
-    @Override
     public void testLargeIn()
     {
         assertThatThrownBy(super::testLargeIn)
                 .hasMessageContaining("Execution of 'actual' query failed: SELECT orderkey FROM orders WHERE orderkey NOT IN (0, 1, 2, 3, 4, 5, 6")
                 .hasStackTraceContaining("io.prestosql.plugin.jdbc.QueryBuilder.buildSql"); // remote exception
         // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4799) be smart, prevent failure
+        // See also https://github.com/prestosql/presto/issues/6075
         throw new SkipException("TODO");
     }
 

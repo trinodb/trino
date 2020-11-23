@@ -9,14 +9,18 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorLoopbackQueryRunner;
+import java.util.List;
+import java.util.Map;
+
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -31,13 +35,13 @@ public class TestPrestoConnectorIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPrestoConnectorLoopbackQueryRunner(
-                // high node count is needed to avoid apparent deadlock e.g. in testConcurrentScans test. See also https://starburstdata.atlassian.net/browse/PRESTO-4793
-                7,
-                ImmutableMap.of(),
+        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
+                Map.of(),
                 true,
-                ImmutableMap.of(),
-                ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
+                List.of(CUSTOMER, NATION, ORDERS, REGION)));
+        return createPrestoConnectorQueryRunner(
+                Map.of(),
+                Map.of("connection-url", prestoConnectorConnectionUrl(remotePresto, "tpch")));
     }
 
     @Test
