@@ -104,6 +104,8 @@ Property                                                Description
                                                         each pattern will be check in order until a login
                                                         succeeds or all fail. Example:
                                                         ``${USER}@corp.example.com:${USER}@corp.example.co.uk``.
+``ldap.ignore-referrals``                               Ignore referrals to other LDAP servers while
+                                                        performing search queries. Defaults to ``false``.
 ``ldap.cache-ttl``                                      LDAP cache duration. Defaults to ``1h``.
 ======================================================= ======================================================
 
