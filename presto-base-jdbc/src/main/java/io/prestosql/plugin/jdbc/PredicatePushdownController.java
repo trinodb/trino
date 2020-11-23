@@ -20,6 +20,10 @@ import static java.util.Objects.requireNonNull;
 
 public interface PredicatePushdownController
 {
+    PredicatePushdownController FULL_PUSHDOWN = (session, domain) -> new DomainPushdownResult(domain, Domain.all(domain.getType()));
+    PredicatePushdownController PUSHDOWN_AND_KEEP = (session, domain) -> new DomainPushdownResult(domain, domain);
+    PredicatePushdownController DISABLE_PUSHDOWN = (session, domain) -> new DomainPushdownResult(Domain.all(domain.getType()), domain);
+
     DomainPushdownResult apply(ConnectorSession session, Domain domain);
 
     final class DomainPushdownResult
