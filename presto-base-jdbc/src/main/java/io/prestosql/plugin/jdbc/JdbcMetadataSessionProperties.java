@@ -22,11 +22,13 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
+import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 
 public class JdbcMetadataSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
+    public static final String DOMAIN_COMPACTION_THRESHOLD = "domain_compaction_threshold";
 
     private final List<PropertyMetadata<?>> properties;
 
@@ -38,6 +40,11 @@ public class JdbcMetadataSessionProperties
                         AGGREGATION_PUSHDOWN_ENABLED,
                         "Enable aggregation pushdown",
                         jdbcMetadataConfig.isAggregationPushdownEnabled(),
+                        false))
+                .add(integerProperty(
+                        DOMAIN_COMPACTION_THRESHOLD,
+                        "Maximum ranges to allow in a tuple domain without simplifying it",
+                        jdbcMetadataConfig.getDomainCompactionThreshold(),
                         false))
                 .build();
     }
@@ -51,5 +58,10 @@ public class JdbcMetadataSessionProperties
     public static boolean isAggregationPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static int getDomainCompactionThreshold(ConnectorSession session)
+    {
+        return session.getProperty(DOMAIN_COMPACTION_THRESHOLD, Integer.class);
     }
 }

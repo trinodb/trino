@@ -14,15 +14,28 @@
 package io.prestosql.plugin.jdbc;
 
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.predicate.DiscreteValues;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Ranges;
 
+import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static java.util.Objects.requireNonNull;
 
 public interface PredicatePushdownController
 {
-    PredicatePushdownController FULL_PUSHDOWN = (session, domain) -> new DomainPushdownResult(domain, Domain.all(domain.getType()));
-    PredicatePushdownController PUSHDOWN_AND_KEEP = (session, domain) -> new DomainPushdownResult(domain, domain);
-    PredicatePushdownController DISABLE_PUSHDOWN = (session, domain) -> new DomainPushdownResult(Domain.all(domain.getType()), domain);
+    PredicatePushdownController FULL_PUSHDOWN = (session, domain) -> {
+        if (getDomainSize(domain) > getDomainCompactionThreshold(session)) {
+            // pushdown simplified domain
+            return new DomainPushdownResult(domain.simplify(getDomainCompactionThreshold(session)), domain);
+        }
+        return new DomainPushdownResult(domain, Domain.all(domain.getType()));
+    };
+    PredicatePushdownController PUSHDOWN_AND_KEEP = (session, domain) -> new DomainPushdownResult(
+            domain.simplify(getDomainCompactionThreshold(session)),
+            domain);
+    PredicatePushdownController DISABLE_PUSHDOWN = (session, domain) -> new DomainPushdownResult(
+            Domain.all(domain.getType()),
+            domain);
 
     DomainPushdownResult apply(ConnectorSession session, Domain domain);
 
@@ -47,5 +60,13 @@ public interface PredicatePushdownController
         {
             return remainingFilter;
         }
+    }
+
+    private static int getDomainSize(Domain domain)
+    {
+        return domain.getValues().getValuesProcessor().transform(
+                Ranges::getRangeCount,
+                DiscreteValues::getValuesCount,
+                ignored -> 0);
     }
 }

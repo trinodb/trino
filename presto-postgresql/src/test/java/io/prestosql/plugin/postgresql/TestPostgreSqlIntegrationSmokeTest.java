@@ -13,7 +13,9 @@
  */
 package io.prestosql.plugin.postgresql;
 
+import io.prestosql.Session;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -212,6 +214,17 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
                 .isFullyPushedDown();
+
+        // bigint equality with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("postgresql", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE nationkey IN (19, 21)"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
 
         // bigint range, with decimal to bigint simplification
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
