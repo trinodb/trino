@@ -16,7 +16,6 @@ package io.prestosql.plugin.oracle;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.RetryingConnectionFactory;
 import io.prestosql.plugin.jdbc.credential.StaticCredentialProvider;
 import oracle.jdbc.OracleDriver;
@@ -37,7 +36,6 @@ public class TestingOracleServer
         implements Closeable
 {
     private static final String TEST_TABLESPACE = "presto_test";
-    private static final JdbcIdentity IDENTITY = JdbcIdentity.from(SESSION);
 
     public static final String TEST_USER = "presto_test";
     public static final String TEST_SCHEMA = TEST_USER; // schema and user is the same thing in Oracle
@@ -51,7 +49,7 @@ public class TestingOracleServer
 
         start();
 
-        try (Connection connection = getConnectionFactory().openConnection(IDENTITY);
+        try (Connection connection = getConnectionFactory().openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
             // this is added to allow more processes on database, otherwise the tests end up giving
             // ORA-12519, TNS:no appropriate service handler found
@@ -72,7 +70,7 @@ public class TestingOracleServer
         }
 
         waitUntilContainerStarted();
-        try (Connection connection = getConnectionFactory().openConnection(IDENTITY);
+        try (Connection connection = getConnectionFactory().openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
             statement.execute(format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE", TEST_TABLESPACE));
             statement.execute(format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s", TEST_USER, TEST_PASS, TEST_TABLESPACE));
@@ -97,7 +95,7 @@ public class TestingOracleServer
 
     public void execute(String sql, String user, String password)
     {
-        try (Connection connection = getConnectionFactory(user, password).openConnection(IDENTITY);
+        try (Connection connection = getConnectionFactory(user, password).openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }

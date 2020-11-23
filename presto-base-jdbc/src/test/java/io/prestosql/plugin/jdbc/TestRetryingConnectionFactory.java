@@ -15,6 +15,7 @@ package io.prestosql.plugin.jdbc;
 
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.spi.connector.ConnectorSession;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -40,8 +41,6 @@ import static org.testng.Assert.assertNotNull;
 
 public class TestRetryingConnectionFactory
 {
-    private static final JdbcIdentity IDENTITY = JdbcIdentity.from(SESSION);
-
     @Test
     public void testEverythingImplemented()
     {
@@ -54,7 +53,7 @@ public class TestRetryingConnectionFactory
     {
         MockConnectorFactory mock = new MockConnectorFactory(RETURN);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertNotNull(factory.openConnection(IDENTITY));
+        assertNotNull(factory.openConnection(SESSION));
         assertEquals(mock.getCallCount(), 1);
     }
 
@@ -63,7 +62,7 @@ public class TestRetryingConnectionFactory
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_PRESTO_EXCEPTION);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertThatThrownBy(() -> factory.openConnection(IDENTITY))
+        assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(PrestoException.class)
                 .hasMessage("Testing presto exception");
         assertEquals(mock.getCallCount(), 2);
@@ -74,7 +73,7 @@ public class TestRetryingConnectionFactory
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_SQL_EXCEPTION);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertThatThrownBy(() -> factory.openConnection(IDENTITY))
+        assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("Testing sql exception");
         assertEquals(mock.getCallCount(), 2);
@@ -85,7 +84,7 @@ public class TestRetryingConnectionFactory
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_NPE);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertThatThrownBy(() -> factory.openConnection(IDENTITY))
+        assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("Testing NPE");
         assertEquals(mock.getCallCount(), 1);
@@ -97,7 +96,7 @@ public class TestRetryingConnectionFactory
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, RETURN);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertNotNull(factory.openConnection(IDENTITY));
+        assertNotNull(factory.openConnection(SESSION));
         assertEquals(mock.getCallCount(), 2);
     }
 
@@ -107,7 +106,7 @@ public class TestRetryingConnectionFactory
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION, RETURN);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertNotNull(factory.openConnection(IDENTITY));
+        assertNotNull(factory.openConnection(SESSION));
         assertEquals(mock.getCallCount(), 2);
     }
 
@@ -129,7 +128,7 @@ public class TestRetryingConnectionFactory
         }
 
         @Override
-        public Connection openConnection(JdbcIdentity identity)
+        public Connection openConnection(ConnectorSession session)
                 throws SQLException
         {
             callCount++;

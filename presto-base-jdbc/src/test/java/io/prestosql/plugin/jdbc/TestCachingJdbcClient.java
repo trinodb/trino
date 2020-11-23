@@ -16,6 +16,7 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.AfterMethod;
@@ -37,7 +38,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestCachingJdbcClient
 {
     private static final Duration FOREVER = Duration.succinctDuration(1, DAYS);
-    private static final JdbcIdentity identity = JdbcIdentity.from(SESSION);
 
     private TestingDatabase database;
     private CachingJdbcClient cachingJdbcClient;
@@ -51,7 +51,7 @@ public class TestCachingJdbcClient
         database = new TestingDatabase();
         cachingJdbcClient = createCachingJdbcClient(true);
         jdbcClient = database.getJdbcClient();
-        schema = jdbcClient.getSchemaNames(identity).iterator().next();
+        schema = jdbcClient.getSchemaNames(SESSION).iterator().next();
     }
 
     private CachingJdbcClient createCachingJdbcClient(boolean cacheMissing)
@@ -71,12 +71,12 @@ public class TestCachingJdbcClient
     {
         String phantomSchema = "phantom_schema";
 
-        jdbcClient.createSchema(identity, phantomSchema);
-        assertThat(cachingJdbcClient.getSchemaNames(identity)).contains(phantomSchema);
-        jdbcClient.dropSchema(identity, phantomSchema);
+        jdbcClient.createSchema(SESSION, phantomSchema);
+        assertThat(cachingJdbcClient.getSchemaNames(SESSION)).contains(phantomSchema);
+        jdbcClient.dropSchema(SESSION, phantomSchema);
 
-        assertThat(jdbcClient.getSchemaNames(identity)).doesNotContain(phantomSchema);
-        assertThat(cachingJdbcClient.getSchemaNames(identity)).contains(phantomSchema);
+        assertThat(jdbcClient.getSchemaNames(SESSION)).doesNotContain(phantomSchema);
+        assertThat(cachingJdbcClient.getSchemaNames(SESSION)).contains(phantomSchema);
     }
 
     @Test
@@ -85,11 +85,11 @@ public class TestCachingJdbcClient
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         createTable(phantomTable);
-        assertThat(cachingJdbcClient.getTableNames(identity, Optional.of(schema))).contains(phantomTable);
+        assertThat(cachingJdbcClient.getTableNames(SESSION, Optional.of(schema))).contains(phantomTable);
         dropTable(phantomTable);
 
-        assertThat(jdbcClient.getTableNames(identity, Optional.of(schema))).doesNotContain(phantomTable);
-        assertThat(cachingJdbcClient.getTableNames(identity, Optional.of(schema))).contains(phantomTable);
+        assertThat(jdbcClient.getTableNames(SESSION, Optional.of(schema))).doesNotContain(phantomTable);
+        assertThat(cachingJdbcClient.getTableNames(SESSION, Optional.of(schema))).contains(phantomTable);
     }
 
     @Test
@@ -98,11 +98,11 @@ public class TestCachingJdbcClient
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         createTable(phantomTable);
-        Optional<JdbcTableHandle> cachedTable = cachingJdbcClient.getTableHandle(identity, phantomTable);
+        Optional<JdbcTableHandle> cachedTable = cachingJdbcClient.getTableHandle(SESSION, phantomTable);
         dropTable(phantomTable);
 
-        assertThat(jdbcClient.getTableHandle(identity, phantomTable)).isEmpty();
-        assertThat(cachingJdbcClient.getTableHandle(identity, phantomTable)).isEqualTo(cachedTable);
+        assertThat(jdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEqualTo(cachedTable);
     }
 
     @Test
@@ -110,10 +110,10 @@ public class TestCachingJdbcClient
     {
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
-        assertThat(cachingJdbcClient.getTableHandle(identity, phantomTable)).isEmpty();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
 
         createTable(phantomTable);
-        assertThat(cachingJdbcClient.getTableHandle(identity, phantomTable)).isEmpty();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
         dropTable(phantomTable);
     }
 
@@ -123,10 +123,10 @@ public class TestCachingJdbcClient
         CachingJdbcClient cachingJdbcClient = createCachingJdbcClient(false);
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
-        assertThat(cachingJdbcClient.getTableHandle(identity, phantomTable)).isEmpty();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
 
         createTable(phantomTable);
-        assertThat(cachingJdbcClient.getTableHandle(identity, phantomTable)).isPresent();
+        assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isPresent();
         dropTable(phantomTable);
     }
 
@@ -137,8 +137,8 @@ public class TestCachingJdbcClient
 
     private void dropTable(SchemaTableName phantomTable)
     {
-        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(identity, phantomTable).orElseThrow();
-        jdbcClient.dropTable(identity, tableHandle);
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
+        jdbcClient.dropTable(SESSION, tableHandle);
     }
 
     @Test
@@ -148,7 +148,7 @@ public class TestCachingJdbcClient
 
         JdbcColumnHandle phantomColumn = addColumn(table);
         assertThat(cachingJdbcClient.getColumns(SESSION, table)).contains(phantomColumn);
-        jdbcClient.dropColumn(identity, table, phantomColumn);
+        jdbcClient.dropColumn(SESSION, table, phantomColumn);
 
         assertThat(jdbcClient.getColumns(SESSION, table)).doesNotContain(phantomColumn);
         assertThat(cachingJdbcClient.getColumns(SESSION, table)).contains(phantomColumn);
@@ -156,12 +156,12 @@ public class TestCachingJdbcClient
 
     private JdbcTableHandle getAnyTable(String schema)
     {
-        SchemaTableName tableName = jdbcClient.getTableNames(identity, Optional.of(schema))
+        SchemaTableName tableName = jdbcClient.getTableNames(SESSION, Optional.of(schema))
                 .stream()
                 .filter(schemaTableName -> !"public".equals(schemaTableName.getTableName()))
                 .findAny()
                 .orElseThrow();
-        return jdbcClient.getTableHandle(identity, tableName).orElseThrow();
+        return jdbcClient.getTableHandle(SESSION, tableName).orElseThrow();
     }
 
     private JdbcColumnHandle addColumn(JdbcTableHandle tableHandle)
@@ -185,7 +185,7 @@ public class TestCachingJdbcClient
     {
         try {
             return ImmutableSet.<Method>builder()
-                    .add(JdbcClient.class.getMethod("schemaExists", JdbcIdentity.class, String.class))
+                    .add(JdbcClient.class.getMethod("schemaExists", ConnectorSession.class, String.class))
                     .build();
         }
         catch (NoSuchMethodException e) {

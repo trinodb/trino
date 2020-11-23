@@ -80,23 +80,24 @@ public class CachingJdbcClient
     }
 
     @Override
-    public boolean schemaExists(JdbcIdentity identity, String schema)
+    public boolean schemaExists(ConnectorSession session, String schema)
     {
         // this method cannot be delegated as that would bypass the cache
-        return getSchemaNames(identity).contains(schema);
+        return getSchemaNames(session).contains(schema);
     }
 
     @Override
-    public Set<String> getSchemaNames(JdbcIdentity identity)
+    public Set<String> getSchemaNames(ConnectorSession session)
     {
-        return get(schemaNamesCache, identity, () -> delegate.getSchemaNames(identity));
+        JdbcIdentity key = JdbcIdentity.from(session);
+        return get(schemaNamesCache, key, () -> delegate.getSchemaNames(session));
     }
 
     @Override
-    public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
+    public List<SchemaTableName> getTableNames(ConnectorSession session, Optional<String> schema)
     {
-        TableNamesCacheKey key = new TableNamesCacheKey(identity, schema);
-        return get(tableNamesCache, key, () -> delegate.getTableNames(identity, schema));
+        TableNamesCacheKey key = new TableNamesCacheKey(JdbcIdentity.from(session), schema);
+        return get(tableNamesCache, key, () -> delegate.getTableNames(session, schema));
     }
 
     @Override
@@ -146,10 +147,10 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Connection getConnection(JdbcIdentity identity, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException
     {
-        return delegate.getConnection(identity, split);
+        return delegate.getConnection(session, split);
     }
 
     @Override
@@ -179,15 +180,15 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
+    public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        TableHandleCacheKey key = new TableHandleCacheKey(identity, schemaTableName);
+        TableHandleCacheKey key = new TableHandleCacheKey(JdbcIdentity.from(session), schemaTableName);
         Optional<JdbcTableHandle> cachedTableHandle = tableHandleCache.getIfPresent(key);
         //noinspection OptionalAssignedToNull
         if (cachedTableHandle != null) {
             return cachedTableHandle;
         }
-        Optional<JdbcTableHandle> tableHandle = delegate.getTableHandle(identity, schemaTableName);
+        Optional<JdbcTableHandle> tableHandle = delegate.getTableHandle(session, schemaTableName);
         if (tableHandle.isPresent() || cacheMissing) {
             tableHandleCache.put(key, tableHandle);
         }
@@ -195,9 +196,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        delegate.commitCreateTable(identity, handle);
+        delegate.commitCreateTable(session, handle);
         invalidateTablesCaches();
     }
 
@@ -208,23 +209,23 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        delegate.finishInsertTable(identity, handle);
+        delegate.finishInsertTable(session, handle);
         invalidateTablesCaches();
     }
 
     @Override
-    public void dropTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle)
+    public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
-        delegate.dropTable(identity, jdbcTableHandle);
+        delegate.dropTable(session, jdbcTableHandle);
         invalidateTablesCaches();
     }
 
     @Override
-    public void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        delegate.rollbackCreateTable(identity, handle);
+        delegate.rollbackCreateTable(session, handle);
     }
 
     @Override
@@ -234,10 +235,10 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Connection getConnection(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return delegate.getConnection(identity, handle);
+        return delegate.getConnection(session, handle);
     }
 
     @Override
@@ -254,51 +255,51 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void createSchema(JdbcIdentity identity, String schemaName)
+    public void createSchema(ConnectorSession session, String schemaName)
     {
-        delegate.createSchema(identity, schemaName);
+        delegate.createSchema(session, schemaName);
         invalidateSchemasCache();
     }
 
     @Override
-    public void dropSchema(JdbcIdentity identity, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName)
     {
-        delegate.dropSchema(identity, schemaName);
+        delegate.dropSchema(session, schemaName);
         invalidateSchemasCache();
     }
 
     @Override
-    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
-        delegate.setColumnComment(identity, handle, column, comment);
-        invalidateColumnsCache(identity, handle.getSchemaTableName());
+        delegate.setColumnComment(session, handle, column, comment);
+        invalidateColumnsCache(session, handle.getSchemaTableName());
     }
 
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);
-        invalidateColumnsCache(JdbcIdentity.from(session), handle.getSchemaTableName());
+        invalidateColumnsCache(session, handle.getSchemaTableName());
     }
 
     @Override
-    public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
+    public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        delegate.dropColumn(identity, handle, column);
-        invalidateColumnsCache(identity, handle.getSchemaTableName());
+        delegate.dropColumn(session, handle, column);
+        invalidateColumnsCache(session, handle.getSchemaTableName());
     }
 
     @Override
-    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        delegate.renameColumn(identity, handle, jdbcColumn, newColumnName);
-        invalidateColumnsCache(identity, handle.getSchemaTableName());
+        delegate.renameColumn(session, handle, jdbcColumn, newColumnName);
+        invalidateColumnsCache(session, handle.getSchemaTableName());
     }
 
     @Override
-    public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName)
+    public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
-        delegate.renameTable(identity, handle, newTableName);
+        delegate.renameTable(session, handle, newTableName);
         invalidateTablesCaches();
     }
 
@@ -334,9 +335,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return delegate.getTableProperties(identity, tableHandle);
+        return delegate.getTableProperties(session, tableHandle);
     }
 
     @Override
@@ -357,9 +358,9 @@ public class CachingJdbcClient
         tableNamesCache.invalidateAll();
     }
 
-    private void invalidateColumnsCache(JdbcIdentity identity, SchemaTableName table)
+    private void invalidateColumnsCache(ConnectorSession session, SchemaTableName table)
     {
-        columnsCache.invalidate(new ColumnsCacheKey(identity, table));
+        columnsCache.invalidate(new ColumnsCacheKey(JdbcIdentity.from(session), table));
     }
 
     private static final class ColumnsCacheKey
