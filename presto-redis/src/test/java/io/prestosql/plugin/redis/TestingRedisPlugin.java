@@ -14,20 +14,28 @@
 package io.prestosql.plugin.redis;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Plugin;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.SchemaTableName;
 
+import java.util.Map;
 import java.util.Optional;
 
-/**
- * Presto plugin to use Redis as a data source.
- */
-public class RedisPlugin
-        implements Plugin
+import static java.util.Objects.requireNonNull;
+
+public class TestingRedisPlugin
+        extends RedisPlugin
 {
+    private Map<SchemaTableName, RedisTableDescription> tableDescription;
+
+    public TestingRedisPlugin(Map<SchemaTableName, RedisTableDescription> tableDescription)
+    {
+        this.tableDescription = ImmutableMap.copyOf(requireNonNull(tableDescription, "tableDescription is null"));
+    }
+
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new RedisConnectorFactory(Optional.empty()));
+        return ImmutableList.of(new RedisConnectorFactory(Optional.of(() -> tableDescription)));
     }
 }
