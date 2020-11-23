@@ -254,7 +254,8 @@ public class SqlServerClient
 
     private static SliceWriteFunction varbinaryWriteFunction()
     {
-        return new SliceWriteFunction() {
+        return new SliceWriteFunction()
+        {
             @Override
             public void set(PreparedStatement statement, int index, Slice value)
                     throws SQLException
