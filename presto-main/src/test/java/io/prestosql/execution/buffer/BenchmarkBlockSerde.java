@@ -87,169 +87,85 @@ public class BenchmarkBlockSerde
     private static final int MAX_STRING = 19;
 
     @Benchmark
-    public Object serializeLongDecimalNoNull(LongDecimalBenchmarkData data)
+    public Object serializeLongDecimal(LongDecimalBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeLongDecimalNoNull(LongDecimalBenchmarkData data)
+    public Object deserializeLongDecimal(LongDecimalBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
-    public Object serializeLongDecimalWithNull(LongDecimalWithNullBenchmarkData data)
+    public Object serializeInt96(LongTimestampBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeLongDecimalWithNull(LongDecimalWithNullBenchmarkData data)
+    public Object deserializeInt96(LongTimestampBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
-    public Object serializeInt96NoNull(LongTimestampBenchmarkData data)
+    public Object serializeLong(BigintBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeInt96NoNull(LongTimestampBenchmarkData data)
+    public Object deserializeLong(BigintBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
-    public Object serializeInt96WithNull(LongTimestampWithNullBenchmarkData data)
+    public Object serializeInteger(IntegerBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeInt96WithNull(LongTimestampWithNullBenchmarkData data)
+    public Object deserializeInteger(IntegerBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
-    public Object serializeLongNoNull(BigintBenchmarkData data)
+    public Object serializeShort(SmallintBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeLongNoNull(BigintBenchmarkData data)
+    public Object deserializeShort(SmallintBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
-    public Object serializeLongWithNull(BigintWithNullBenchmarkData data)
+    public Object serializeByte(TinyintBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeLongWithNull(BigintWithNullBenchmarkData data)
+    public Object deserializeByte(TinyintBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
 
     @Benchmark
-    public Object serializeIntegerNoNull(IntegerBenchmarkData data)
+    public Object serializeSliceDirect(VarcharDirectBenchmarkData data)
     {
         return serializePages(data);
     }
 
     @Benchmark
-    public Object deserializeIntegerNoNull(IntegerBenchmarkData data)
-    {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
-    }
-
-    @Benchmark
-    public Object serializeIntegerWithNull(IntegerWithNullBenchmarkData data)
-    {
-        return serializePages(data);
-    }
-
-    @Benchmark
-    public Object deserializeIntegerWithNull(IntegerWithNullBenchmarkData data)
-    {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
-    }
-
-    @Benchmark
-    public Object serializeShortNoNull(SmallintBenchmarkData data)
-    {
-        return serializePages(data);
-    }
-
-    @Benchmark
-    public Object deserializeShortNoNull(SmallintBenchmarkData data)
-    {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
-    }
-
-    @Benchmark
-    public Object serializeShortWithNull(SmallintWithNullBenchmarkData data)
-    {
-        return serializePages(data);
-    }
-
-    @Benchmark
-    public Object deserializeShortWithNull(SmallintWithNullBenchmarkData data)
-    {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
-    }
-
-    @Benchmark
-    public Object serializeByteNoNull(TinyintBenchmarkData data)
-    {
-        return serializePages(data);
-    }
-
-    @Benchmark
-    public Object deserializeByteNoNull(TinyintBenchmarkData data)
-    {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
-    }
-
-    @Benchmark
-    public Object serializeByteWithNull(TinyintWithNullBenchmarkData data)
-    {
-        return serializePages(data);
-    }
-
-    @Benchmark
-    public Object deserializeByteWithNull(TinyintWithNullBenchmarkData data)
-    {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
-    }
-
-    @Benchmark
-    public Object serializeSliceDirectNoNull(VarcharDirectBenchmarkData data)
-    {
-        return serializePages(data);
-    }
-
-    @Benchmark
-    public Object deserializeSliceDirectNoNull(VarcharDirectBenchmarkData data)
-    {
-        return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
-    }
-
-    @Benchmark
-    public Object serializeSliceDirectWithNull(VarcharDirectWithNullBenchmarkData data)
-    {
-        return serializePages(data);
-    }
-
-    @Benchmark
-    public Object deserializeSliceDirectWithNull(VarcharDirectWithNullBenchmarkData data)
+    public Object deserializeSliceDirect(VarcharDirectBenchmarkData data)
     {
         return ImmutableList.copyOf(readPages(data.getPagesSerde(), new BasicSliceInput(data.getDataSource())));
     }
@@ -362,29 +278,14 @@ public class BenchmarkBlockSerde
         }
     }
 
-    public abstract static class TypeBenchmarkDataWithNull<T>
-            extends TypeBenchmarkData<T>
-    {
-        @Param({".01", ".10", ".50", ".90", ".99"})
-        private double nullChance;
-
-        public TypeBenchmarkDataWithNull(Type type, Function<Random, T> valueGenerator)
-        {
-            super(type, valueGenerator);
-        }
-
-        @Override
-        protected double getNullChance()
-        {
-            return nullChance;
-        }
-    }
-
     public abstract static class TypeBenchmarkData<T>
             extends BenchmarkData
     {
         private final Type type;
         private final Function<Random, T> valueGenerator;
+
+        @Param({"0", ".01", ".10", ".50", ".90", ".99"})
+        private double nullChance;
 
         public TypeBenchmarkData(Type type, Function<Random, T> valueGenerator)
         {
@@ -394,7 +295,7 @@ public class BenchmarkBlockSerde
 
         protected double getNullChance()
         {
-            return 0;
+            return nullChance;
         }
 
         @Setup
@@ -420,32 +321,12 @@ public class BenchmarkBlockSerde
     }
 
     @State(Thread)
-    public static class LongDecimalWithNullBenchmarkData
-            extends TypeBenchmarkDataWithNull<SqlDecimal>
-    {
-        public LongDecimalWithNullBenchmarkData()
-        {
-            super(LONG_DECIMAL_TYPE, BenchmarkBlockSerde::randomLongDecimal);
-        }
-    }
-
-    @State(Thread)
     public static class LongDecimalBenchmarkData
             extends TypeBenchmarkData<SqlDecimal>
     {
         public LongDecimalBenchmarkData()
         {
             super(LONG_DECIMAL_TYPE, BenchmarkBlockSerde::randomLongDecimal);
-        }
-    }
-
-    @State(Thread)
-    public static class LongTimestampWithNullBenchmarkData
-            extends TypeBenchmarkDataWithNull<LongTimestamp>
-    {
-        public LongTimestampWithNullBenchmarkData()
-        {
-            super(TIMESTAMP_PICOS, BenchmarkBlockSerde::randomTimestamp);
         }
     }
 
@@ -460,32 +341,12 @@ public class BenchmarkBlockSerde
     }
 
     @State(Thread)
-    public static class BigintWithNullBenchmarkData
-            extends TypeBenchmarkDataWithNull<Long>
-    {
-        public BigintWithNullBenchmarkData()
-        {
-            super(BIGINT, Random::nextLong);
-        }
-    }
-
-    @State(Thread)
     public static class BigintBenchmarkData
             extends TypeBenchmarkData<Long>
     {
         public BigintBenchmarkData()
         {
             super(BIGINT, Random::nextLong);
-        }
-    }
-
-    @State(Thread)
-    public static class IntegerWithNullBenchmarkData
-            extends TypeBenchmarkDataWithNull<Integer>
-    {
-        public IntegerWithNullBenchmarkData()
-        {
-            super(INTEGER, Random::nextInt);
         }
     }
 
@@ -500,16 +361,6 @@ public class BenchmarkBlockSerde
     }
 
     @State(Thread)
-    public static class SmallintWithNullBenchmarkData
-            extends TypeBenchmarkDataWithNull<Short>
-    {
-        public SmallintWithNullBenchmarkData()
-        {
-            super(SMALLINT, random -> (short) random.nextInt(0xFFFF));
-        }
-    }
-
-    @State(Thread)
     public static class SmallintBenchmarkData
             extends TypeBenchmarkData<Short>
     {
@@ -520,32 +371,12 @@ public class BenchmarkBlockSerde
     }
 
     @State(Thread)
-    public static class TinyintWithNullBenchmarkData
-            extends TypeBenchmarkDataWithNull<Byte>
-    {
-        public TinyintWithNullBenchmarkData()
-        {
-            super(TINYINT, random -> (byte) random.nextInt(0xFF));
-        }
-    }
-
-    @State(Thread)
     public static class TinyintBenchmarkData
             extends TypeBenchmarkData<Byte>
     {
         public TinyintBenchmarkData()
         {
             super(TINYINT, random -> (byte) random.nextInt(0xFF));
-        }
-    }
-
-    @State(Thread)
-    public static class VarcharDirectWithNullBenchmarkData
-            extends TypeBenchmarkDataWithNull<String>
-    {
-        public VarcharDirectWithNullBenchmarkData()
-        {
-            super(VARCHAR, BenchmarkBlockSerde::randomAsciiString);
         }
     }
 
