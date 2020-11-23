@@ -42,7 +42,7 @@ public class TestSapHanaDynamicFiltering
     }
 
     @Override
-    protected boolean isAssertNumberOfSplits()
+    protected boolean supportsSplitDynamicFiltering()
     {
         return false;
     }
