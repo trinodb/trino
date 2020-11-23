@@ -15,7 +15,6 @@ package io.prestosql.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
@@ -31,7 +30,6 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.prometheus.MetadataUtil.METRIC_CODEC;
@@ -40,6 +38,7 @@ import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_T
 import static io.prestosql.plugin.prometheus.PrometheusRecordCursor.getBlockFromMap;
 import static io.prestosql.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
 import static java.time.Instant.ofEpochMilli;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -86,13 +85,16 @@ public class TestPrometheusRecordSet
                 .add(new PrometheusStandardizedRow(getBlockFromMap(varcharMapType,
                         ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), ofEpochMilli(1565963014044L), 1.0))
                 .build();
-        List<PairLike<PrometheusStandardizedRow, PrometheusStandardizedRow>> pairs = Streams.zip(actual.stream(), expected.stream(), PairLike::new)
-                .collect(Collectors.toList());
-        pairs.forEach(pair -> {
-            assertEquals(getMapFromBlock(varcharMapType, pair.getFirst().getLabels()), getMapFromBlock(varcharMapType, pair.getSecond().getLabels()));
-            assertEquals(pair.getFirst().getTimestamp(), pair.getSecond().getTimestamp());
-            assertEquals(pair.getFirst().getValue(), pair.getSecond().getValue());
-        });
+
+        assertThat(actual).as("actual")
+                .hasSize(expected.size());
+        for (int i = 0; i < actual.size(); i++) {
+            PrometheusStandardizedRow actualRow = actual.get(i);
+            PrometheusStandardizedRow expectedRow = expected.get(i);
+            assertEquals(getMapFromBlock(varcharMapType, actualRow.getLabels()), getMapFromBlock(varcharMapType, expectedRow.getLabels()));
+            assertEquals(actualRow.getTimestamp(), expectedRow.getTimestamp());
+            assertEquals(actualRow.getValue(), expectedRow.getValue());
+        }
     }
 
     @BeforeClass
