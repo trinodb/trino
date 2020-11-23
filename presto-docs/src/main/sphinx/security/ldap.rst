@@ -99,11 +99,12 @@ Property                                                Description
                                                         bind string for password authentication. This property
                                                         must contain the pattern ``${USER}``, which is
                                                         replaced by the actual username during the password
-                                                        authentication. The property can contain multiple
-                                                        patters separated by colon ``:``, and in that case
-                                                        each pattern will be check in order until a login
-                                                        succeeds or all fail. Example:
-                                                        ``${USER}@corp.example.com:${USER}@corp.example.co.uk``.
+                                                        authentication.
+
+                                                        The property can contain multiple patterns separated
+                                                        by a colon. Each pattern will be checked in order
+                                                        until a login succeeds or all logins fail. Example:
+                                                        ``${USER}@corp.example.com:${USER}@corp.example.co.uk``
 ``ldap.ignore-referrals``                               Ignore referrals to other LDAP servers while
                                                         performing search queries. Defaults to ``false``.
 ``ldap.cache-ttl``                                      LDAP cache duration. Defaults to ``1h``.
