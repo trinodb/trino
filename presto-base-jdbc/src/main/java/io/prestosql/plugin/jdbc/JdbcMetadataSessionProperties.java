@@ -14,15 +14,19 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
+import static java.lang.String.format;
 
 public class JdbcMetadataSessionProperties
         implements SessionPropertiesProvider
@@ -33,8 +37,9 @@ public class JdbcMetadataSessionProperties
     private final List<PropertyMetadata<?>> properties;
 
     @Inject
-    public JdbcMetadataSessionProperties(JdbcMetadataConfig jdbcMetadataConfig)
+    public JdbcMetadataSessionProperties(JdbcMetadataConfig jdbcMetadataConfig, @MaxDomainCompactionThreshold Optional<Integer> maxDomainCompactionThreshold)
     {
+        validateDomainCompactionThreshold(jdbcMetadataConfig.getDomainCompactionThreshold(), maxDomainCompactionThreshold);
         properties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(booleanProperty(
                         AGGREGATION_PUSHDOWN_ENABLED,
@@ -45,6 +50,7 @@ public class JdbcMetadataSessionProperties
                         DOMAIN_COMPACTION_THRESHOLD,
                         "Maximum ranges to allow in a tuple domain without simplifying it",
                         jdbcMetadataConfig.getDomainCompactionThreshold(),
+                        value -> validateDomainCompactionThreshold(value, maxDomainCompactionThreshold),
                         false))
                 .build();
     }
@@ -63,5 +69,18 @@ public class JdbcMetadataSessionProperties
     public static int getDomainCompactionThreshold(ConnectorSession session)
     {
         return session.getProperty(DOMAIN_COMPACTION_THRESHOLD, Integer.class);
+    }
+
+    private static void validateDomainCompactionThreshold(int domainCompactionThreshold, Optional<Integer> maxDomainCompactionThreshold)
+    {
+        if (domainCompactionThreshold < 1) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("Domain compaction threshold (%s) must be greater than 0", domainCompactionThreshold));
+        }
+
+        maxDomainCompactionThreshold.ifPresent(max -> {
+            if (domainCompactionThreshold > max) {
+                throw new PrestoException(INVALID_SESSION_PROPERTY, format("Domain compaction threshold (%s) cannot exceed %s", domainCompactionThreshold, max));
+            }
+        });
     }
 }

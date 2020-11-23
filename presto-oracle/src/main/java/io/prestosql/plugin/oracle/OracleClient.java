@@ -25,13 +25,11 @@ import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
-import io.prestosql.plugin.jdbc.PredicatePushdownController;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.Chars;
 import io.prestosql.spi.type.DecimalType;
@@ -64,8 +62,9 @@ import java.util.TimeZone;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
@@ -116,6 +115,8 @@ import static java.util.concurrent.TimeUnit.DAYS;
 public class OracleClient
         extends BaseJdbcClient
 {
+    public static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
+
     private static final int MAX_BYTES_PER_CHAR = 4;
 
     private static final int ORACLE_VARCHAR2_MAX_BYTES = 4000;
@@ -125,8 +126,6 @@ public class OracleClient
     private static final int ORACLE_CHAR_MAX_CHARS = ORACLE_CHAR_MAX_BYTES / MAX_BYTES_PER_CHAR;
 
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
-
-    private static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
 
     private static final Set<String> INTERNAL_SCHEMAS = ImmutableSet.<String>builder()
             .add("ctxsys")
@@ -255,13 +254,13 @@ public class OracleClient
                         SMALLINT,
                         ResultSet::getShort,
                         smallintWriteFunction(),
-                        OracleClient::fullPushdownIfSupported));
+                        FULL_PUSHDOWN));
             case OracleTypes.BINARY_FLOAT:
                 return Optional.of(ColumnMapping.longMapping(
                         REAL,
                         (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
                         oracleRealWriteFunction(),
-                        OracleClient::fullPushdownIfSupported));
+                        FULL_PUSHDOWN));
 
             case OracleTypes.BINARY_DOUBLE:
             case OracleTypes.FLOAT:
@@ -269,7 +268,7 @@ public class OracleClient
                         DOUBLE,
                         ResultSet::getDouble,
                         oracleDoubleWriteFunction(),
-                        OracleClient::fullPushdownIfSupported));
+                        FULL_PUSHDOWN));
             case OracleTypes.NUMBER:
                 int decimalDigits = typeHandle.getRequiredDecimalDigits();
                 // Map negative scale to decimal(p+s, 0).
@@ -298,13 +297,13 @@ public class OracleClient
                             decimalType,
                             shortDecimalReadFunction(decimalType, roundingMode),
                             shortDecimalWriteFunction(decimalType),
-                            OracleClient::fullPushdownIfSupported));
+                            FULL_PUSHDOWN));
                 }
                 return Optional.of(ColumnMapping.sliceMapping(
                         decimalType,
                         longDecimalReadFunction(decimalType, roundingMode),
                         longDecimalWriteFunction(decimalType),
-                        OracleClient::fullPushdownIfSupported));
+                        FULL_PUSHDOWN));
 
             case OracleTypes.CHAR:
             case OracleTypes.NCHAR:
@@ -313,7 +312,7 @@ public class OracleClient
                         charType,
                         charReadFunction(charType),
                         oracleCharWriteFunction(charType),
-                        OracleClient::fullPushdownIfSupported));
+                        FULL_PUSHDOWN));
 
             case OracleTypes.VARCHAR:
             case OracleTypes.NVARCHAR:
@@ -321,7 +320,7 @@ public class OracleClient
                         createVarcharType(columnSize),
                         (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
                         varcharWriteFunction(),
-                        OracleClient::fullPushdownIfSupported));
+                        FULL_PUSHDOWN));
 
             case OracleTypes.CLOB:
             case OracleTypes.NCLOB:
@@ -351,19 +350,6 @@ public class OracleClient
         return Optional.empty();
     }
 
-    private static PredicatePushdownController.DomainPushdownResult fullPushdownIfSupported(Domain domain)
-    {
-        if (domain.getValues().getRanges().getRangeCount() > ORACLE_MAX_LIST_EXPRESSIONS) {
-            // pushdown simplified domain
-            Domain pushedDown = domain.simplify();
-            return new PredicatePushdownController.DomainPushdownResult(pushedDown, domain);
-        }
-        else {
-            // full pushdown
-            return new PredicatePushdownController.DomainPushdownResult(domain, Domain.all(domain.getType()));
-        }
-    }
-
     public static LongWriteFunction oracleDateWriteFunction()
     {
         return (statement, index, value) -> {
@@ -390,7 +376,7 @@ public class OracleClient
                     return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
                 },
                 oracleTimestampWriteFunction(),
-                OracleClient::fullPushdownIfSupported);
+                FULL_PUSHDOWN);
     }
 
     public static ColumnMapping oracleTimestampWithTimeZoneColumnMapping()
@@ -404,7 +390,7 @@ public class OracleClient
                             timestamp.getZone().getId());
                 },
                 oracleTimestampWithTimeZoneWriteFunction(),
-                OracleClient::fullPushdownIfSupported);
+                FULL_PUSHDOWN);
     }
 
     public static LongWriteFunction oracleTimestampWithTimeZoneWriteFunction()

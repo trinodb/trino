@@ -15,6 +15,7 @@ package io.prestosql.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
@@ -284,6 +285,16 @@ public class TestSqlServerIntegrationSmokeTest
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
+    }
+
+    @Test
+    public void testTooLargeDomainCompactionThreshold()
+    {
+        assertQueryFails(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("sqlserver", "domain_compaction_threshold", "10000")
+                        .build(),
+                "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 500");
     }
 
     /**

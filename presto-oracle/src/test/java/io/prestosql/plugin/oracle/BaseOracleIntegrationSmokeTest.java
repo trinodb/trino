@@ -14,6 +14,7 @@
 package io.prestosql.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
@@ -159,6 +160,16 @@ public abstract class BaseOracleIntegrationSmokeTest
             assertThat(query(format("SELECT c_clob FROM %s WHERE c_clob = cast('my_clob' as varchar)", table.getName()))).isNotFullyPushedDown(FilterNode.class);
             assertThat(query(format("SELECT c_nclob FROM %s WHERE c_nclob = cast('my_nclob' as varchar)", table.getName()))).isNotFullyPushedDown(FilterNode.class);
         }
+    }
+
+    @Test
+    public void testTooLargeDomainCompactionThreshold()
+    {
+        assertQueryFails(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("oracle", "domain_compaction_threshold", "10000")
+                        .build(),
+                "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
     }
 
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
