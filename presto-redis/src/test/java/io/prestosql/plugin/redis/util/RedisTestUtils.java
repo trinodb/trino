@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.plugin.redis.RedisPlugin;
 import io.prestosql.plugin.redis.RedisTableDescription;
+import io.prestosql.plugin.redis.TestingRedisPlugin;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingPrestoClient;
@@ -37,9 +37,7 @@ public final class RedisTestUtils
 
     public static void installRedisPlugin(RedisServer redisServer, QueryRunner queryRunner, Map<SchemaTableName, RedisTableDescription> tableDescriptions)
     {
-        RedisPlugin redisPlugin = new RedisPlugin();
-        redisPlugin.setTableDescriptionSupplier(() -> tableDescriptions);
-        queryRunner.installPlugin(redisPlugin);
+        queryRunner.installPlugin(new TestingRedisPlugin(tableDescriptions));
 
         Map<String, String> redisConfig = ImmutableMap.of(
                 "redis.nodes", redisServer.getHostAndPort().toString(),
