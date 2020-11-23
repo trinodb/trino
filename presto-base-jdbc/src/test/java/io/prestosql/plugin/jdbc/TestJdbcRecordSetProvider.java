@@ -51,7 +51,7 @@ import static org.testng.Assert.assertNotNull;
 public class TestJdbcRecordSetProvider
 {
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
-            .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig()).getSessionProperties())
+            .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
             .build();
 
     private TestingDatabase database;
