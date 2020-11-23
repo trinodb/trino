@@ -61,7 +61,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
