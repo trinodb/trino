@@ -41,7 +41,7 @@ public class TestSqlServerDynamicFiltering
     }
 
     @Override
-    protected boolean isAssertNumberOfSplits()
+    protected boolean supportsSplitDynamicFiltering()
     {
         // JDBC connectors always generate single split
         return false;
