@@ -26,12 +26,27 @@ public class TableScanRedirectApplicationResult
     private final Map<ColumnHandle, String> destinationColumns;
     // filter that needs to be applied on top of table scan
     private final TupleDomain<String> filter;
+    // should coercions be used when source and redirected column types don't match
+    private boolean allowCoercions;
 
-    public TableScanRedirectApplicationResult(CatalogSchemaTableName destinationTable, Map<ColumnHandle, String> destinationColumns, TupleDomain<String> filter)
+    public TableScanRedirectApplicationResult(
+            CatalogSchemaTableName destinationTable,
+            Map<ColumnHandle, String> destinationColumns,
+            TupleDomain<String> filter)
+    {
+        this(destinationTable, destinationColumns, filter, false);
+    }
+
+    public TableScanRedirectApplicationResult(
+            CatalogSchemaTableName destinationTable,
+            Map<ColumnHandle, String> destinationColumns,
+            TupleDomain<String> filter,
+            boolean allowCoercions)
     {
         this.destinationTable = requireNonNull(destinationTable, "destinationTable is null");
         this.destinationColumns = Map.copyOf(requireNonNull(destinationColumns, "destinationColumns is null"));
         this.filter = requireNonNull(filter, "filter is null");
+        this.allowCoercions = allowCoercions;
     }
 
     public CatalogSchemaTableName getDestinationTable()
@@ -47,5 +62,10 @@ public class TableScanRedirectApplicationResult
     public TupleDomain<String> getFilter()
     {
         return filter;
+    }
+
+    public boolean isAllowCoercions()
+    {
+        return allowCoercions;
     }
 }
