@@ -6,8 +6,7 @@ Presto supports statistics based optimizations for queries. For a query to take
 advantage of these optimizations, Presto must have statistical information for
 the tables in that query.
 
-Table statistics are provided to the query planner by connectors.  Currently, the
-only connector that supports statistics is the :doc:`/connector/hive`.
+Table statistics are provided to the query planner by connectors.
 
 Available Statistics
 --------------------
