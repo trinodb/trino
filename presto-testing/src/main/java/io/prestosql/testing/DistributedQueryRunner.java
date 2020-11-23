@@ -46,10 +46,12 @@ import io.prestosql.sql.planner.Plan;
 import io.prestosql.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -102,10 +104,14 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            List<SystemAccessControl> systemAccessControls)
+            List<SystemAccessControl> systemAccessControls,
+            List<Closeable> onClose)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
+        requireNonNull(onClose, "onClose is null");
+
+        onClose.forEach(closer::register);
 
         try {
             long start = System.nanoTime();
@@ -547,6 +553,7 @@ public class DistributedQueryRunner
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
         private List<SystemAccessControl> systemAccessControls = ImmutableList.of();
+        private List<Closeable> onClose = new ArrayList<>();
 
         protected Builder(Session defaultSession)
         {
@@ -625,6 +632,12 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder addOnClose(Closeable closeable)
+        {
+            this.onClose.add(requireNonNull(closeable, "closeable is null"));
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
@@ -636,7 +649,8 @@ public class DistributedQueryRunner
                     environment,
                     additionalModule,
                     baseDataDir,
-                    systemAccessControls);
+                    systemAccessControls,
+                    onClose);
         }
     }
 }
