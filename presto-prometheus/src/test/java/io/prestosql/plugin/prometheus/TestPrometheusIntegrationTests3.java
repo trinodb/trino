@@ -84,7 +84,7 @@ public class TestPrometheusIntegrationTests3
         // now we're making sure the client is ready
         tries = 0;
         while (tries < maxTries) {
-            if (session != null && getQueryRunner().tableExists(session, "up")) {
+            if (getQueryRunner().tableExists(session, "up")) {
                 break;
             }
             Thread.sleep(timeBetweenTriesMillis);
