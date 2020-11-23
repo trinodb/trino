@@ -52,6 +52,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.tests.BogusType.BOGUS;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -76,6 +77,8 @@ public class TestApplyTableScanRedirection
     private static final String DESTINATION_COLUMN_NAME_B = "destination_col_b";
     private static final ColumnHandle DESTINATION_COLUMN_HANDLE_B = new MockConnectorColumnHandle(DESTINATION_COLUMN_NAME_B, VARCHAR);
     private static final String DESTINATION_COLUMN_NAME_C = "destination_col_c";
+    private static final ColumnHandle destinationColumnHandleC = new MockConnectorColumnHandle(destinationColumnNameC, BIGINT);
+    private static final String destinationColumnNameD = "destination_col_d";
 
     private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)
     {
@@ -134,7 +137,8 @@ public class TestApplyTableScanRedirection
     {
         try (RuleTester ruleTester = defaultRuleTester()) {
             ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
+                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A),
+                    false);
             MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
 
@@ -151,7 +155,8 @@ public class TestApplyTableScanRedirection
         try (RuleTester ruleTester = defaultRuleTester()) {
             // make the mock connector return a table scan on different table
             ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_C));
+                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_C),
+                    false);
             MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
 
             LocalQueryRunner runner = ruleTester.getQueryRunner();
@@ -169,12 +174,65 @@ public class TestApplyTableScanRedirection
     }
 
     @Test
+    public void testMismatchedTypesWithCoercion()
+    {
+        try (RuleTester ruleTester = defaultRuleTester()) {
+            // make the mock connector return a table scan on different table
+            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
+                    ImmutableMap.of(sourceColumnHandleA, destinationColumnNameC),
+                    true);
+            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
+
+            LocalQueryRunner runner = ruleTester.getQueryRunner();
+            runner.createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
+
+            ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getMetadata()))
+                    .on(p -> {
+                        Symbol column = p.symbol(sourceColumnNameA, VARCHAR);
+                        return p.tableScan(TEST_TABLE_HANDLE,
+                                ImmutableList.of(column),
+                                ImmutableMap.of(column, sourceColumnHandleA));
+                    })
+                    .withSession(MOCK_SESSION)
+                    .matches(
+                            project(ImmutableMap.of("COL", expression("CAST(DEST_COL AS VARCHAR)")),
+                                    tableScan(
+                                            equalTo(new MockConnectorTableHandle(destinationTable)),
+                                            TupleDomain.all(),
+                                            ImmutableMap.of("DEST_COL", equalTo(destinationColumnHandleC)))));
+        }
+    }
+
+    @Test
+    public void testMismatchedTypesWithMissingCoercion()
+    {
+        try (RuleTester ruleTester = defaultRuleTester()) {
+            // make the mock connector return a table scan on different table
+            ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
+                    ImmutableMap.of(sourceColumnHandleA, destinationColumnNameD),
+                    true);
+            MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
+
+            LocalQueryRunner runner = ruleTester.getQueryRunner();
+            runner.createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
+
+            transaction(runner.getTransactionManager(), runner.getAccessControl())
+                    .execute(MOCK_SESSION, session -> {
+                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
+                                .isInstanceOf(PrestoException.class)
+                                .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*MockConnectorTableHandle.*source_col_a.* with type: varchar");
+                    });
+        }
+    }
+
+    @Test
     public void testApplyTableScanRedirection()
     {
         try (RuleTester ruleTester = defaultRuleTester()) {
             // make the mock connector return a table scan on different table
             ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
-                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
+                    ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A),
+                    false);
             MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -204,7 +262,8 @@ public class TestApplyTableScanRedirection
             ApplyTableScanRedirect applyTableScanRedirect = getMockApplyRedirect(
                     ImmutableMap.of(
                             SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A,
-                            SOURCE_COLUMN_HANDLE_B, DESTINATION_COLUMN_NAME_B));
+                            SOURCE_COLUMN_HANDLE_B, DESTINATION_COLUMN_NAME_B),
+                    false);
             MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
 
             ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
@@ -254,7 +313,7 @@ public class TestApplyTableScanRedirection
         }
     }
 
-    private ApplyTableScanRedirect getMockApplyRedirect(Map<ColumnHandle, String> redirectionMapping)
+    private ApplyTableScanRedirect getMockApplyRedirect(Map<ColumnHandle, String> redirectionMapping, boolean allowCoercions)
     {
         return (ConnectorSession session, ConnectorTableHandle handle) -> Optional.of(
                 new TableScanRedirectApplicationResult(
@@ -262,7 +321,8 @@ public class TestApplyTableScanRedirection
                         redirectionMapping,
                         ((MockConnectorTableHandle) handle).getConstraint()
                                 .transformKeys(MockConnectorColumnHandle.class::cast)
-                                .transformKeys(redirectionMapping::get)));
+                                .transformKeys(redirectionMapping::get),
+                        allowCoercions));
     }
 
     private MockConnectorFactory createMockFactory(Optional<MockConnectorFactory.ApplyTableScanRedirect> applyTableScanRedirect)
@@ -278,7 +338,8 @@ public class TestApplyTableScanRedirection
                         return ImmutableList.of(
                                 new ColumnMetadata(DESTINATION_COLUMN_NAME_A, VARCHAR),
                                 new ColumnMetadata(DESTINATION_COLUMN_NAME_B, VARCHAR),
-                                new ColumnMetadata(DESTINATION_COLUMN_NAME_C, BIGINT));
+                                new ColumnMetadata(DESTINATION_COLUMN_NAME_C, BIGINT),
+                                new ColumnMetadata(destinationColumnNameD, BOGUS));
                     }
                     throw new IllegalArgumentException();
                 });
