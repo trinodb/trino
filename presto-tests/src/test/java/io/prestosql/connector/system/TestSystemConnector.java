@@ -77,8 +77,7 @@ public class TestSystemConnector
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
                 .setSingleCoordinatorProperty("http-server.http.port", "8080")
-                .setBackupSingleCoordinatorProperty("http-server.http.port", "8081")
-                .build();
+                .setBackupSingleCoordinatorProperty("http-server.http.port", "8081").build();
         queryRunner.installPlugin(new Plugin()
         {
             @Override
