@@ -92,6 +92,6 @@ public class TestAvroSymlinkInputFormat
 
         assertThat(onPresto().executeQuery("SELECT * FROM test_avro_symlink"))
                 .containsExactly(row("someValue", 1));
-        onHive().executeQuery("DROP TABLE IF EXISTS test_avro_symlink");
+        onHive().executeQuery("DROP TABLE test_avro_symlink");
     }
 }
