@@ -88,7 +88,6 @@ public class TestAvroSymlinkInputFormat
                 "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat' " +
                 "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
 
-        hdfsClient.delete(warehouseDirectory + "/test_avro_schema_symlink/symlink.txt");
         hdfsClient.saveFile(warehouseDirectory + "/test_avro_symlink/symlink.txt", format("hdfs://%s/TestAvroSymlinkInputFormat/data/original_data.avro", warehouseDirectory));
 
         assertThat(onPresto().executeQuery("SELECT * FROM test_avro_symlink"))
