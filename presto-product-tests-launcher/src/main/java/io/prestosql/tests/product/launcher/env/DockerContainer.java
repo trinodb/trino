@@ -16,6 +16,7 @@ package io.prestosql.tests.product.launcher.env;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.HealthCheck;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -168,6 +169,7 @@ public class DockerContainer
     @Override
     protected void containerIsStarted(InspectContainerResponse containerInfo)
     {
+        checkState(startupTime.isRunning(), "Container was not in starting state");
         startupTime.stop();
         super.containerIsStarted(containerInfo);
         listener.ifPresent(listener -> listener.containerStarted(this, containerInfo));
