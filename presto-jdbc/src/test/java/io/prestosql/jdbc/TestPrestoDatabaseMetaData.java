@@ -56,6 +56,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -69,7 +70,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertContains;
-import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static io.prestosql.jdbc.TestingJdbcUtils.array;
 import static io.prestosql.jdbc.TestingJdbcUtils.assertResultSet;
 import static io.prestosql.jdbc.TestingJdbcUtils.list;
@@ -122,8 +122,7 @@ public class TestPrestoDatabaseMetaData
         countingMockConnector = new CountingMockConnector();
         server.installPlugin(countingMockConnector.getPlugin());
         server.createCatalog(COUNTING_CATALOG, "mock", ImmutableMap.of());
-
-        waitForNodeRefresh(server);
+        server.waitForNodeRefresh(Duration.ofSeconds(10));
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {

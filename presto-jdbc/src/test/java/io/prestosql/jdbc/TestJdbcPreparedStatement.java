@@ -37,6 +37,7 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -47,7 +48,6 @@ import java.util.TimeZone;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
 import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
-import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static io.prestosql.jdbc.TestingJdbcUtils.list;
 import static io.prestosql.jdbc.TestingJdbcUtils.readRows;
 import static java.lang.String.format;
@@ -73,7 +73,7 @@ public class TestJdbcPreparedStatement
         server.installPlugin(new MemoryPlugin());
         server.createCatalog("blackhole", "blackhole");
         server.createCatalog("memory", "memory");
-        waitForNodeRefresh(server);
+        server.waitForNodeRefresh(Duration.ofSeconds(10));
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
