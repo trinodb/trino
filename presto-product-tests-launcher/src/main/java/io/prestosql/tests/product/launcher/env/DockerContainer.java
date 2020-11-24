@@ -160,31 +160,31 @@ public class DockerContainer
     @Override
     protected void containerIsStarting(InspectContainerResponse containerInfo)
     {
-        this.startupTime.start();
+        startupTime.start();
         super.containerIsStarting(containerInfo);
-        this.listener.ifPresent(listener -> listener.containerStarting(this, containerInfo));
+        listener.ifPresent(listener -> listener.containerStarting(this, containerInfo));
     }
 
     @Override
     protected void containerIsStarted(InspectContainerResponse containerInfo)
     {
-        this.startupTime.stop();
+        startupTime.stop();
         super.containerIsStarted(containerInfo);
-        this.listener.ifPresent(listener -> listener.containerStarted(this, containerInfo));
+        listener.ifPresent(listener -> listener.containerStarted(this, containerInfo));
     }
 
     @Override
     protected void containerIsStopping(InspectContainerResponse containerInfo)
     {
         super.containerIsStopping(containerInfo);
-        this.listener.ifPresent(listener -> listener.containerStopping(this, containerInfo));
+        listener.ifPresent(listener -> listener.containerStopping(this, containerInfo));
     }
 
     @Override
     protected void containerIsStopped(InspectContainerResponse containerInfo)
     {
         super.containerIsStopped(containerInfo);
-        this.listener.ifPresent(listener -> listener.containerStopped(this, containerInfo));
+        listener.ifPresent(listener -> listener.containerStopped(this, containerInfo));
     }
 
     private void copyFileToContainer(String containerPath, CheckedRunnable copy)
