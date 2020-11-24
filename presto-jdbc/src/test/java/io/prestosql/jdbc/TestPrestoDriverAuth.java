@@ -32,6 +32,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
@@ -40,7 +41,6 @@ import java.util.Properties;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Resources.getResource;
 import static io.jsonwebtoken.JwsHeader.KEY_ID;
-import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
@@ -83,7 +83,7 @@ public class TestPrestoDriverAuth
                 .build();
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");
-        waitForNodeRefresh(server);
+        server.waitForNodeRefresh(Duration.ofSeconds(10));
     }
 
     @AfterClass(alwaysRun = true)

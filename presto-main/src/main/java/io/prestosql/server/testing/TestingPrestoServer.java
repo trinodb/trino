@@ -91,6 +91,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -99,6 +101,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -513,6 +516,18 @@ public class TestingPrestoServer
         serviceSelectorManager.forceRefresh();
         nodeManager.refreshNodes();
         return nodeManager.getAllNodes();
+    }
+
+    public void waitForNodeRefresh(Duration timeout)
+            throws InterruptedException, TimeoutException
+    {
+        Instant start = Instant.now();
+        while (refreshNodes().getActiveNodes().size() < 1) {
+            if (Duration.between(start, Instant.now()).compareTo(timeout) > 0) {
+                throw new TimeoutException("Timed out while waiting for the node to refresh");
+            }
+            MILLISECONDS.sleep(10);
+        }
     }
 
     public Set<InternalNode> getActiveNodesWithConnector(CatalogName catalogName)
