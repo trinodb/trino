@@ -15,8 +15,6 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import io.prestosql.spi.PrestoException;
@@ -57,9 +55,9 @@ public class CachingJdbcClient
     private final JdbcClient delegate;
     private final boolean cacheMissing;
 
-    private final LoadingCache<JdbcIdentity, Set<String>> schemaNamesCache;
-    private final LoadingCache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
-    private final LoadingCache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
+    private final Cache<JdbcIdentity, Set<String>> schemaNamesCache;
+    private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
+    private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
 
     @Inject
@@ -75,9 +73,9 @@ public class CachingJdbcClient
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(metadataCachingTtl.toMillis(), TimeUnit.MILLISECONDS);
-        schemaNamesCache = cacheBuilder.build(CacheLoader.from(delegate::getSchemaNames));
-        tableNamesCache = cacheBuilder.build(CacheLoader.from(key -> delegate.getTableNames(key.identity, key.schemaName)));
-        tableHandleCache = cacheBuilder.build(CacheLoader.from(key -> delegate.getTableHandle(key.identity, key.tableName)));
+        schemaNamesCache = cacheBuilder.build();
+        tableNamesCache = cacheBuilder.build();
+        tableHandleCache = cacheBuilder.build();
         columnsCache = cacheBuilder.build();
     }
 
@@ -91,13 +89,14 @@ public class CachingJdbcClient
     @Override
     public Set<String> getSchemaNames(JdbcIdentity identity)
     {
-        return get(schemaNamesCache, identity);
+        return get(schemaNamesCache, identity, () -> delegate.getSchemaNames(identity));
     }
 
     @Override
     public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
     {
-        return get(tableNamesCache, new TableNamesCacheKey(identity, schema));
+        TableNamesCacheKey key = new TableNamesCacheKey(identity, schema);
+        return get(tableNamesCache, key, () -> delegate.getTableNames(identity, schema));
     }
 
     @Override
@@ -470,17 +469,6 @@ public class CachingJdbcClient
         public int hashCode()
         {
             return Objects.hash(identity, schemaName);
-        }
-    }
-
-    private static <K, V> V get(LoadingCache<K, V> cache, K key)
-    {
-        try {
-            return cache.getUnchecked(key);
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
         }
     }
 
