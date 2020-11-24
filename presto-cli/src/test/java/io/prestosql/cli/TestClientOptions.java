@@ -28,6 +28,7 @@ import java.util.Optional;
 import static io.prestosql.cli.Presto.createCommandLine;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestClientOptions
 {
@@ -169,6 +170,18 @@ public class TestClientOptions
 
         ClientSession session = options.toClientSession();
         assertEquals(session.getTimeZone(), ZoneId.of("Europe/Vilnius"));
+    }
+
+    @Test
+    public void testDisableCompression()
+    {
+        Console console = createConsole("--disable-compression");
+
+        ClientOptions options = console.clientOptions;
+        assertTrue(options.disableCompression);
+
+        ClientSession session = options.toClientSession();
+        assertTrue(session.isCompressionDisabled());
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QInvalid session property: foo.bar.baz=value\\E")

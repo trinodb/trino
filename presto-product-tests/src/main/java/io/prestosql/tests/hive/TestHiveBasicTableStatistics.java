@@ -18,6 +18,7 @@ import io.prestosql.tempto.Requires;
 import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestosql.tempto.query.QueryExecutor;
 import io.prestosql.tempto.query.QueryResult;
+import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -288,6 +289,7 @@ public class TestHiveBasicTableStatistics
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testInsertBucketed()
     {
         String tableName = "test_basic_statistics_bucketed_insert_presto";

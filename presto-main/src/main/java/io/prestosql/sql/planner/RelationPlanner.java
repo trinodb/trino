@@ -21,6 +21,7 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.analyzer.Analysis;
@@ -87,6 +88,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -201,7 +203,8 @@ class RelationPlanner
             }
 
             List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build());
+            boolean isDeleteTarget = analysis.isDeleteTarget(createQualifiedObjectName(session, node, node.getName()));
+            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build(), isDeleteTarget);
 
             plan = new RelationPlan(root, scope, outputSymbols, outerContext);
         }
@@ -799,19 +802,19 @@ class RelationPlanner
         List<Symbol> outputSymbols = outputSymbolsBuilder.build();
         TranslationMap translationMap = new TranslationMap(outerContext, analysis.getScope(node), analysis, lambdaDeclarationToSymbolMap, outputSymbols);
 
-        ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
+        ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (Expression row : node.getRows()) {
-            ImmutableList.Builder<Expression> values = ImmutableList.builder();
             if (row instanceof Row) {
-                for (Expression item : ((Row) row).getItems()) {
-                    values.add(coerceIfNecessary(analysis, item, translationMap.rewrite(item)));
-                }
+                rows.add(new Row(((Row) row).getItems().stream()
+                        .map(item -> coerceIfNecessary(analysis, item, translationMap.rewrite(item)))
+                        .collect(toImmutableList())));
+            }
+            else if (analysis.getType(row) instanceof RowType) {
+                rows.add(coerceIfNecessary(analysis, row, translationMap.rewrite(row)));
             }
             else {
-                values.add(coerceIfNecessary(analysis, row, translationMap.rewrite(row)));
+                rows.add(new Row(ImmutableList.of(coerceIfNecessary(analysis, row, translationMap.rewrite(row)))));
             }
-
-            rows.add(values.build());
         }
 
         ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbols, rows.build());
@@ -837,7 +840,7 @@ class RelationPlanner
         Scope.Builder scope = Scope.builder();
         parent.ifPresent(scope::withOuterQueryParent);
 
-        PlanNode values = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(), ImmutableList.of(ImmutableList.of()));
+        PlanNode values = new ValuesNode(idAllocator.getNextId(), 1);
         TranslationMap translations = new TranslationMap(outerContext, scope.build(), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of());
         return new PlanBuilder(translations, values);
     }
@@ -863,7 +866,7 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new IntersectNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()), node.isDistinct());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 
@@ -874,7 +877,7 @@ class RelationPlanner
 
         SetOperationPlan setOperationPlan = process(node);
 
-        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()));
+        PlanNode planNode = new ExceptNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getSymbolMapping(), ImmutableList.copyOf(setOperationPlan.getSymbolMapping().keySet()), node.isDistinct());
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputSymbols(), outerContext);
     }
 

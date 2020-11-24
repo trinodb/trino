@@ -27,13 +27,13 @@ import static org.testng.Assert.fail;
 
 class EventsAwaitingQueries
 {
-    private final EventsBuilder eventsBuilder;
+    private final EventsCollector eventsCollector;
 
     private final QueryRunner queryRunner;
 
-    EventsAwaitingQueries(EventsBuilder eventsBuilder, QueryRunner queryRunner)
+    EventsAwaitingQueries(EventsCollector eventsCollector, QueryRunner queryRunner)
     {
-        this.eventsBuilder = requireNonNull(eventsBuilder, "eventsBuilder is null");
+        this.eventsCollector = requireNonNull(eventsCollector, "eventsBuilder is null");
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
     }
 
@@ -43,13 +43,13 @@ class EventsAwaitingQueries
         return runQueryAndWaitForEvents(sql, numEventsExpected, session, Optional.empty());
     }
 
-    MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session alternateSession, Optional<String> expectedExceptionRegEx)
+    MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session session, Optional<String> expectedExceptionRegEx)
             throws Exception
     {
-        eventsBuilder.initialize(numEventsExpected);
+        eventsCollector.reset(numEventsExpected);
         MaterializedResult result = null;
         try {
-            result = queryRunner.execute(alternateSession, sql);
+            result = queryRunner.execute(session, sql);
         }
         catch (RuntimeException exception) {
             if (expectedExceptionRegEx.isPresent()) {
@@ -63,7 +63,7 @@ class EventsAwaitingQueries
             }
         }
 
-        eventsBuilder.waitForEvents(10);
+        eventsCollector.waitForEvents(10);
 
         return result;
     }

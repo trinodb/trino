@@ -24,6 +24,7 @@ import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.RecordingMetastoreConfig;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -247,10 +248,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction)
     {
         verifyRecordingMode();
-        delegate.updateTableStatistics(identity, databaseName, tableName, update);
+        delegate.updateTableStatistics(identity, databaseName, tableName, update, transaction);
     }
 
     @Override
@@ -340,6 +341,13 @@ public class RecordingHiveMetastore
     {
         verifyRecordingMode();
         delegate.commentTable(identity, databaseName, tableName, comment);
+    }
+
+    @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        verifyRecordingMode();
+        delegate.setTableOwner(identity, databaseName, tableName, principal);
     }
 
     @Override

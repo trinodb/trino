@@ -27,9 +27,11 @@ import io.prestosql.spi.type.TypeManager;
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static java.util.Objects.requireNonNull;
 
@@ -52,6 +54,7 @@ public class HiveMetadataFactory
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
     private final BoundedExecutor dropExecutor;
+    private final Executor updateExecutor;
     private final String prestoVersion;
     private final AccessControlMetadataFactory accessControlMetadataFactory;
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
@@ -81,6 +84,7 @@ public class HiveMetadataFactory
                 partitionManager,
                 hiveConfig.getMaxConcurrentFileRenames(),
                 hiveConfig.getMaxConcurrentMetastoreDrops(),
+                hiveConfig.getMaxConcurrentMetastoreUpdates(),
                 hiveConfig.isSkipDeletionForAlter(),
                 hiveConfig.isSkipTargetCleanupOnRollback(),
                 hiveConfig.getWritesToNonManagedTablesEnabled(),
@@ -105,6 +109,7 @@ public class HiveMetadataFactory
             HivePartitionManager partitionManager,
             int maxConcurrentFileRenames,
             int maxConcurrentMetastoreDrops,
+            int maxConcurrentMetastoreUpdates,
             boolean skipDeletionForAlter,
             boolean skipTargetCleanupOnRollback,
             boolean writesToNonManagedTablesEnabled,
@@ -142,6 +147,13 @@ public class HiveMetadataFactory
 
         renameExecution = new BoundedExecutor(executorService, maxConcurrentFileRenames);
         dropExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreDrops);
+        if (maxConcurrentMetastoreUpdates == 1) {
+            // this will serve as a kill switch in case we observe that parallel updates causes conflicts in metastore's DB side
+            updateExecutor = directExecutor();
+        }
+        else {
+            updateExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreUpdates);
+        }
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
     }
 
@@ -153,6 +165,7 @@ public class HiveMetadataFactory
                 new HiveMetastoreClosure(memoizeMetastore(this.metastore, perTransactionCacheMaximumSize)), // per-transaction cache
                 renameExecution,
                 dropExecutor,
+                updateExecutor,
                 skipDeletionForAlter,
                 skipTargetCleanupOnRollback,
                 hiveTransactionHeartbeatInterval,

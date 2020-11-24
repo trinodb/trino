@@ -28,7 +28,6 @@ import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Locale;
 import java.util.Optional;
-import java.util.TimeZone;
 
 import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.PICOSECONDS_PER_SECOND;
 import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.getMillisOfDay;
@@ -98,7 +97,7 @@ public class CustomDateTimeFormatter
     @Override
     public String formatTimestampWithZone(SqlTimestampWithTimeZone value)
     {
-        DateTimeZone dateTimeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(value.getTimeZoneKey().getZoneId()));
+        DateTimeZone dateTimeZone = DateTimeZone.forID(value.getTimeZoneKey().getId());
         return formatter.withZone(dateTimeZone).print(new DateTime(value.getEpochMillis(), dateTimeZone));
     }
 }

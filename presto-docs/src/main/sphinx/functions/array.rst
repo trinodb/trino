@@ -171,6 +171,10 @@ Array Functions
 
     Returns true if the array ``x`` contains the ``element``.
 
+.. function:: contains_sequence(x, seq) -> boolean
+
+    Return true if array ``x`` contains all of array ``seq`` as a subsequence (all values in the same consecutive order).
+
 .. function:: element_at(array(E), index) -> E
 
     Returns element of ``array`` at given ``index``.

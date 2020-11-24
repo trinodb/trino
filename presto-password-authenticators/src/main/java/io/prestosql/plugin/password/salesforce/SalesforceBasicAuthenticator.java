@@ -48,6 +48,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.xml.XmlEscapers.xmlContentEscaper;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -129,13 +130,13 @@ public class SalesforceBasicAuthenticator
                 .setHeader("Content-Type", "text/xml;charset=UTF-8")
                 .setHeader("SOAPAction", "login")
                 .setMethod("POST")
-                .setBodyGenerator(createStaticBodyGenerator(String.format(loginSoapMessage, escaper.escape(username), escaper.escape(password)), UTF_8))
+                .setBodyGenerator(createStaticBodyGenerator(format(loginSoapMessage, escaper.escape(username), escaper.escape(password)), UTF_8))
                 .build();
 
         StringResponseHandler.StringResponse response = httpClient.execute(request, StringResponseHandler.createStringResponseHandler());
 
         if (response.getStatusCode() != 200) {
-            throw new AccessDeniedException(String.format("Invalid response for login\n.%s",
+            throw new AccessDeniedException(format("Invalid response for login\n.%s",
                     response.getBody()));
         }
 
@@ -147,7 +148,7 @@ public class SalesforceBasicAuthenticator
                     response.getBody())));
         }
         catch (ParserConfigurationException | SAXException | IOException e) {
-            throw new RuntimeException(String.format("Error parsing response: %s\n\tReceived error message: %s",
+            throw new RuntimeException(format("Error parsing response: %s\n\tReceived error message: %s",
                     response.getBody(),
                     e.getMessage()));
         }
@@ -161,7 +162,7 @@ public class SalesforceBasicAuthenticator
         // The organizationId is always in Locale.US, regardless of the user's locale and language.
         if (!allowedOrganizations.equals(ImmutableSet.of("all"))) {
             if (!allowedOrganizations.contains(returnedOrg.toLowerCase(Locale.US))) {
-                throw new AccessDeniedException(String.format(
+                throw new AccessDeniedException(format(
                         "Login successful, but for wrong Salesforce org.  Got %s, but expected a different org.",
                         returnedOrg));
             }
@@ -175,14 +176,14 @@ public class SalesforceBasicAuthenticator
     {
         NodeList nodeList = document.getElementsByTagName(elementName);
         if (nodeList.getLength() == 0) {
-            throw new RuntimeException(String.format("Salesforce login response does not contain a '%s' entry", elementName));
+            throw new RuntimeException(format("Salesforce login response does not contain a '%s' entry", elementName));
         }
         if (nodeList.getLength() > 1) {
-            throw new RuntimeException(String.format("Salesforce login response contains multiple '%s' entries", elementName));
+            throw new RuntimeException(format("Salesforce login response contains multiple '%s' entries", elementName));
         }
         String content = emptyToNull(nodeList.item(0).getTextContent());
         if (content == null) {
-            throw new RuntimeException(String.format("Salesforce login response contains an empty '%s' entry", elementName));
+            throw new RuntimeException(format("Salesforce login response contains an empty '%s' entry", elementName));
         }
         return content;
     }

@@ -474,19 +474,24 @@ public final class UnscaledDecimal128Arithmetic
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
 
-        long l0 = toUnsignedLong(getInt(left, 0));
-        long l1 = toUnsignedLong(getInt(left, 1));
-        long l2 = toUnsignedLong(getInt(left, 2));
-        int l3raw = getRawInt(left, 3);
-        boolean leftNegative = isNegative(l3raw);
-        long l3 = toUnsignedLong(unpackUnsignedInt(l3raw));
+        multiply(getRawLong(left, 0), getRawLong(left, 1), getRawLong(right, 0), getRawLong(right, 1), result);
+    }
 
-        long r0 = toUnsignedLong(getInt(right, 0));
-        long r1 = toUnsignedLong(getInt(right, 1));
-        long r2 = toUnsignedLong(getInt(right, 2));
-        int r3raw = getRawInt(right, 3);
-        boolean rightNegative = isNegative(r3raw);
-        long r3 = toUnsignedLong(unpackUnsignedInt(r3raw));
+    public static void multiply(long leftLow, long leftHigh, long rightLow, long rightHigh, Slice result)
+    {
+        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
+
+        long l0 = low(leftLow);
+        long l1 = high(leftLow);
+        long l2 = low(leftHigh);
+        boolean leftNegative = isNegative(leftHigh);
+        long l3 = unpackUnsignedInt(high(leftHigh));
+
+        long r0 = low(rightLow);
+        long r1 = high(rightLow);
+        long r2 = low(rightHigh);
+        boolean rightNegative = isNegative(rightHigh);
+        long r3 = unpackUnsignedInt(high(rightHigh));
 
         // the combinations below definitely result in an overflow
         if (((r3 != 0 && (l3 | l2 | l1) != 0) || (r2 != 0 && (l3 | l2) != 0) || (r1 != 0 && l3 != 0))) {
@@ -500,54 +505,54 @@ public final class UnscaledDecimal128Arithmetic
 
         if (l0 != 0) {
             long accumulator = r0 * l0;
-            z0 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l0;
+            z0 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l0;
 
-            z1 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r2 * l0;
+            z1 = low(accumulator);
+            accumulator = high(accumulator) + r2 * l0;
 
-            z2 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r3 * l0;
+            z2 = low(accumulator);
+            accumulator = high(accumulator) + r3 * l0;
 
-            z3 = accumulator & LOW_32_BITS;
+            z3 = low(accumulator);
 
-            if ((accumulator >>> 32) != 0) {
+            if (high(accumulator) != 0) {
                 throwOverflowException();
             }
         }
 
         if (l1 != 0) {
             long accumulator = r0 * l1 + z1;
-            z1 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l1 + z2;
+            z1 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l1 + z2;
 
-            z2 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r2 * l1 + z3;
+            z2 = low(accumulator);
+            accumulator = high(accumulator) + r2 * l1 + z3;
 
-            z3 = accumulator & LOW_32_BITS;
+            z3 = low(accumulator);
 
-            if ((accumulator >>> 32) != 0) {
+            if (high(accumulator) != 0) {
                 throwOverflowException();
             }
         }
 
         if (l2 != 0) {
             long accumulator = r0 * l2 + z2;
-            z2 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l2 + z3;
+            z2 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l2 + z3;
 
-            z3 = accumulator & LOW_32_BITS;
+            z3 = low(accumulator);
 
-            if ((accumulator >>> 32) != 0) {
+            if (high(accumulator) != 0) {
                 throwOverflowException();
             }
         }
 
         if (l3 != 0) {
             long accumulator = r0 * l3 + z3;
-            z3 = accumulator & LOW_32_BITS;
+            z3 = low(accumulator);
 
-            if ((accumulator >>> 32) != 0) {
+            if (high(accumulator) != 0) {
                 throwOverflowException();
             }
         }
@@ -559,62 +564,12 @@ public final class UnscaledDecimal128Arithmetic
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
 
-        long l0 = toUnsignedLong(getInt(left, 0));
-        long l1 = toUnsignedLong(getInt(left, 1));
-        long l2 = toUnsignedLong(getInt(left, 2));
-        int l3raw = getRawInt(left, 3);
-        boolean leftNegative = isNegative(l3raw);
-        long l3 = toUnsignedLong(unpackUnsignedInt(l3raw));
-
         boolean rightNegative = right < 0;
-        right = abs(right);
-        long r0 = right & LOW_32_BITS;
-        long r1 = right >>> 32;
-
-        // the combinations below definitely result in an overflow
-        if (r1 != 0 && l3 != 0) {
-            throwOverflowException();
+        if (rightNegative) {
+            right = -right;
         }
 
-        long z0 = 0;
-        long z1 = 0;
-        long z2 = 0;
-        long z3 = 0;
-
-        if (r0 != 0) {
-            long accumulator = r0 * l0;
-            z0 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + l1 * r0;
-
-            z1 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + l2 * r0;
-
-            z2 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + l3 * r0;
-
-            z3 = accumulator & LOW_32_BITS;
-
-            if ((accumulator >>> 32) != 0) {
-                throwOverflowException();
-            }
-        }
-
-        if (r1 != 0) {
-            long accumulator = l0 * r1 + z1;
-            z1 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + l1 * r1 + z2;
-
-            z2 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + l2 * r1 + z3;
-
-            z3 = accumulator & LOW_32_BITS;
-
-            if ((accumulator >>> 32) != 0) {
-                throwOverflowException();
-            }
-        }
-
-        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
+        multiply(getRawLong(left, 0), getRawLong(left, 1), right, rightNegative ? SIGN_LONG_MASK : 0, result);
     }
 
     public static void multiply(Slice left, int right, Slice result)
@@ -637,24 +592,25 @@ public final class UnscaledDecimal128Arithmetic
         long z3;
 
         long accumulator = r0 * l0;
-        z0 = accumulator & LOW_32_BITS;
-        accumulator = (accumulator >>> 32) + l1 * r0;
+        z0 = low(accumulator);
+        accumulator = high(accumulator) + l1 * r0;
 
-        z1 = accumulator & LOW_32_BITS;
-        accumulator = (accumulator >>> 32) + l2 * r0;
+        z1 = low(accumulator);
+        accumulator = high(accumulator) + l2 * r0;
 
-        z2 = accumulator & LOW_32_BITS;
-        accumulator = (accumulator >>> 32) + l3 * r0;
+        z2 = low(accumulator);
+        accumulator = high(accumulator) + l3 * r0;
 
-        z3 = accumulator & LOW_32_BITS;
+        z3 = low(accumulator);
 
-        if ((accumulator >>> 32) != 0) {
+        if (high(accumulator) != 0) {
             throwOverflowException();
         }
 
         pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
     }
 
+    // Using multiply(long, long, long, long, Slice) here decreases performance by ~40%
     public static void multiply(long left, long right, Slice result)
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
@@ -663,34 +619,30 @@ public final class UnscaledDecimal128Arithmetic
         left = abs(left);
         right = abs(right);
 
-        long l0 = left & LOW_32_BITS;
-        long l1 = left >>> 32;
+        long l0 = low(left);
+        long l1 = high(left);
 
-        long r0 = right & LOW_32_BITS;
-        long r1 = right >>> 32;
+        long r0 = low(right);
+        long r1 = high(right);
 
-        long z0 = 0;
-        long z1 = 0;
-        long z2 = 0;
-        long z3 = 0;
+        long z0;
+        long z1;
+        long z2;
+        long z3;
 
-        if (l0 != 0) {
-            long accumulator = r0 * l0;
-            z0 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l0;
+        long accumulator = r0 * l0;
+        z0 = low(accumulator);
+        accumulator = high(accumulator) + r1 * l0;
 
-            z1 = accumulator & LOW_32_BITS;
-            z2 = accumulator >> 32;
-        }
+        z1 = low(accumulator);
+        z2 = accumulator >> 32;
 
-        if (l1 != 0) {
-            long accumulator = r0 * l1 + z1;
-            z1 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l1 + z2;
+        accumulator = r0 * l1 + z1;
+        z1 = low(accumulator);
+        accumulator = high(accumulator) + r1 * l1 + z2;
 
-            z2 = accumulator & LOW_32_BITS;
-            z3 = accumulator >>> 32;
-        }
+        z2 = low(accumulator);
+        z3 = high(accumulator);
 
         pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
     }
@@ -703,20 +655,20 @@ public final class UnscaledDecimal128Arithmetic
         left = abs(left);
         long r0 = abs(right);
 
-        long l0 = left & LOW_32_BITS;
-        long l1 = left >>> 32;
+        long l0 = low(left);
+        long l1 = high(left);
 
         long z0;
         long z1;
         long z2;
 
         long accumulator = r0 * l0;
-        z0 = accumulator & LOW_32_BITS;
-        z1 = accumulator >>> 32;
+        z0 = low(accumulator);
+        z1 = high(accumulator);
 
         accumulator = r0 * l1 + z1;
-        z1 = accumulator & LOW_32_BITS;
-        z2 = accumulator >>> 32;
+        z1 = low(accumulator);
+        z2 = high(accumulator);
 
         pack(result, (int) z0, (int) z1, (int) z2, 0, leftNegative != rightNegative);
     }
@@ -748,62 +700,62 @@ public final class UnscaledDecimal128Arithmetic
 
         if (l0 != 0) {
             long accumulator = r0 * l0;
-            z0 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l0;
+            z0 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l0;
 
-            z1 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r2 * l0;
+            z1 = low(accumulator);
+            accumulator = high(accumulator) + r2 * l0;
 
-            z2 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r3 * l0;
+            z2 = low(accumulator);
+            accumulator = high(accumulator) + r3 * l0;
 
-            z3 = accumulator & LOW_32_BITS;
-            z4 = accumulator >>> 32;
+            z3 = low(accumulator);
+            z4 = high(accumulator);
         }
 
         if (l1 != 0) {
             long accumulator = r0 * l1 + z1;
-            z1 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l1 + z2;
+            z1 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l1 + z2;
 
-            z2 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r2 * l1 + z3;
+            z2 = low(accumulator);
+            accumulator = high(accumulator) + r2 * l1 + z3;
 
-            z3 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r3 * l1 + z4;
+            z3 = low(accumulator);
+            accumulator = high(accumulator) + r3 * l1 + z4;
 
-            z4 = accumulator & LOW_32_BITS;
-            z5 = accumulator >>> 32;
+            z4 = low(accumulator);
+            z5 = high(accumulator);
         }
 
         if (l2 != 0) {
             long accumulator = r0 * l2 + z2;
-            z2 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l2 + z3;
+            z2 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l2 + z3;
 
-            z3 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r2 * l2 + z4;
+            z3 = low(accumulator);
+            accumulator = high(accumulator) + r2 * l2 + z4;
 
-            z4 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r3 * l2 + z5;
+            z4 = low(accumulator);
+            accumulator = high(accumulator) + r3 * l2 + z5;
 
-            z5 = accumulator & LOW_32_BITS;
-            z6 = accumulator >>> 32;
+            z5 = low(accumulator);
+            z6 = high(accumulator);
         }
 
         if (l3 != 0) {
             long accumulator = r0 * l3 + z3;
-            z3 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l3 + z4;
+            z3 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l3 + z4;
 
-            z4 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r2 * l3 + z5;
+            z4 = low(accumulator);
+            accumulator = high(accumulator) + r2 * l3 + z5;
 
-            z5 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r3 * l3 + z6;
+            z5 = low(accumulator);
+            accumulator = high(accumulator) + r3 * l3 + z6;
 
-            z6 = accumulator & LOW_32_BITS;
-            z7 = accumulator >>> 32;
+            z6 = low(accumulator);
+            z7 = high(accumulator);
         }
 
         left[0] = (int) z0;
@@ -827,8 +779,8 @@ public final class UnscaledDecimal128Arithmetic
         long l2 = toUnsignedLong(left[2]);
         long l3 = toUnsignedLong(left[3]);
 
-        long r0 = right & LOW_32_BITS;
-        long r1 = right >>> 32;
+        long r0 = low(right);
+        long r1 = high(right);
 
         long z0 = 0;
         long z1 = 0;
@@ -839,38 +791,38 @@ public final class UnscaledDecimal128Arithmetic
 
         if (l0 != 0) {
             long accumulator = r0 * l0;
-            z0 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l0;
+            z0 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l0;
 
-            z1 = accumulator & LOW_32_BITS;
-            z2 = accumulator >>> 32;
+            z1 = low(accumulator);
+            z2 = high(accumulator);
         }
 
         if (l1 != 0) {
             long accumulator = r0 * l1 + z1;
-            z1 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l1 + z2;
+            z1 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l1 + z2;
 
-            z2 = accumulator & LOW_32_BITS;
-            z3 = accumulator >>> 32;
+            z2 = low(accumulator);
+            z3 = high(accumulator);
         }
 
         if (l2 != 0) {
             long accumulator = r0 * l2 + z2;
-            z2 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l2 + z3;
+            z2 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l2 + z3;
 
-            z3 = accumulator & LOW_32_BITS;
-            z4 = accumulator >>> 32;
+            z3 = low(accumulator);
+            z4 = high(accumulator);
         }
 
         if (l3 != 0) {
             long accumulator = r0 * l3 + z3;
-            z3 = accumulator & LOW_32_BITS;
-            accumulator = (accumulator >>> 32) + r1 * l3 + z4;
+            z3 = low(accumulator);
+            accumulator = high(accumulator) + r1 * l3 + z4;
 
-            z4 = accumulator & LOW_32_BITS;
-            z5 = accumulator >>> 32;
+            z4 = low(accumulator);
+            z5 = high(accumulator);
         }
 
         left[0] = (int) z0;
@@ -899,20 +851,20 @@ public final class UnscaledDecimal128Arithmetic
         long z4;
 
         long accumulator = r0 * l0;
-        z0 = accumulator & LOW_32_BITS;
-        z1 = accumulator >>> 32;
+        z0 = low(accumulator);
+        z1 = high(accumulator);
 
         accumulator = r0 * l1 + z1;
-        z1 = accumulator & LOW_32_BITS;
-        z2 = accumulator >>> 32;
+        z1 = low(accumulator);
+        z2 = high(accumulator);
 
         accumulator = r0 * l2 + z2;
-        z2 = accumulator & LOW_32_BITS;
-        z3 = accumulator >>> 32;
+        z2 = low(accumulator);
+        z3 = high(accumulator);
 
         accumulator = r0 * l3 + z3;
-        z3 = accumulator & LOW_32_BITS;
-        z4 = accumulator >>> 32;
+        z3 = low(accumulator);
+        z4 = high(accumulator);
 
         left[0] = (int) z0;
         left[1] = (int) z1;
@@ -1580,9 +1532,9 @@ public final class UnscaledDecimal128Arithmetic
         for (int rightIndex = 0; rightIndex < length; rightIndex++, leftIndex++) {
             multiplyAccumulator = toUnsignedLong(right[rightIndex]) * unsignedMultiplier + multiplyAccumulator;
             subtractAccumulator = (subtractAccumulator + toUnsignedLong(left[leftIndex])) - toUnsignedLong(lowInt(multiplyAccumulator));
-            multiplyAccumulator = (multiplyAccumulator >>> 32);
+            multiplyAccumulator = high(multiplyAccumulator);
             left[leftIndex] = lowInt(subtractAccumulator);
-            subtractAccumulator = (subtractAccumulator >>> 32) + INT_BASE - 1;
+            subtractAccumulator = high(subtractAccumulator) + INT_BASE - 1;
         }
         subtractAccumulator += toUnsignedLong(left[leftIndex]) - multiplyAccumulator;
         left[leftIndex] = lowInt(subtractAccumulator);
@@ -1699,9 +1651,19 @@ public final class UnscaledDecimal128Arithmetic
         return (((long) high) << 32) | toUnsignedLong(low);
     }
 
+    private static long high(long value)
+    {
+        return value >>> 32;
+    }
+
+    private static long low(long value)
+    {
+        return value & LOW_32_BITS;
+    }
+
     private static int highInt(long val)
     {
-        return (int) (val >>> 32);
+        return (int) (high(val));
     }
 
     private static int lowInt(long val)
@@ -1885,6 +1847,11 @@ public final class UnscaledDecimal128Arithmetic
     }
 
     private static int unpackUnsignedInt(int value)
+    {
+        return value & ~SIGN_INT_MASK;
+    }
+
+    private static long unpackUnsignedInt(long value)
     {
         return value & ~SIGN_INT_MASK;
     }

@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
@@ -108,10 +109,10 @@ class StatementClientV1
     private final AtomicReference<String> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final ZoneId timeZone;
-    private final boolean useSessionTimeZone;
     private final Duration requestTimeoutNanos;
     private final String user;
     private final String clientCapabilities;
+    private final boolean compressionDisabled;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -123,11 +124,11 @@ class StatementClientV1
 
         this.httpClient = httpClient;
         this.timeZone = session.getTimeZone();
-        this.useSessionTimeZone = session.useSessionTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = session.getUser();
         this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
+        this.compressionDisabled = session.isCompressionDisabled();
 
         Request request = buildQueryRequest(session, query);
 
@@ -219,12 +220,6 @@ class StatementClientV1
     public ZoneId getTimeZone()
     {
         return timeZone;
-    }
-
-    @Override
-    public boolean useSessionTimeZone()
-    {
-        return useSessionTimeZone;
     }
 
     @Override
@@ -340,10 +335,14 @@ class StatementClientV1
 
     private Request.Builder prepareRequest(HttpUrl url)
     {
-        return new Request.Builder()
+        Request.Builder builder = new Request.Builder()
                 .addHeader(PRESTO_USER, user)
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
                 .url(url);
+        if (compressionDisabled) {
+            builder.header(ACCEPT_ENCODING, "identity");
+        }
+        return builder;
     }
 
     @Override

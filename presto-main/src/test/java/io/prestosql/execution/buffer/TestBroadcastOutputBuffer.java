@@ -53,11 +53,11 @@ import static io.prestosql.execution.buffer.BufferTestUtils.createPage;
 import static io.prestosql.execution.buffer.BufferTestUtils.enqueuePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.getBufferResult;
 import static io.prestosql.execution.buffer.BufferTestUtils.getFuture;
+import static io.prestosql.execution.buffer.BufferTestUtils.serializePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.sizeOfPages;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -70,7 +70,6 @@ import static org.testng.Assert.fail;
 
 public class TestBroadcastOutputBuffer
 {
-    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
@@ -1016,7 +1015,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1047,7 +1046,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1093,7 +1092,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());

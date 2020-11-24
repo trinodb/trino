@@ -250,6 +250,14 @@ public final class Patterns
         }
     }
 
+    public static final class DistinctLimit
+    {
+        public static Property<DistinctLimitNode, Lookup, Boolean> isPartial()
+        {
+            return property("isPartial", DistinctLimitNode::isPartial);
+        }
+    }
+
     public static final class Exchange
     {
         public static Property<ExchangeNode, Lookup, ExchangeNode.Scope> scope()
@@ -320,9 +328,14 @@ public final class Patterns
 
     public static final class Values
     {
-        public static Property<ValuesNode, Lookup, List<List<Expression>>> rows()
+        public static Property<ValuesNode, Lookup, Optional<List<Expression>>> rows()
         {
             return property("rows", ValuesNode::getRows);
+        }
+
+        public static Property<ValuesNode, Lookup, Integer> rowCount()
+        {
+            return property("rowCount", ValuesNode::getRowCount);
         }
     }
 
@@ -340,6 +353,22 @@ public final class Patterns
             return property(
                     "filteringSource",
                     (SemiJoinNode semiJoin, Lookup lookup) -> lookup.resolve(semiJoin.getFilteringSource()));
+        }
+    }
+
+    public static final class Intersect
+    {
+        public static Property<IntersectNode, Lookup, Boolean> distinct()
+        {
+            return property("distinct", IntersectNode::isDistinct);
+        }
+    }
+
+    public static final class Except
+    {
+        public static Property<ExceptNode, Lookup, Boolean> distinct()
+        {
+            return property("distinct", ExceptNode::isDistinct);
         }
     }
 }

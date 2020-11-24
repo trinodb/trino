@@ -23,8 +23,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.airlift.bytecode.expression.BytecodeExpressions;
-import io.prestosql.annotation.UsedByGeneratedCode;
+import io.airlift.bytecode.instruction.LabelNode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
@@ -51,9 +50,8 @@ import static io.airlift.bytecode.Access.STATIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.airlift.bytecode.expression.BytecodeExpressions.and;
+import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.airlift.bytecode.expression.BytecodeExpressions.isNotNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
@@ -66,8 +64,8 @@ import static io.prestosql.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static io.prestosql.util.Failures.checkCondition;
+import static io.prestosql.util.MinMaxCompare.getMinMaxCompare;
 import static io.prestosql.util.Reflection.methodHandle;
-import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
@@ -75,10 +73,7 @@ import static java.util.stream.Collectors.joining;
 public abstract class AbstractGreatestLeast
         extends SqlScalarFunction
 {
-    private static final MethodHandle MIN_FUNCTION = methodHandle(AbstractGreatestLeast.class, "min", long.class);
-    private static final MethodHandle MAX_FUNCTION = methodHandle(AbstractGreatestLeast.class, "max", long.class);
-
-    private final MethodHandle comparisonResultAdapter;
+    private final boolean min;
 
     protected AbstractGreatestLeast(boolean min, String description)
     {
@@ -96,7 +91,7 @@ public abstract class AbstractGreatestLeast
                 true,
                 description,
                 SCALAR));
-        this.comparisonResultAdapter = min ? MIN_FUNCTION : MAX_FUNCTION;
+        this.min = min;
     }
 
     @Override
@@ -113,8 +108,7 @@ public abstract class AbstractGreatestLeast
         Type type = functionBinding.getTypeVariable("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
 
-        MethodHandle compareMethod = functionDependencies.getOperatorInvoker(COMPARISON, ImmutableList.of(type, type), Optional.empty()).getMethodHandle();
-        compareMethod = filterReturnValue(compareMethod, comparisonResultAdapter);
+        MethodHandle compareMethod = getMinMaxCompare(functionDependencies, type, Optional.empty(), min);
 
         List<Class<?>> javaTypes = IntStream.range(0, functionBinding.getArity())
                 .mapToObj(i -> wrap(type.getJavaType()))
@@ -162,7 +156,10 @@ public abstract class AbstractGreatestLeast
 
         Variable value = scope.declareVariable(wrap(javaTypes.get(0)), "value");
 
-        body.append(value.set(BytecodeExpressions.constantNull(wrap(javaTypes.get(0)))));
+        BytecodeExpression nullValue = constantNull(wrap(javaTypes.get(0)));
+        body.append(value.set(nullValue));
+
+        LabelNode done = new LabelNode("done");
 
         compareMethod = compareMethod.asType(methodType(boolean.class, compareMethod.type().wrap().parameterList()));
         for (int i = 0; i < javaTypes.size(); i++) {
@@ -175,24 +172,19 @@ public abstract class AbstractGreatestLeast
                     parameter,
                     value);
             body.append(new IfStatement()
-                    .condition(and(isNotNull(parameter), or(isNull(value), invokeCompare)))
+                    .condition(isNull(parameter))
+                    .ifTrue(new BytecodeBlock()
+                            .append(value.set(nullValue))
+                            .gotoLabel(done)));
+            body.append(new IfStatement()
+                    .condition(or(isNull(value), invokeCompare))
                     .ifTrue(value.set(parameter)));
         }
+
+        body.visitLabel(done);
 
         body.append(value.ret());
 
         return defineClass(definition, Object.class, binder.getBindings(), new DynamicClassLoader(getClass().getClassLoader()));
-    }
-
-    @UsedByGeneratedCode
-    public static boolean min(long comparisonResult)
-    {
-        return comparisonResult < 0;
-    }
-
-    @UsedByGeneratedCode
-    public static boolean max(long comparisonResult)
-    {
-        return comparisonResult > 0;
     }
 }

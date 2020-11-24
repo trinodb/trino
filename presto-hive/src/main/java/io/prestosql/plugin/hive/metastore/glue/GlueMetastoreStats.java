@@ -13,8 +13,15 @@
  */
 package io.prestosql.plugin.hive.metastore.glue;
 
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.TimeStat;
+import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.aws.AbstractSdkMetricsCollector;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class GlueMetastoreStats
 {
@@ -36,6 +43,14 @@ public class GlueMetastoreStats
     private final GlueMetastoreApiStats addPartitions = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats dropPartition = new GlueMetastoreApiStats();
     private final GlueMetastoreApiStats alterPartition = new GlueMetastoreApiStats();
+
+    // see AWSRequestMetrics
+    private final CounterStat awsRequestCount = new CounterStat();
+    private final CounterStat awsRetryCount = new CounterStat();
+    private final CounterStat awsThrottleExceptions = new CounterStat();
+    private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
+    private final TimeStat awsClientExecuteTime = new TimeStat(MILLISECONDS);
+    private final TimeStat awsClientRetryPauseTime = new TimeStat(MILLISECONDS);
 
     @Managed
     @Nested
@@ -161,5 +176,99 @@ public class GlueMetastoreStats
     public GlueMetastoreApiStats getAlterPartition()
     {
         return alterPartition;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAwsRequestCount()
+    {
+        return awsRequestCount;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAwsRetryCount()
+    {
+        return awsRetryCount;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getAwsThrottleExceptions()
+    {
+        return awsThrottleExceptions;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getAwsRequestTime()
+    {
+        return awsRequestTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getAwsClientExecuteTime()
+    {
+        return awsClientExecuteTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getAwsClientRetryPauseTime()
+    {
+        return awsClientRetryPauseTime;
+    }
+
+    public GlueSdkClientMetricsCollector newRequestMetricsCollector()
+    {
+        return new GlueSdkClientMetricsCollector(this);
+    }
+
+    public static class GlueSdkClientMetricsCollector
+            extends AbstractSdkMetricsCollector
+    {
+        private final GlueMetastoreStats stats;
+
+        public GlueSdkClientMetricsCollector(GlueMetastoreStats stats)
+        {
+            this.stats = requireNonNull(stats, "stats is null");
+        }
+
+        @Override
+        protected void recordRequestCount(long count)
+        {
+            stats.awsRequestCount.update(count);
+        }
+
+        @Override
+        protected void recordRetryCount(long count)
+        {
+            stats.awsRetryCount.update(count);
+        }
+
+        @Override
+        protected void recordThrottleExceptionCount(long count)
+        {
+            stats.awsThrottleExceptions.update(count);
+        }
+
+        @Override
+        protected void recordHttpRequestTime(Duration duration)
+        {
+            stats.awsRequestTime.add(duration);
+        }
+
+        @Override
+        protected void recordClientExecutionTime(Duration duration)
+        {
+            stats.awsClientExecuteTime.add(duration);
+        }
+
+        @Override
+        protected void recordRetryPauseTime(Duration duration)
+        {
+            stats.awsClientRetryPauseTime.add(duration);
+        }
     }
 }

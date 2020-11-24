@@ -114,7 +114,6 @@ public class TestQueryRunner
                 "schema",
                 "path",
                 ZoneId.of("America/Los_Angeles"),
-                false,
                 Locale.ENGLISH,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -122,7 +121,8 @@ public class TestQueryRunner
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 null,
-                new Duration(2, MINUTES));
+                new Duration(2, MINUTES),
+                true);
     }
 
     static String createResults(MockWebServer server)

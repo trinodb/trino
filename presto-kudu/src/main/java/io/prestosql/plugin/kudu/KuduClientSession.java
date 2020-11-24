@@ -26,6 +26,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -146,13 +147,14 @@ public class KuduClientSession
         return KuduTableProperties.toMap(table);
     }
 
-    public List<KuduSplit> buildKuduSplits(KuduTableHandle tableHandle)
+    public List<KuduSplit> buildKuduSplits(KuduTableHandle tableHandle, DynamicFilter dynamicFilter)
     {
         KuduTable table = tableHandle.getTable(this);
         int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
 
-        TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint();
+        TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint()
+                .intersect(dynamicFilter.getCurrentPredicate().simplify(100));
         if (constraint.isNone()) {
             return ImmutableList.of();
         }
@@ -201,6 +203,7 @@ public class KuduClientSession
         }
 
         builder.setProjectedColumnIndexes(columnIndexes);
+        tableHandle.getLimit().ifPresent(builder::limit);
 
         List<KuduScanToken> tokens = builder.build();
         ImmutableList.Builder<KuduSplit> tokenBuilder = ImmutableList.builder();
@@ -292,7 +295,7 @@ public class KuduClientSession
             List<ColumnMetadata> columns = tableMetadata.getColumns();
             Map<String, Object> properties = tableMetadata.getProperties();
 
-            Schema schema = buildSchema(columns, properties);
+            Schema schema = buildSchema(columns);
             CreateTableOptions options = buildCreateTableOptions(schema, properties);
             return client.createTable(rawName, schema, options);
         }
@@ -381,7 +384,7 @@ public class KuduClientSession
         }
     }
 
-    private Schema buildSchema(List<ColumnMetadata> columns, Map<String, Object> tableProperties)
+    private Schema buildSchema(List<ColumnMetadata> columns)
     {
         List<ColumnSchema> kuduColumns = columns.stream()
                 .map(this::toColumnSchema)

@@ -27,6 +27,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HiveTableHandle;
+import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -88,6 +89,7 @@ public class TestHiveProjectionPushdownIntoTableScan
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
         HiveMetastore metastore = new FileHiveMetastore(
+                new NodeVersion("test_version"),
                 environment,
                 new MetastoreConfig(),
                 new FileHiveMetastoreConfig()

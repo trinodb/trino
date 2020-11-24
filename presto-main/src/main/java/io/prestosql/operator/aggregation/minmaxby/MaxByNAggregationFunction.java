@@ -15,6 +15,8 @@ package io.prestosql.operator.aggregation.minmaxby;
 
 import io.prestosql.type.BlockTypeOperators;
 
+import static io.prestosql.util.MinMaxCompare.getMaxCompare;
+
 public class MaxByNAggregationFunction
         extends AbstractMinMaxByNAggregationFunction
 {
@@ -22,6 +24,8 @@ public class MaxByNAggregationFunction
 
     public MaxByNAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
-        super(NAME, blockTypeOperators::getComparisonOperator, "Returns the values of the first argument associated with the maximum values of the second argument");
+        super(NAME,
+                type -> getMaxCompare(blockTypeOperators, type),
+                "Returns the values of the first argument associated with the maximum values of the second argument");
     }
 }

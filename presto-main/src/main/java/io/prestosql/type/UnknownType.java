@@ -135,19 +135,19 @@ public final class UnknownType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(boolean left, boolean right)
+    private static boolean equalOperator(boolean unusedLeft, boolean unusedRight)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(boolean value)
+    private static long xxHash64Operator(boolean unusedValue)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }
 
     @ScalarOperator(COMPARISON)
-    private static long comparisonOperator(boolean left, boolean right)
+    private static long comparisonOperator(boolean unusedLeft, boolean unusedRight)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }

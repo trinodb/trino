@@ -130,6 +130,14 @@ public class DistributedQueryRunner
             Map<String, String> extraCoordinatorProperties = new HashMap<>();
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
+
+            if (!extraCoordinatorProperties.containsKey("web-ui.authentication.type")) {
+                // Make it possible to use Presto UI when running multiple tests (or tests and SomeQueryRunner.main) at once.
+                // This is necessary since cookies are shared (don't discern port number) and logging into one instance logs you out from others.
+                extraCoordinatorProperties.put("web-ui.authentication.type", "fixed");
+                extraCoordinatorProperties.put("web-ui.user", "admin");
+            }
+
             coordinator = closer.register(createTestingPrestoServer(
                     discoveryServer.getBaseUrl(),
                     true,
@@ -335,6 +343,12 @@ public class DistributedQueryRunner
         return coordinator.getAccessControl();
     }
 
+    @Override
+    public TestingGroupProvider getGroupProvider()
+    {
+        return coordinator.getGroupProvider();
+    }
+
     public TestingPrestoServer getCoordinator()
     {
         return coordinator;
@@ -527,7 +541,7 @@ public class DistributedQueryRunner
     {
         private Session defaultSession;
         private int nodeCount = 3;
-        private Map<String, String> extraProperties = ImmutableMap.of();
+        private Map<String, String> extraProperties = new HashMap<>();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
@@ -554,18 +568,14 @@ public class DistributedQueryRunner
 
         public Builder setExtraProperties(Map<String, String> extraProperties)
         {
-            this.extraProperties = extraProperties;
+            this.extraProperties = new HashMap<>(extraProperties);
             return this;
         }
 
-        /**
-         * Sets extra properties being equal to a map containing given key and value.
-         * Note, that calling this method OVERWRITES previously set property values.
-         * As a result, it should only be used when only one extra property needs to be set.
-         */
-        public Builder setSingleExtraProperty(String key, String value)
+        public Builder addExtraProperty(String key, String value)
         {
-            return setExtraProperties(ImmutableMap.of(key, value));
+            this.extraProperties.put(key, value);
+            return this;
         }
 
         public Builder setCoordinatorProperties(Map<String, String> coordinatorProperties)

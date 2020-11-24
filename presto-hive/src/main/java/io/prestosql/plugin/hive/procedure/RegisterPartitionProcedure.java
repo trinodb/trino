@@ -30,6 +30,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -63,6 +64,7 @@ public class RegisterPartitionProcedure
             RegisterPartitionProcedure.class,
             "registerPartition",
             ConnectorSession.class,
+            ConnectorAccessControl.class,
             String.class,
             String.class,
             List.class,
@@ -98,14 +100,14 @@ public class RegisterPartitionProcedure
                 REGISTER_PARTITION.bindTo(this));
     }
 
-    public void registerPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
+    public void registerPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doRegisterPartition(session, schemaName, tableName, partitionColumn, partitionValues, location);
+            doRegisterPartition(session, accessControl, schemaName, tableName, partitionColumn, partitionValues, location);
         }
     }
 
-    private void doRegisterPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
+    private void doRegisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
     {
         if (!allowRegisterPartition) {
             throw new PrestoException(PERMISSION_DENIED, "register_partition procedure is disabled");
@@ -117,6 +119,8 @@ public class RegisterPartitionProcedure
 
         Table table = metastore.getTable(identity, schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+
+        accessControl.checkCanInsertIntoTable(null, schemaTableName);
 
         checkIsPartitionedTable(table);
         checkPartitionColumns(table, partitionColumn);

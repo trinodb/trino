@@ -13,24 +13,29 @@ Linux Operating System
 * adequate ulimits for the user that runs the Presto process. These limits
   may depend on the specific Linux distribution you are using. The number
   of open file descriptors needed for a particular Presto instance scales
-  as roughly the number of machines in the cluster, times some factor 
-  depending on the workload. We recommend the following limits, which can 
+  as roughly the number of machines in the cluster, times some factor
+  depending on the workload. We recommend the following limits, which can
   typically be set in ``/etc/security/limits.conf``:
 
-.. code-block:: none
+  .. code-block:: none
 
-    presto soft nofile 131072
-    presto hard nofile 131072
+      presto soft nofile 131072
+      presto hard nofile 131072
 
 .. _requirements-java:
 
 Java Runtime Environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-* 64-bit required
-* version 11 recommended (lower versions not supported, higher versions less
-  tested)
-* Azul Zulu recommended (most tested)
+Presto requires a 64-bit version of Java 11, with a minimum required version of 11.0.7.
+Newer patch versions such as 11.0.8 or 11.0.9 are recommended. Earlier patch versions
+such as 11.0.2 do not work, nor will earlier major versions such as Java 8. Newer major
+versions such as Java 12 or 13 are not supported -- they may work, but are not tested.
+
+We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
+as the JDK for Presto, as Presto is tested against that distribution.
+Zulu is also the JDK used by the
+`Presto Docker image <https://hub.docker.com/r/prestosql/presto>`_.
 
 Python
 ^^^^^^

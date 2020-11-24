@@ -14,7 +14,6 @@
 package io.prestosql.plugin.prometheus;
 
 import io.airlift.log.Logger;
-import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -38,8 +37,6 @@ public class TestPrometheusIntegrationTests3
         extends AbstractTestQueryFramework
 {
     private PrometheusServer server;
-    private Session session;
-    private QueryRunner runner;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -55,8 +52,6 @@ public class TestPrometheusIntegrationTests3
     {
         int maxTries = 60;
         int timeBetweenTriesMillis = 1000;
-        runner = createQueryRunner();
-        session = runner.getDefaultSession();
         int tries = 0;
         final OkHttpClient httpClient = new OkHttpClient.Builder()
                 .connectTimeout(120, TimeUnit.SECONDS)
@@ -86,7 +81,7 @@ public class TestPrometheusIntegrationTests3
         // now we're making sure the client is ready
         tries = 0;
         while (tries < maxTries) {
-            if (session != null && runner.tableExists(session, "up")) {
+            if (getQueryRunner().tableExists(getSession(), "up")) {
                 break;
             }
             Thread.sleep(timeBetweenTriesMillis);
@@ -96,7 +91,7 @@ public class TestPrometheusIntegrationTests3
             fail("Prometheus container, or client, not available for metrics query in " + maxTries * timeBetweenTriesMillis + " milliseconds.");
         }
 
-        MaterializedResult results = runner.execute(session, "SELECT * FROM prometheus.default.up LIMIT 1").toTestTypes();
+        MaterializedResult results = computeActual("SELECT * FROM prometheus.default.up LIMIT 1");
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertEquals(row.getField(0).toString(), "{instance=localhost:9090, __name__=up, job=prometheus}");
@@ -106,7 +101,7 @@ public class TestPrometheusIntegrationTests3
     public void testPushDown()
     {
         // default interval on the `up` metric that Prometheus records on itself is 15 seconds, so this should only yield one row
-        MaterializedResult results = runner.execute(session, "SELECT * FROM prometheus.default.up WHERE timestamp > (NOW() - INTERVAL '15' SECOND)").toTestTypes();
+        MaterializedResult results = computeActual("SELECT * FROM prometheus.default.up WHERE timestamp > (NOW() - INTERVAL '15' SECOND)");
         assertEquals(results.getRowCount(), 1);
     }
 }

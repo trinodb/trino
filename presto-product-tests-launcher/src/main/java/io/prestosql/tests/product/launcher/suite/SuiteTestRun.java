@@ -89,7 +89,7 @@ public class SuiteTestRun
                 .build();
     }
 
-    public List<String> getTemptoRunArguments(EnvironmentConfig environmentConfig)
+    public List<String> getTemptoRunArguments()
     {
         ImmutableList.Builder<String> arguments = ImmutableList.builder();
         Joiner joiner = Joiner.on(",");
@@ -98,7 +98,6 @@ public class SuiteTestRun
             arguments.add(TEMPTO_GROUP_ARG, joiner.join(groups));
         }
 
-        Iterable<String> excludedGroups = Iterables.concat(getExcludedGroups(), environmentConfig.getExcludedGroups());
         if (!Iterables.isEmpty(excludedGroups)) {
             arguments.add(TEMPTO_EXCLUDE_GROUP_ARG, joiner.join(excludedGroups));
         }
@@ -107,12 +106,26 @@ public class SuiteTestRun
             arguments.add(TEMPTO_TEST_ARG, joiner.join(tests));
         }
 
-        Iterable<String> excludedTests = Iterables.concat(getExcludedTests(), environmentConfig.getExcludedTests());
         if (!Iterables.isEmpty(excludedTests)) {
             arguments.add(TEMPTO_EXCLUDE_TEST_ARG, joiner.join(excludedTests));
         }
 
         return arguments.build();
+    }
+
+    public SuiteTestRun withConfigApplied(EnvironmentConfig config)
+    {
+        return new SuiteTestRun(
+                environment,
+                getGroups(),
+                merge(getExcludedGroups(), config.getExcludedGroups()),
+                getTests(),
+                merge(getExcludedTests(), config.getExcludedTests()));
+    }
+
+    private static List<String> merge(List<String> first, List<String> second)
+    {
+        return ImmutableList.copyOf(Iterables.concat(first, second));
     }
 
     @Override

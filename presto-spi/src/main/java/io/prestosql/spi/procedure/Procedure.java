@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.procedure;
 
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
@@ -57,7 +58,8 @@ public class Procedure
         checkArgument(methodHandle.type().returnType() == void.class, "Method must return void");
 
         long parameterCount = methodHandle.type().parameterList().stream()
-                .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
+                .filter(type -> !ConnectorSession.class.equals(type))
+                .filter(type -> !ConnectorAccessControl.class.equals(type))
                 .count();
 
         checkArgument(parameterCount == arguments.size(), "Method parameter count must match arguments");

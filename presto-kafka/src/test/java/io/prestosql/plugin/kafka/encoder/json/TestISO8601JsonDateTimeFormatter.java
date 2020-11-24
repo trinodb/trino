@@ -84,12 +84,13 @@ public class TestISO8601JsonDateTimeFormatter
         testTime(sqlTimeOf(3, 0, 0, 0, 0), 3, "00:00");
         testTime(sqlTimeOf(3, 23, 59, 59, 999000000), 3, "23:59:59.999");
 
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 0, 0), "10:23:35.123Z");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 0, 0, 0, 0, 0, 0), "00:00:00Z");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 2, 0), "10:23:35.123+02:00");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 10, 0), "10:23:35.123+10:00");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, -10, 0), "10:23:35.123-10:00");
-        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 23, 59, 59, 999000000, 0, 0), "23:59:59.999Z");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 0), "10:23:35.123Z");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 0, 0, 0, 0, 0), "00:00:00Z");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 2 * 60), "10:23:35.123+02:00");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, 10 * 60), "10:23:35.123+10:00");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 10, 23, 35, 123000000, -10 * 60), "10:23:35.123-10:00");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 23, 59, 59, 999000000, 0), "23:59:59.999Z");
+        testTimeWithTZ(sqlTimeWithTimeZoneOf(3, 12, 34, 56, 789000000, -35), "12:34:56.789-00:35");
 
         testTimestamp(sqlTimestampOf(3, 2020, 8, 18, 12, 38, 29, 123), "2020-08-18T12:38:29.123");
         testTimestamp(sqlTimestampOf(3, 1970, 1, 1, 0, 0, 0, 0), "1970-01-01T00:00");

@@ -93,6 +93,7 @@ public final class HiveQueryRunner
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
             return new FileHiveMetastore(
+                    new NodeVersion("test_version"),
                     HDFS_ENVIRONMENT,
                     new MetastoreConfig(),
                     new FileHiveMetastoreConfig()
@@ -105,6 +106,18 @@ public final class HiveQueryRunner
         protected Builder()
         {
             super(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))));
+        }
+
+        @Override
+        public Builder setExtraProperties(Map<String, String> extraProperties)
+        {
+            return (Builder) super.setExtraProperties(extraProperties);
+        }
+
+        @Override
+        public Builder addExtraProperty(String key, String value)
+        {
+            return (Builder) super.addExtraProperty(key, value);
         }
 
         public Builder setHiveProperties(Map<String, String> hiveProperties)
@@ -294,9 +307,9 @@ public final class HiveQueryRunner
         }
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setBaseDataDir(baseDataDir)
                 .build();
         Thread.sleep(10);

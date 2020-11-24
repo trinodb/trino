@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.acid.AcidOperation;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
@@ -36,6 +38,8 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
 import javax.inject.Inject;
@@ -43,6 +47,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -59,6 +64,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCs
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -123,9 +129,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction)
     {
-        delegate.updateTableStatistics(identity, databaseName, tableName, update);
+        delegate.updateTableStatistics(identity, databaseName, tableName, update, transaction);
     }
 
     @Override
@@ -240,6 +246,24 @@ public class BridgingHiveMetastore
 
         table.setParameters(parameters);
         alterTable(identity, databaseName, tableName, table);
+    }
+
+    @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        // TODO Add role support https://github.com/prestosql/presto/issues/5706
+        if (principal.getType() != USER) {
+            throw new PrestoException(NOT_SUPPORTED, "Setting table owner type as a role is not supported");
+        }
+
+        Table table = fromMetastoreApiTable(delegate.getTable(identity, databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName))));
+
+        Table newTable = Table.builder(table)
+                .setOwner(principal.getName())
+                .build();
+
+        delegate.alterTable(identity, databaseName, tableName, toMetastoreApiTable(newTable));
     }
 
     @Override
@@ -486,5 +510,45 @@ public class BridgingHiveMetastore
     public String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
     {
         return delegate.getValidWriteIds(identity, tables, currentTransactionId);
+    }
+
+    @Override
+    public long allocateWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId)
+    {
+        return delegate.allocateWriteId(identity, dbName, tableName, transactionId);
+    }
+
+    @Override
+    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    {
+        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
+    }
+
+    @Override
+    public void updateTableWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+    {
+        delegate.updateTableWriteId(identity, dbName, tableName, transactionId, writeId, rowCountChange);
+    }
+
+    @Override
+    public void alterPartitions(HiveIdentity identity, String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        List<org.apache.hadoop.hive.metastore.api.Partition> hadoopPartitions = partitions.stream()
+                .map(ThriftMetastoreUtil::toMetastoreApiPartition)
+                .peek(partition -> partition.setWriteId(writeId))
+                .collect(toImmutableList());
+        delegate.alterPartitions(identity, dbName, tableName, hadoopPartitions, writeId);
+    }
+
+    @Override
+    public void addDynamicPartitions(HiveIdentity identity, String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    {
+        delegate.addDynamicPartitions(identity, dbName, tableName, partitionNames, transactionId, writeId, operation);
+    }
+
+    @Override
+    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, EnvironmentContext context, PrincipalPrivileges principalPrivileges)
+    {
+        delegate.alterTransactionalTable(identity, toMetastoreApiTable(table, principalPrivileges), transactionId, writeId, context);
     }
 }

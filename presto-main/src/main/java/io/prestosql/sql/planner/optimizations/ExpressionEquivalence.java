@@ -67,7 +67,7 @@ public class ExpressionEquivalence
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        this.canonicalizationVisitor = new CanonicalizationVisitor(metadata);
+        this.canonicalizationVisitor = new CanonicalizationVisitor();
     }
 
     public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
@@ -104,11 +104,8 @@ public class ExpressionEquivalence
     private static class CanonicalizationVisitor
             implements RowExpressionVisitor<RowExpression, Void>
     {
-        private final Metadata metadata;
-
-        public CanonicalizationVisitor(Metadata metadata)
+        public CanonicalizationVisitor()
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
         @Override

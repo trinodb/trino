@@ -23,6 +23,6 @@ public class KafkaProducerModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(PlainTextKafkaProducerFactory.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaProducerFactory.class).to(PlainTextKafkaProducerFactory.class).in(Scopes.SINGLETON);
     }
 }

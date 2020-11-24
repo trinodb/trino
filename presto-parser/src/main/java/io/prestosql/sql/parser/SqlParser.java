@@ -34,8 +34,6 @@ import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import javax.inject.Inject;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -70,24 +68,15 @@ public class SqlParser
             .build();
 
     private final BiConsumer<SqlBaseLexer, SqlBaseParser> initializer;
-    private boolean enhancedErrorHandlerEnabled;
 
     public SqlParser()
     {
-        this(new SqlParserOptions());
+        this(DEFAULT_PARSER_INITIALIZER);
     }
 
-    @Inject
-    public SqlParser(SqlParserOptions options)
-    {
-        this(options, DEFAULT_PARSER_INITIALIZER);
-    }
-
-    public SqlParser(SqlParserOptions options, BiConsumer<SqlBaseLexer, SqlBaseParser> initializer)
+    public SqlParser(BiConsumer<SqlBaseLexer, SqlBaseParser> initializer)
     {
         this.initializer = requireNonNull(initializer, "initializer is null");
-        requireNonNull(options, "options is null");
-        enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
     }
 
     public Statement createStatement(String sql, ParsingOptions parsingOptions)
@@ -141,13 +130,7 @@ public class SqlParser
             lexer.addErrorListener(LEXER_ERROR_LISTENER);
 
             parser.removeErrorListeners();
-
-            if (enhancedErrorHandlerEnabled) {
-                parser.addErrorListener(PARSER_ERROR_HANDLER);
-            }
-            else {
-                parser.addErrorListener(LEXER_ERROR_LISTENER);
-            }
+            parser.addErrorListener(PARSER_ERROR_HANDLER);
 
             ParserRuleContext tree;
             try {

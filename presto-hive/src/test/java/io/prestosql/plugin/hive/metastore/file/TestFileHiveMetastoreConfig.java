@@ -21,6 +21,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.NOT_SUPPORTED;
+import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
 
 public class TestFileHiveMetastoreConfig
 {
@@ -29,6 +31,7 @@ public class TestFileHiveMetastoreConfig
     {
         assertRecordedDefaults(recordDefaults(FileHiveMetastoreConfig.class)
                 .setCatalogDirectory(null)
+                .setVersionCompatibility(NOT_SUPPORTED)
                 .setMetastoreUser("presto")
                 .setAssumeCanonicalPartitionKeys(false));
     }
@@ -38,12 +41,14 @@ public class TestFileHiveMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.catalog.dir", "some path")
+                .put("hive.metastore.version-compatibility", "UNSAFE_ASSUME_COMPATIBILITY")
                 .put("hive.metastore.user", "some user")
                 .put("hive.metastore.assume-canonical-partition-keys", "true")
                 .build();
 
         FileHiveMetastoreConfig expected = new FileHiveMetastoreConfig()
                 .setCatalogDirectory("some path")
+                .setVersionCompatibility(UNSAFE_ASSUME_COMPATIBILITY)
                 .setMetastoreUser("some user")
                 .setAssumeCanonicalPartitionKeys(true);
 

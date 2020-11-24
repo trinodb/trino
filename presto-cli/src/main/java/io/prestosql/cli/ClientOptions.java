@@ -161,6 +161,9 @@ public class ClientOptions
     @Option(names = "--timezone", paramLabel = "<timezone>", description = "Session time zone " + DEFAULT_VALUE)
     public ZoneId timeZone = ZoneId.systemDefault();
 
+    @Option(names = "--disable-compression", description = "Disable compression of query results")
+    public boolean disableCompression;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -188,7 +191,6 @@ public class ClientOptions
                 schema,
                 null,
                 timeZone,
-                false,
                 Locale.getDefault(),
                 toResourceEstimates(resourceEstimates),
                 toProperties(sessionProperties),
@@ -196,7 +198,8 @@ public class ClientOptions
                 emptyMap(),
                 toExtraCredentials(extraCredentials),
                 null,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                disableCompression);
     }
 
     public static URI parseServer(String server)

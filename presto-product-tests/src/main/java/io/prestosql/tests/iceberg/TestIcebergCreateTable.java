@@ -13,58 +13,78 @@
  */
 package io.prestosql.tests.iceberg;
 
+import io.prestosql.tempto.AfterTestWithContext;
+import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.query.QueryExecutor;
+import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.ICEBERG;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
+import static io.prestosql.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 
 public class TestIcebergCreateTable
         extends ProductTest
 {
-    @Test(groups = {ICEBERG, STORAGE_FORMATS})
-    public void testCreateTable()
+    @BeforeTestWithContext
+    public void setUp()
     {
-        QueryExecutor queryExecutor = onPresto();
-        queryExecutor.executeQuery("CREATE SCHEMA iceberg.iceberg");
-        queryExecutor.executeQuery("use iceberg.iceberg");
-        queryExecutor.executeQuery("CREATE TABLE test_create_table(a bigint, b varchar)");
-        queryExecutor.executeQuery("INSERT INTO test_create_table(a, b) VALUES " +
-                "(NULL, NULL), " +
-                "(-42, 'abc'), " +
-                "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')");
-        assertThat(queryExecutor.executeQuery("SELECT * FROM test_create_table"))
-                .containsOnly(
-                        row(null, null),
-                        row(-42, "abc"),
-                        row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
-        queryExecutor.executeQuery("DROP TABLE test_create_table");
-        queryExecutor.executeQuery("DROP SCHEMA iceberg.iceberg");
+        // Use IF NOT EXISTS because the schema can be left behind after previous test, as the tests are @Flaky
+        onPresto().executeQuery("CREATE SCHEMA IF NOT EXISTS iceberg.iceberg");
+    }
+
+    @AfterTestWithContext
+    public void cleanUp()
+    {
+        onPresto().executeQuery("DROP SCHEMA iceberg.iceberg");
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
+    public void testCreateTable()
+    {
+        String tableName = "iceberg.iceberg.test_create_table_" + randomTableSuffix();
+        onPresto().executeQuery("CREATE TABLE " + tableName + "(a bigint, b varchar)");
+        try {
+            onPresto().executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +
+                    "(NULL, NULL), " +
+                    "(-42, 'abc'), " +
+                    "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')");
+            assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
+                    .containsOnly(
+                            row(null, null),
+                            row(-42, "abc"),
+                            row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
+        }
+        finally {
+            onPresto().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
     public void testCreateTableAsSelect()
     {
-        QueryExecutor queryExecutor = onPresto();
-        queryExecutor.executeQuery("CREATE SCHEMA iceberg.iceberg");
-        queryExecutor.executeQuery("use iceberg.iceberg");
-        queryExecutor.executeQuery("" +
-                "CREATE TABLE test_create_table_as_select AS " +
+        String tableName = "iceberg.iceberg.test_create_table_as_select_" + randomTableSuffix();
+        onPresto().executeQuery("" +
+                "CREATE TABLE " + tableName + " AS " +
                 "SELECT * FROM (VALUES " +
                 "  (NULL, NULL), " +
                 "  (-42, 'abc'), " +
                 "  (9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')" +
                 ") t(a, b)");
-        assertThat(queryExecutor.executeQuery("SELECT * FROM test_create_table_as_select"))
-                .containsOnly(
-                        row(null, null),
-                        row(-42, "abc"),
-                        row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
-        queryExecutor.executeQuery("DROP TABLE test_create_table_as_select");
-        queryExecutor.executeQuery("DROP SCHEMA iceberg.iceberg");
+        try {
+            assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
+                    .containsOnly(
+                            row(null, null),
+                            row(-42, "abc"),
+                            row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
+        }
+        finally {
+            onPresto().executeQuery("DROP TABLE " + tableName);
+        }
     }
 }

@@ -103,6 +103,7 @@ import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.util.GraphvizPrinter;
 
@@ -697,11 +698,25 @@ public class PlanPrinter
         public Void visitValues(ValuesNode node, Void context)
         {
             NodeRepresentation nodeOutput = addNode(node, "Values");
-            for (List<Expression> row : node.getRows()) {
-                nodeOutput.appendDetailsLine(row.stream()
-                        .map(PlanPrinter::unresolveFunctions)
-                        .map(Expression::toString)
-                        .collect(joining(", ", "(", ")")));
+            if (node.getRows().isEmpty()) {
+                for (int i = 0; i < node.getRowCount(); i++) {
+                    nodeOutput.appendDetailsLine("()");
+                }
+                return null;
+            }
+            List<String> rows = node.getRows().get().stream()
+                    .map(row -> {
+                        if (row instanceof Row) {
+                            return ((Row) row).getItems().stream()
+                                    .map(PlanPrinter::unresolveFunctions)
+                                    .map(Expression::toString)
+                                    .collect(joining(", ", "(", ")"));
+                        }
+                        return unresolveFunctions(row).toString();
+                    })
+                    .collect(toImmutableList());
+            for (String row : rows) {
+                nodeOutput.appendDetailsLine(row);
             }
             return null;
         }
@@ -820,14 +835,14 @@ public class PlanPrinter
         private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
         {
             return filters.stream()
-                    .map(filter -> filter.getId() + " -> " + filter.getInput())
+                    .map(filter -> filter.getInput() + " " + filter.getOperator().getValue() + " #" + filter.getId())
                     .collect(Collectors.joining(", ", "{", "}"));
         }
 
         private String printDynamicFilterAssignments(Map<DynamicFilterId, Symbol> filters)
         {
             return filters.entrySet().stream()
-                    .map(filter -> filter.getValue() + " -> " + filter.getKey())
+                    .map(filter -> filter.getValue() + " -> #" + filter.getKey())
                     .collect(Collectors.joining(", ", "{", "}"));
         }
 
@@ -956,7 +971,7 @@ public class PlanPrinter
         @Override
         public Void visitIntersect(IntersectNode node, Void context)
         {
-            addNode(node, "Intersect");
+            addNode(node, "Intersect", node.isDistinct() ? " distinct" : " all");
 
             return processChildren(node, context);
         }
@@ -964,7 +979,7 @@ public class PlanPrinter
         @Override
         public Void visitExcept(ExceptNode node, Void context)
         {
-            addNode(node, "Except");
+            addNode(node, "Except", node.isDistinct() ? " distinct" : " all");
 
             return processChildren(node, context);
         }

@@ -127,39 +127,27 @@ public class KafkaSplitManager
 
     private static String readSchema(String dataSchemaLocation)
     {
-        InputStream inputStream = null;
-        try {
-            if (isURI(dataSchemaLocation.trim().toLowerCase(ENGLISH))) {
-                try {
-                    inputStream = new URL(dataSchemaLocation).openStream();
-                }
-                catch (MalformedURLException e) {
-                    // try again before failing
-                    inputStream = new FileInputStream(dataSchemaLocation);
-                }
-            }
-            else {
-                inputStream = new FileInputStream(dataSchemaLocation);
-            }
+        try (InputStream inputStream = openSchemaLocation(dataSchemaLocation)) {
             return CharStreams.toString(new InputStreamReader(inputStream, UTF_8));
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Could not parse the Avro schema at: " + dataSchemaLocation, e);
         }
-        finally {
-            closeQuietly(inputStream);
-        }
     }
 
-    private static void closeQuietly(InputStream stream)
+    private static InputStream openSchemaLocation(String dataSchemaLocation)
+            throws IOException
     {
-        try {
-            if (stream != null) {
-                stream.close();
+        if (isURI(dataSchemaLocation.trim().toLowerCase(ENGLISH))) {
+            try {
+                return new URL(dataSchemaLocation).openStream();
+            }
+            catch (MalformedURLException ignore) {
+                // TODO probably should not be ignored
             }
         }
-        catch (IOException ignored) {
-        }
+
+        return new FileInputStream(dataSchemaLocation);
     }
 
     private static boolean isURI(String location)

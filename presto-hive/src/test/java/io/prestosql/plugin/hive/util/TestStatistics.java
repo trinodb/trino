@@ -34,7 +34,6 @@ import java.util.OptionalLong;
 
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
-import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
@@ -81,7 +80,7 @@ public class TestStatistics
 
     private static HiveColumnStatistics createRealColumnStatistics(ImmutableMap<ColumnStatisticType, Block> computedStatistics)
     {
-        return createHiveColumnStatistics(SESSION, computedStatistics, REAL, 1);
+        return createHiveColumnStatistics(computedStatistics, REAL, 1);
     }
 
     @Test
@@ -112,7 +111,7 @@ public class TestStatistics
 
     private static HiveColumnStatistics createDoubleColumnStatistics(ImmutableMap<ColumnStatisticType, Block> computedStatistics)
     {
-        return createHiveColumnStatistics(SESSION, computedStatistics, DOUBLE, 1);
+        return createHiveColumnStatistics(computedStatistics, DOUBLE, 1);
     }
 
     @Test

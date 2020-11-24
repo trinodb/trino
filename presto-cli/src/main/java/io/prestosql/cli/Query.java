@@ -48,11 +48,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.cli.ConsolePrinter.REAL_TERMINAL;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
+import static io.prestosql.cli.TerminalUtils.isRealTerminal;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -373,7 +373,7 @@ public class Query
             bad = " <EOF>";
         }
 
-        if (REAL_TERMINAL) {
+        if (isRealTerminal()) {
             AttributedStringBuilder builder = new AttributedStringBuilder();
 
             builder.style(DEFAULT.foreground(CYAN));

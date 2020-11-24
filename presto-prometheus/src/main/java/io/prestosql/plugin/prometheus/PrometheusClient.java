@@ -100,7 +100,7 @@ public class PrometheusClient
                 return ImmutableSet.copyOf(tableNames);
             }
         }
-        throw new PrestoException(PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR, String.format("Prometheus did no return metrics list (table names): %s", status));
+        throw new PrestoException(PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR, "Prometheus did no return metrics list (table names): " + status);
     }
 
     public PrometheusTable getTable(String schema, String tableName)

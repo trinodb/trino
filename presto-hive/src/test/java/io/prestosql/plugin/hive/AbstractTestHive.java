@@ -232,6 +232,7 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -655,7 +656,7 @@ public abstract class AbstractTestHive
         tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
         tableBucketEvolution = new SchemaTableName(database, "presto_test_bucket_evolution");
 
-        invalidTableHandle = new HiveTableHandle(database, INVALID_TABLE, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
+        invalidTableHandle = new HiveTableHandle(database, INVALID_TABLE, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
 
         dsColumn = createBaseColumn("ds", -1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
         fileFormatColumn = createBaseColumn("file_format", -1, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
@@ -767,6 +768,7 @@ public abstract class AbstractTestHive
                 partitionManager,
                 10,
                 10,
+                10,
                 false,
                 false,
                 false,
@@ -820,7 +822,8 @@ public abstract class AbstractTestHive
                 hiveConfig,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig),
+                Optional.empty());
     }
 
     protected HdfsConfiguration createTestHdfsConfiguration()
@@ -1756,7 +1759,7 @@ public abstract class AbstractTestHive
                 List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
                 String ds = partitionKeys.get(0).getValue();
                 String fileFormat = partitionKeys.get(1).getValue();
-                HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase());
+                HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase(ENGLISH));
                 int dummyPartition = Integer.parseInt(partitionKeys.get(2).getValue());
 
                 long rowNumber = 0;
@@ -1848,7 +1851,7 @@ public abstract class AbstractTestHive
                 List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
                 String ds = partitionKeys.get(0).getValue();
                 String fileFormat = partitionKeys.get(1).getValue();
-                HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase());
+                HiveStorageFormat fileType = HiveStorageFormat.valueOf(fileFormat.toUpperCase(ENGLISH));
                 int dummyPartition = Integer.parseInt(partitionKeys.get(2).getValue());
 
                 long rowNumber = 0;
@@ -2696,7 +2699,7 @@ public abstract class AbstractTestHive
             metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), actualStatistics -> {
                 assertThat(actualStatistics).isEqualTo(expectedStatistics.get());
                 return partitionStatistics;
-            });
+            }, NO_ACID_TRANSACTION);
             assertThat(metastoreClient.getTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName()))
                     .isEqualTo(partitionStatistics);
             expectedStatistics.set(partitionStatistics);
@@ -2708,7 +2711,7 @@ public abstract class AbstractTestHive
         metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), actualStatistics -> {
             assertThat(actualStatistics).isEqualTo(expectedStatistics.get());
             return initialStatistics;
-        });
+        }, NO_ACID_TRANSACTION);
 
         assertThat(metastoreClient.getTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName()))
                 .isEqualTo(initialStatistics);
@@ -4004,7 +4007,7 @@ public abstract class AbstractTestHive
     {
         HiveMetastore metastoreClient = getMetastoreClient();
         HiveIdentity identity = new HiveIdentity(SESSION);
-        metastoreClient.updateTableStatistics(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), statistics -> new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
+        metastoreClient.updateTableStatistics(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), statistics -> new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()), NO_ACID_TRANSACTION);
         Table table = metastoreClient.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         List<String> partitionColumns = table.getPartitionColumns().stream()
@@ -4552,14 +4555,14 @@ public abstract class AbstractTestHive
             if (hiveRecordCursor instanceof HiveCoercionRecordCursor) {
                 hiveRecordCursor = ((HiveCoercionRecordCursor) hiveRecordCursor).getRegularColumnRecordCursor();
             }
-            assertInstanceOf(hiveRecordCursor, recordCursorType(hiveStorageFormat), hiveStorageFormat.name());
+            assertInstanceOf(hiveRecordCursor, recordCursorType(), hiveStorageFormat.name());
         }
         else {
             assertInstanceOf(((HivePageSource) pageSource).getPageSource(), pageSourceType(hiveStorageFormat), hiveStorageFormat.name());
         }
     }
 
-    private static Class<? extends RecordCursor> recordCursorType(HiveStorageFormat hiveStorageFormat)
+    private static Class<? extends RecordCursor> recordCursorType()
     {
         return GenericHiveRecordCursor.class;
     }

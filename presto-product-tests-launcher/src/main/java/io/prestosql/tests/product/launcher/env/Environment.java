@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
+import io.prestosql.tests.product.launcher.util.ConsoleTable;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.RetryPolicy;
@@ -54,7 +55,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -103,7 +103,7 @@ public final class Environment
     {
         RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
                 .withMaxRetries(startupRetries)
-                .onFailedAttempt(event -> log.warn("Could not start environment '%s': %s", this, getStackTraceAsString(event.getLastFailure())))
+                .onFailedAttempt(event -> log.warn(event.getLastFailure(), "Could not start environment '%s'", this))
                 .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", this, event.getAttemptCount() + 1))
                 .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", this, event.getElapsedTime(), event.getAttemptCount()))
                 .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getFailure()));
@@ -112,13 +112,6 @@ public final class Environment
                 .with(retryPolicy)
                 .with(executorService)
                 .get(this::tryStart);
-    }
-
-    public List<String> getContainerNames()
-    {
-        return containers.values().stream()
-                .map(DockerContainer::getLogicalName)
-                .collect(toImmutableList());
     }
 
     private Environment tryStart()
@@ -134,11 +127,21 @@ public final class Environment
         // Create new network when environment tries to start
         try (Network network = createNetwork(name)) {
             attachNetwork(containers, network);
-
-            String containerNames = Joiner.on(", ").join(getContainerNames());
-            log.info("Starting containers %s for environment %s", containerNames, name);
-
             Startables.deepStart(containers).get();
+
+            ConsoleTable table = new ConsoleTable();
+            table.addHeader("container", "name", "image", "startup", "ports");
+            Joiner joiner = Joiner.on(", ");
+
+            containers.forEach(container -> table.addRow(
+                    container.getLogicalName(),
+                    container.getContainerName().substring(1), // first char is always slash
+                    container.getDockerImageName(),
+                    container.getStartupTime(),
+                    joiner.join(container.getExposedPorts())));
+            table.addSeparator();
+
+            log.info("Started environment %s with containers:\n%s", name, table.render());
 
             // After deepStart all containers should be running and healthy
             checkState(allContainersHealthy(containers), "Not all containers are running or healthy");
@@ -199,7 +202,7 @@ public final class Environment
             // It's OK not to restore interrupt flag here. When we return we're exiting the process.
         }
         catch (RuntimeException e) {
-            log.warn("Could not query for containers state: %s", getStackTraceAsString(e));
+            log.warn(e, "Could not query for containers state");
         }
     }
 
@@ -273,7 +276,7 @@ public final class Environment
             stop();
         }
         catch (RuntimeException e) {
-            log.warn("Exception occurred while closing environment: %s", getStackTraceAsString(e));
+            log.warn(e, "Exception occurred while closing environment");
         }
     }
 

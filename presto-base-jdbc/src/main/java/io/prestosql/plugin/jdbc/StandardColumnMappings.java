@@ -48,7 +48,7 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
@@ -163,20 +163,37 @@ public final class StandardColumnMappings
         return PreparedStatement::setDouble;
     }
 
+    public static ColumnMapping decimalColumnMapping(DecimalType decimalType)
+    {
+        return decimalColumnMapping(decimalType, UNNECESSARY);
+    }
+
     public static ColumnMapping decimalColumnMapping(DecimalType decimalType, RoundingMode roundingMode)
     {
-        // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-        int scale = decimalType.getScale();
         if (decimalType.isShort()) {
+            checkArgument(roundingMode == UNNECESSARY, "Round mode is not supported for short decimal, map the type to long decimal instead");
             return ColumnMapping.longMapping(
                     decimalType,
-                    (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale),
+                    shortDecimalReadFunction(decimalType),
                     shortDecimalWriteFunction(decimalType));
         }
         return ColumnMapping.sliceMapping(
                 decimalType,
-                (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex).setScale(scale, roundingMode)),
+                longDecimalReadFunction(decimalType, roundingMode),
                 longDecimalWriteFunction(decimalType));
+    }
+
+    public static LongReadFunction shortDecimalReadFunction(DecimalType decimalType)
+    {
+        return shortDecimalReadFunction(decimalType, UNNECESSARY);
+    }
+
+    public static LongReadFunction shortDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
+    {
+        // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
+        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        requireNonNull(roundingMode, "roundingMode is null");
+        return (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale, roundingMode);
     }
 
     public static LongWriteFunction shortDecimalWriteFunction(DecimalType decimalType)
@@ -188,6 +205,19 @@ public final class StandardColumnMappings
             BigDecimal bigDecimal = new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
             statement.setBigDecimal(index, bigDecimal);
         };
+    }
+
+    public static SliceReadFunction longDecimalReadFunction(DecimalType decimalType)
+    {
+        return longDecimalReadFunction(decimalType, UNNECESSARY);
+    }
+
+    public static SliceReadFunction longDecimalReadFunction(DecimalType decimalType, RoundingMode roundingMode)
+    {
+        // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
+        int scale = requireNonNull(decimalType, "decimalType is null").getScale();
+        requireNonNull(roundingMode, "roundingMode is null");
+        return (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex).setScale(scale, roundingMode));
     }
 
     public static SliceWriteFunction longDecimalWriteFunction(DecimalType decimalType)
@@ -268,9 +298,14 @@ public final class StandardColumnMappings
     {
         return ColumnMapping.sliceMapping(
                 VARBINARY,
-                (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)),
+                varbinaryReadFunction(),
                 varbinaryWriteFunction(),
                 DISABLE_PUSHDOWN);
+    }
+
+    public static SliceReadFunction varbinaryReadFunction()
+    {
+        return (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex));
     }
 
     public static SliceWriteFunction varbinaryWriteFunction()
@@ -489,12 +524,12 @@ public final class StandardColumnMappings
 
             case Types.NUMERIC:
             case Types.DECIMAL:
-                int decimalDigits = type.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                int decimalDigits = type.getRequiredDecimalDigits();
                 int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
                     return Optional.empty();
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
 
             case Types.CHAR:
             case Types.NCHAR:

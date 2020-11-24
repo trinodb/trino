@@ -178,7 +178,7 @@ or in external tools </admin/jmx>`.
 
 Basic caching statistics for the catalog are available in the
 ``jmx.current."rubix:catalog=<catalog_name>,name=stats"`` table.
-The table ``jmx.current."rubix:catalog=<catalog_name>,name=stats``
+The table ``jmx.current."rubix:catalog=<catalog_name>,type=detailed,name=stats``
 contains more detailed statistics.
 
 The following example query returns the average cache hit ratio for the ``hive`` catalog:

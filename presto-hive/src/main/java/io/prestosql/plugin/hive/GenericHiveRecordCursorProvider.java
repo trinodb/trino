@@ -35,9 +35,10 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class GenericHiveRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -82,7 +83,13 @@ public class GenericHiveRecordCursorProvider
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
         }
 
-        Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
+        Optional<ReaderColumns> projections = projectBaseColumns(columns);
+        List<HiveColumnHandle> readerColumns = projections
+                .map(ReaderColumns::get)
+                .map(columnHandles -> columnHandles.stream()
+                        .map(HiveColumnHandle.class::cast)
+                        .collect(toUnmodifiableList()))
+                .orElse(columns);
 
         RecordCursor cursor = hdfsEnvironment.doAs(session.getUser(), () -> {
             RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(
@@ -91,9 +98,7 @@ public class GenericHiveRecordCursorProvider
                     start,
                     length,
                     schema,
-                    projectedReaderColumns
-                            .map(ReaderProjections::getReaderColumns)
-                            .orElse(columns));
+                    readerColumns);
 
             return new GenericHiveRecordCursor<>(
                     configuration,
@@ -101,12 +106,10 @@ public class GenericHiveRecordCursorProvider
                     genericRecordReader(recordReader),
                     length,
                     schema,
-                    projectedReaderColumns
-                            .map(ReaderProjections::getReaderColumns)
-                            .orElse(columns));
+                    readerColumns);
         });
 
-        return Optional.of(new ReaderRecordCursorWithProjections(cursor, projectedReaderColumns));
+        return Optional.of(new ReaderRecordCursorWithProjections(cursor, projections));
     }
 
     @SuppressWarnings("unchecked")

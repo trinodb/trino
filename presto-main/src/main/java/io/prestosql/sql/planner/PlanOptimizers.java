@@ -29,6 +29,7 @@ import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.prestosql.sql.planner.iterative.rule.AddIntermediateAggregations;
+import io.prestosql.sql.planner.iterative.rule.ApplyTableScanRedirection;
 import io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.prestosql.sql.planner.iterative.rule.CreatePartialTopN;
 import io.prestosql.sql.planner.iterative.rule.DesugarArrayConstructor;
@@ -47,9 +48,11 @@ import io.prestosql.sql.planner.iterative.rule.ExtractDereferencesFromFilterAbov
 import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.prestosql.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.prestosql.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
-import io.prestosql.sql.planner.iterative.rule.ImplementExceptAsUnion;
+import io.prestosql.sql.planner.iterative.rule.ImplementExceptAll;
+import io.prestosql.sql.planner.iterative.rule.ImplementExceptDistinctAsUnion;
 import io.prestosql.sql.planner.iterative.rule.ImplementFilteredAggregations;
-import io.prestosql.sql.planner.iterative.rule.ImplementIntersectAsUnion;
+import io.prestosql.sql.planner.iterative.rule.ImplementIntersectAll;
+import io.prestosql.sql.planner.iterative.rule.ImplementIntersectDistinctAsUnion;
 import io.prestosql.sql.planner.iterative.rule.ImplementLimitWithTies;
 import io.prestosql.sql.planner.iterative.rule.ImplementOffset;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
@@ -114,6 +117,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushDeleteIntoConnector;
+import io.prestosql.sql.planner.iterative.rule.PushDistinctLimitIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughFilter;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughJoin;
 import io.prestosql.sql.planner.iterative.rule.PushDownDereferenceThroughProject;
@@ -179,6 +183,7 @@ import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarAggregat
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import io.prestosql.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
+import io.prestosql.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.prestosql.sql.planner.iterative.rule.UnwrapCastInComparison;
@@ -284,9 +289,6 @@ public class PlanOptimizers
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
-        Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
-                new MergeFilters(metadata));
-
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
                 new PruneAggregationColumns(),
                 new PruneAggregationSourceColumns(),
@@ -384,7 +386,7 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 session -> !isIterativeRuleBasedColumnPruning(session),
-                ImmutableList.of(new PruneUnreferencedOutputs(metadata, typeAnalyzer)),
+                ImmutableList.of(new PruneUnreferencedOutputs(metadata)),
                 columnPruningRules);
 
         builder.add(
@@ -411,10 +413,10 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
-                                .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
                                 .addAll(ImmutableSet.of(
+                                        new MergeFilters(metadata),
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
@@ -476,8 +478,10 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new ImplementIntersectAsUnion(metadata),
-                                new ImplementExceptAsUnion(metadata))),
+                                new ImplementIntersectDistinctAsUnion(metadata),
+                                new ImplementExceptDistinctAsUnion(metadata),
+                                new ImplementIntersectAll(metadata),
+                                new ImplementExceptAll(metadata))),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 columnPruningOptimizer,
                 inlineProjections,
@@ -527,7 +531,27 @@ public class PlanOptimizers
                 new CheckSubqueryNodesAreRewritten(),
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
-                        new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)));
+                        new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new TransformFilteringSemiJoinToInnerJoin()))); // must run after PredicatePushDown
+
+        // Perform redirection before CBO rules to ensure stats from destination connector are used
+        // Perform redirection before agg, topN, limit, sample etc. push down into table scan as the destination connector may support a different set of push downs
+        // Perform redirection after at least one PredicatePushDown and PushPredicateIntoTableScan to allow connector to use pushed down predicates in redirection decision
+        // Perform redirection after at least table scan pruning rules because redirected table might have fewer columns
+        // PushPredicateIntoTableScan must be run after redirection
+        // Column pruning rules need to be run after redirection
+        builder.add(
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new ApplyTableScanRedirection(metadata),
+                                new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))));
 
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 ruleStats,
@@ -541,6 +565,7 @@ public class PlanOptimizers
                         .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
                         .add(new PushSampleIntoTableScan(metadata))
                         .add(new PushAggregationIntoTableScan(metadata))
+                        .add(new PushDistinctLimitIntoTableScan(metadata))
                         .build());
         builder.add(pushIntoTableScanOptimizer);
         builder.add(new UnaliasSymbolReferences(metadata));

@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 
 import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
+import static io.prestosql.block.BlockAssertions.createBlockOfReals;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createRLEBlock;
@@ -34,6 +35,7 @@ import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggre
 import static io.prestosql.operator.aggregation.AggregationTestUtils.groupedAggregation;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
@@ -156,6 +158,41 @@ public class TestMinMaxByNAggregation
                 createStringsBlock("zz", "hi", null, "a"),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
                 createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("b", "c"),
+                createStringsBlock("a", "b", "c", "d"),
+                createDoublesBlock(Double.NaN, 2.0, 3.0, 4.0),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "c"),
+                createStringsBlock("a", "b", "c", "d"),
+                createDoublesBlock(1.0, Double.NaN, 3.0, 4.0),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "b"),
+                createStringsBlock("a", "b", "c", "d"),
+                createDoublesBlock(1.0, 2.0, Double.NaN, 4.0),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "b"),
+                createStringsBlock("a", "b", "c", "d"),
+                createDoublesBlock(1.0, 2.0, 3.0, Double.NaN),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "b"),
+                createStringsBlock("a", "b"),
+                createDoublesBlock(1.0, Double.NaN),
+                createRLEBlock(2L, 2));
     }
 
     @Test
@@ -183,6 +220,165 @@ public class TestMinMaxByNAggregation
                 createStringsBlock("zz", "hi", null, "a"),
                 createDoublesBlock(0.0, 1.0, null, -1.0),
                 createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("d", "c"),
+                createStringsBlock("a", "b", "c", "d"),
+                createDoublesBlock(Double.NaN, 2.0, 3.0, 4.0),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("d", "c"),
+                createStringsBlock("a", "b", "c", "d"),
+                createDoublesBlock(1.0, Double.NaN, 3.0, 4.0),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("d", "b"),
+                createStringsBlock("a", "b", "c", "d"),
+                createDoublesBlock(1.0, 2.0, Double.NaN, 4.0),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("c", "b"),
+                createStringsBlock("a", "b", "c", "d"),
+                createDoublesBlock(1.0, 2.0, 3.0, Double.NaN),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "b"),
+                createStringsBlock("a", "b"),
+                createDoublesBlock(1.0, Double.NaN),
+                createRLEBlock(2L, 2));
+    }
+
+    @Test
+    public void testMinRealVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
+                METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, REAL, BIGINT)));
+        assertAggregation(
+                function,
+                ImmutableList.of("z", "a"),
+                createStringsBlock("z", "a", "x", "b"),
+                createBlockOfReals(1.0f, 2.0f, 2.0f, 3.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "zz"),
+                createStringsBlock("zz", "hi", "bb", "a"),
+                createBlockOfReals(0.0f, 1.0f, 2.0f, -1.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "zz"),
+                createStringsBlock("zz", "hi", null, "a"),
+                createBlockOfReals(0.0f, 1.0f, null, -1.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("b", "c"),
+                createStringsBlock("a", "b", "c", "d"),
+                createBlockOfReals(Float.NaN, 2.0f, 3.0f, 4.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "c"),
+                createStringsBlock("a", "b", "c", "d"),
+                createBlockOfReals(1.0f, Float.NaN, 3.0f, 4.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "b"),
+                createStringsBlock("a", "b", "c", "d"),
+                createBlockOfReals(1.0f, 2.0f, Float.NaN, 4.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "b"),
+                createStringsBlock("a", "b", "c", "d"),
+                createBlockOfReals(1.0f, 2.0f, 3.0f, Float.NaN),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "b"),
+                createStringsBlock("a", "b"),
+                createBlockOfReals(1.0f, Float.NaN),
+                createRLEBlock(2L, 2));
+    }
+
+    @Test
+    public void testMaxRealVarchar()
+    {
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
+                METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, REAL, BIGINT)));
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "z"),
+                createStringsBlock("z", "a", null),
+                createBlockOfReals(1.0f, 2.0f, null),
+                createRLEBlock(2L, 3));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("bb", "hi"),
+                createStringsBlock("zz", "hi", "bb", "a"),
+                createBlockOfReals(0.0f, 1.0f, 2.0f, -1.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("hi", "zz"),
+                createStringsBlock("zz", "hi", null, "a"),
+                createBlockOfReals(0.0f, 1.0f, null, -1.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("d", "c"),
+                createStringsBlock("a", "b", "c", "d"),
+                createBlockOfReals(Float.NaN, 2.0f, 3.0f, 4.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("d", "c"),
+                createStringsBlock("a", "b", "c", "d"),
+                createBlockOfReals(1.0f, Float.NaN, 3.0f, 4.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("d", "b"),
+                createStringsBlock("a", "b", "c", "d"),
+                createBlockOfReals(1.0f, 2.0f, Float.NaN, 4.0f),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("c", "b"),
+                createStringsBlock("a", "b", "c", "d"),
+                createBlockOfReals(1.0f, 2.0f, 3.0f, Float.NaN),
+                createRLEBlock(2L, 4));
+
+        assertAggregation(
+                function,
+                ImmutableList.of("a", "b"),
+                createStringsBlock("a", "b"),
+                createBlockOfReals(1.0f, Float.NaN),
+                createRLEBlock(2L, 2));
     }
 
     @Test

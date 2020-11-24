@@ -21,7 +21,6 @@ public class TestHiveFileSystemAbfsAccessKey
         extends AbstractTestHiveFileSystemAbfs
 {
     private String accessKey;
-    private String testDirectory;
 
     @Parameters({
             "hive.hadoop2.metastoreHost",

@@ -29,13 +29,12 @@ import io.prestosql.spi.connector.TableNotFoundException;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
-import static io.prestosql.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_SCHEMA_ERROR;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -136,16 +135,14 @@ public class SheetsMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaName.isEmpty()) {
-            throw new PrestoException(SHEETS_UNKNOWN_SCHEMA_ERROR, "Schema not present - " + schemaName);
+        String schema = schemaName.orElse(getOnlyElement(SCHEMAS));
+
+        if (listSchemaNames().contains(schema)) {
+            return sheetsClient.getTableNames().stream()
+                    .map(tableName -> new SchemaTableName(schema, tableName))
+                    .collect(toImmutableList());
         }
-        if (schemaName.get().equalsIgnoreCase("information_schema")) {
-            return ImmutableList.of();
-        }
-        Set<String> tables = sheetsClient.getTableNames();
-        List<SchemaTableName> schemaTableNames = new ArrayList<>();
-        tables.forEach(t -> schemaTableNames.add(new SchemaTableName(schemaName.get(), t)));
-        return schemaTableNames;
+        return ImmutableList.of();
     }
 
     @Override

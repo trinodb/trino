@@ -16,6 +16,7 @@ package io.prestosql.tests.hive;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert.Row;
 import io.prestosql.tempto.query.QueryResult;
+import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -62,12 +63,14 @@ public class TestCsv
     }
 
     @Test(groups = STORAGE_FORMATS)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testCreateCsvTableAs()
     {
         testCreateCsvTableAs("");
     }
 
     @Test(groups = STORAGE_FORMATS)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testCreateCsvTableAsWithCustomProperties()
     {
         testCreateCsvTableAs(", csv_escape = 'e', csv_separator = 's', csv_quote = 'q'");
@@ -92,12 +95,14 @@ public class TestCsv
     }
 
     @Test(groups = STORAGE_FORMATS)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testInsertIntoPartitionedCsvTable()
     {
         testInsertIntoPartitionedCsvTable("test_partitioned_csv_table", "");
     }
 
     @Test(groups = STORAGE_FORMATS)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testInsertIntoPartitionedCsvTableWithCustomProperties()
     {
         testInsertIntoPartitionedCsvTable("test_partitioned_csv_table_with_custom_parameters", ", csv_escape = 'e', csv_separator = 's', csv_quote = 'q'");
@@ -124,12 +129,14 @@ public class TestCsv
     }
 
     @Test(groups = STORAGE_FORMATS)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testCreatePartitionedCsvTableAs()
     {
         testCreatePartitionedCsvTableAs("storage_formats_test_create_table_as_select_partitioned_csv", "");
     }
 
     @Test(groups = STORAGE_FORMATS)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testCreatePartitionedCsvTableAsWithCustomParamters()
     {
         testCreatePartitionedCsvTableAs(

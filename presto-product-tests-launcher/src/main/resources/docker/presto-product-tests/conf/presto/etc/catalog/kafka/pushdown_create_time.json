@@ -1,0 +1,25 @@
+{
+  "tableName": "pushdown_create_time",
+  "schemaName": "product_tests",
+  "topicName": "pushdown_create_time",
+  "message": {
+    "dataFormat": "csv",
+    "fields": [
+      {
+        "name": "bigint_value",
+        "type": "BIGINT",
+        "mapping": "0"
+      }
+    ]
+  },
+  "key": {
+    "dataFormat": "csv",
+    "fields": [
+      {
+        "name": "bigint_key",
+        "type": "BIGINT",
+        "mapping": "0"
+      }
+    ]
+  }
+}

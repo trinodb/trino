@@ -57,6 +57,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
@@ -64,11 +65,14 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -288,6 +292,14 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, PrestoPrincipal principal)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denySetTableAuthorization(tableName.toString(), principal);
+        }
+    }
+
+    @Override
     public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
@@ -340,6 +352,14 @@ public class FileBasedAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+        if (!checkTablePermission(context, viewName, OWNERSHIP)) {
+            denySetViewAuthorization(viewName.toString(), principal);
+        }
+    }
+
+    @Override
     public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         if (!checkTablePermission(context, viewName, OWNERSHIP)) {
@@ -372,6 +392,22 @@ public class FileBasedAccessControl
     {
         if (!canSetSessionProperty(context, propertyName)) {
             denySetCatalogSessionProperty(propertyName);
+        }
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        if (!isSchemaOwner(context, schemaName)) {
+            denyGrantSchemaPrivilege(privilege.name(), schemaName);
+        }
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal revokee, boolean grantOption)
+    {
+        if (!isSchemaOwner(context, schemaName)) {
+            denyRevokeSchemaPrivilege(privilege.name(), schemaName);
         }
     }
 

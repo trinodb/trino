@@ -199,15 +199,105 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
-    public void testExceptAllFails()
+    public void testExceptAll()
     {
-        assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) EXCEPT ALL SELECT * FROM (VALUES 3, 4)", "line 1:35: EXCEPT ALL not yet implemented");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, 4) EXCEPT ALL SELECT * FROM (VALUES 3, 4)",
+                "VALUES 1, 2");
+
+        assertQuery(
+                "SELECT * FROM (VALUES 4, 4, 4, 3, 3) EXCEPT ALL SELECT * FROM (VALUES 1, 2, 3, 3, 3, 4, 4)",
+                "VALUES 4");
+
+        assertQuery(
+                "SELECT * FROM (VALUES 4, 4, 4, 3, 3) EXCEPT ALL SELECT * FROM (VALUES 1, 2, 3, 3, 3, 4)",
+                "VALUES 4, 4");
+
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, 3, 4, 4, 4, null, null) EXCEPT ALL SELECT * FROM (VALUES 3, 3, 3, 4, 4, null)",
+                "VALUES 1, 2, 4, null");
+        assertQuery(
+                "VALUES " +
+                        "(1, 'a'), " +
+                        "(1, 'a'), " +
+                        "(1, null), " +
+                        "(2, 'c'), " +
+                        "(null, 'a'), " +
+                        "(null, null) " +
+                        "EXCEPT ALL VALUES " +
+                        "(1, 'a'), " +
+                        "(1, 'b'), " +
+                        "(1, null), " +
+                        "(2, null), " +
+                        "(null, 'a'), " +
+                        "(null, 'x'), " +
+                        "(null, null)",
+                "VALUES " +
+                        "(1, 'a'), " +
+                        "(2, 'c')");
+
+        // multiple EXCEPT nodes
+        assertQuery(
+                "VALUES 1, 1, 1 EXCEPT ALL VALUES 1, 1 EXCEPT ALL VALUES 1",
+                "SELECT 1 WHERE false");
+
+        assertQuery(
+                "(VALUES 1, 1, 1 EXCEPT ALL VALUES 1, 1) EXCEPT ALL VALUES 1",
+                "SELECT 1 WHERE false");
+
+        assertQuery(
+                "VALUES 1, 1, 1 EXCEPT ALL (VALUES 1, 1 EXCEPT ALL VALUES 1)",
+                "VALUES 1, 1");
     }
 
     @Test
-    public void testIntersectAllFails()
+    public void testIntersectAll()
     {
-        assertQueryFails("SELECT * FROM (VALUES 1, 2, 3, 4) INTERSECT ALL SELECT * FROM (VALUES 3, 4)", "line 1:35: INTERSECT ALL not yet implemented");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, 4) INTERSECT ALL SELECT * FROM (VALUES 3, 4)",
+                "VALUES 3, 4");
+
+        assertQuery(
+                "SELECT * FROM (VALUES 4, 4, 4, 3, 3, 2, 1) INTERSECT ALL SELECT * FROM (VALUES 3, 3, 3, 4, 4)",
+                "VALUES 3, 3, 4, 4");
+
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3, 3, 4, 4, 4, null, null) INTERSECT ALL SELECT * FROM (VALUES 3, 3, 3, 4, 4, null, null)",
+                "VALUES 3, 3, 4, 4, null, null");
+        assertQuery(
+                "VALUES " +
+                        "(1, 'a'), " +
+                        "(1, 'b'), " +
+                        "(1, null), " +
+                        "(2, 'c'), " +
+                        "(null, 'a'), " +
+                        "(null, null) " +
+                        "INTERSECT ALL VALUES " +
+                        "(1, 'a'), " +
+                        "(1, 'a'), " +
+                        "(1, null), " +
+                        "(2, null), " +
+                        "(null, 'a'), " +
+                        "(null, 'x'), " +
+                        "(null, null)",
+                "VALUES " +
+                        "(1, 'a'), " +
+                        "(1, null), " +
+                        "(null, 'a'), " +
+                        "(null, null)");
+
+        // multiple INTERSECT nodes
+        assertQuery(
+                "VALUES 1, 1, 1 INTERSECT ALL VALUES 1, 1 INTERSECT ALL VALUES 1",
+                "VALUES 1");
+
+        assertQuery(
+                "(VALUES 1, 1, 1 INTERSECT ALL VALUES 1, 1) INTERSECT ALL VALUES 1",
+                "VALUES 1");
+
+        assertQuery(
+                "VALUES 1, 1, 1 INTERSECT ALL (VALUES 1, 1 INTERSECT ALL VALUES 1)",
+                "VALUES 1");
     }
 
     @Test
@@ -1135,10 +1225,12 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputEmpty("DROP SCHEMA foo");
         assertDescribeOutputEmpty("CREATE TABLE foo (x bigint)");
         assertDescribeOutputEmpty("ALTER TABLE foo ADD COLUMN y bigint");
+        assertDescribeOutputEmpty("ALTER TABLE foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("ALTER TABLE foo RENAME TO bar");
         assertDescribeOutputEmpty("DROP TABLE foo");
         assertDescribeOutputEmpty("CREATE VIEW foo AS SELECT * FROM nation");
         assertDescribeOutputEmpty("DROP VIEW foo");
+        assertDescribeOutputEmpty("ALTER VIEW foo SET AUTHORIZATION bar");
         assertDescribeOutputEmpty("PREPARE test FROM SELECT * FROM orders");
         assertDescribeOutputEmpty("EXECUTE test");
         assertDescribeOutputEmpty("DEALLOCATE PREPARE test");
@@ -1883,6 +1975,146 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEquals(row.getField(0), Double.NaN);
         assertEquals(row.getField(1), Double.POSITIVE_INFINITY);
         assertEquals(row.getField(2), Double.NEGATIVE_INFINITY);
+    }
+
+    @Test
+    public void testMinMaxFloatingPointNaN()
+    {
+        // double with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES CAST(NaN() AS DOUBLE), DOUBLE '5.5', DOUBLE '3.3') t (x)",
+                "VALUES (CAST(3.3 AS DOUBLE), CAST(5.5 AS DOUBLE))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES DOUBLE '5.5', CAST(NaN() AS DOUBLE), DOUBLE '3.3') t (x)",
+                "VALUES (CAST(3.3 AS DOUBLE), CAST(5.5 AS DOUBLE))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES DOUBLE '5.5', DOUBLE '3.3', CAST(NaN() AS DOUBLE)) t (x)",
+                "VALUES (CAST(3.3 AS DOUBLE), CAST(5.5 AS DOUBLE))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES CAST(NaN() AS DOUBLE)) t (x)",
+                "VALUES (CAST(sqrt(-1) AS DOUBLE), CAST(sqrt(-1) AS DOUBLE))");
+
+        // real with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES CAST(NaN() AS REAL), REAL '5.5', REAL '3.3') t (x)",
+                "VALUES (CAST(3.3 AS REAL), CAST(5.5 AS REAL))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES REAL '5.5', CAST(NaN() AS REAL), REAL '3.3') t (x)",
+                "VALUES (CAST(3.3 AS REAL), CAST(5.5 AS REAL))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES REAL '5.5', REAL '3.3', CAST(NaN() AS REAL)) t (x)",
+                "VALUES (CAST(3.3 AS REAL), CAST(5.5 AS REAL))");
+        assertQuery(
+                "SELECT min(x), max(x) FROM (VALUES CAST(NaN() AS REAL)) t (x)",
+                "VALUES (CAST(sqrt(-1) AS REAL), CAST(sqrt(-1) AS REAL))");
+    }
+
+    @Test
+    public void testMinMaxNFloatingPointNaN()
+    {
+        // double with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "CAST(NaN() AS DOUBLE), DOUBLE '5.5', DOUBLE '3.3', DOUBLE '4.4') t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS DOUBLE), CAST(4.4 AS DOUBLE)], " +
+                        "ARRAY[CAST(5.5 AS DOUBLE), CAST(4.4 AS DOUBLE)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "DOUBLE '5.5', CAST(NaN() AS DOUBLE), DOUBLE '3.3', DOUBLE '4.4') t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS DOUBLE), CAST(4.4 AS DOUBLE)], " +
+                        "ARRAY[CAST(5.5 AS DOUBLE), CAST(4.4 AS DOUBLE)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "DOUBLE '5.5', DOUBLE '3.3', DOUBLE '4.4', CAST(NaN() AS DOUBLE)) t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS DOUBLE), CAST(4.4 AS DOUBLE)], " +
+                        "ARRAY[CAST(5.5 AS DOUBLE), CAST(4.4 AS DOUBLE)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "DOUBLE '8.8', CAST(NaN() AS DOUBLE)) t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(8.8 AS DOUBLE), CAST(sqrt(-1) AS DOUBLE)], " +
+                        "ARRAY[CAST(8.8 AS DOUBLE), CAST(sqrt(-1) AS DOUBLE)])");
+
+        // real with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "CAST(NaN() AS REAL), REAL '5.5', REAL '3.3', REAL '4.4') t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS REAL), CAST(4.4 AS REAL)], " +
+                        "ARRAY[CAST(5.5 AS REAL), CAST(4.4 AS REAL)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "REAL '5.5', CAST(NaN() AS REAL), REAL '3.3', REAL '4.4') t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS REAL), CAST(4.4 AS REAL)], " +
+                        "ARRAY[CAST(5.5 AS REAL), CAST(4.4 AS REAL)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "REAL '5.5', REAL '3.3', REAL '4.4', CAST(NaN() AS REAL)) t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(3.3 AS REAL), CAST(4.4 AS REAL)], " +
+                        "ARRAY[CAST(5.5 AS REAL), CAST(4.4 AS REAL)])");
+        assertQuery(
+                "SELECT min(x, 2), max(x, 2) FROM (VALUES " +
+                        "REAL '8.8', CAST(NaN() AS REAL)) t (x)",
+                "VALUES (" +
+                        "ARRAY[CAST(8.8 AS REAL), CAST(sqrt(-1) AS REAL)], " +
+                        "ARRAY[CAST(8.8 AS REAL), CAST(sqrt(-1) AS REAL)])");
+    }
+
+    @Test
+    public void testMinMaxByFloatingPointNaN()
+    {
+        // double with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', CAST(NaN() AS DOUBLE)), " +
+                        "('b', DOUBLE '5.5'), " +
+                        "('c', DOUBLE '3.3')) t (x, y)",
+                "VALUES ('c', 'b')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', DOUBLE '5.5'), " +
+                        "('b', CAST(NaN() AS DOUBLE)), " +
+                        "('c', DOUBLE '3.3')) t (x, y)",
+                "VALUES ('c', 'a')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', DOUBLE '5.5'), " +
+                        "('b', DOUBLE '3.3'), " +
+                        "('c', CAST(NaN() AS DOUBLE))) t (x, y)",
+                "VALUES ('b', 'a')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', CAST(NaN() AS DOUBLE))) t (x, y)",
+                "VALUES ('a', 'a')");
+
+        // real with NaN in first, middle, last, only
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', CAST(NaN() AS REAL)), " +
+                        "('b', REAL '5.5'), " +
+                        "('c', REAL '3.3')) t (x, y)",
+                "VALUES ('c', 'b')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', REAL '5.5'), " +
+                        "('b', CAST(NaN() AS REAL)), " +
+                        "('c', REAL '3.3')) t (x, y)",
+                "VALUES ('c', 'a')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', REAL '5.5'), " +
+                        "('b', REAL '3.3'), " +
+                        "('c', CAST(NaN() AS REAL))) t (x, y)",
+                "VALUES ('b', 'a')");
+        assertQuery(
+                "SELECT min_by(x, y), max_by(x, y) FROM (VALUES" +
+                        "('a', CAST(NaN() AS REAL))) t (x, y)",
+                "VALUES ('a', 'a')");
     }
 
     @Test
@@ -3117,6 +3349,52 @@ public abstract class AbstractTestEngineOnlyQueries
                         "AND regionkey * 1.0 = region.regionkey) " +            // region.regionkey coerced to decimal
                         "FROM region",
                 expected);
+    }
+
+    @Test
+    public void testCorrelationSymbolMapping()
+    {
+        // Corelation symbol of ApplyNode mapped in UnaliasSymbolReferences
+        assertQuery("WITH T AS ( " +
+                "SELECT name, min(regionkey) AS key " +
+                "FROM nation " +
+                "GROUP BY name " +
+                ") " +
+                "SELECT a.name " +
+                "FROM T a " +
+                "JOIN T b ON a.name = b.name " +
+                "AND EXISTS (SELECT * FROM T c WHERE b.name = c.name)");
+
+        assertQuery("WITH T AS ( " +
+                "SELECT name, min(regionkey) AS key " +
+                "FROM nation " +
+                "GROUP BY name " +
+                ") " +
+                "SELECT a.name " +
+                "FROM T a " +
+                "JOIN T b ON a.name = b.name " +
+                "AND 4 IN (SELECT key FROM T c WHERE b.name = c.name)");
+
+        assertQuery("WITH T AS ( " +
+                "SELECT name, min(regionkey) AS key " +
+                "FROM nation " +
+                "GROUP BY name " +
+                ") " +
+                "SELECT a.name " +
+                "FROM T a " +
+                "JOIN T b ON a.name = b.name " +
+                "AND 4 > ALL (SELECT key FROM T c WHERE b.name = c.name)");
+
+        // Corelation symbol of CorrelatedJoinNode mapped in UnaliasSymbolReferences
+        assertQuery("WITH T AS ( " +
+                "SELECT name, min(regionkey) AS key " +
+                "FROM nation " +
+                "GROUP BY name " +
+                ") " +
+                "SELECT a.name " +
+                "FROM T a " +
+                "JOIN T b ON a.name = b.name " +
+                "AND 4 = (SELECT key FROM T c WHERE b.name = c.name)");
     }
 
     @Test

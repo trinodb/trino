@@ -18,13 +18,14 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Objects;
 
 import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
-import static io.prestosql.spi.type.TimeWithTimezoneTypes.normalizePicos;
+import static io.prestosql.spi.type.TimeWithTimeZoneTypes.normalizePicos;
 import static io.prestosql.spi.type.Timestamps.MINUTES_PER_HOUR;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.POWERS_OF_TEN;
 import static io.prestosql.spi.type.Timestamps.SECONDS_PER_MINUTE;
+import static java.lang.Math.abs;
 import static java.lang.String.format;
 
 public final class SqlTimeWithTimeZone
@@ -91,7 +92,7 @@ public final class SqlTimeWithTimeZone
             builder.append(".");
             builder.append(format("%0" + precision + "d", scaledFraction));
         }
-        builder.append(format("%+03d:%02d", offsetMinutes / 60, offsetMinutes % 60));
+        builder.append(format("%s%02d:%02d", offsetMinutes >= 0 ? '+' : '-', abs(offsetMinutes / 60), abs(offsetMinutes % 60)));
 
         return builder.toString();
     }

@@ -13,16 +13,18 @@
  */
 package io.prestosql.sql.planner;
 
+import io.prestosql.Session;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
-
-import java.util.Arrays;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 
 public class TestUnwrapCastInComparison
         extends BasePlanTest
@@ -827,7 +829,7 @@ public class TestUnwrapCastInComparison
     public void smokeTests()
     {
         // smoke tests for various type combinations
-        for (String type : Arrays.asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
+        for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
             assertPlan(
                     format("SELECT * FROM (VALUES TINYINT '1') t(a) WHERE a = %s '1'", type),
                     anyTree(
@@ -835,7 +837,7 @@ public class TestUnwrapCastInComparison
                                     values("A"))));
         }
 
-        for (String type : Arrays.asList("INTEGER", "BIGINT", "REAL", "DOUBLE")) {
+        for (String type : asList("INTEGER", "BIGINT", "REAL", "DOUBLE")) {
             assertPlan(
                     format("SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = %s '1'", type),
                     anyTree(
@@ -843,7 +845,7 @@ public class TestUnwrapCastInComparison
                                     values("A"))));
         }
 
-        for (String type : Arrays.asList("BIGINT", "DOUBLE")) {
+        for (String type : asList("BIGINT", "DOUBLE")) {
             assertPlan(
                     format("SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = %s '1'", type),
                     anyTree(
@@ -866,6 +868,98 @@ public class TestUnwrapCastInComparison
                 anyTree(
                         filter("A = REAL '1.0'",
                                 values("A"))));
+    }
+
+    @Test
+    public void testCastTimestampToTimestampWithTimeZone()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+
+        Session utcSession = withZone(session, TimeZoneKey.UTC_KEY);
+        // east of Greenwich
+        Session warsawSession = withZone(session, TimeZoneKey.getTimeZoneKey("Europe/Warsaw"));
+        // west of Greenwich
+        Session losAngelesSession = withZone(session, TimeZoneKey.getTimeZoneKey("America/Los_Angeles"));
+
+        // same zone
+        testUnwrap(utcSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 UTC'", "> TIMESTAMP '2020-10-26 11:02:18'");
+        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 Europe/Warsaw'", "> TIMESTAMP '2020-10-26 11:02:18'");
+        testUnwrap(losAngelesSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 America/Los_Angeles'", "> TIMESTAMP '2020-10-26 11:02:18'");
+
+        // different zone
+        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 UTC'", "> TIMESTAMP '2020-10-26 12:02:18'");
+        testUnwrap(losAngelesSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 UTC'", "> TIMESTAMP '2020-10-26 04:02:18'");
+
+        // short timestamp, short timestamp with time zone being coerced to long timestamp with time zone
+        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "> TIMESTAMP '2020-10-26 12:02:18.120000'");
+        testUnwrap(losAngelesSession, "timestamp(6)", "> TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "> TIMESTAMP '2020-10-26 04:02:18.120000'");
+
+        // long timestamp, short timestamp with time zone being coerced to long timestamp with time zone
+        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "> TIMESTAMP '2020-10-26 12:02:18.120000000'");
+        testUnwrap(losAngelesSession, "timestamp(9)", "> TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "> TIMESTAMP '2020-10-26 04:02:18.120000000'");
+
+        // long timestamp, long timestamp with time zone
+        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", "> TIMESTAMP '2020-10-26 12:02:18.123456000'");
+        testUnwrap(losAngelesSession, "timestamp(9)", "> TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", "> TIMESTAMP '2020-10-26 04:02:18.123456000'");
+
+        // maximum precision
+        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", "> TIMESTAMP '2020-10-26 12:02:18.123456789321'");
+        testUnwrap(losAngelesSession, "timestamp(12)", "> TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", "> TIMESTAMP '2020-10-26 04:02:18.123456789321'");
+
+        // DST forward -- Warsaw changed clock 1h forward on 2020-03-29T01:00 UTC (2020-03-29T02:00 local time)
+        // Note that in given session input TIMESTAMP values  2020-03-29 02:31 and 2020-03-29 03:31 produce the same value 2020-03-29 01:31 UTC (conversion is not monotonic)
+        // last before
+        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-03-29 00:59:59 UTC'", "> TIMESTAMP '2020-03-29 01:59:59'");
+        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-03-29 00:59:59.999 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.999'");
+        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 00:59:59.13 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.130000'");
+        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 00:59:59.999999 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.999999'");
+        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-03-29 00:59:59.999999999 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.999999999'");
+        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-03-29 00:59:59.999999999999 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.999999999999'");
+        // first within
+        testNoUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-03-29 01:00:00 UTC'", "timestamp(0) with time zone");
+        testNoUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-03-29 01:00:00.000 UTC'", "timestamp(3) with time zone");
+        testNoUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 01:00:00.000000 UTC'", "timestamp(6) with time zone");
+        testNoUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-03-29 01:00:00.000000000 UTC'", "timestamp(9) with time zone");
+        testNoUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-03-29 01:00:00.000000000000 UTC'", "timestamp(12) with time zone");
+        // last within
+        testNoUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-03-29 01:59:59 UTC'", "timestamp(0) with time zone");
+        testNoUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-03-29 01:59:59.999 UTC'", "timestamp(3) with time zone");
+        testNoUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 01:59:59.999999 UTC'", "timestamp(6) with time zone");
+        testNoUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-03-29 01:59:59.999999999 UTC'", "timestamp(9) with time zone");
+        testNoUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-03-29 01:59:59.999999999999 UTC'", "timestamp(12) with time zone");
+        // first after
+        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-03-29 02:00:00 UTC'", "> TIMESTAMP '2020-03-29 04:00:00'");
+        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-03-29 02:00:00.000 UTC'", "> TIMESTAMP '2020-03-29 04:00:00.000'");
+        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 02:00:00.000000 UTC'", "> TIMESTAMP '2020-03-29 04:00:00.000000'");
+        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-03-29 02:00:00.000000000 UTC'", "> TIMESTAMP '2020-03-29 04:00:00.000000000'");
+        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-03-29 02:00:00.000000000000 UTC'", "> TIMESTAMP '2020-03-29 04:00:00.000000000000'");
+
+        // DST backward -- Warsaw changed clock 1h backward on 2020-10-25T01:00 UTC (2020-03-29T03:00 local time)
+        // Note that in given session no input TIMESTAMP value can produce TIMESTAMP WITH TIME ZONE within [2020-10-25 00:00:00 UTC, 2020-10-25 01:00:00 UTC], so '>=' is OK
+        // last before
+        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-25 00:59:59 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59'");
+        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-10-25 00:59:59.999 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59.999'");
+        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-25 00:59:59.999999 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59.999999'");
+        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-25 00:59:59.999999999 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59.999999999'");
+        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-25 00:59:59.999999999999 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59.999999999999'");
+        // first within
+        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-25 01:00:00 UTC'", "> TIMESTAMP '2020-10-25 02:00:00'");
+        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-10-25 01:00:00.000 UTC'", "> TIMESTAMP '2020-10-25 02:00:00.000'");
+        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-25 01:00:00.000000 UTC'", "> TIMESTAMP '2020-10-25 02:00:00.000000'");
+        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-25 01:00:00.000000000 UTC'", "> TIMESTAMP '2020-10-25 02:00:00.000000000'");
+        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-25 01:00:00.000000000000 UTC'", "> TIMESTAMP '2020-10-25 02:00:00.000000000000'");
+        // last within
+        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-25 01:59:59 UTC'", "> TIMESTAMP '2020-10-25 02:59:59'");
+        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-10-25 01:59:59.999 UTC'", "> TIMESTAMP '2020-10-25 02:59:59.999'");
+        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-25 01:59:59.999999 UTC'", "> TIMESTAMP '2020-10-25 02:59:59.999999'");
+        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-25 01:59:59.999999999 UTC'", "> TIMESTAMP '2020-10-25 02:59:59.999999999'");
+        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-25 01:59:59.999999999999 UTC'", "> TIMESTAMP '2020-10-25 02:59:59.999999999999'");
+        // first after
+        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-25 02:00:00 UTC'", "> TIMESTAMP '2020-10-25 03:00:00'");
+        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-10-25 02:00:00.000 UTC'", "> TIMESTAMP '2020-10-25 03:00:00.000'");
+        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-25 02:00:00.000000 UTC'", "> TIMESTAMP '2020-10-25 03:00:00.000000'");
+        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-25 02:00:00.000000000 UTC'", "> TIMESTAMP '2020-10-25 03:00:00.000000000'");
+        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-25 02:00:00.000000000000 UTC'", "> TIMESTAMP '2020-10-25 03:00:00.000000000000'");
     }
 
     @Test
@@ -976,5 +1070,44 @@ public class TestUnwrapCastInComparison
                 anyTree(
                         filter("CAST(A AS INTEGER) = 1",
                                 values("A"))));
+    }
+
+    private void testNoUnwrap(Session session, String inputType, String inputPredicate, String expectedCastType)
+    {
+        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE a %s", inputType, inputPredicate);
+        try {
+            assertPlan(sql,
+                    session,
+                    anyTree(
+                            filter(format("CAST(A AS %s) %s", expectedCastType, inputPredicate),
+                                    values("A"))));
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("Query: " + sql));
+            throw e;
+        }
+    }
+
+    private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
+    {
+        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE a %s", inputType, inputPredicate);
+        try {
+            assertPlan(sql,
+                    session,
+                    anyTree(
+                            filter("A " + expectedPredicate,
+                                    values("A"))));
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("Query: " + sql));
+            throw e;
+        }
+    }
+
+    private static Session withZone(Session session, TimeZoneKey timeZoneKey)
+    {
+        return Session.builder(requireNonNull(session, "session is null"))
+                .setTimeZoneKey(requireNonNull(timeZoneKey, "timeZoneKey is null"))
+                .build();
     }
 }

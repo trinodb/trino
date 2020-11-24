@@ -15,6 +15,8 @@ package io.prestosql.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.hive.acid.AcidSchema;
+import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
@@ -28,6 +30,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -67,7 +70,8 @@ public class HiveColumnHandle
     public static final HiveType PARTITION_HIVE_TYPE = HIVE_STRING;
     public static final Type PARTITION_TYPE_SIGNATURE = VARCHAR;
 
-    private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
+    public static final int UPDATE_ROW_ID_COLUMN_INDEX = -16;
+    public static final String UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
 
     public enum ColumnType
     {
@@ -242,15 +246,14 @@ public class HiveColumnHandle
         return name + ":" + getHiveType() + ":" + columnType;
     }
 
-    public static HiveColumnHandle updateRowIdHandle()
+    public Column toMetastoreColumn()
     {
-        // Hive connector only supports metadata delete. It does not support generic row-by-row deletion.
-        // Metadata delete is implemented in Presto by generating a plan for row-by-row delete first,
-        // and then optimize it into metadata delete. As a result, Hive connector must provide partial
-        // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
-        // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
+        return new Column(name, getHiveType(), comment);
+    }
 
-        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, -1, HIVE_LONG, BIGINT, SYNTHESIZED, Optional.empty());
+    public static HiveColumnHandle updateRowIdColumnHandle()
+    {
+        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, UPDATE_ROW_ID_COLUMN_INDEX, toHiveType(AcidSchema.ACID_ROW_ID_ROW_TYPE), AcidSchema.ACID_ROW_ID_ROW_TYPE, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
@@ -306,5 +309,10 @@ public class HiveColumnHandle
     public static boolean isPartitionColumnHandle(HiveColumnHandle column)
     {
         return column.getBaseHiveColumnIndex() == PARTITION_COLUMN_INDEX;
+    }
+
+    public static boolean isRowIdColumnHandle(HiveColumnHandle column)
+    {
+        return column.getBaseHiveColumnIndex() == UPDATE_ROW_ID_COLUMN_INDEX;
     }
 }

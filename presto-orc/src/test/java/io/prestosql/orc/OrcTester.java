@@ -105,7 +105,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -151,7 +153,6 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
@@ -603,13 +604,37 @@ public class OrcTester
                 RuntimeException::new);
     }
 
+    public static void writeOrcPages(File outputFile, CompressionKind compression, List<Type> types, Iterator<Page> pages, OrcWriterStats stats)
+            throws Exception
+    {
+        List<String> columnNames = IntStream.range(0, types.size())
+                .mapToObj(i -> "test" + i)
+                .collect(toImmutableList());
+
+        OrcWriter writer = new OrcWriter(
+                new OutputStreamOrcDataSink(new FileOutputStream(outputFile)),
+                columnNames,
+                types,
+                OrcType.createRootOrcType(columnNames, types),
+                compression,
+                new OrcWriterOptions(),
+                false,
+                ImmutableMap.of(),
+                true,
+                BOTH,
+                stats);
+
+        while (pages.hasNext()) {
+            writer.write(pages.next());
+        }
+
+        writer.close();
+        writer.validate(new FileOrcDataSource(outputFile, READER_OPTIONS));
+    }
+
     public static void writeOrcColumnPresto(File outputFile, CompressionKind compression, Type type, Iterator<?> values, OrcWriterStats stats)
             throws Exception
     {
-        ImmutableMap.Builder<String, String> metadata = ImmutableMap.builder();
-        metadata.put("columns", "test");
-        metadata.put("columns.types", createSettableStructObjectInspector("test", type).getTypeName());
-
         List<String> columnNames = ImmutableList.of("test");
         List<Type> types = ImmutableList.of(type);
 
@@ -837,7 +862,7 @@ public class OrcTester
                 actualValue = SqlTimestampWithTimeZone.newInstance(3, timestamp.toEpochMilli(), 0, UTC_KEY);
             }
             else if (type.equals(TIMESTAMP_TZ_MICROS)) {
-                int picosOfMilli = toIntExact(roundDiv(timestamp.getNanos(), NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_MICROSECOND);
+                int picosOfMilli = roundDiv(timestamp.getNanos(), NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_MICROSECOND;
                 actualValue = SqlTimestampWithTimeZone.newInstance(3, timestamp.toEpochMilli(), picosOfMilli, UTC_KEY);
             }
             else if (type.equals(TIMESTAMP_TZ_NANOS)) {
@@ -1041,7 +1066,7 @@ public class OrcTester
         }
         if (type.equals(TIMESTAMP_TZ_MILLIS) || type.equals(TIMESTAMP_TZ_MICROS) || type.equals(TIMESTAMP_TZ_NANOS)) {
             SqlTimestampWithTimeZone timestamp = (SqlTimestampWithTimeZone) value;
-            int nanosOfMilli = toIntExact(roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND));
+            int nanosOfMilli = roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_NANOSECOND);
             return Timestamp.ofEpochMilli(timestamp.getEpochMillis(), nanosOfMilli);
         }
         if (type instanceof DecimalType) {

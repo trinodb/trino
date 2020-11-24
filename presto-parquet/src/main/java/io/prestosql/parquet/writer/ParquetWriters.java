@@ -109,8 +109,7 @@ final class ParquetWriters
         {
             String[] path = currentPath();
             int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
-            int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
-            return new StructColumnWriter(ImmutableList.copyOf(fields), fieldDefinitionLevel, fieldRepetitionLevel);
+            return new StructColumnWriter(ImmutableList.copyOf(fields), fieldDefinitionLevel);
         }
 
         @Override
@@ -139,7 +138,7 @@ final class ParquetWriters
             int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
             Type prestoType = requireNonNull(prestoTypes.get(ImmutableList.copyOf(path)), " presto type is null");
-            return new PrimitiveColumnWriter(prestoType,
+            return new PrimitiveColumnWriter(
                     columnDescriptor,
                     getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
                     parquetProperties.newDefinitionLevelEncoder(columnDescriptor),

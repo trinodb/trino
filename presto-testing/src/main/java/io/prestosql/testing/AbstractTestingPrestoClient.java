@@ -154,7 +154,6 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getSchema().orElse(null),
                 session.getPath().toString(),
                 ZoneId.of(session.getTimeZoneKey().getId()),
-                false,
                 session.getLocale(),
                 resourceEstimates.build(),
                 properties.build(),
@@ -166,7 +165,8 @@ public abstract class AbstractTestingPrestoClient<T>
                                         entry.getValue().getRole()))),
                 session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
-                clientRequestTimeout);
+                clientRequestTimeout,
+                true);
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)

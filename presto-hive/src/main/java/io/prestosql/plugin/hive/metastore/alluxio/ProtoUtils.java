@@ -47,6 +47,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -103,6 +104,7 @@ public final class ProtoUtils
                     .filter((f) -> !partitionColumns.contains(f.getName()))
                     .collect(toImmutableList());
 
+            Map<String, String> tableParameters = table.getParametersMap();
             Table.Builder builder = Table.builder()
                     .setDatabaseName(table.getDbName())
                     .setTableName(table.getTableName())
@@ -114,7 +116,7 @@ public final class ProtoUtils
                     .setPartitionColumns(table.getPartitionColsList().stream()
                             .map(ProtoUtils::fromProto)
                             .collect(toImmutableList()))
-                    .setParameters(table.getParametersMap())
+                    .setParameters(tableParameters)
                     .setViewOriginalText(Optional.empty())
                     .setViewExpandedText(Optional.empty());
             alluxio.grpc.table.layout.hive.Storage storage = partitionInfo.getStorage();
@@ -122,7 +124,7 @@ public final class ProtoUtils
                     .setSkewed(storage.getSkewed())
                     .setStorageFormat(fromProto(storage.getStorageFormat()))
                     .setLocation(storage.getLocation())
-                    .setBucketProperty(storage.hasBucketProperty() ? fromProto(storage.getBucketProperty()) : Optional.empty())
+                    .setBucketProperty(storage.hasBucketProperty() ? fromProto(tableParameters, storage.getBucketProperty()) : Optional.empty())
                     .setSerdeParameters(storage.getStorageFormat().getSerdelibParametersMap());
             return builder.build();
         }
@@ -142,7 +144,7 @@ public final class ProtoUtils
         throw new IllegalArgumentException("Invalid sort order: " + column.getOrder());
     }
 
-    static Optional<HiveBucketProperty> fromProto(alluxio.grpc.table.layout.hive.HiveBucketProperty property)
+    static Optional<HiveBucketProperty> fromProto(Map<String, String> tableParameters, alluxio.grpc.table.layout.hive.HiveBucketProperty property)
     {
         // must return empty if buckets <= 0
         if (!property.hasBucketCount() || property.getBucketCount() <= 0) {
@@ -151,8 +153,8 @@ public final class ProtoUtils
         List<SortingColumn> sortedBy = property.getSortedByList().stream()
                 .map(ProtoUtils::fromProto)
                 .collect(toImmutableList());
-        return Optional.of(new HiveBucketProperty(property.getBucketedByList(), HiveBucketing.BucketingVersion.BUCKETING_V1,
-                (int) property.getBucketCount(), sortedBy));
+        HiveBucketing.BucketingVersion bucketingVersion = HiveBucketing.getBucketingVersion(tableParameters);
+        return Optional.of(new HiveBucketProperty(property.getBucketedByList(), bucketingVersion, (int) property.getBucketCount(), sortedBy));
     }
 
     static StorageFormat fromProto(alluxio.grpc.table.layout.hive.StorageFormat format)
@@ -259,12 +261,13 @@ public final class ProtoUtils
 
     public static Partition fromProto(alluxio.grpc.table.layout.hive.PartitionInfo info)
     {
+        Map<String, String> parametersMap = info.getParametersMap();
         Partition.Builder builder = Partition.builder()
                 .setColumns(info.getDataColsList().stream()
                         .map(ProtoUtils::fromProto)
                         .collect(toImmutableList()))
                 .setDatabaseName(info.getDbName())
-                .setParameters(info.getParametersMap())
+                .setParameters(parametersMap)
                 .setValues(Lists.newArrayList(info.getValuesList()))
                 .setTableName(info.getTableName());
 
@@ -273,7 +276,7 @@ public final class ProtoUtils
                 .setStorageFormat(fromProto(info.getStorage().getStorageFormat()))
                 .setLocation(info.getStorage().getLocation())
                 .setBucketProperty(info.getStorage().hasBucketProperty()
-                        ? fromProto(info.getStorage().getBucketProperty()) : Optional.empty())
+                        ? fromProto(parametersMap, info.getStorage().getBucketProperty()) : Optional.empty())
                 .setSerdeParameters(info.getStorage().getStorageFormat().getSerdelibParametersMap());
 
         return builder.build();

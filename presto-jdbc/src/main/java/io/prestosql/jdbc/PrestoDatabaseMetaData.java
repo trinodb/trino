@@ -1157,8 +1157,7 @@ public class PrestoDatabaseMetaData
     public boolean supportsBatchUpdates()
             throws SQLException
     {
-        // TODO: support batch updates
-        return false;
+        return true;
     }
 
     @Override
@@ -1381,7 +1380,7 @@ public class PrestoDatabaseMetaData
                             null));
                 });
 
-        return new InMemoryPrestoResultSet(connection.getTimeZone(), columns.build(), results.build());
+        return new InMemoryPrestoResultSet(columns.build(), results.build());
     }
 
     @Override

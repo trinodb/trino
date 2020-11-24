@@ -35,6 +35,6 @@ public enum DruidErrorCode
     @Override
     public ErrorCode toErrorCode()
     {
-        return null;
+        return errorCode;
     }
 }

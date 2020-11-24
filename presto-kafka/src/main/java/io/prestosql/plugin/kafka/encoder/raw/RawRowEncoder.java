@@ -168,7 +168,7 @@ public class RawRowEncoder
         private static FieldType parseFieldType(String dataFormat, String columnName)
         {
             try {
-                if (!dataFormat.equals("")) {
+                if (dataFormat != null && !dataFormat.equals("")) {
                     return FieldType.valueOf(dataFormat.toUpperCase(Locale.ENGLISH));
                 }
                 return FieldType.BYTE;

@@ -21,6 +21,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.RecursiveDeleteOption;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
@@ -43,11 +44,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.ofBytes;
@@ -57,6 +58,7 @@ import static java.nio.file.Files.size;
 import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class DockerContainer
@@ -72,8 +74,8 @@ public class DockerContainer
             .with(asyncTimeout)
             .with(Executors.newCachedThreadPool(daemonThreadsNamed("docker-container-%d")));
 
-    private String logicalName;
-    private final StatisticsFetcher statistics;
+    private final String logicalName;
+    private final Stopwatch startupTime = Stopwatch.createUnstarted();
     private List<String> logPaths = new ArrayList<>();
     private Optional<EnvironmentListener> listener = Optional.empty();
 
@@ -81,7 +83,6 @@ public class DockerContainer
     {
         super(dockerImageName);
         this.logicalName = requireNonNull(logicalName, "logicalName is null");
-        this.statistics = new StatisticsFetcher(this, executor);
 
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
         setCopyToFileContainerPathMap(new LinkedHashMap<>());
@@ -151,9 +152,15 @@ public class DockerContainer
                 .withCreateContainerCmdModifier(command -> command.withHealthcheck(cmd));
     }
 
+    public Duration getStartupTime()
+    {
+        return Duration.succinctNanos(startupTime.elapsed(NANOSECONDS)).convertToMostSuccinctTimeUnit();
+    }
+
     @Override
     protected void containerIsStarting(InspectContainerResponse containerInfo)
     {
+        this.startupTime.start();
         super.containerIsStarting(containerInfo);
         this.listener.ifPresent(listener -> listener.containerStarting(this, containerInfo));
     }
@@ -161,6 +168,7 @@ public class DockerContainer
     @Override
     protected void containerIsStarted(InspectContainerResponse containerInfo)
     {
+        this.startupTime.stop();
         super.containerIsStarted(containerInfo);
         this.listener.ifPresent(listener -> listener.containerStarted(this, containerInfo));
     }
@@ -184,12 +192,12 @@ public class DockerContainer
         final Stopwatch stopwatch = Stopwatch.createStarted();
 
         try {
-            executor.runAsync(copy).whenComplete((ignore, throwable) -> {
+            ((CompletableFuture<?>) executor.runAsync(copy)).whenComplete((Object ignore, Throwable throwable) -> {
                 if (throwable == null) {
                     log.info("Copied files into %s %s in %.1f s", this, containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
                 }
                 else {
-                    log.warn("Could not copy files into %s %s: %s", this, containerPath, getStackTraceAsString((Throwable) throwable));
+                    log.warn(throwable, "Could not copy files into %s %s", this, containerPath);
                 }
             }).get();
         }
@@ -276,13 +284,8 @@ public class DockerContainer
             throw new RuntimeException(e);
         }
         catch (ExecutionException | RuntimeException e) {
-            log.warn("Could not copy logs archive from %s: %s", logicalName, getStackTraceAsString(e));
+            log.warn(e, "Could not copy logs archive from %s", logicalName);
         }
-    }
-
-    public StatisticsFetcher.Stats getStats()
-    {
-        return statistics.get();
     }
 
     public DockerContainer waitingForAll(WaitStrategy... strategies)
@@ -311,7 +314,7 @@ public class DockerContainer
             throw new RuntimeException(e);
         }
         catch (ExecutionException | RuntimeException e) {
-            log.warn("Could not copy file from %s to %s: %s", filename, targetPath, getStackTraceAsString(e));
+            log.warn(e, "Could not copy file from %s to %s", filename, targetPath);
         }
     }
 
@@ -323,7 +326,7 @@ public class DockerContainer
                     .splitToList(execCommand("/usr/bin/find", path, "-type", "f", "-print"));
         }
         catch (RuntimeException e) {
-            log.warn("Could not list files in container '%s' path %s: %s", logicalName, path, e);
+            log.warn(e, "Could not list files in container '%s' path %s", logicalName, path);
         }
 
         return ImmutableList.of();
@@ -402,7 +405,7 @@ public class DockerContainer
             throw new RuntimeException(e);
         }
         catch (ExecutionException | RuntimeException e) {
-            log.warn("Could not stop container correctly: %s", getStackTraceAsString(e));
+            log.warn(e, "Could not stop container correctly");
         }
 
         checkState(!isRunning(), "Container %s is still running", logicalName);

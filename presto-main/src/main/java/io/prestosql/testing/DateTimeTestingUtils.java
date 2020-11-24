@@ -38,8 +38,6 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public final class DateTimeTestingUtils
 {
-    private static final int NANOSECONDS_PER_SECOND = 1_000_000_000;
-
     private DateTimeTestingUtils() {}
 
     public static SqlDate sqlDateOf(int year, int monthOfYear, int dayOfMonth)
@@ -52,10 +50,10 @@ public final class DateTimeTestingUtils
         return new SqlDate((int) date.getLong(EPOCH_DAY));
     }
 
-    public static SqlTimeWithTimeZone sqlTimeWithTimeZoneOf(int precision, int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond, int offsetHours, int offsetMinutes)
+    public static SqlTimeWithTimeZone sqlTimeWithTimeZoneOf(int precision, int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond, int offsetMinutes)
     {
-        long picos = (hour * 3600 + minuteOfHour * 60 + secondOfMinute) * PICOSECONDS_PER_SECOND + scaleNanosToPicos(nanoOfSecond);
-        return SqlTimeWithTimeZone.newInstance(precision, picos, offsetHours * 60 + offsetMinutes);
+        long picos = (hour * 3600 + minuteOfHour * 60 + secondOfMinute) * PICOSECONDS_PER_SECOND + ((long) nanoOfSecond) * PICOSECONDS_PER_NANOSECOND;
+        return SqlTimeWithTimeZone.newInstance(precision, picos, offsetMinutes);
     }
 
     public static SqlTimestampWithTimeZone sqlTimestampWithTimeZoneOf(int precision, int year, int month, int day, int hour, int minute, int second, int nanoOfSecond, TimeZoneKey timeZoneKey)
@@ -63,7 +61,7 @@ public final class DateTimeTestingUtils
         ZonedDateTime base = ZonedDateTime.of(year, month, day, hour, minute, second, 0, timeZoneKey.getZoneId());
 
         long epochMillis = base.toEpochSecond() * MILLISECONDS_PER_SECOND + nanoOfSecond / NANOSECONDS_PER_MILLISECOND;
-        int picosOfMilli = (int) scaleNanosToPicos(nanoOfSecond);
+        int picosOfMilli = (nanoOfSecond % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND;
 
         return SqlTimestampWithTimeZone.newInstance(precision, epochMillis, picosOfMilli, timeZoneKey);
     }
@@ -153,11 +151,6 @@ public final class DateTimeTestingUtils
     public static SqlTime sqlTimeOf(int precision, LocalTime time)
     {
         return SqlTime.newInstance(precision, time.toNanoOfDay() * PICOSECONDS_PER_NANOSECOND);
-    }
-
-    public static long scaleNanosToPicos(long nanos)
-    {
-        return Math.multiplyExact(nanos, PICOSECONDS_PER_NANOSECOND);
     }
 
     private static int millisToNanos(int millisOfSecond)

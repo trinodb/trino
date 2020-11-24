@@ -54,6 +54,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static io.prestosql.plugin.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
@@ -736,7 +737,7 @@ public class TestHiveGlueMetastore
                 assertEquals(
                         partitionNames.get(),
                         expectedResults,
-                        String.format("lists \nactual: %s\nexpected: %s\nmismatch for filter %s (input index %d)\n", partitionNames.get(), expectedResults, filter, i));
+                        format("lists \nactual: %s\nexpected: %s\nmismatch for filter %s (input index %d)\n", partitionNames.get(), expectedResults, filter, i));
             }
         }
     }

@@ -118,7 +118,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.metadata.LiteralFunction.isSupportedLiteralType;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -1173,12 +1172,6 @@ public class ExpressionInterpreter
 
             if (node.isTypeOnly()) {
                 return value;
-            }
-
-            // hack!!! don't optimize CASTs for types that cannot be represented in the SQL AST
-            // TODO: this will not be an issue when we migrate to RowExpression tree for this, which allows arbitrary literals.
-            if (optimize && !isSupportedLiteralType(type(node))) {
-                return new Cast(toExpression(value, sourceType), node.getType(), node.isSafe(), node.isTypeOnly());
             }
 
             if (value == null) {

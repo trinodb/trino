@@ -71,8 +71,7 @@ public final class ContainerUtil
 
     public static void killContainersReaperContainer(DockerClient dockerClient)
     {
-        @SuppressWarnings("resource")
-        Void ignore = dockerClient.removeContainerCmd("testcontainers-ryuk-" + DockerClientFactory.SESSION_ID)
+        dockerClient.removeContainerCmd("testcontainers-ryuk-" + DockerClientFactory.SESSION_ID)
                 .withForce(true)
                 .exec();
     }

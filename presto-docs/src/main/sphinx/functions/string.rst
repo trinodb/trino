@@ -53,6 +53,7 @@ String Functions
     separator are skipped.
 
 .. function:: concat_ws(string0, array(varchar)) -> varchar
+    :noindex:
 
     Returns the concatenation of elements in the array using ``string0`` as a
     separator. If ``string0`` is null, then the return value is null. Any

@@ -11,17 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM centos:centos7
+FROM centos:centos8
 LABEL maintainer="Presto community <https://prestosql.io/community.html>"
 
 ENV JAVA_HOME /usr/lib/jvm/zulu11
 RUN \
     set -xeu && \
-    yum -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \
-    yum -y -q update && \
-    yum -y -q install zulu11 less && \
-    yum -q clean all && \
-    rm -rf /var/cache/yum && \
+    dnf -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \
+    dnf -y -q update && \
+    dnf -y -q install zulu11 less python3 && \
+    alternatives --set python /usr/bin/python3 && \
+    dnf -q clean all && \
+    rm -rf /var/cache/dnf && \
     rm -rf /tmp/* /var/tmp/* && \
     groupadd presto --gid 1000 && \
     useradd presto --uid 1000 --gid 1000 && \

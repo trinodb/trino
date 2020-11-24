@@ -105,6 +105,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
@@ -570,7 +571,9 @@ public class TestOrcPageSourceMemoryTracking
                     TableToPartitionMapping.empty(),
                     Optional.empty(),
                     false,
-                    Optional.empty())
+                    Optional.empty(),
+                    false,
+                    NO_ACID_TRANSACTION)
                     .orElseThrow();
         }
 

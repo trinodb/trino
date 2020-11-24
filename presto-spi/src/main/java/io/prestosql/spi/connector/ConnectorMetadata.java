@@ -318,6 +318,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Sets the user/role on the specified table.
+     */
+    default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, PrestoPrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a table");
+    }
+
+    /**
      * Rename the specified column
      */
     default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
@@ -454,7 +462,7 @@ public interface ConnectorMetadata
     /**
      * Begin materialized view query
      */
-    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
@@ -464,6 +472,7 @@ public interface ConnectorMetadata
      */
     default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             ConnectorSession session,
+            ConnectorTableHandle tableHandle,
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
@@ -515,6 +524,14 @@ public interface ConnectorMetadata
     default void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming views");
+    }
+
+    /**
+     * Sets the user/role on the specified view.
+     */
+    default void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a view");
     }
 
     /**
@@ -693,11 +710,27 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Grants the specified privilege to the specified user on the specified schema
+     */
+    default void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
+    }
+
+    /**
+     * Revokes the specified privilege on the specified schema from the specified user
+     */
+    default void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
+    }
+
+    /**
      * Grants the specified privilege to the specified user on the specified table
      */
     default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants on tables");
     }
 
     /**
@@ -705,7 +738,7 @@ public interface ConnectorMetadata
      */
     default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes on tables");
     }
 
     /**
@@ -1017,8 +1050,13 @@ public interface ConnectorMetadata
     /**
      * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
      */
-    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
         return new MaterializedViewFreshness(false);
+    }
+
+    default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
     }
 }

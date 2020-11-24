@@ -75,6 +75,7 @@ public class HiveConfig
 
     private int maxConcurrentFileRenames = 20;
     private int maxConcurrentMetastoreDrops = 20;
+    private int maxConcurrentMetastoreUpdates = 20;
 
     private boolean allowCorruptWritesForTesting;
 
@@ -257,6 +258,19 @@ public class HiveConfig
     public HiveConfig setMaxConcurrentMetastoreDrops(int maxConcurrentMetastoreDeletes)
     {
         this.maxConcurrentMetastoreDrops = maxConcurrentMetastoreDeletes;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentMetastoreUpdates()
+    {
+        return maxConcurrentMetastoreUpdates;
+    }
+
+    @Config("hive.max-concurrent-metastore-updates")
+    public HiveConfig setMaxConcurrentMetastoreUpdates(int maxConcurrentMetastoreUpdates)
+    {
+        this.maxConcurrentMetastoreUpdates = maxConcurrentMetastoreUpdates;
         return this;
     }
 
@@ -534,7 +548,7 @@ public class HiveConfig
 
     public DateTimeZone getRcfileDateTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(rcfileTimeZone));
+        return DateTimeZone.forID(rcfileTimeZone);
     }
 
     @NotNull
@@ -582,7 +596,7 @@ public class HiveConfig
 
     public DateTimeZone getOrcLegacyDateTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(orcLegacyTimeZone));
+        return DateTimeZone.forID(orcLegacyTimeZone);
     }
 
     @NotNull
@@ -601,7 +615,7 @@ public class HiveConfig
 
     public DateTimeZone getParquetDateTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(parquetTimeZone));
+        return DateTimeZone.forID(parquetTimeZone);
     }
 
     @NotNull

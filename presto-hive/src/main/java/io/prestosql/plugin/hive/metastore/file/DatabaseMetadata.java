@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 
 public class DatabaseMetadata
 {
+    private final Optional<String> writerVersion;
     private final String ownerName;
     private final PrincipalType ownerType;
     private final Optional<String> comment;
@@ -33,23 +34,32 @@ public class DatabaseMetadata
 
     @JsonCreator
     public DatabaseMetadata(
+            @JsonProperty("writerVersion") Optional<String> writerVersion,
             @JsonProperty("ownerName") String ownerName,
             @JsonProperty("ownerType") PrincipalType ownerType,
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("parameters") Map<String, String> parameters)
     {
+        this.writerVersion = requireNonNull(writerVersion, "writerVersion is null");
         this.ownerName = requireNonNull(ownerName, "ownerName is null");
         this.ownerType = requireNonNull(ownerType, "ownerType is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
     }
 
-    public DatabaseMetadata(Database database)
+    public DatabaseMetadata(String currentVersion, Database database)
     {
+        this.writerVersion = Optional.of(requireNonNull(currentVersion, "currentVersion is null"));
         this.ownerName = database.getOwnerName();
         this.ownerType = database.getOwnerType();
         this.comment = database.getComment();
         this.parameters = database.getParameters();
+    }
+
+    @JsonProperty
+    public Optional<String> getWriterVersion()
+    {
+        return writerVersion;
     }
 
     @JsonProperty

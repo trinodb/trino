@@ -16,6 +16,8 @@ package io.prestosql.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.plan.PlanFragmentId;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -34,6 +36,8 @@ public final class Input
     private final String table;
     private final List<Column> columns;
     private final Optional<Object> connectorInfo;
+    private final PlanFragmentId fragmentId;
+    private final PlanNodeId planNodeId;
 
     @JsonCreator
     public Input(
@@ -41,19 +45,25 @@ public final class Input
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("connectorInfo") Optional<Object> connectorInfo,
-            @JsonProperty("columns") List<Column> columns)
+            @JsonProperty("columns") List<Column> columns,
+            @JsonProperty("fragmentId") PlanFragmentId fragmentId,
+            @JsonProperty("planNodeId") PlanNodeId planNodeId)
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(schema, "schema is null");
         requireNonNull(table, "table is null");
         requireNonNull(connectorInfo, "connectorInfo is null");
         requireNonNull(columns, "columns is null");
+        requireNonNull(fragmentId, "fragmentId is null");
+        requireNonNull(planNodeId, "planNodeId is null");
 
         this.catalogName = catalogName;
         this.schema = schema;
         this.table = table;
         this.connectorInfo = connectorInfo;
         this.columns = ImmutableList.copyOf(columns);
+        this.fragmentId = fragmentId;
+        this.planNodeId = planNodeId;
     }
 
     @JsonProperty
@@ -86,6 +96,18 @@ public final class Input
         return columns;
     }
 
+    @JsonProperty
+    public PlanFragmentId getFragmentId()
+    {
+        return fragmentId;
+    }
+
+    @JsonProperty
+    public PlanNodeId getPlanNodeId()
+    {
+        return planNodeId;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -100,13 +122,15 @@ public final class Input
                 Objects.equals(schema, input.schema) &&
                 Objects.equals(table, input.table) &&
                 Objects.equals(columns, input.columns) &&
-                Objects.equals(connectorInfo, input.connectorInfo);
+                Objects.equals(connectorInfo, input.connectorInfo) &&
+                Objects.equals(fragmentId, input.fragmentId) &&
+                Objects.equals(planNodeId, input.planNodeId);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schema, table, columns, connectorInfo);
+        return Objects.hash(catalogName, schema, table, columns, connectorInfo, fragmentId, planNodeId);
     }
 
     @Override
@@ -117,6 +141,8 @@ public final class Input
                 .addValue(schema)
                 .addValue(table)
                 .addValue(columns)
+                .addValue(fragmentId)
+                .addValue(planNodeId)
                 .toString();
     }
 }

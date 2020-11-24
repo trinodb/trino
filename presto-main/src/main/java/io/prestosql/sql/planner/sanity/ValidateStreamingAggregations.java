@@ -53,7 +53,7 @@ public class ValidateStreamingAggregations
             TypeProvider types,
             WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, typeOperators, typeAnalyzer, types, warningCollector), null);
+        planNode.accept(new Visitor(session, metadata, typeOperators, typeAnalyzer, types), null);
     }
 
     private static final class Visitor
@@ -64,21 +64,18 @@ public class ValidateStreamingAggregations
         private final TypeOperators typeOperators;
         private final TypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
-        private final WarningCollector warningCollector;
 
         private Visitor(Session session,
                 Metadata metadata,
                 TypeOperators typeOperators,
                 TypeAnalyzer typeAnalyzer,
-                TypeProvider types,
-                WarningCollector warningCollector)
+                TypeProvider types)
         {
             this.session = session;
             this.metadata = metadata;
             this.typeOperators = typeOperators;
             this.typeAnalyzer = typeAnalyzer;
             this.types = types;
-            this.warningCollector = warningCollector;
         }
 
         @Override

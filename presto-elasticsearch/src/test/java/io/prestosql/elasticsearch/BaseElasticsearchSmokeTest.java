@@ -51,7 +51,7 @@ public abstract class BaseElasticsearchSmokeTest
 {
     private final String image;
     private ElasticsearchServer elasticsearch;
-    private RestHighLevelClient client;
+    protected RestHighLevelClient client;
 
     BaseElasticsearchSmokeTest(String image)
     {
@@ -912,7 +912,7 @@ public abstract class BaseElasticsearchSmokeTest
         assertTableDoesNotExist(aliasName);
     }
 
-    private void assertTableDoesNotExist(String name)
+    protected void assertTableDoesNotExist(String name)
     {
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
         assertFalse(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name));

@@ -43,7 +43,6 @@ public class ClientSession
     private final String schema;
     private final String path;
     private final ZoneId timeZone;
-    private final boolean useSessionTimeZone;
     private final Locale locale;
     private final Map<String, String> resourceEstimates;
     private final Map<String, String> properties;
@@ -52,6 +51,7 @@ public class ClientSession
     private final Map<String, String> extraCredentials;
     private final String transactionId;
     private final Duration clientRequestTimeout;
+    private final boolean compressionDisabled;
 
     public static Builder builder(ClientSession clientSession)
     {
@@ -76,7 +76,6 @@ public class ClientSession
             String schema,
             String path,
             ZoneId timeZone,
-            boolean useSessionTimeZone,
             Locale locale,
             Map<String, String> resourceEstimates,
             Map<String, String> properties,
@@ -84,7 +83,8 @@ public class ClientSession
             Map<String, ClientSelectedRole> roles,
             Map<String, String> extraCredentials,
             String transactionId,
-            Duration clientRequestTimeout)
+            Duration clientRequestTimeout,
+            boolean compressionDisabled)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -97,7 +97,6 @@ public class ClientSession
         this.path = path;
         this.locale = locale;
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
-        this.useSessionTimeZone = useSessionTimeZone;
         this.transactionId = transactionId;
         this.resourceEstimates = ImmutableMap.copyOf(requireNonNull(resourceEstimates, "resourceEstimates is null"));
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
@@ -105,6 +104,7 @@ public class ClientSession
         this.roles = ImmutableMap.copyOf(requireNonNull(roles, "roles is null"));
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
+        this.compressionDisabled = compressionDisabled;
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -185,13 +185,6 @@ public class ClientSession
         return timeZone;
     }
 
-    // TODO remove the fallback mechanism for JDBC temporal columns
-    @Deprecated
-    public boolean useSessionTimeZone()
-    {
-        return useSessionTimeZone;
-    }
-
     public Locale getLocale()
     {
         return locale;
@@ -240,6 +233,11 @@ public class ClientSession
         return clientRequestTimeout;
     }
 
+    public boolean isCompressionDisabled()
+    {
+        return compressionDisabled;
+    }
+
     @Override
     public String toString()
     {
@@ -253,7 +251,6 @@ public class ClientSession
                 .add("path", path)
                 .add("traceToken", traceToken.orElse(null))
                 .add("timeZone", timeZone)
-                .add("useSessionTimeZone", useSessionTimeZone)
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
@@ -273,7 +270,6 @@ public class ClientSession
         private String schema;
         private String path;
         private ZoneId timeZone;
-        private boolean useSessionTimeZone;
         private Locale locale;
         private Map<String, String> resourceEstimates;
         private Map<String, String> properties;
@@ -282,6 +278,7 @@ public class ClientSession
         private Map<String, String> credentials;
         private String transactionId;
         private Duration clientRequestTimeout;
+        private boolean compressionDisabled;
 
         private Builder(ClientSession clientSession)
         {
@@ -296,7 +293,6 @@ public class ClientSession
             schema = clientSession.getSchema();
             path = clientSession.getPath();
             timeZone = clientSession.getTimeZone();
-            useSessionTimeZone = clientSession.useSessionTimeZone();
             locale = clientSession.getLocale();
             resourceEstimates = clientSession.getResourceEstimates();
             properties = clientSession.getProperties();
@@ -305,6 +301,7 @@ public class ClientSession
             credentials = clientSession.getExtraCredentials();
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
+            compressionDisabled = clientSession.isCompressionDisabled();
         }
 
         public Builder withCatalog(String catalog)
@@ -361,11 +358,9 @@ public class ClientSession
             return this;
         }
 
-        // TODO remove the fallback mechanism for JDBC temporal columns
-        @Deprecated
-        public Builder withUseSessionTimeZone(boolean useSessionTimeZone)
+        public Builder withCompressionDisabled(boolean compressionDisabled)
         {
-            this.useSessionTimeZone = useSessionTimeZone;
+            this.compressionDisabled = compressionDisabled;
             return this;
         }
 
@@ -382,7 +377,6 @@ public class ClientSession
                     schema,
                     path,
                     timeZone,
-                    useSessionTimeZone,
                     locale,
                     resourceEstimates,
                     properties,
@@ -390,7 +384,8 @@ public class ClientSession
                     roles,
                     credentials,
                     transactionId,
-                    clientRequestTimeout);
+                    clientRequestTimeout,
+                    compressionDisabled);
         }
     }
 }

@@ -28,6 +28,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpressionForSingleDomain;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestGlueExpressionUtil
@@ -130,7 +131,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col1", Domain.onlyNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, String.format("(col1 = '%s')", GlueExpressionUtil.NULL_STRING));
+        assertEquals(expression, format("(col1 = '%s')", GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -140,7 +141,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col1", Domain.notNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, String.format("(col1 <> '%s')", GlueExpressionUtil.NULL_STRING));
+        assertEquals(expression, format("(col1 <> '%s')", GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -188,7 +189,7 @@ public class TestGlueExpressionUtil
                 .addBigintValues("col1", Long.MAX_VALUE)
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, String.format("((col1 = %d))", Long.MAX_VALUE));
+        assertEquals(expression, format("((col1 = %d))", Long.MAX_VALUE));
     }
 
     @Test
@@ -198,7 +199,7 @@ public class TestGlueExpressionUtil
                 .addIntegerValues("col1", Long.valueOf(Integer.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, String.format("((col1 = %d))", Integer.MAX_VALUE));
+        assertEquals(expression, format("((col1 = %d))", Integer.MAX_VALUE));
     }
 
     @Test
@@ -208,7 +209,7 @@ public class TestGlueExpressionUtil
                 .addIntegerValues("col1", Long.valueOf(Short.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, String.format("((col1 = %d))", Short.MAX_VALUE));
+        assertEquals(expression, format("((col1 = %d))", Short.MAX_VALUE));
     }
 
     @Test
@@ -218,6 +219,6 @@ public class TestGlueExpressionUtil
                 .addIntegerValues("col1", Long.valueOf(Byte.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, String.format("((col1 = %d))", Byte.MAX_VALUE));
+        assertEquals(expression, format("((col1 = %d))", Byte.MAX_VALUE));
     }
 }

@@ -38,7 +38,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.prestosql.cli.ConsolePrinter.REAL_TERMINAL;
+import static io.prestosql.cli.TerminalUtils.isRealTerminal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -77,14 +77,14 @@ public final class QueryPreprocessor
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = terminal.handle(Signal.INT, signal -> clientThread.interrupt());
         try {
-            if (REAL_TERMINAL) {
+            if (isRealTerminal()) {
                 System.out.print(PREPROCESSING_QUERY_MESSAGE);
                 System.out.flush();
             }
             return preprocessQueryInternal(catalog, schema, query, preprocessorCommand, timeout);
         }
         finally {
-            if (REAL_TERMINAL) {
+            if (isRealTerminal()) {
                 System.out.print("\r" + Strings.repeat(" ", PREPROCESSING_QUERY_MESSAGE.length()) + "\r");
                 System.out.flush();
             }

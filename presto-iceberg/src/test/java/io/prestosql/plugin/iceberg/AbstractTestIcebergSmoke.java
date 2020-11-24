@@ -27,7 +27,6 @@ import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
@@ -1196,7 +1195,6 @@ public abstract class AbstractTestIcebergSmoke
 
         // This shows that Predicate<ColumnHandle, NullableValue> only filters rows for partitioned columns.
         predicate = new TestRelationalNumberPredicate("col2", 102, i -> i >= 0);
-        IcebergColumnHandle col2Handle = getColumnHandleFromStatistics(tableStatistics, "col2");
         tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.empty()));
         assertEquals(tableStatistics.getRowCount().getValue(), 4.0);
         columnStatistics = getStatisticsForColumn(tableStatistics, "col2");
@@ -1276,7 +1274,7 @@ public abstract class AbstractTestIcebergSmoke
 
     private TableStatistics getTableStatistics(String tableName, Constraint constraint)
     {
-        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
         QualifiedObjectName qualifiedName = QualifiedObjectName.valueOf(tableName);
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .execute(getSession(), session -> {

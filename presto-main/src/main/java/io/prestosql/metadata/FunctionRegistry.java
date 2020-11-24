@@ -70,7 +70,6 @@ import io.prestosql.operator.aggregation.SumDataSizeForStats;
 import io.prestosql.operator.aggregation.TDigestAggregationFunction;
 import io.prestosql.operator.aggregation.VarcharApproximateMostFrequent;
 import io.prestosql.operator.aggregation.VarianceAggregation;
-import io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.prestosql.operator.aggregation.histogram.Histogram;
 import io.prestosql.operator.aggregation.minmaxby.MaxByNAggregationFunction;
 import io.prestosql.operator.aggregation.minmaxby.MinByNAggregationFunction;
@@ -80,6 +79,7 @@ import io.prestosql.operator.scalar.ArrayAnyMatchFunction;
 import io.prestosql.operator.scalar.ArrayCardinalityFunction;
 import io.prestosql.operator.scalar.ArrayCombinationsFunction;
 import io.prestosql.operator.scalar.ArrayContains;
+import io.prestosql.operator.scalar.ArrayContainsSequence;
 import io.prestosql.operator.scalar.ArrayDistinctFunction;
 import io.prestosql.operator.scalar.ArrayElementAtFunction;
 import io.prestosql.operator.scalar.ArrayExceptFunction;
@@ -181,14 +181,14 @@ import io.prestosql.operator.scalar.timestamp.LastDayOfMonth;
 import io.prestosql.operator.scalar.timestamp.LocalTimestamp;
 import io.prestosql.operator.scalar.timestamp.SequenceIntervalDayToSecond;
 import io.prestosql.operator.scalar.timestamp.SequenceIntervalYearToMonth;
-import io.prestosql.operator.scalar.timestamp.TimeWithTimezoneToTimestampCast;
+import io.prestosql.operator.scalar.timestamp.TimeWithTimeZoneToTimestampCast;
 import io.prestosql.operator.scalar.timestamp.TimestampOperators;
 import io.prestosql.operator.scalar.timestamp.TimestampToDateCast;
 import io.prestosql.operator.scalar.timestamp.TimestampToJsonCast;
 import io.prestosql.operator.scalar.timestamp.TimestampToTimeCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToTimeWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimeWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamp.TimestampToTimestampCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToTimestampWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamp.TimestampToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.prestosql.operator.scalar.timestamp.ToIso8601;
 import io.prestosql.operator.scalar.timestamp.ToUnixTime;
@@ -201,10 +201,10 @@ import io.prestosql.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimezoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimeZoneCast;
+import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimezoneToTimestampCast;
 import io.prestosql.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timetz.CurrentTime;
 import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneOperators;
@@ -284,6 +284,7 @@ import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunctio
 import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT_AND_ERROR;
 import static io.prestosql.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
 import static io.prestosql.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
+import static io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
 import static io.prestosql.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
 import static io.prestosql.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
 import static io.prestosql.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
@@ -501,6 +502,7 @@ public class FunctionRegistry
                 .scalars(DataSizeFunctions.class)
                 .scalar(ArrayCardinalityFunction.class)
                 .scalar(ArrayContains.class)
+                .scalar(ArrayContainsSequence.class)
                 .scalar(ArrayFilterFunction.class)
                 .scalar(ArrayPositionFunction.class)
                 .scalars(CombineHashFunction.class)
@@ -552,12 +554,12 @@ public class FunctionRegistry
                 .function(ARRAY_FLATTEN_FUNCTION)
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
-                .function(new ArrayAggregationFunction(featuresConfig.getArrayAggGroupImplementation()))
+                .function(ARRAY_AGG)
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(new MapAggregationFunction(blockTypeOperators), new MapUnionAggregation(blockTypeOperators))
                 .function(REDUCE_AGG)
-                .function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation(), blockTypeOperators))
+                .function(new MultimapAggregationFunction(blockTypeOperators))
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
@@ -567,7 +569,7 @@ public class FunctionRegistry
                 .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .function(new Histogram(featuresConfig.getHistogramGroupImplementation(), blockTypeOperators))
+                .function(new Histogram(blockTypeOperators))
                 .function(new ChecksumAggregationFunction(blockTypeOperators))
                 .function(ARBITRARY_AGGREGATION)
                 .functions(GREATEST, LEAST)
@@ -615,15 +617,15 @@ public class FunctionRegistry
                 .scalar(TimestampOperators.TimestampMinusTimestamp.class)
                 .scalar(TimestampToTimestampCast.class)
                 .scalar(TimestampToTimeCast.class)
-                .scalar(TimestampToTimeWithTimezoneCast.class)
-                .scalar(TimestampToTimestampWithTimezoneCast.class)
+                .scalar(TimestampToTimeWithTimeZoneCast.class)
+                .scalar(TimestampToTimestampWithTimeZoneCast.class)
                 .scalar(TimestampToDateCast.class)
                 .scalar(TimestampToVarcharCast.class)
                 .scalar(TimestampToJsonCast.class)
                 .scalar(DateToTimestampCast.class)
                 .scalar(TimeToTimestampCast.class)
-                .scalar(TimeWithTimezoneToTimestampCast.class)
-                .scalar(TimestampWithTimezoneToTimestampCast.class)
+                .scalar(TimeWithTimeZoneToTimestampCast.class)
+                .scalar(TimestampWithTimeZoneToTimestampCast.class)
                 .scalar(VarcharToTimestampCast.class)
                 .scalar(LocalTimestamp.class)
                 .scalar(DateTrunc.class)
@@ -689,7 +691,7 @@ public class FunctionRegistry
                 .scalar(TimestampWithTimeZoneToDateCast.class)
                 .scalar(TimestampWithTimeZoneToTimeCast.class)
                 .scalar(TimestampWithTimeZoneToTimestampWithTimeZoneCast.class)
-                .scalar(TimestampWithTimeZoneToTimeWithTimezoneCast.class)
+                .scalar(TimestampWithTimeZoneToTimeWithTimeZoneCast.class)
                 .scalar(TimestampWithTimeZoneToVarcharCast.class)
                 .scalar(TimeToTimestampWithTimeZoneCast.class)
                 .scalar(TimeWithTimeZoneToTimestampWithTimeZoneCast.class)
@@ -717,6 +719,8 @@ public class FunctionRegistry
                 .scalar(io.prestosql.operator.scalar.timetz.ExtractMinute.class)
                 .scalar(io.prestosql.operator.scalar.timetz.ExtractSecond.class)
                 .scalar(io.prestosql.operator.scalar.timetz.ExtractMillisecond.class)
+                .scalar(io.prestosql.operator.scalar.timetz.TimeZoneHour.class)
+                .scalar(io.prestosql.operator.scalar.timetz.TimeZoneMinute.class)
                 .scalar(io.prestosql.operator.scalar.timetz.DateTrunc.class)
                 .scalar(io.prestosql.operator.scalar.timetz.AtTimeZone.class)
                 .scalar(io.prestosql.operator.scalar.timetz.AtTimeZoneWithOffset.class)
@@ -910,7 +914,7 @@ public class FunctionRegistry
         public SqlFunction get(FunctionId functionId)
         {
             SqlFunction sqlFunction = functions.get(functionId);
-            checkArgument(sqlFunction != null, "Unknown function implementation: " + functionId);
+            checkArgument(sqlFunction != null, "Unknown function implementation: %s", functionId);
             return sqlFunction;
         }
     }

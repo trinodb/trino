@@ -61,6 +61,11 @@ public class PartitionStatistics
         return columnStatistics;
     }
 
+    public PartitionStatistics withAdjustedRowCount(long adjustment)
+    {
+        return new PartitionStatistics(basicStatistics.withAdjustedRowCount(adjustment), columnStatistics);
+    }
+
     @Override
     public boolean equals(Object o)
     {

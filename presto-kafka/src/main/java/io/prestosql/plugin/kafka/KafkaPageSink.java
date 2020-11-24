@@ -52,7 +52,7 @@ public class KafkaPageSink
             List<KafkaColumnHandle> columns,
             RowEncoder keyEncoder,
             RowEncoder messageEncoder,
-            PlainTextKafkaProducerFactory producerFactory)
+            KafkaProducerFactory producerFactory)
     {
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");

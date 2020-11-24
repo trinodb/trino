@@ -8,11 +8,12 @@ Synopsis
 .. code-block:: none
 
     ALTER VIEW name RENAME TO new_name
+    ALTER VIEW name SET AUTHORIZATION ( user | USER user | ROLE role )
 
 Description
 -----------
 
-Renames an existing view.
+Change the definition of an existing view.
 
 Examples
 --------
@@ -20,6 +21,10 @@ Examples
 Rename view ``people`` to ``users``::
 
     ALTER VIEW people RENAME TO users
+
+Change owner of VIEW ``people`` to user ``alice``::
+
+    ALTER VIEW people SET AUTHORIZATION alice
 
 See Also
 --------

@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import io.prestosql.metadata.InsertTableHandle;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.OutputTableHandle;
+import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
@@ -332,20 +333,20 @@ public class TableWriterNode
     public static class RefreshMaterializedViewReference
             extends WriterTarget
     {
-        private final TableHandle materializedViewHandle;
+        private final QualifiedObjectName materializedViewName;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
 
-        public RefreshMaterializedViewReference(TableHandle materializedViewHandle, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
+        public RefreshMaterializedViewReference(QualifiedObjectName materializedViewName, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
         {
-            this.materializedViewHandle = requireNonNull(materializedViewHandle, "Materialized view handle is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "Materialized view handle is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "Storage table handle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
         }
 
-        public TableHandle getMaterializedViewHandle()
+        public QualifiedObjectName getMaterializedViewName()
         {
-            return materializedViewHandle;
+            return materializedViewName;
         }
 
         public TableHandle getStorageTableHandle()
@@ -361,32 +362,41 @@ public class TableWriterNode
         @Override
         public String toString()
         {
-            return materializedViewHandle.toString();
+            return materializedViewName.toString();
         }
     }
 
     public static class RefreshMaterializedViewTarget
             extends WriterTarget
     {
-        private final InsertTableHandle handle;
+        private final TableHandle tableHandle;
+        private final InsertTableHandle insertHandle;
         private final SchemaTableName schemaTableName;
         private final List<TableHandle> sourceTableHandles;
 
         @JsonCreator
         public RefreshMaterializedViewTarget(
-                @JsonProperty("handle") InsertTableHandle handle,
+                @JsonProperty("tableHandle") TableHandle tableHandle,
+                @JsonProperty("insertHandle") InsertTableHandle insertHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles)
         {
-            this.handle = requireNonNull(handle, "handle is null");
+            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+            this.insertHandle = requireNonNull(insertHandle, "insertHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
         }
 
         @JsonProperty
-        public InsertTableHandle getHandle()
+        public TableHandle getTableHandle()
         {
-            return handle;
+            return tableHandle;
+        }
+
+        @JsonProperty
+        public InsertTableHandle getInsertHandle()
+        {
+            return insertHandle;
         }
 
         @JsonProperty
@@ -404,7 +414,7 @@ public class TableWriterNode
         @Override
         public String toString()
         {
-            return handle.toString();
+            return insertHandle.toString();
         }
     }
 

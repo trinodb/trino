@@ -43,10 +43,6 @@ import static java.math.RoundingMode.FLOOR;
 
 public final class RealOperators
 {
-    private static final float MIN_LONG_AS_FLOAT = -0x1p63f;
-    private static final float MAX_LONG_PLUS_ONE_AS_FLOAT = 0x1p63f;
-    private static final float MIN_INTEGER_AS_FLOAT = -0x1p31f;
-    private static final float MAX_INTEGER_PLUS_ONE_AS_FLOAT = 0x1p31f;
     private static final float MIN_SHORT_AS_FLOAT = -0x1p15f;
     private static final float MAX_SHORT_PLUS_ONE_AS_FLOAT = 0x1p15f;
     private static final float MIN_BYTE_AS_FLOAT = -0x1p7f;

@@ -44,7 +44,6 @@ import io.prestosql.sql.tree.QualifiedName;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.isOptimizeTopNRowNumber;
@@ -114,7 +113,6 @@ public class WindowFilterPushDown
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
-            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node)) {

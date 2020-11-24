@@ -13,20 +13,15 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.Type;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnMapping
 {
-    public static final PredicatePushdownController FULL_PUSHDOWN = domain -> new DomainPushdownResult(domain, Domain.all(domain.getType()));
-    public static final PredicatePushdownController PUSHDOWN_AND_KEEP = domain -> new DomainPushdownResult(domain, domain);
-    public static final PredicatePushdownController DISABLE_PUSHDOWN = domain -> new DomainPushdownResult(Domain.all(domain.getType()), domain);
-
     public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction)
     {
         return booleanMapping(prestoType, readFunction, writeFunction, FULL_PUSHDOWN);

@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.TimeZone;
@@ -594,15 +595,26 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY [])", UNKNOWN, null);
         assertFunction("ARRAY_MIN(ARRAY [NULL])", UNKNOWN, null);
         assertFunction("ARRAY_MIN(ARRAY [NaN()])", DOUBLE, NaN);
+        assertFunction("ARRAY_MIN(ARRAY [CAST(NaN() AS REAL)])", REAL, Float.NaN);
         assertFunction("ARRAY_MIN(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
         assertFunction("ARRAY_MIN(ARRAY [NaN(), NaN(), NaN()])", DOUBLE, NaN);
-        assertFunction("ARRAY_MIN(ARRAY [NULL, 2, 3])", INTEGER, 2);
+        assertFunction("ARRAY_MIN(ARRAY [CAST(NaN() AS REAL), CAST(NaN() AS REAL)])", REAL, Float.NaN);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, 2, 3])", INTEGER, null);
         assertFunction("ARRAY_MIN(ARRAY [NaN(), 2, 3])", DOUBLE, 2.0);
-        assertFunction("ARRAY_MIN(ARRAY [NULL, NaN(), 1])", DOUBLE, 1.0);
-        assertFunction("ARRAY_MIN(ARRAY [NaN(), NULL, 3.0])", DOUBLE, 3.0);
-        assertFunction("ARRAY_MIN(ARRAY [1.0E0, NULL, 3])", DOUBLE, 1.0E0);
+        assertFunction("ARRAY_MIN(ARRAY [2, NaN(), 3])", DOUBLE, 2.0);
+        assertFunction("ARRAY_MIN(ARRAY [2, 3, NaN()])", DOUBLE, 2.0);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, NaN(), 1])", DOUBLE, null);
+        assertFunction("ARRAY_MIN(ARRAY [NaN(), NULL, 3.0])", DOUBLE, null);
+        assertFunction("ARRAY_MIN(ARRAY [1.0E0, NULL, 3])", DOUBLE, null);
         assertFunction("ARRAY_MIN(ARRAY [1.0, NaN(), 3])", DOUBLE, 1.0);
-        assertFunction("ARRAY_MIN(ARRAY ['1', '2', NULL])", createVarcharType(1), "1");
+        assertFunction("ARRAY_MIN(ARRAY [CAST(NaN() AS REAL), REAL '2', REAL '3'])", REAL, 2.0f);
+        assertFunction("ARRAY_MIN(ARRAY [REAL '2', CAST(NaN() AS REAL), REAL '3'])", REAL, 2.0f);
+        assertFunction("ARRAY_MIN(ARRAY [REAL '2', REAL '3', CAST(NaN() AS REAL)])", REAL, 2.0f);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, CAST(NaN() AS REAL), REAL '1'])", REAL, null);
+        assertFunction("ARRAY_MIN(ARRAY [CAST(NaN() AS REAL), NULL, REAL '3'])", REAL, null);
+        assertFunction("ARRAY_MIN(ARRAY [REAL '1', NULL, REAL '3'])", REAL, null);
+        assertFunction("ARRAY_MIN(ARRAY [REAL '1', CAST(NaN() AS REAL), REAL '3'])", REAL, 1.0f);
+        assertFunction("ARRAY_MIN(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
         assertFunction("ARRAY_MIN(ARRAY [3, 2, 1])", INTEGER, 1);
         assertFunction("ARRAY_MIN(ARRAY [1, 2, 3])", INTEGER, 1);
         assertFunction("ARRAY_MIN(ARRAY [BIGINT '3', 2, 1])", BIGINT, 1L);
@@ -611,7 +623,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY [1.0E0, 2.5E0, 3.0E0])", DOUBLE, 1.0);
         assertFunction("ARRAY_MIN(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "kittens");
         assertFunction("ARRAY_MIN(ARRAY [TRUE, FALSE])", BOOLEAN, false);
-        assertFunction("ARRAY_MIN(ARRAY [NULL, FALSE])", BOOLEAN, false);
+        assertFunction("ARRAY_MIN(ARRAY [NULL, FALSE])", BOOLEAN, null);
         assertFunction("ARRAY_MIN(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2222-05-10 12:34:56.123456789'])",
                 createTimestampType(9),
                 timestamp(9, "2020-05-10 12:34:56.123456789"));
@@ -627,15 +639,26 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY [])", UNKNOWN, null);
         assertFunction("ARRAY_MAX(ARRAY [NULL])", UNKNOWN, null);
         assertFunction("ARRAY_MAX(ARRAY [NaN()])", DOUBLE, NaN);
+        assertFunction("ARRAY_MAX(ARRAY [CAST(NaN() AS REAL)])", REAL, Float.NaN);
         assertFunction("ARRAY_MAX(ARRAY [NULL, NULL, NULL])", UNKNOWN, null);
         assertFunction("ARRAY_MAX(ARRAY [NaN(), NaN(), NaN()])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [NULL, 2, 3])", INTEGER, 3);
-        assertFunction("ARRAY_MAX(ARRAY [NaN(), 2, 3])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [NULL, NaN(), 1])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [NaN(), NULL, 3.0])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY [1.0E0, NULL, 3])", DOUBLE, 3.0);
-        assertFunction("ARRAY_MAX(ARRAY [1.0, NaN(), 3])", DOUBLE, NaN);
-        assertFunction("ARRAY_MAX(ARRAY ['1', '2', NULL])", createVarcharType(1), "2");
+        assertFunction("ARRAY_MAX(ARRAY [CAST(NaN() AS REAL), CAST(NaN() AS REAL)])", REAL, Float.NaN);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, 2, 3])", INTEGER, null);
+        assertFunction("ARRAY_MAX(ARRAY [NaN(), 2, 3])", DOUBLE, 3.0);
+        assertFunction("ARRAY_MAX(ARRAY [2, NaN(), 3])", DOUBLE, 3.0);
+        assertFunction("ARRAY_MAX(ARRAY [2, 3, NaN()])", DOUBLE, 3.0);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, NaN(), 1])", DOUBLE, null);
+        assertFunction("ARRAY_MAX(ARRAY [NaN(), NULL, 3.0])", DOUBLE, null);
+        assertFunction("ARRAY_MAX(ARRAY [1.0E0, NULL, 3])", DOUBLE, null);
+        assertFunction("ARRAY_MAX(ARRAY [1.0, NaN(), 3])", DOUBLE, 3.0);
+        assertFunction("ARRAY_MAX(ARRAY [CAST(NaN() AS REAL), REAL '2', REAL '3'])", REAL, 3.0f);
+        assertFunction("ARRAY_MAX(ARRAY [REAL '2', CAST(NaN() AS REAL), REAL '3'])", REAL, 3.0f);
+        assertFunction("ARRAY_MAX(ARRAY [REAL '2', REAL '3', CAST(NaN() AS REAL)])", REAL, 3.0f);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, CAST(NaN() AS REAL), REAL '1'])", REAL, null);
+        assertFunction("ARRAY_MAX(ARRAY [CAST(NaN() AS REAL), NULL, REAL '3'])", REAL, null);
+        assertFunction("ARRAY_MAX(ARRAY [REAL '1', NULL, REAL '3'])", REAL, null);
+        assertFunction("ARRAY_MAX(ARRAY [REAL '1', CAST(NaN() AS REAL), REAL '3'])", REAL, 3.0f);
+        assertFunction("ARRAY_MAX(ARRAY ['1', '2', NULL])", createVarcharType(1), null);
         assertFunction("ARRAY_MAX(ARRAY [3, 2, 1])", INTEGER, 3);
         assertFunction("ARRAY_MAX(ARRAY [1, 2, 3])", INTEGER, 3);
         assertFunction("ARRAY_MAX(ARRAY [BIGINT '1', 2, 3])", BIGINT, 3L);
@@ -644,7 +667,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY [1.0E0, 2.5E0, 3.0E0])", DOUBLE, 3.0);
         assertFunction("ARRAY_MAX(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "puppies");
         assertFunction("ARRAY_MAX(ARRAY [TRUE, FALSE])", BOOLEAN, true);
-        assertFunction("ARRAY_MAX(ARRAY [NULL, FALSE])", BOOLEAN, false);
+        assertFunction("ARRAY_MAX(ARRAY [NULL, FALSE])", BOOLEAN, null);
         assertFunction("ARRAY_MAX(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'])",
                 createTimestampType(9),
                 timestamp(9, "2020-05-10 12:34:56.123456789"));
@@ -1868,7 +1891,7 @@ public class TestArrayOperators
             throws ParseException
     {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        dateFormat.setTimeZone(TimeZone.getTimeZone(ZoneId.of("UTC")));
         return new SqlDate(toIntExact(TimeUnit.MILLISECONDS.toDays(dateFormat.parse(dateString).getTime())));
     }
 }

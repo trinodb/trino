@@ -18,6 +18,7 @@ import io.airlift.log.Logging;
 import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.ClientTypeSignatureParameter;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
+import io.prestosql.plugin.memory.MemoryPlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -47,8 +48,11 @@ import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
 import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
+import static io.prestosql.jdbc.TestingJdbcUtils.list;
+import static io.prestosql.jdbc.TestingJdbcUtils.readRows;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -66,7 +70,9 @@ public class TestJdbcPreparedStatement
         Logging.initialize();
         server = TestingPrestoServer.create();
         server.installPlugin(new BlackHolePlugin());
+        server.installPlugin(new MemoryPlugin());
         server.createCatalog("blackhole", "blackhole");
+        server.createCatalog("memory", "memory");
         waitForNodeRefresh(server);
 
         try (Connection connection = createConnection();
@@ -259,6 +265,88 @@ public class TestJdbcPreparedStatement
 
             try (Statement statement = connection.createStatement()) {
                 statement.execute("DROP TABLE test_execute_update");
+            }
+        }
+    }
+
+    @Test
+    public void testExecuteBatch()
+            throws Exception
+    {
+        try (Connection connection = createConnection("memory", "default")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE test_execute_batch(c_int integer)");
+            }
+
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "INSERT INTO test_execute_batch VALUES (?)")) {
+                // Run executeBatch before addBatch
+                assertEquals(preparedStatement.executeBatch(), new int[] {});
+
+                for (int i = 0; i < 3; i++) {
+                    preparedStatement.setInt(1, i);
+                    preparedStatement.addBatch();
+                }
+                assertEquals(preparedStatement.executeBatch(), new int[] {1, 1, 1});
+
+                try (Statement statement = connection.createStatement()) {
+                    ResultSet resultSet = statement.executeQuery("SELECT c_int FROM test_execute_batch");
+                    assertThat(readRows(resultSet))
+                            .containsExactlyInAnyOrder(
+                                            list(0),
+                                            list(1),
+                                            list(2));
+                }
+
+                // Make sure the above executeBatch cleared existing batch
+                assertEquals(preparedStatement.executeBatch(), new int[] {});
+
+                // clearBatch removes added batch and cancel batch mode
+                preparedStatement.setBoolean(1, true);
+                preparedStatement.clearBatch();
+                assertEquals(preparedStatement.executeBatch(), new int[] {});
+
+                preparedStatement.setInt(1, 1);
+                assertEquals(preparedStatement.executeUpdate(), 1);
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE test_execute_batch");
+            }
+        }
+    }
+
+    @Test
+    public void testInvalidExecuteBatch()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE test_invalid_execute_batch(c_int integer)");
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO test_invalid_execute_batch VALUES (?)")) {
+                statement.setInt(1, 1);
+                statement.addBatch();
+
+                String message = "Batch prepared statement must be executed using executeBatch method";
+                assertThatThrownBy(statement::executeQuery)
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(message);
+                assertThatThrownBy(statement::executeUpdate)
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(message);
+                assertThatThrownBy(statement::executeLargeUpdate)
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(message);
+                assertThatThrownBy(statement::execute)
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(message);
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE test_invalid_execute_batch");
             }
         }
     }
@@ -617,7 +705,7 @@ public class TestJdbcPreparedStatement
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp));
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, null));
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()));
-        assertParameter(sameInstantInWarsawZone, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone("Europe/Warsaw"))));
+        assertParameter(sameInstantInWarsawZone, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))));
         assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlTimestamp));
         assertParameter(new Timestamp(sqlDate.getTime()), Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP));
         assertParameter(new Timestamp(sqlTime.getTime()), Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP));

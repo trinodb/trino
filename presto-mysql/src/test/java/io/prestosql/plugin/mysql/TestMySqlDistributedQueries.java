@@ -41,6 +41,7 @@ public class TestMySqlDistributedQueries
         this.mysqlServer = new TestingMySqlServer();
         return createMySqlQueryRunner(
                 mysqlServer,
+                ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         // caching here speeds up tests highly, caching is not used in smoke tests
                         .put("metadata.cache-ttl", "10m")
@@ -143,6 +144,12 @@ public class TestMySqlDistributedQueries
         if (typeName.equals("real")
                 || typeName.equals("timestamp")) {
             // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        if (typeName.equals("boolean")) {
+            // MySql does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
+            // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
             return Optional.empty();
         }
 

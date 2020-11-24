@@ -22,16 +22,20 @@ import java.time.ZoneId;
 import java.util.TreeSet;
 
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.isUtcZoneId;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static io.prestosql.util.DateTimeZoneIndex.unpackDateTimeZone;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestTimeZoneUtils
 {
     @Test
-    public void test()
+    public void testNamedZones()
     {
         TreeSet<String> jdkZones = new TreeSet<>(ZoneId.getAvailableZoneIds());
         for (String zoneId : jdkZones) {
@@ -45,7 +49,11 @@ public class TestTimeZoneUtils
             assertDateTimeZoneEquals(zoneId, indexedZone);
             assertTimeZone(zoneId, dateTimeZone);
         }
+    }
 
+    @Test
+    public void testOffsets()
+    {
         for (int offsetHours = -13; offsetHours < 14; offsetHours++) {
             for (int offsetMinutes = 0; offsetMinutes < 60; offsetMinutes++) {
                 DateTimeZone dateTimeZone = DateTimeZone.forOffsetHoursMinutes(offsetHours, offsetMinutes);
@@ -56,9 +64,21 @@ public class TestTimeZoneUtils
 
     public static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
     {
-        long dateTimeWithTimeZone = packDateTimeWithZone(new DateTime(42, dateTimeZone));
-        assertEquals(packDateTimeWithZone(42L, dateTimeZone.toTimeZone().getID()), dateTimeWithTimeZone);
-        DateTimeZone unpackedZone = unpackDateTimeZone(dateTimeWithTimeZone);
+        long packWithDateTime = packDateTimeWithZone(new DateTime(42, dateTimeZone));
+        long packWithZoneId = packDateTimeWithZone(42L, ZoneId.of(dateTimeZone.getID()).getId());
+        if (packWithDateTime != packWithZoneId) {
+            fail(format(
+                    "packWithDateTime and packWithZoneId differ for zone [%s] / [%s]: %s [%s %s] and %s [%s %s]",
+                    zoneId,
+                    dateTimeZone,
+                    packWithDateTime,
+                    unpackMillisUtc(packWithDateTime),
+                    unpackZoneKey(packWithDateTime),
+                    packWithZoneId,
+                    unpackMillisUtc(packWithZoneId),
+                    unpackZoneKey(packWithZoneId)));
+        }
+        DateTimeZone unpackedZone = unpackDateTimeZone(packWithDateTime);
         assertDateTimeZoneEquals(zoneId, unpackedZone);
     }
 

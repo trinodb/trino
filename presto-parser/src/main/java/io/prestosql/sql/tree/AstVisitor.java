@@ -582,6 +582,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitSetViewAuthorization(SetViewAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitComment(Comment node, C context)
     {
         return visitStatement(node, context);
@@ -598,6 +603,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitAddColumn(AddColumn node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitSetTableAuthorization(SetTableAuthorization node, C context)
     {
         return visitStatement(node, context);
     }

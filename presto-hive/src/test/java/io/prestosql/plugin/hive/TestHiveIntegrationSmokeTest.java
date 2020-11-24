@@ -54,7 +54,6 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
-import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.type.TypeDeserializer;
 import org.apache.hadoop.fs.Path;
@@ -69,6 +68,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -112,6 +112,7 @@ import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
+import static io.prestosql.spi.security.Identity.ofUser;
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -129,6 +130,8 @@ import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom
 import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
@@ -161,6 +164,7 @@ import static org.testng.FileAssert.assertFile;
 public class TestHiveIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS");
     private final String catalog;
     private final Session bucketedSession;
 
@@ -349,7 +353,27 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testNaNPartition()
     {
+        // Only NaN partition
         assertUpdate("DROP TABLE IF EXISTS test_nan_partition");
+        assertUpdate("CREATE TABLE test_nan_partition(a varchar, d double) WITH (partitioned_by = ARRAY['d'])");
+        assertUpdate("INSERT INTO test_nan_partition VALUES ('b', nan())", 1);
+
+        assertQuery(
+                "SELECT a, d, regexp_replace(\"$path\", '.*(/[^/]*/[^/]*/)[^/]*', '...$1...') FROM test_nan_partition",
+                "VALUES ('b', SQRT(-1), '.../test_nan_partition/d=NaN/...')"); // SQRT(-1) is H2's recommended way to obtain NaN
+        assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x");
+        assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x OR rand() = 42");
+        assertQueryReturnsEmptyResult("SELECT * FROM test_nan_partition t1 JOIN test_nan_partition t2 ON t1.d = t2.d");
+        assertQuery(
+                "SHOW STATS FOR test_nan_partition",
+                "VALUES " +
+                        "('a', 1, 1, 0, null, null, null), " +
+                        "('d', null, 1, 0, null, null, null), " +
+                        "(null, null, null, null, 1, null, null)");
+
+        assertUpdate("DROP TABLE IF EXISTS test_nan_partition");
+
+        // NaN partition and other partitions
         assertUpdate("CREATE TABLE test_nan_partition(a varchar, d double) WITH (partitioned_by = ARRAY['d'])");
         assertUpdate("INSERT INTO test_nan_partition VALUES ('a', 42e0), ('b', nan())", 2);
 
@@ -358,19 +382,21 @@ public class TestHiveIntegrationSmokeTest
                 "VALUES " +
                         "  ('a', 42, '.../test_nan_partition/d=42.0/...'), " +
                         "  ('b', SQRT(-1), '.../test_nan_partition/d=NaN/...')"); // SQRT(-1) is H2's recommended way to obtain NaN
-
         assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x");
         assertQueryReturnsEmptyResult("SELECT a FROM test_nan_partition JOIN (VALUES 33e0) u(x) ON d = x OR rand() = 42");
-
+        assertQuery("SELECT * FROM test_nan_partition t1 JOIN test_nan_partition t2 ON t1.d = t2.d", "VALUES ('a', 42, 'a', 42)");
         assertQuery(
-                "SELECT * FROM test_nan_partition t1 JOIN test_nan_partition t2 ON t1.d = t2.d",
-                "VALUES ('a', 42, 'a', 42)");
+                "SHOW STATS FOR test_nan_partition",
+                "VALUES " +
+                        "('a', 2, 1, 0, null, null, null), " +
+                        "('d', null, 2, 0, null, null, null), " +
+                        "(null, null, null, null, 2, null, null)");
 
         assertUpdate("DROP TABLE test_nan_partition");
     }
 
     @Test
-    public void testJoinWithPartitionFilterOnPartionedTable()
+    public void testJoinWithPartitionFilterOnPartitionedTable()
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setIdentity(Identity.forUser("hive")
@@ -769,6 +795,194 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(admin, "DROP SCHEMA test_schema_authorization");
         assertUpdate(admin, "DROP ROLE admin");
+    }
+
+    @Test
+    public void testTableAuthorization()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
+        assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
+
+        assertAccessDenied(
+                alice,
+                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice",
+                "Cannot set authorization for table test_table_authorization.foo to USER alice");
+        assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
+        assertUpdate(alice, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION admin");
+
+        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
+        assertUpdate(admin, "DROP SCHEMA test_table_authorization");
+    }
+
+    @Test
+    public void testTableAuthorizationForRole()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        assertUpdate(admin, "CREATE SCHEMA test_table_authorization");
+        assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
+        assertUpdate(admin, "CREATE ROLE admin");
+
+        // TODO Change assertions once https://github.com/prestosql/presto/issues/5706 is done
+        assertAccessDenied(
+                alice,
+                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
+                "Cannot set authorization for table test_table_authorization.foo to ROLE admin");
+        assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
+        assertQueryFails(
+                alice,
+                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
+                "Setting table owner type as a role is not supported");
+
+        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
+        assertUpdate(admin, "DROP SCHEMA test_table_authorization");
+        assertUpdate(admin, "DROP ROLE admin");
+    }
+
+    @Test
+    public void testViewAuthorization()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+
+        assertUpdate(admin, "CREATE SCHEMA " + schema);
+        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT current_user AS user");
+
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice",
+                "Cannot set authorization for view " + schema + ".test_view to USER alice");
+        assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
+        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
+
+        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        assertUpdate(admin, "DROP SCHEMA " + schema);
+    }
+
+    @Test
+    public void testViewAuthorizationSecurityDefiner()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+
+        assertUpdate(admin, "CREATE SCHEMA " + schema);
+        assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
+        assertUpdate(admin, "INSERT INTO " + schema + ".test_table VALUES (1)", 1);
+        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view SECURITY DEFINER AS SELECT * from " + schema + ".test_table");
+        assertUpdate(admin, "GRANT SELECT ON " + schema + ".test_view TO alice");
+
+        assertQuery(alice, "SELECT * FROM " + schema + ".test_view", "VALUES (1)");
+        assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
+        assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
+
+        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
+        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
+        assertUpdate(admin, "DROP SCHEMA " + schema);
+    }
+
+    @Test
+    public void testViewAuthorizationSecurityInvoker()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+
+        assertUpdate(admin, "CREATE SCHEMA " + schema);
+        assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
+        assertUpdate(admin, "INSERT INTO " + schema + ".test_table VALUES (1)", 1);
+        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view SECURITY INVOKER AS SELECT * from " + schema + ".test_table");
+        assertUpdate(admin, "GRANT SELECT ON " + schema + ".test_view TO alice");
+
+        assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
+        assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
+        assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
+
+        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
+        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
+        assertUpdate(admin, "DROP SCHEMA " + schema);
+    }
+
+    @Test
+    public void testViewAuthorizationForRole()
+    {
+        Session admin = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("hive").withRole("hive", new SelectedRole(ROLE, Optional.of("admin"))).build())
+                .build();
+
+        Session alice = testSessionBuilder()
+                .setCatalog(getSession().getCatalog().get())
+                .setIdentity(Identity.forUser("alice").build())
+                .build();
+
+        String schema = "test_view_authorization" + TestTable.randomTableSuffix();
+
+        assertUpdate(admin, "CREATE SCHEMA " + schema);
+        assertUpdate(admin, "CREATE TABLE " + schema + ".test_table (col int)");
+        assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT * FROM " + schema + ".test_table");
+        assertUpdate(admin, "CREATE ROLE admin");
+
+        // TODO Change assertions once https://github.com/prestosql/presto/issues/5706 is done
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
+                "Cannot set authorization for view " + schema + ".test_view to ROLE admin");
+        assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
+        assertQueryFails(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
+                "Setting table owner type as a role is not supported");
+
+        assertUpdate(admin, "DROP ROLE admin");
+        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
+        assertUpdate(admin, "DROP SCHEMA " + schema);
     }
 
     @Test
@@ -2118,6 +2332,11 @@ public class TestHiveIntegrationSmokeTest
                 ")");
         assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 0");
 
+        assertAccessDenied(
+                format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"),
+                format("Cannot insert into table hive.tpch.%s", tableName),
+                privilege(tableName, INSERT_TABLE));
+
         // create an empty partition
         assertUpdate(format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
         assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
@@ -2144,11 +2363,21 @@ public class TestHiveIntegrationSmokeTest
 
         String firstPartition = new Path((String) paths.get(0).getField(0)).getParent().toString();
 
+        assertAccessDenied(
+                format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName),
+                format("Cannot delete from table hive.tpch.%s", tableName),
+                privilege(tableName, DELETE_TABLE));
+
         assertQueryFails(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['empty'])", TPCH_SCHEMA, tableName), "Partition 'part=empty' does not exist");
         assertUpdate(format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName));
 
         assertQuery(getSession(), format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 2");
         assertQuery(getSession(), "SELECT count(*) FROM " + tableName, "SELECT 2");
+
+        assertAccessDenied(
+                format("CALL system.register_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName),
+                format("Cannot insert into table hive.tpch.%s", tableName),
+                privilege(tableName, INSERT_TABLE));
 
         assertUpdate(format("CALL system.register_partition('%s', '%s', ARRAY['part'], ARRAY['first'], '%s')", TPCH_SCHEMA, tableName, firstPartition));
 
@@ -2887,7 +3116,7 @@ public class TestHiveIntegrationSmokeTest
             fail("expected exception");
         }
         catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
+            assertEquals(e.getMessage(), "Deletes must match whole partitions for non-transactional tables");
         }
 
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' AND linenumber<>3");
@@ -2900,7 +3129,7 @@ public class TestHiveIntegrationSmokeTest
     private TableMetadata getTableMetadata(String catalog, String schema, String tableName)
     {
         Session session = getSession();
-        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
 
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
@@ -2914,7 +3143,7 @@ public class TestHiveIntegrationSmokeTest
     private Object getHiveTableProperty(String tableName, Function<HiveTableHandle, Object> propertyGetter)
     {
         Session session = getSession();
-        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
 
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
@@ -3008,7 +3237,7 @@ public class TestHiveIntegrationSmokeTest
     @Test(dataProvider = "timestampPrecision")
     public void testTemporalArrays(HiveTimestampPrecision timestampPrecision)
     {
-        Session session = withTimestampPrecision(getSession(), timestampPrecision.name());
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
         assertUpdate("DROP TABLE IF EXISTS tmp_array11");
         assertUpdate("CREATE TABLE tmp_array11 AS SELECT ARRAY[DATE '2014-09-30'] AS col", 1);
         assertOneNotNullResult("SELECT col[1] FROM tmp_array11");
@@ -3020,7 +3249,7 @@ public class TestHiveIntegrationSmokeTest
     @Test(dataProvider = "timestampPrecision")
     public void testMaps(HiveTimestampPrecision timestampPrecision)
     {
-        Session session = withTimestampPrecision(getSession(), timestampPrecision.name());
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
         assertUpdate("DROP TABLE IF EXISTS tmp_map1");
         assertUpdate("CREATE TABLE tmp_map1 AS SELECT MAP(ARRAY[0,1], ARRAY[2,NULL]) AS col", 1);
         assertQuery("SELECT col[0] FROM tmp_map1", "SELECT 2");
@@ -4171,51 +4400,90 @@ public class TestHiveIntegrationSmokeTest
     @DataProvider
     public Object[][] timestampPrecisionAndValues()
     {
-        // TODO: revisit values once we handle write path and are able to write with higher precision,
-        //  make sure push-down happens correctly in the presence of rounding;
-        // consider using LocalDateTime instead of String
         return new Object[][] {
-                {HiveTimestampPrecision.MILLISECONDS, "1965-10-31 01:00:08.123"},
-                {HiveTimestampPrecision.MICROSECONDS, "1965-10-31 01:00:08.123000"},
-                {HiveTimestampPrecision.NANOSECONDS, "1965-10-31 01:00:08.123000000"},
-                {HiveTimestampPrecision.MILLISECONDS, "2012-10-31 01:00:08.123"},
-                {HiveTimestampPrecision.MICROSECONDS, "2012-10-31 01:00:08.123000"},
-                {HiveTimestampPrecision.NANOSECONDS, "2012-10-31 01:00:08.123000000"}};
+                {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123")},
+                {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123456")},
+                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123000000")},
+                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123000001")},
+                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2012-10-31T01:00:08.123456789")},
+                {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123")},
+                {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123456")},
+                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123000000")},
+                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123000001")},
+                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("1965-10-31T01:00:08.123456789")}};
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, String value)
+    public void testParquetTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
-        Session session = withTimestampPrecision(getSession(), timestampPrecision.name());
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
         assertUpdate("DROP TABLE IF EXISTS test_parquet_timestamp_predicate_pushdown");
         assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
-        assertUpdate(format("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (TIMESTAMP '%s')", value), 1);
-        assertQuery(session, "SELECT * FROM test_parquet_timestamp_predicate_pushdown", format("VALUES (TIMESTAMP '%s')", value));
+        assertUpdate(session, format("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (%s)", formatTimestamp(value)), 1);
+        assertQuery(session, "SELECT * FROM test_parquet_timestamp_predicate_pushdown", format("VALUES (%s)", formatTimestamp(value)));
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t < TIMESTAMP '%s'", value));
+                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t < %s", formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         queryResult = queryRunner.executeWithQueryId(
                 session,
-                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t > TIMESTAMP '%s'", value));
+                format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t > %s", formatTimestamp(value)));
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
-        ExponentialSleeper sleeper = new ExponentialSleeper(
-                new Duration(0, SECONDS),
-                new Duration(5, SECONDS),
-                new Duration(100, MILLISECONDS),
-                2.0);
+        // (might be fixed by https://github.com/prestosql/presto/issues/5172)
+        ExponentialSleeper sleeper = new ExponentialSleeper();
         assertEventually(new Duration(30, SECONDS), () -> {
             ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
                     session,
-                    format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = TIMESTAMP '%s'", value));
+                    format("SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)));
             sleeper.sleep();
             assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
         });
+    }
+
+    @Test(dataProvider = "timestampPrecisionAndValues")
+    public void testOrcTimestampPredicatePushdown(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    {
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
+        assertUpdate("DROP TABLE IF EXISTS test_orc_timestamp_predicate_pushdown");
+        assertUpdate("CREATE TABLE test_orc_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'ORC')");
+        assertUpdate(session, format("INSERT INTO test_orc_timestamp_predicate_pushdown VALUES (%s)", formatTimestamp(value)), 1);
+        assertQuery(session, "SELECT * FROM test_orc_timestamp_predicate_pushdown", format("VALUES (%s)", formatTimestamp(value)));
+
+        // to account for the fact that ORC stats are stored at millisecond precision and Presto rounds timestamps,
+        // we filter by timestamps that differ from the actual value by at least 1ms, to observe pruning
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
+                session,
+                format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < %s", formatTimestamp(value.minusNanos(MILLISECONDS.toNanos(1)))));
+        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+
+        queryResult = queryRunner.executeWithQueryId(
+                session,
+                format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t > %s", formatTimestamp(value.plusNanos(MILLISECONDS.toNanos(1)))));
+        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+
+        assertQuery(session, "SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < " + formatTimestamp(value.plusNanos(1)), format("VALUES (%s)", formatTimestamp(value)));
+
+        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
+        // (might be fixed by https://github.com/prestosql/presto/issues/5172)
+        ExponentialSleeper sleeper = new ExponentialSleeper();
+        assertEventually(new Duration(30, SECONDS), () -> {
+            ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
+                    session,
+                    format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t = %s", formatTimestamp(value)));
+            sleeper.sleep();
+            assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+        });
+    }
+
+    private static String formatTimestamp(LocalDateTime timestamp)
+    {
+        return format("TIMESTAMP '%s'", TIMESTAMP_FORMATTER.format(timestamp));
     }
 
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
@@ -5261,7 +5529,7 @@ public class TestHiveIntegrationSmokeTest
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Session session = getSession();
-                Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
                 String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
@@ -5308,7 +5576,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "CREATE TABLE " + tableName + " (a bigint, b varchar, c double)";
 
         Session testSession = testSessionBuilder()
-                .setIdentity(Identity.ofUser("test_access_owner"))
+                .setIdentity(ofUser("test_access_owner"))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
@@ -5455,7 +5723,7 @@ public class TestHiveIntegrationSmokeTest
         String viewName = "test_show_views";
 
         Session testSession = testSessionBuilder()
-                .setIdentity(Identity.ofUser("test_view_access_owner"))
+                .setIdentity(ofUser("test_view_access_owner"))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
@@ -5630,6 +5898,40 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCollectStatisticsOnCreateTableTimestampWithPrecision()
+    {
+        Session nanosecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS);
+
+        String tableName = "test_stats_on_create_timestamp_with_precision";
+
+        try {
+            assertUpdate(nanosecondsTimestamp,
+                    "CREATE TABLE " + tableName + "(c_timestamp) AS VALUES " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.119', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111999', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111999' ",
+                    12);
+
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, 9.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
     public void testCollectColumnStatisticsOnInsert()
     {
         String tableName = "test_collect_column_statistics_on_insert";
@@ -5768,26 +6070,6 @@ public class TestHiveIntegrationSmokeTest
         String tableName = "test_analyze_empty_table";
         assertUpdate(format("CREATE TABLE %s (c_bigint BIGINT, c_varchar VARCHAR(2))", tableName));
         assertUpdate("ANALYZE " + tableName, 0);
-    }
-
-    @DataProvider
-    public Object[][] nonDefaultTimestampPrecisions()
-    {
-        return new Object[][] {
-                {HiveTimestampPrecision.MICROSECONDS},
-                {HiveTimestampPrecision.NANOSECONDS}
-        };
-    }
-
-    @Test(dataProvider = "nonDefaultTimestampPrecisions")
-    public void testWriteNonDefaultPrecisionTimestampColumn(HiveTimestampPrecision timestampPrecision)
-    {
-        SqlExecutor sqlExecutor = sql -> getQueryRunner().execute(sql);
-        try (TestTable table = new TestTable(sqlExecutor, "test_analyze_empty_timestamp", "(c_bigint BIGINT, c_timestamp TIMESTAMP)")) {
-            Session session = withTimestampPrecision(getSession(), timestampPrecision.name());
-            assertQueryFails(session, "ANALYZE " + table.getName(), format("\\QCREATE TABLE, INSERT and ANALYZE are not supported with requested timestamp precision: timestamp(%s)\\E", timestampPrecision.getPrecision()));
-            assertQueryFails(session, format("INSERT INTO %s VALUES (1, TIMESTAMP'2001-02-03 11:22:33.123456789')", table.getName()), format("\\QCREATE TABLE, INSERT and ANALYZE are not supported with requested timestamp precision: timestamp(%s)\\E", timestampPrecision.getPrecision()));
-        }
     }
 
     @Test
@@ -6236,6 +6518,68 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testAnalyzeTableTimestampWithPrecision()
+    {
+        String catalog = getSession().getCatalog().get();
+        Session nanosecondsTimestamp = Session.builder(withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS))
+                // Disable column statistics collection when creating the table
+                .setCatalogSessionProperty(catalog, "collect_column_statistics_on_write", "false")
+                .build();
+        Session microsecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS);
+        Session millisecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.MILLISECONDS);
+
+        String tableName = "test_analyze_timestamp_with_precision";
+
+        try {
+            assertUpdate(
+                    nanosecondsTimestamp,
+                    "CREATE TABLE " + tableName + "(c_timestamp) AS VALUES " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.119', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111999', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111111', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111115', " +
+                            "TIMESTAMP '1988-04-08 02:03:04.111111999' ",
+                    12);
+
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, null, null, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+
+            assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
+            assertUpdate(nanosecondsTimestamp, "ANALYZE " + tableName, 12);
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, 9.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+
+            assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
+            assertUpdate(microsecondsTimestamp, "ANALYZE " + tableName, 12);
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, 7.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+
+            assertUpdate(format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, tableName));
+            assertUpdate(millisecondsTimestamp, "ANALYZE " + tableName, 12);
+            assertQuery("SHOW STATS FOR " + tableName,
+                    "SELECT * FROM VALUES " +
+                            "('c_timestamp', null, 4.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 12.0, null, null)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
     public void testInvalidColumnsAnalyzeTable()
     {
         String tableName = "test_invalid_analyze_table";
@@ -6647,6 +6991,11 @@ public class TestHiveIntegrationSmokeTest
                 format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['WRONG', 'KEY']])", TPCH_SCHEMA, "non_existing_table"),
                 format("Table '%s.non_existing_table' does not exist", TPCH_SCHEMA));
 
+        assertAccessDenied(
+                format("CALL system.drop_stats('%s', '%s')", TPCH_SCHEMA, unpartitionedTableName),
+                format("Cannot insert into table hive.tpch.%s", unpartitionedTableName),
+                privilege(unpartitionedTableName, INSERT_TABLE));
+
         assertUpdate("DROP TABLE " + unpartitionedTableName);
         assertUpdate("DROP TABLE " + partitionedTableName);
     }
@@ -6932,7 +7281,7 @@ public class TestHiveIntegrationSmokeTest
 
     private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
     {
-        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .execute(session, transactionSession -> {
                     QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
@@ -7079,6 +7428,110 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(
                 "CREATE TABLE create_unsupported_csv(i INT, bound VARCHAR(10), unbound VARCHAR, dummy VARCHAR) WITH (format = 'CSV')",
                 "\\QHive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: i integer, bound varchar(10)\\E");
+    }
+
+    @Test
+    public void testWriteInvalidPrecisionTimestamp()
+    {
+        Session session = withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS);
+        assertQueryFails(
+                session,
+                "CREATE TABLE test_invalid_precision_timestamp(ts) AS SELECT TIMESTAMP '2001-02-03 11:22:33.123456789'",
+                "\\QIncorrect timestamp precision for timestamp(9); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+        assertQueryFails(
+                session,
+                "CREATE TABLE test_invalid_precision_timestamp (ts TIMESTAMP(9))",
+                "\\QIncorrect timestamp precision for timestamp(9); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+        assertQueryFails(
+                session,
+                "CREATE TABLE test_invalid_precision_timestamp(ts) AS SELECT TIMESTAMP '2001-02-03 11:22:33.123'",
+                "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+        assertQueryFails(
+                session,
+                "CREATE TABLE test_invalid_precision_timestamp (ts TIMESTAMP(3))",
+                "\\QIncorrect timestamp precision for timestamp(3); the configured precision is " + HiveTimestampPrecision.MICROSECONDS);
+    }
+
+    @Test
+    public void testTimestampPrecisionInsert()
+    {
+        testWithAllStorageFormats(this::testTimestampPrecisionInsert);
+    }
+
+    private void testTimestampPrecisionInsert(Session session, HiveStorageFormat storageFormat)
+    {
+        if (storageFormat == HiveStorageFormat.AVRO) {
+            // Avro timestamps are stored with millisecond precision
+            return;
+        }
+
+        String tableName = "test_timestamp_precision_" + randomTableSuffix();
+        String createTable = "CREATE TABLE " + tableName + " (ts TIMESTAMP) WITH (format = '%s')";
+        @Language("SQL") String insert = "INSERT INTO " + tableName + " VALUES (TIMESTAMP '%s')";
+
+        testTimestampPrecisionWrites(
+                session,
+                tableName,
+                (ts, precision) -> {
+                    assertUpdate("DROP TABLE IF EXISTS " + tableName);
+                    assertUpdate(format(createTable, storageFormat));
+                    assertUpdate(withTimestampPrecision(session, precision), format(insert, ts), 1);
+                });
+    }
+
+    @Test
+    public void testTimestampPrecisionCtas()
+    {
+        testWithAllStorageFormats(this::testTimestampPrecisionCtas);
+    }
+
+    private void testTimestampPrecisionCtas(Session session, HiveStorageFormat storageFormat)
+    {
+        if (storageFormat == HiveStorageFormat.AVRO) {
+            // Avro timestamps are stored with millisecond precision
+            return;
+        }
+
+        String tableName = "test_timestamp_precision_" + randomTableSuffix();
+        String createTableAs = "CREATE TABLE " + tableName + " WITH (format = '%s') AS SELECT TIMESTAMP '%s' ts";
+
+        testTimestampPrecisionWrites(
+                session,
+                tableName,
+                (ts, precision) -> {
+                    assertUpdate("DROP TABLE IF EXISTS " + tableName);
+                    assertUpdate(withTimestampPrecision(session, precision), format(createTableAs, storageFormat, ts), 1);
+                });
+    }
+
+    private void testTimestampPrecisionWrites(Session session, String tableName, BiConsumer<String, HiveTimestampPrecision> populateData)
+    {
+        populateData.accept("2019-02-03 18:30:00.123", HiveTimestampPrecision.MILLISECONDS);
+        @Language("SQL") String sql = "SELECT ts FROM " + tableName;
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MILLISECONDS), sql, "VALUES ('2019-02-03 18:30:00.123')");
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MICROSECONDS), sql, "VALUES ('2019-02-03 18:30:00.123')");
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.NANOSECONDS), sql, "VALUES ('2019-02-03 18:30:00.123')");
+
+        populateData.accept("2019-02-03 18:30:00.456789", HiveTimestampPrecision.MICROSECONDS);
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MILLISECONDS), sql, "VALUES ('2019-02-03 18:30:00.457')");
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MICROSECONDS), sql, "VALUES ('2019-02-03 18:30:00.456789')");
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.NANOSECONDS), sql, "VALUES ('2019-02-03 18:30:00.456789000')");
+
+        populateData.accept("2019-02-03 18:30:00.456789876", HiveTimestampPrecision.NANOSECONDS);
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MILLISECONDS), sql, "VALUES ('2019-02-03 18:30:00.457')");
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MICROSECONDS), sql, "VALUES ('2019-02-03 18:30:00.456790')");
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.NANOSECONDS), sql, "VALUES ('2019-02-03 18:30:00.456789876')");
+
+        // some rounding edge cases
+
+        populateData.accept("2019-02-03 18:30:00.999999", HiveTimestampPrecision.MICROSECONDS);
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MILLISECONDS), sql, "VALUES ('2019-02-03 18:30:01.000')");
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MICROSECONDS), sql, "VALUES ('2019-02-03 18:30:00.999999')");
+
+        populateData.accept("2019-02-03 18:30:00.999999999", HiveTimestampPrecision.NANOSECONDS);
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MILLISECONDS), sql, "VALUES ('2019-02-03 18:30:01.000')");
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.MICROSECONDS), sql, "VALUES ('2019-02-03 18:30:01.000000')");
+        assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.NANOSECONDS), sql, "VALUES ('2019-02-03 18:30:00.999999999')");
     }
 
     private Session getParallelWriteSession()
@@ -7237,6 +7690,15 @@ public class TestHiveIntegrationSmokeTest
             this.sleepIncrementFactor = sleepIncrementFactor;
         }
 
+        ExponentialSleeper()
+        {
+            this(
+                    new Duration(0, SECONDS),
+                    new Duration(5, SECONDS),
+                    new Duration(100, MILLISECONDS),
+                    2.0);
+        }
+
         public void sleep()
         {
             try {
@@ -7266,10 +7728,10 @@ public class TestHiveIntegrationSmokeTest
                 {HiveTimestampPrecision.NANOSECONDS}};
     }
 
-    private Session withTimestampPrecision(Session session, String precision)
+    private Session withTimestampPrecision(Session session, HiveTimestampPrecision precision)
     {
         return Session.builder(session)
-                .setCatalogSessionProperty(catalog, "timestamp_precision", precision)
+                .setCatalogSessionProperty(catalog, "timestamp_precision", precision.name())
                 .build();
     }
 }

@@ -65,6 +65,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.lang.Thread.currentThread;
@@ -185,7 +186,8 @@ public abstract class AbstractTestDistributedQueries
         assertQueryFails("CREATE TABLE " + tableName + " (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
-        tableName = "test_create_table_if_not_exists_" + randomTableSuffix();
+        // TODO (https://github.com/prestosql/presto/issues/5901) revert to longer name when Oracle version is updated
+        tableName = "test_cr_tab_not_exists_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar, c double)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
@@ -204,7 +206,7 @@ public abstract class AbstractTestDistributedQueries
         assertTableColumnNames(tableName, "a", "b", "c");
 
         String tableNameLike = "test_create_like_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d boolean, e varchar)");
+        assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d bigint, e varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
         assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
 
@@ -1009,17 +1011,17 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testQueryLoggingCount()
     {
-        QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
+        QueryManager queryManager = getDistributedQueryRunner().getCoordinator().getQueryManager();
         executeExclusively(() -> {
-            assertUntilTimeout(
+            assertEventually(
+                    new Duration(1, MINUTES),
                     () -> assertEquals(
                             queryManager.getQueries().stream()
                                     .map(BasicQueryInfo::getQueryId)
                                     .map(queryManager::getFullQueryInfo)
                                     .filter(info -> !info.isFinalQueryInfo())
                                     .collect(toList()),
-                            ImmutableList.of()),
-                    new Duration(1, MINUTES));
+                            ImmutableList.of()));
 
             // We cannot simply get the number of completed queries as soon as all the queries are completed, because this counter may not be up-to-date at that point.
             // The completed queries counter is updated in a final query info listener, which is called eventually.
@@ -1035,9 +1037,9 @@ public abstract class AbstractTestDistributedQueries
             assertQueryFails("SELECT * FROM " + tableName, ".*Table .* does not exist");
 
             // TODO: Figure out a better way of synchronization
-            assertUntilTimeout(
-                    () -> assertEquals(dispatchManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount, 4),
-                    new Duration(1, MINUTES));
+            assertEventually(
+                    new Duration(1, MINUTES),
+                    () -> assertEquals(dispatchManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount, 4));
             assertEquals(dispatchManager.getStats().getSubmittedQueries().getTotalCount() - beforeSubmittedQueriesCount, 4);
         });
     }
@@ -1055,23 +1057,6 @@ public abstract class AbstractTestDistributedQueries
             lastValue = currentValue;
         }
         throw new UncheckedTimeoutException();
-    }
-
-    private static void assertUntilTimeout(Runnable assertion, Duration timeout)
-    {
-        long start = System.nanoTime();
-        while (!currentThread().isInterrupted()) {
-            try {
-                assertion.run();
-                return;
-            }
-            catch (AssertionError e) {
-                if (nanosSince(start).compareTo(timeout) > 0) {
-                    throw e;
-                }
-            }
-            sleepUninterruptibly(50, MILLISECONDS);
-        }
     }
 
     @Test
@@ -1198,6 +1183,24 @@ public abstract class AbstractTestDistributedQueries
                 "Cannot select from columns \\[.*\\] in table .*.orders.*",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
+        // verify that groups are set inside access control
+        executeExclusively(() -> {
+            try {
+                // require view owner to be in a group to access table
+                getQueryRunner().getAccessControl().denyIdentityTable((identity, table) -> identity.getGroups().contains("testgroup") || !table.equals("orders"));
+                assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName))
+                        .hasMessageMatching("Access Denied: View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders");
+
+                // verify view can be queried when owner is in group
+                getQueryRunner().getGroupProvider().setUserGroups(ImmutableMap.of(viewOwnerSession.getUser(), ImmutableSet.of("testgroup")));
+                getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName);
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+                getQueryRunner().getGroupProvider().reset();
+            }
+        });
+
         // change access denied exception to view
         assertAccessDenied("SHOW CREATE VIEW " + nestedViewName, "Cannot show create table for .*test_nested_view_column_access.*", privilege(nestedViewName, SHOW_CREATE_TABLE));
         assertAccessAllowed("SHOW CREATE VIEW " + nestedViewName, privilege("test_denied_access_view", SHOW_CREATE_TABLE));
@@ -1261,17 +1264,16 @@ public abstract class AbstractTestDistributedQueries
     {
         String tableName = "test_written_stats_" + randomTableSuffix();
         String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-        DistributedQueryRunner distributedQueryRunner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
         assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
 
         sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
-        resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
-        queryInfo = distributedQueryRunner.getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
+        queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
@@ -1474,6 +1476,7 @@ public abstract class AbstractTestDistributedQueries
     private List<DataMappingTestSetup> testDataMappingSmokeTestData()
     {
         return ImmutableList.<DataMappingTestSetup>builder()
+                .add(new DataMappingTestSetup("boolean", "false", "true"))
                 .add(new DataMappingTestSetup("tinyint", "37", "127"))
                 .add(new DataMappingTestSetup("smallint", "32123", "32767"))
                 .add(new DataMappingTestSetup("integer", "1274942432", "2147483647"))

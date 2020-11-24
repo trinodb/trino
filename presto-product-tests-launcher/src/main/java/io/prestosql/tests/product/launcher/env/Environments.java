@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-import com.github.dockerjava.api.DockerClient;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.ClassPath;
@@ -22,10 +21,8 @@ import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import org.testcontainers.DockerClientFactory;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.killContainers;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.removeNetworks;
@@ -49,32 +46,26 @@ public final class Environments
     public static void pruneContainers()
     {
         log.info("Shutting down previous containers");
-        try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
+        try {
             killContainers(
-                    dockerClient,
+                    DockerClientFactory.lazyClient(),
                     listContainersCmd -> listContainersCmd.withLabelFilter(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)));
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
         catch (RuntimeException e) {
-            log.warn("Could not prune containers correctly: %s", getStackTraceAsString(e));
+            log.warn(e, "Could not prune containers correctly");
         }
     }
 
     public static void pruneNetworks()
     {
         log.info("Removing previous networks");
-        try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
+        try {
             removeNetworks(
-                    dockerClient,
+                    DockerClientFactory.lazyClient(),
                     listNetworksCmd -> listNetworksCmd.withNameFilter(PRODUCT_TEST_LAUNCHER_NETWORK));
         }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
         catch (RuntimeException e) {
-            log.warn("Could not prune networks correctly: %s", getStackTraceAsString(e));
+            log.warn(e, "Could not prune networks correctly");
         }
     }
 

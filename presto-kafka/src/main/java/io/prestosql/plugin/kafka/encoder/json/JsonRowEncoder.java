@@ -51,6 +51,7 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class JsonRowEncoder
@@ -118,107 +119,107 @@ public class JsonRowEncoder
     private DateTimeFormat parseDataFormat(String dataFormat, String columnName)
     {
         try {
-            return DateTimeFormat.valueOf(dataFormat.toUpperCase().replaceAll("-", "_").strip());
+            return DateTimeFormat.valueOf(dataFormat.toUpperCase(ENGLISH).replaceAll("-", "_").strip());
         }
         catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(format("Unable to parse data format '%s' for column '%s'", dataFormat, columnName), e);
         }
     }
 
-    private String currentColumnName()
+    private String currentColumnMapping()
     {
-        return columnHandles.get(currentColumnIndex).getName();
+        return columnHandles.get(currentColumnIndex).getMapping();
     }
 
     @Override
     protected void appendNullValue()
     {
-        node.putNull(currentColumnName());
+        node.putNull(currentColumnMapping());
     }
 
     @Override
     protected void appendLong(long value)
     {
-        node.put(currentColumnName(), value);
+        node.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendInt(int value)
     {
-        node.put(currentColumnName(), value);
+        node.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendShort(short value)
     {
-        node.put(currentColumnName(), value);
+        node.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendByte(byte value)
     {
-        node.put(currentColumnName(), value);
+        node.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendDouble(double value)
     {
-        node.put(currentColumnName(), value);
+        node.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendFloat(float value)
     {
-        node.put(currentColumnName(), value);
+        node.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendBoolean(boolean value)
     {
-        node.put(currentColumnName(), value);
+        node.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendString(String value)
     {
-        node.put(currentColumnName(), value);
+        node.put(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendByteBuffer(ByteBuffer value)
     {
-        node.put(currentColumnName(), value.array());
+        node.put(currentColumnMapping(), value.array());
     }
 
     @Override
     protected void appendSqlDate(SqlDate value)
     {
-        node.put(currentColumnName(), dateTimeFormatters.get(currentColumnIndex).formatDate(value));
+        node.put(currentColumnMapping(), dateTimeFormatters.get(currentColumnIndex).formatDate(value));
     }
 
     @Override
     protected void appendSqlTime(SqlTime value)
     {
         int precision = ((TimeType) columnHandles.get(currentColumnIndex).getType()).getPrecision();
-        node.put(currentColumnName(), dateTimeFormatters.get(currentColumnIndex).formatTime(value, precision));
+        node.put(currentColumnMapping(), dateTimeFormatters.get(currentColumnIndex).formatTime(value, precision));
     }
 
     @Override
     protected void appendSqlTimeWithTimeZone(SqlTimeWithTimeZone value)
     {
-        node.put(currentColumnName(), dateTimeFormatters.get(currentColumnIndex).formatTimeWithZone(value));
+        node.put(currentColumnMapping(), dateTimeFormatters.get(currentColumnIndex).formatTimeWithZone(value));
     }
 
     @Override
     protected void appendSqlTimestamp(SqlTimestamp value)
     {
-        node.put(currentColumnName(), dateTimeFormatters.get(currentColumnIndex).formatTimestamp(value));
+        node.put(currentColumnMapping(), dateTimeFormatters.get(currentColumnIndex).formatTimestamp(value));
     }
 
     @Override
     protected void appendSqlTimestampWithTimeZone(SqlTimestampWithTimeZone value)
     {
-        node.put(currentColumnName(), dateTimeFormatters.get(currentColumnIndex).formatTimestampWithZone(value));
+        node.put(currentColumnMapping(), dateTimeFormatters.get(currentColumnIndex).formatTimestampWithZone(value));
     }
 
     @Override

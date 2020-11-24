@@ -52,8 +52,7 @@ public final class SqlServerQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
-                .builder(createSession(testingSqlServer.getUsername()))
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession(testingSqlServer.getUsername()))
                 .setExtraProperties(extraProperties)
                 .build();
         try {

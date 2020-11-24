@@ -21,7 +21,7 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
-import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
+import io.prestosql.plugin.hive.ReaderPageSource;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.predicate.Domain;
@@ -39,6 +39,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
@@ -53,6 +54,7 @@ import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -186,7 +188,7 @@ public class TestOrcPageSourceFactory
                 .map(HiveColumnHandle::getName)
                 .collect(toImmutableList());
 
-        Optional<ReaderPageSourceWithProjections> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
+        Optional<ReaderPageSource> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
                 new JobConf(new Configuration(false)),
                 SESSION,
                 new Path(filePath),
@@ -196,13 +198,16 @@ public class TestOrcPageSourceFactory
                 createSchema(),
                 columnHandles,
                 tupleDomain,
-                acidInfo);
+                acidInfo,
+                OptionalInt.empty(),
+                false,
+                NO_ACID_TRANSACTION);
 
         checkArgument(pageSourceWithProjections.isPresent());
-        checkArgument(pageSourceWithProjections.get().getProjectedReaderColumns().isEmpty(),
+        checkArgument(pageSourceWithProjections.get().getReaderColumns().isEmpty(),
                 "projected columns not expected here");
 
-        ConnectorPageSource pageSource = pageSourceWithProjections.get().getConnectorPageSource();
+        ConnectorPageSource pageSource = pageSourceWithProjections.get().get();
 
         int nationKeyColumn = columnNames.indexOf("n_nationkey");
         int nameColumn = columnNames.indexOf("n_name");

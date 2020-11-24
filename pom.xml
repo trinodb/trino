@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>103</version>
+        <version>104</version>
     </parent>
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>345-SNAPSHOT</version>
+    <version>347-SNAPSHOT</version>
 
     <name>presto-root</name>
     <description>Presto</description>
@@ -53,11 +53,13 @@
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>181</dep.tempto.version>
+        <dep.tempto.version>182</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
+        <dep.testcontainers.version>1.15.0</dep.testcontainers.version>
+        <dep.docker-java.version>3.2.5</dep.docker-java.version>
         <dep.joda.version>2.10.6</dep.joda.version>
-        <dep.coral.version>1.0.8</dep.coral.version>
+        <dep.coral.version>1.0.12</dep.coral.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -512,7 +514,7 @@
             <dependency>
                 <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-4</version>
+                <version>3.1.2-5</version>
             </dependency>
 
             <dependency>
@@ -791,7 +793,7 @@
             <dependency>
                 <groupId>io.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.5</version>
+                <version>1.6</version>
             </dependency>
 
             <!-- 3rd party -->
@@ -1092,6 +1094,13 @@
             </dependency>
 
             <dependency>
+                <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna</artifactId>
+                <version>5.5.0</version>
+            </dependency>
+
+            <dependency>
                 <groupId>net.jodah</groupId>
                 <artifactId>failsafe</artifactId>
                 <version>2.4.0</version>
@@ -1106,7 +1115,7 @@
             <dependency>
                 <groupId>org.alluxio</groupId>
                 <artifactId>alluxio-shaded-client</artifactId>
-                <version>2.3.0</version>
+                <version>2.4.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
@@ -1196,12 +1205,8 @@
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>3.4.14</version>
+                <version>3.5.8</version>
                 <exclusions>
-                    <exclusion>
-                        <groupId>jline</groupId>
-                        <artifactId>jline</artifactId>
-                    </exclusion>
                     <exclusion>
                         <groupId>log4j</groupId>
                         <artifactId>log4j</artifactId>
@@ -1277,7 +1282,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.2.5</version>
+                <version>42.2.10</version>
             </dependency>
 
             <dependency>
@@ -1288,8 +1293,14 @@
 
             <dependency>
                 <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${dep.testcontainers.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.14.3</version>
+                <version>${dep.testcontainers.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -1411,12 +1422,6 @@
                     <artifactId>provisio-maven-plugin</artifactId>
                     <version>1.0.9</version>
                 </plugin>
-
-                <plugin>
-                    <groupId>pl.project13.maven</groupId>
-                    <artifactId>git-commit-id-plugin</artifactId>
-                    <version>4.0.0</version>
-                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -1531,6 +1536,7 @@
                                     -Xep:MissingOverride:ERROR
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
+                                    -Xep:UnusedVariable:ERROR
                                 </arg>
                             </compilerArgs>
                             <annotationProcessorPaths>

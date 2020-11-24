@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
+
 public interface AccessControl
 {
     /**
@@ -239,6 +241,13 @@ public interface AccessControl
     void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to change the specified table's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, PrestoPrincipal principal);
+
+    /**
      * Check if identity is allowed to rename a column in the specified table.
      *
      * @throws AccessDeniedException if not allowed
@@ -274,6 +283,16 @@ public interface AccessControl
     void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
 
     /**
+     * Check if identity is allowed to change the specified view's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, PrestoPrincipal principal)
+    {
+        denySetViewAuthorization(view.toString(), principal);
+    }
+
+    /**
      * Check if identity is allowed to drop the specified view.
      *
      * @throws AccessDeniedException if not allowed
@@ -293,6 +312,20 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to grant a privilege to the grantee on the specified schema.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Check if identity is allowed to revoke a privilege from the revokee on the specified schema.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRevokeSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal revokee, boolean grantOption);
 
     /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified table.

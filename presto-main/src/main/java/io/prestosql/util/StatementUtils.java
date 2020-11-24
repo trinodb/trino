@@ -55,6 +55,8 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
+import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
@@ -110,6 +112,7 @@ public final class StatementUtils
         builder.put(RenameSchema.class, QueryType.DATA_DEFINITION);
         builder.put(SetSchemaAuthorization.class, QueryType.DATA_DEFINITION);
         builder.put(AddColumn.class, QueryType.DATA_DEFINITION);
+        builder.put(SetTableAuthorization.class, QueryType.DATA_DEFINITION);
         builder.put(CreateTable.class, QueryType.DATA_DEFINITION);
         builder.put(RenameTable.class, QueryType.DATA_DEFINITION);
         builder.put(Comment.class, QueryType.DATA_DEFINITION);
@@ -118,6 +121,7 @@ public final class StatementUtils
         builder.put(DropTable.class, QueryType.DATA_DEFINITION);
         builder.put(CreateView.class, QueryType.DATA_DEFINITION);
         builder.put(RenameView.class, QueryType.DATA_DEFINITION);
+        builder.put(SetViewAuthorization.class, QueryType.DATA_DEFINITION);
         builder.put(DropView.class, QueryType.DATA_DEFINITION);
         builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
         builder.put(RefreshMaterializedView.class, QueryType.INSERT);

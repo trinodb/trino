@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>345-SNAPSHOT</version>
+        <version>347-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-benchto-benchmarks</artifactId>
@@ -20,7 +20,7 @@
         <dependency>
             <groupId>io.prestosql.benchto</groupId>
             <artifactId>benchto-driver</artifactId>
-            <version>0.11</version>
+            <version>0.12</version>
         </dependency>
 
         <dependency>

@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -105,11 +106,14 @@ import static java.util.Objects.requireNonNull;
 public class TestingAccessControlManager
         extends AccessControlManager
 {
+    private static final BiPredicate<Identity, String> IDENTITY_TABLE_TRUE = (identity, table) -> true;
+
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
     private final Map<ColumnMaskKey, List<ViewExpression>> columnMasks = new HashMap<>();
     private Predicate<String> deniedCatalogs = s -> true;
     private Predicate<SchemaTableName> deniedTables = s -> true;
+    private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
 
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
@@ -154,6 +158,7 @@ public class TestingAccessControlManager
         denyPrivileges.clear();
         deniedCatalogs = s -> true;
         deniedTables = s -> true;
+        denyIdentityTable = IDENTITY_TABLE_TRUE;
         rowFilters.clear();
         columnMasks.clear();
     }
@@ -166,6 +171,11 @@ public class TestingAccessControlManager
     public void denyTables(Predicate<SchemaTableName> deniedTables)
     {
         this.deniedTables = this.deniedTables.and(deniedTables);
+    }
+
+    public void denyIdentityTable(BiPredicate<Identity, String> denyIdentityTable)
+    {
+        this.denyIdentityTable = requireNonNull(denyIdentityTable, "denyIdentityTable is null");
     }
 
     @Override
@@ -452,10 +462,13 @@ public class TestingAccessControlManager
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
+        if (!denyIdentityTable.test(context.getIdentity(), tableName.getObjectName())) {
+            denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+        }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
         }
-        if (denyPrivileges.isEmpty()) {
+        if (denyPrivileges.isEmpty() && denyIdentityTable.equals(IDENTITY_TABLE_TRUE)) {
             super.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
         }
     }
@@ -496,6 +509,9 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columns)
     {
+        if (!denyIdentityTable.test(context.getIdentity(), tableName.getObjectName())) {
+            denySelectColumns(tableName.toString(), columns);
+        }
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), SELECT_COLUMN)) {
             denySelectColumns(tableName.toString(), columns);
         }
@@ -504,7 +520,7 @@ public class TestingAccessControlManager
                 denySelectColumns(tableName.toString(), columns);
             }
         }
-        if (denyPrivileges.isEmpty()) {
+        if (denyPrivileges.isEmpty() && denyIdentityTable.equals(IDENTITY_TABLE_TRUE)) {
             super.checkCanSelectFromColumns(context, tableName, columns);
         }
     }

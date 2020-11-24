@@ -288,9 +288,6 @@ public class BenchmarkGroupByHash
         @Param({"true", "false"})
         private boolean hashEnabled = true;
 
-        @Param(GROUP_COUNT_STRING)
-        private int groupCount = GROUP_COUNT;
-
         private List<Page> pages;
         private List<Type> types;
         private int[] channels;

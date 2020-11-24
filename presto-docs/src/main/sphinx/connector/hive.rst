@@ -86,9 +86,9 @@ Supported Table Types
 Transactional and ACID Tables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When connecting to a Hive metastore version 3.x, the Hive connector supports reading
-from insert-only and ACID tables, with full support for partitioning and bucketing.
-Writing to and creation of transactional tables is not supported.
+When connecting to a Hive metastore version 3.x, the Hive connector supports
+reading from and writing to insert-only and ACID tables, with full support for
+partitioning and bucketing. Row-level deletes are supported for ACID tables.
 
 ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
 are not supported.
@@ -248,6 +248,8 @@ Property Name                                      Description                  
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
 
+``hive.dfs.replication``                           Hadoop file system replication factor.
+
 ``hive.security``                                  See :doc:`hive-security`.
 
 ``security.config-file``                           Path of config file to use when ``hive.security=file``.
@@ -306,6 +308,8 @@ Property Name                                      Description                  
 ``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/${USER}``
                                                    is used for write operations. The ``${USER}`` placeholder
                                                    can be used to use a different location for each user.
+
+``hive.translate-hive-views``                      Enable translation for Hive views. (experimental)            ``false``
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
@@ -466,6 +470,9 @@ Property Name                                Description
 Table Statistics
 ----------------
 
+The Hive connector supports collecting and managing :doc:`table statistics
+</optimizer/statistics>` to improve query processing performance.
+
 When writing data, the Hive connector always collects basic statistics
 (``numFiles``, ``numRows``, ``rawDataSize``, ``totalSize``)
 and by default will also collect column level statistics:
@@ -536,6 +543,8 @@ Dynamic Filtering
 The Hive connector supports the :doc:`dynamic filtering </admin/dynamic-filtering>` optimization.
 Dynamic partition pruning is supported for partitioned tables stored in any file format
 for broadcast as well as partitioned joins.
+Dynamic bucket pruning is supported for bucketed tables stored in any file format for
+broadcast joins only.
 
 For tables stored in ORC or Parquet file format, dynamic filters are also pushed into
 local table scan on worker nodes for broadcast joins. Dynamic filter predicates

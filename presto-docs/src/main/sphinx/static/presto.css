@@ -35,3 +35,11 @@ pre.literal-block {
         margin-left: 61rem;
     }
 }
+
+.o-tooltip--left:after {
+    font-size: 0.6rem;
+}
+
+.copybtn:hover {
+    cursor: copy;
+}

@@ -110,13 +110,19 @@ public class PruneDistinctAggregation
         @Override
         public PlanNode visitIntersect(IntersectNode node, Boolean context)
         {
-            return rewriteChildren(node, context);
+            if (node.isDistinct()) {
+                return rewriteChildren(node, context);
+            }
+            return visitPlan(node, context);
         }
 
         @Override
         public PlanNode visitExcept(ExceptNode node, Boolean context)
         {
-            return rewriteChildren(node, context);
+            if (node.isDistinct()) {
+                return rewriteChildren(node, context);
+            }
+            return visitPlan(node, context);
         }
 
         @Override

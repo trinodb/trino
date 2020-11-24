@@ -29,6 +29,7 @@ import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
@@ -44,6 +45,7 @@ import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.function.InvocationConvention;
@@ -261,6 +263,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setTableAuthorization(Session session, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
@@ -339,7 +347,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles)
     {
         throw new UnsupportedOperationException();
     }
@@ -347,7 +355,8 @@ public abstract class AbstractMockMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
             Session session,
-            InsertTableHandle tableHandle,
+            TableHandle tableHandle,
+            InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
             List<TableHandle> sourceTableHandles)
@@ -441,6 +450,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void renameView(Session session, QualifiedObjectName source, QualifiedObjectName target)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setViewAuthorization(Session session, CatalogSchemaTableName view, PrestoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -546,6 +561,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
         throw new UnsupportedOperationException();
     }
@@ -788,7 +815,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, TableHandle tableHandle)
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }

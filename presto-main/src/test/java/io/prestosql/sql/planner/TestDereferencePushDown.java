@@ -15,12 +15,14 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
@@ -168,6 +170,9 @@ public class TestDereferencePushDown
                         "FROM t " +
                         "WHERE " +
                         "msg.x IN (SELECT msg.z FROM t)",
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
+                        .build(),
                 anyTree(
                         semiJoin("a_x", "b_z", "semi_join_symbol",
                                 anyTree(

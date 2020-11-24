@@ -90,7 +90,9 @@ public class ImplementLimitWithTies
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
+                Optional.empty(),
                 FrameBound.Type.CURRENT_ROW,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

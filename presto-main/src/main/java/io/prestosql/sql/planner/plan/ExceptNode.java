@@ -25,13 +25,23 @@ import java.util.List;
 public class ExceptNode
         extends SetOperationNode
 {
+    private final boolean distinct;
+
     public ExceptNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("outputToInputs") ListMultimap<Symbol, Symbol> outputToInputs,
-            @JsonProperty("outputs") List<Symbol> outputs)
+            @JsonProperty("outputs") List<Symbol> outputs,
+            @JsonProperty("distinct") boolean distinct)
     {
         super(id, sources, outputToInputs, outputs);
+        this.distinct = distinct;
+    }
+
+    @JsonProperty
+    public boolean isDistinct()
+    {
+        return distinct;
     }
 
     @Override
@@ -43,6 +53,6 @@ public class ExceptNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExceptNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols());
+        return new ExceptNode(getId(), newChildren, getSymbolMapping(), getOutputSymbols(), isDistinct());
     }
 }

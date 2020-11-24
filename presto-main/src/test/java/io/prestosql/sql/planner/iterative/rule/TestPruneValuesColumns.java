@@ -59,4 +59,47 @@ public class TestPruneValuesColumns
                                 p.values(p.symbol("x"))))
                 .doesNotFire();
     }
+
+    @Test
+    public void testPruneAllOutputs()
+    {
+        tester().assertThat(new PruneValuesColumns())
+                .on(p ->
+                        p.project(
+                                Assignments.of(),
+                                p.values(5, p.symbol("x"))))
+                .matches(
+                        project(
+                                ImmutableMap.of(),
+                                values(5)));
+    }
+
+    @Test
+    public void testPruneAllOutputsWhenValuesExpressionIsNotRow()
+    {
+        tester().assertThat(new PruneValuesColumns())
+                .on(p ->
+                        p.project(
+                                Assignments.of(),
+                                p.valuesOfExpressions(
+                                        ImmutableList.of(p.symbol("x")),
+                                        ImmutableList.of(expression("CAST(ROW(1) AS row(bigint))")))))
+                .matches(
+                        project(
+                                ImmutableMap.of(),
+                                values(1)));
+    }
+
+    @Test
+    public void testDoNotPruneWhenValuesExpressionIsNotRow()
+    {
+        tester().assertThat(new PruneValuesColumns())
+                .on(p ->
+                        p.project(
+                                Assignments.of(p.symbol("x"), expression("x")),
+                                p.valuesOfExpressions(
+                                        ImmutableList.of(p.symbol("x"), p.symbol("y")),
+                                        ImmutableList.of(expression("CAST(ROW(1, 'a') AS row(bigint, char(2)))")))))
+                .doesNotFire();
+    }
 }

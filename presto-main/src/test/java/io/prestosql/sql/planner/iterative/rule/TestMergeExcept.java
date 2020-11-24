@@ -17,7 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.ExceptNode;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
 import org.testng.annotations.Test;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.except;
@@ -89,5 +92,46 @@ public class TestMergeExcept
                             ImmutableList.of(p.values(1, c), u2));
                 })
                 .doesNotFire();
+    }
+
+    @Test
+    public void testQuantifiers()
+    {
+        tester().assertThat(new MergeExcept())
+                .on(p -> buildNestedExcept(p, true, true))
+                .matches(except(true, values("v_1"), values("v_2"), values("b")));
+
+        tester().assertThat(new MergeExcept())
+                .on(p -> buildNestedExcept(p, true, false))
+                .matches(except(true, values("v_1"), values("v_2"), values("b")));
+
+        tester().assertThat(new MergeExcept())
+                .on(p -> buildNestedExcept(p, false, true))
+                .doesNotFire();
+
+        tester().assertThat(new MergeExcept())
+                .on(p -> buildNestedExcept(p, false, false))
+                .matches(except(false, values("v_1"), values("v_2"), values("b")));
+    }
+
+    private PlanNode buildNestedExcept(PlanBuilder builder, boolean sourceDistinct, boolean parentDistinct)
+    {
+        Symbol v1 = builder.symbol("v_1");
+        Symbol v2 = builder.symbol("v_2");
+        Symbol a = builder.symbol("a");
+        Symbol b = builder.symbol("b");
+        Symbol c = builder.symbol("c");
+
+        ExceptNode child1 = builder.except(
+                ImmutableListMultimap.of(a, v1, a, v2),
+                ImmutableList.of(builder.values(v1), builder.values(v2)),
+                sourceDistinct);
+
+        ValuesNode child2 = builder.values(b);
+
+        return builder.except(
+                ImmutableListMultimap.of(c, a, c, b),
+                ImmutableList.of(child1, child2),
+                parentDistinct);
     }
 }

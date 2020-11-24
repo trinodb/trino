@@ -24,6 +24,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -38,7 +39,7 @@ public class FlakyTestRetryAnalyzer
 
     // This property exists so that flaky tests are retried on CI only by default but tests of retrying pass locally as well.
     // TODO replace pom.xml property with explicit invocation of a testng runner (test suite with a test) and amend the retryer behavior on that level
-    private static final String ENABLE_PROPERTY = "io.prestosql.testng.services.FlakyTestRetryAnalyzer.enabled";
+    private static final String ENABLED_SYSTEM_PROPERTY = "io.prestosql.testng.services.FlakyTestRetryAnalyzer.enabled";
 
     @VisibleForTesting
     static final int ALLOWED_RETRIES_COUNT = 2;
@@ -49,22 +50,39 @@ public class FlakyTestRetryAnalyzer
     @Override
     public boolean retry(ITestResult result)
     {
-        if (!isEnabled()) {
+        if (result.isSuccess()) {
             return false;
         }
+
+        Optional<String> enabledSystemPropertyValue = Optional.ofNullable(System.getProperty(ENABLED_SYSTEM_PROPERTY));
+        if (!enabledSystemPropertyValue.map(Boolean::parseBoolean)
+                .orElse(System.getenv("CONTINUOUS_INTEGRATION") != null)) {
+            log.info(
+                    "FlakyTestRetryAnalyzer not enabled: " +
+                            "CONTINUOUS_INTEGRATION environment is not detected or " +
+                            "system property '%s' is not set to 'true' (actual: %s)",
+                    ENABLED_SYSTEM_PROPERTY,
+                    enabledSystemPropertyValue.orElse("<not set>"));
+            return false;
+        }
+
         Method javaMethod = result.getMethod().getConstructorOrMethod().getMethod();
         if (javaMethod == null) {
+            log.info("not retrying; cannot get java method");
             return false;
         }
         Flaky annotation = javaMethod.getAnnotation(Flaky.class);
         if (annotation == null) {
+            log.info("not retrying; @Flaky annotation not present");
             return false;
         }
         if (result.getThrowable() == null) {
+            log.info("not retrying; throwable not present in result");
             return false;
         }
         String stackTrace = getStackTraceAsString(result.getThrowable());
         if (!Pattern.compile(annotation.match()).matcher(stackTrace).find()) {
+            log.warn("not retrying; stacktrace '%s' does not match pattern '%s'", stackTrace, annotation.match());
             return false;
         }
 
@@ -86,16 +104,6 @@ public class FlakyTestRetryAnalyzer
                 method.getMethodName(),
                 retryCount);
         return true;
-    }
-
-    private static boolean isEnabled()
-    {
-        if (System.getProperty(ENABLE_PROPERTY) != null) {
-            return Boolean.getBoolean(ENABLE_PROPERTY);
-        }
-
-        // Enable retry on CI by default
-        return System.getenv("CONTINUOUS_INTEGRATION") != null;
     }
 
     private static String getName(ITestNGMethod method, Object[] parameters)

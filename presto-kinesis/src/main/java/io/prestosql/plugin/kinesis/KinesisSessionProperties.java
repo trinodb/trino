@@ -147,7 +147,7 @@ public final class KinesisSessionProperties
         SimpleDateFormat format = new SimpleDateFormat(PRESTO_TIMESTAMP_FORMAT);
 
         if (!session.getTimeZoneKey().getId().equals(TimeZone.getDefault().getID())) {
-            TimeZone sessionTimeZone = TimeZone.getTimeZone(session.getTimeZoneKey().getId());
+            TimeZone sessionTimeZone = TimeZone.getTimeZone(session.getTimeZoneKey().getZoneId());
             format.setTimeZone(sessionTimeZone);
         }
 

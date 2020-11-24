@@ -14,7 +14,6 @@
 package io.prestosql.plugin.memory;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -31,9 +30,8 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -51,6 +49,7 @@ public class TestMemorySmoke
     private static final int LINEITEM_COUNT = 60175;
     private static final int ORDERS_COUNT = 15000;
     private static final int PART_COUNT = 2000;
+    private static final int CUSTOMER_COUNT = 1500;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -106,7 +105,7 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
                 withBroadcastJoin(),
                 0,
-                ImmutableSet.of(0, ORDERS_COUNT));
+                0, ORDERS_COUNT);
     }
 
     @Test
@@ -119,13 +118,13 @@ public class TestMemorySmoke
                 sql,
                 withBroadcastJoin(),
                 expectedRowCount,
-                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+                LINEITEM_COUNT, ORDERS_COUNT);
         // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
         assertDynamicFiltering(
                 sql,
                 withLargeDynamicFilters(),
                 expectedRowCount,
-                ImmutableSet.of(60139, ORDERS_COUNT));
+                60139, ORDERS_COUNT);
     }
 
     @Test
@@ -136,7 +135,7 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
                 withPartitionedJoin(),
                 0,
-                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+                LINEITEM_COUNT, ORDERS_COUNT);
     }
 
     @Test
@@ -153,14 +152,14 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '",
                 withBroadcastJoin(),
                 6,
-                ImmutableSet.of(6, ORDERS_COUNT));
+                6, ORDERS_COUNT);
 
         // Join lineitem with a single row of part
         assertDynamicFiltering(
                 "SELECT l.comment FROM  lineitem l, part p WHERE p.partkey = l.partkey AND p.comment = 'onic deposits'",
                 withBroadcastJoin(),
                 39,
-                ImmutableSet.of(39, PART_COUNT));
+                39, PART_COUNT);
     }
 
     @Test
@@ -172,7 +171,7 @@ public class TestMemorySmoke
                 "SELECT * FROM coerce_test l JOIN orders o ON l.orderkey_int = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
                 withBroadcastJoin(),
                 6,
-                ImmutableSet.of(6, ORDERS_COUNT));
+                6, ORDERS_COUNT);
     }
 
     @Test
@@ -186,7 +185,7 @@ public class TestMemorySmoke
                         " AND p.partkey = l.partkey AND p.comment = 'onic deposits'",
                 withBroadcastJoinNonReordering(),
                 1,
-                ImmutableSet.of(1, ORDERS_COUNT, PART_COUNT));
+                1, PART_COUNT, ORDERS_COUNT);
     }
 
     @Test
@@ -197,7 +196,7 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
                 withBroadcastJoin(),
                 0,
-                ImmutableSet.of(0, ORDERS_COUNT));
+                0, ORDERS_COUNT);
     }
 
     @Test
@@ -212,13 +211,13 @@ public class TestMemorySmoke
                 sql,
                 withBroadcastJoin(),
                 expectedRowCount,
-                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+                LINEITEM_COUNT, ORDERS_COUNT);
         // Probe-side is partially scanned because we extract min/max from large build-side for dynamic filtering
         assertDynamicFiltering(
                 sql,
                 withLargeDynamicFilters(),
                 expectedRowCount,
-                ImmutableSet.of(60139, ORDERS_COUNT));
+                60139, ORDERS_COUNT);
     }
 
     @Test
@@ -229,7 +228,7 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
                 withPartitionedJoin(),
                 0,
-                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+                LINEITEM_COUNT, ORDERS_COUNT);
     }
 
     @Test
@@ -240,14 +239,14 @@ public class TestMemorySmoke
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.comment = 'nstructions sleep furiously among ')",
                 withBroadcastJoin(),
                 6,
-                ImmutableSet.of(6, ORDERS_COUNT));
+                6, ORDERS_COUNT);
 
         // Join lineitem with a single row of part
         assertDynamicFiltering(
                 "SELECT l.comment FROM lineitem l WHERE l.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
                 withBroadcastJoin(),
                 39,
-                ImmutableSet.of(39, PART_COUNT));
+                39, PART_COUNT);
     }
 
     @Test
@@ -260,16 +259,70 @@ public class TestMemorySmoke
                         "WHERE t.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
                 withBroadcastJoinNonReordering(),
                 1,
-                ImmutableSet.of(1, ORDERS_COUNT, PART_COUNT));
+                1, ORDERS_COUNT, PART_COUNT);
     }
 
-    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, Set<Integer> expectedOperatorRowsRead)
+    @Test
+    public void testCrossJoinDynamicFiltering()
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, selectQuery);
+        assertUpdate("CREATE TABLE probe (k VARCHAR, v INTEGER)");
+        assertUpdate("CREATE TABLE build (vmin INTEGER, vmax INTEGER)");
+        assertUpdate("INSERT INTO probe VALUES ('a', 0), ('b', 1), ('c', 2), ('d', 3)", 4);
+        assertUpdate("INSERT INTO build VALUES (1, 2)", 1);
+
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin", withBroadcastJoin(), 3, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v <= vmax", withBroadcastJoin(), 3, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v < vmax", withBroadcastJoin(), 2, 2, 1);
+
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v < vmax", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v <= vmax", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND v < vmax", withBroadcastJoin(), 0, 0, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v > vmin AND vmax < 0", withBroadcastJoin(), 0, 0, 1);
+
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax", withBroadcastJoin(), 2, 2, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax", withBroadcastJoin(), 2, 2, 1);
+
+        // TODO: support complex inequality join clauses: https://github.com/prestosql/presto/issues/5755
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax - 1", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 4, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax - 1", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 4, 1);
+
+        // TODO: make sure it works after https://github.com/prestosql/presto/issues/5777 is fixed
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 1, 1);
+        assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 0, 1);
+
+        // TODO: support complex inequality join clauses: https://github.com/prestosql/presto/issues/5755
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 3, 1);
+        assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 4, 1);
+
+        assertDynamicFiltering("SELECT * FROM probe WHERE v <= (SELECT max(vmax) FROM build)", withBroadcastJoin(), 3, 3, 1);
+    }
+
+    @Test
+    public void testCrossJoinLargeBuildSideDynamicFiltering()
+    {
+        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+        assertDynamicFiltering(
+                "SELECT * FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000001000' AND o.custkey > 1000",
+                withBroadcastJoin(),
+                0,
+                ORDERS_COUNT, CUSTOMER_COUNT);
+    }
+
+    private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
+    {
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
 
         assertEquals(result.getResult().getRowCount(), expectedRowCount);
-        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), expectedOperatorRowsRead);
+        assertEquals(getOperatorRowsRead(getDistributedQueryRunner(), result.getQueryId()).toArray(), expectedOperatorRowsRead);
     }
 
     private Session withBroadcastJoin()
@@ -302,15 +355,15 @@ public class TestMemorySmoke
                 .build();
     }
 
-    private static Set<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
+    private static List<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
     {
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()
                 .stream()
-                .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .filter(summary -> summary.getOperatorType().contains("Scan"))
                 .map(OperatorStats::getInputPositions)
                 .map(Math::toIntExact)
-                .collect(toImmutableSet());
+                .collect(toImmutableList());
     }
 
     @Test

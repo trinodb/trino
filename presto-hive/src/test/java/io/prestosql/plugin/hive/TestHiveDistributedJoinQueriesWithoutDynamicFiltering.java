@@ -31,8 +31,8 @@ public class TestHiveDistributedJoinQueriesWithoutDynamicFiltering
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setInitialTables(getTables())
                 .setExtraProperties(ImmutableMap.of("enable-dynamic-filtering", "false"))
+                .setInitialTables(getTables())
                 .build();
     }
 

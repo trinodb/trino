@@ -70,15 +70,15 @@ public class TestPinotSplitManager
     @Test
     public void testRealtimeSegmentSplitsManySegmentPerServer()
     {
-        testSegmentSplitsHelperNoFilter(realtimeOnlyTable, Integer.MAX_VALUE, 2, false);
+        testSegmentSplitsHelperNoFilter(realtimeOnlyTable, Integer.MAX_VALUE, 2);
     }
 
-    private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits, boolean expectFilter)
+    private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
-        splits.forEach(s -> assertSegmentSplitWellFormed(s, expectFilter));
+        splits.forEach(this::assertSegmentSplitWellFormed);
     }
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
@@ -86,13 +86,13 @@ public class TestPinotSplitManager
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
-        splits.forEach(s -> assertSegmentSplitWellFormed(s, true));
+        splits.forEach(this::assertSegmentSplitWellFormed);
     }
 
     @Test
     public void testHybridSegmentSplitsOneSegmentPerServer()
     {
-        testSegmentSplitsHelperNoFilter(hybridTable, 1, 8, true);
+        testSegmentSplitsHelperNoFilter(hybridTable, 1, 8);
         testSegmentSplitsHelperWithFilter(hybridTable, 1, 8);
     }
 
@@ -102,7 +102,7 @@ public class TestPinotSplitManager
         splits.forEach(s -> assertEquals(s.getSplitType(), splitType));
     }
 
-    private void assertSegmentSplitWellFormed(PinotSplit split, boolean expectFilter)
+    private void assertSegmentSplitWellFormed(PinotSplit split)
     {
         assertEquals(split.getSplitType(), SEGMENT);
         assertTrue(split.getSegmentHost().isPresent());

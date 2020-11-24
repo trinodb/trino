@@ -120,13 +120,13 @@ public final class PlanCopier
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            return new TableScanNode(idAllocator.getNextId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), node.getEnforcedConstraint());
+            return new TableScanNode(idAllocator.getNextId(), node.getTable(), node.getOutputSymbols(), node.getAssignments(), node.getEnforcedConstraint(), node.isForDelete());
         }
 
         @Override
         public PlanNode visitValues(ValuesNode node, RewriteContext<Void> context)
         {
-            return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getRows());
+            return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), node.getRowCount(), node.getRows());
         }
 
         @Override
@@ -176,7 +176,7 @@ public final class PlanCopier
             List<PlanNode> copiedSources = node.getSources().stream()
                     .map(context::rewrite)
                     .collect(toImmutableList());
-            return new IntersectNode(idAllocator.getNextId(), copiedSources, node.getSymbolMapping(), node.getOutputSymbols());
+            return new IntersectNode(idAllocator.getNextId(), copiedSources, node.getSymbolMapping(), node.getOutputSymbols(), node.isDistinct());
         }
 
         @Override
@@ -185,7 +185,7 @@ public final class PlanCopier
             List<PlanNode> copiedSources = node.getSources().stream()
                     .map(context::rewrite)
                     .collect(toImmutableList());
-            return new ExceptNode(idAllocator.getNextId(), copiedSources, node.getSymbolMapping(), node.getOutputSymbols());
+            return new ExceptNode(idAllocator.getNextId(), copiedSources, node.getSymbolMapping(), node.getOutputSymbols(), node.isDistinct());
         }
 
         @Override

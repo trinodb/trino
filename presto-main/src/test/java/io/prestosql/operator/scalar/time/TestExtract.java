@@ -13,33 +13,30 @@
  */
 package io.prestosql.operator.scalar.time;
 
+import io.prestosql.operator.scalar.AbstractTestExtract;
 import io.prestosql.sql.parser.ParsingException;
-import io.prestosql.sql.query.QueryAssertions;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.stream.IntStream;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestExtract
+        extends AbstractTestExtract
 {
-    protected QueryAssertions assertions;
-
-    @BeforeClass
-    public void init()
+    @Override
+    protected List<String> types()
     {
-        assertions = new QueryAssertions();
+        return IntStream.rangeClosed(0, 12)
+                .mapToObj(precision -> format("time(%s)", precision))
+                .collect(toImmutableList());
     }
 
-    @AfterClass(alwaysRun = true)
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
-    @Test
+    @Override
     public void testHour()
     {
         assertThat(assertions.expression("EXTRACT(HOUR FROM TIME '12:34:56')")).matches("BIGINT '12'");
@@ -71,7 +68,7 @@ public class TestExtract
         assertThat(assertions.expression("hour(TIME '12:34:56.123456789012')")).matches("BIGINT '12'");
     }
 
-    @Test
+    @Override
     public void testMinute()
     {
         assertThat(assertions.expression("EXTRACT(MINUTE FROM TIME '12:34:56')")).matches("BIGINT '34'");
@@ -103,7 +100,7 @@ public class TestExtract
         assertThat(assertions.expression("minute(TIME '12:34:56.123456789012')")).matches("BIGINT '34'");
     }
 
-    @Test
+    @Override
     public void testSecond()
     {
         assertThat(assertions.expression("EXTRACT(SECOND FROM TIME '12:34:56')")).matches("BIGINT '56'");

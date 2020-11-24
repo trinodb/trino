@@ -21,6 +21,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.ColumnarRow;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LazyBlockLoader;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
@@ -28,7 +29,6 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.hive.ReaderProjectionsAdapter.ChannelMapping.createChannelMapping;
 import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 
@@ -38,28 +38,33 @@ public class ReaderProjectionsAdapter
     private final List<Type> outputTypes;
     private final List<Type> inputTypes;
 
-    public ReaderProjectionsAdapter(List<HiveColumnHandle> expectedHiveColumns, ReaderProjections readerProjections)
+    public ReaderProjectionsAdapter(
+            List<ColumnHandle> expectedColumns,
+            ReaderColumns readColumns,
+            ColumnTypeGetter typeGetter,
+            ProjectionGetter projectionGetter)
     {
-        requireNonNull(expectedHiveColumns, "expectedHiveColumns is null");
-        requireNonNull(readerProjections, "readerProjections is null");
+        requireNonNull(expectedColumns, "expectedColumns is null");
+        requireNonNull(readColumns, "readColumns is null");
 
         ImmutableList.Builder<ChannelMapping> mappingBuilder = ImmutableList.builder();
 
-        for (int i = 0; i < expectedHiveColumns.size(); i++) {
-            HiveColumnHandle projectedColumnHandle = readerProjections.readerColumnForHiveColumnAt(i);
-            int inputChannel = readerProjections.readerColumnPositionForHiveColumnAt(i);
-            ChannelMapping mapping = createChannelMapping(expectedHiveColumns.get(i), projectedColumnHandle, inputChannel);
-            mappingBuilder.add(mapping);
+        for (int i = 0; i < expectedColumns.size(); i++) {
+            ColumnHandle projectedColumnHandle = readColumns.getForColumnAt(i);
+            int inputChannel = readColumns.getPositionForColumnAt(i);
+            List<Integer> dereferences = projectionGetter.get(expectedColumns.get(i), projectedColumnHandle);
+
+            mappingBuilder.add(new ChannelMapping(inputChannel, dereferences));
         }
 
         outputToInputMapping = mappingBuilder.build();
 
-        outputTypes = expectedHiveColumns.stream()
-                .map(HiveColumnHandle::getType)
+        outputTypes = expectedColumns.stream()
+                .map(typeGetter::get)
                 .collect(toImmutableList());
 
-        inputTypes = readerProjections.getReaderColumns().stream()
-                .map(HiveColumnHandle::getType)
+        inputTypes = readColumns.get().stream()
+                .map(typeGetter::get)
                 .collect(toImmutableList());
     }
 
@@ -205,7 +210,7 @@ public class ReaderProjectionsAdapter
         private final int inputChannelIndex;
         private final List<Integer> dereferenceSequence;
 
-        private ChannelMapping(int inputBlockIndex, List<Integer> dereferenceSequence)
+        public ChannelMapping(int inputBlockIndex, List<Integer> dereferenceSequence)
         {
             checkArgument(inputBlockIndex >= 0, "inputBlockIndex cannot be negative");
             this.inputChannelIndex = inputBlockIndex;
@@ -221,29 +226,15 @@ public class ReaderProjectionsAdapter
         {
             return dereferenceSequence;
         }
+    }
 
-        static ChannelMapping createChannelMapping(HiveColumnHandle expected, HiveColumnHandle delegate, int inputBlockIndex)
-        {
-            List<Integer> dereferences = validateProjectionAndExtractDereferences(expected, delegate);
-            return new ChannelMapping(inputBlockIndex, dereferences);
-        }
+    public interface ColumnTypeGetter
+    {
+        Type get(ColumnHandle column);
+    }
 
-        private static List<Integer> validateProjectionAndExtractDereferences(HiveColumnHandle expectedColumn, HiveColumnHandle readerColumn)
-        {
-            checkArgument(expectedColumn.getBaseColumn().equals(readerColumn.getBaseColumn()), "reader column is not valid for expected column");
-
-            List<Integer> expectedDereferences = expectedColumn.getHiveColumnProjectionInfo()
-                    .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                    .orElse(ImmutableList.of());
-
-            List<Integer> readerDereferences = readerColumn.getHiveColumnProjectionInfo()
-                    .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                    .orElse(ImmutableList.of());
-
-            checkArgument(readerDereferences.size() <= expectedDereferences.size(), "Field returned by the reader should include expected field");
-            checkArgument(expectedDereferences.subList(0, readerDereferences.size()).equals(readerDereferences), "Field returned by the reader should be a prefix of expected field");
-
-            return expectedDereferences.subList(readerDereferences.size(), expectedDereferences.size());
-        }
+    public interface ProjectionGetter
+    {
+        List<Integer> get(ColumnHandle required, ColumnHandle read);
     }
 }

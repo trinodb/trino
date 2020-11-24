@@ -45,6 +45,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyExecuteFunctio
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
@@ -52,12 +53,15 @@ import static io.prestosql.spi.security.AccessDeniedException.denyKillQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -381,6 +385,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to change the specified table's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+        denySetTableAuthorization(table.toString(), principal);
+    }
+
+    /**
      * Check if identity is allowed to rename a column in the specified table in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -441,6 +455,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to change the specified view's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+        denySetViewAuthorization(view.toString(), principal);
+    }
+
+    /**
      * Check if identity is allowed to drop the specified view in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -479,6 +503,26 @@ public interface SystemAccessControl
     default void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
         denySetCatalogSessionProperty(propertyName);
+    }
+
+    /**
+     * Check if identity is allowed to grant the specified privilege to the grantee on the specified schema.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal grantee, boolean grantOption)
+    {
+        denyGrantSchemaPrivilege(privilege.toString(), schema.toString());
+    }
+
+    /**
+     * Check if identity is allowed to revoke the specified privilege on the specified schema from the revokee.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal revokee, boolean grantOption)
+    {
+        denyRevokeSchemaPrivilege(privilege.toString(), schema.toString());
     }
 
     /**

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
@@ -26,6 +27,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.SqlTime;
+import io.prestosql.testing.TestingConnectorSession;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -86,6 +88,9 @@ import static org.testng.Assert.assertEquals;
 public class TestJdbcQueryBuilder
 {
     private static final RemoteTableName TEST_TABLE = new RemoteTableName(Optional.empty(), Optional.empty(), "test_table");
+    private static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
+            .build();
 
     private TestingDatabase database;
     private JdbcClient jdbcClient;

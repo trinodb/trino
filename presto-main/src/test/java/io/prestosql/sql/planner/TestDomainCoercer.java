@@ -132,7 +132,28 @@ public class TestDomainCoercer
                 applySaturatedCasts(
                         Domain.create(
                                 ValueSet.ofRanges(
+                                        range(DOUBLE, Double.NEGATIVE_INFINITY, true, Double.POSITIVE_INFINITY, true)),
+                                true),
+                        REAL),
+                Domain.create(
+                        ValueSet.ofRanges(
+                                lessThanOrEqual(REAL, (long) floatToIntBits(Float.MAX_VALUE))),
+                        true));
+
+        assertEquals(
+                applySaturatedCasts(
+                        Domain.create(
+                                ValueSet.ofRanges(
                                         range(BIGINT, ((long) Integer.MAX_VALUE) * -2, false, ((long) Integer.MAX_VALUE) * 10, false)),
+                                true),
+                        INTEGER),
+                Domain.create(ValueSet.ofRanges(lessThanOrEqual(INTEGER, (long) Integer.MAX_VALUE)), true));
+
+        assertEquals(
+                applySaturatedCasts(
+                        Domain.create(
+                                ValueSet.ofRanges(
+                                        range(DOUBLE, Double.NEGATIVE_INFINITY, true, Double.POSITIVE_INFINITY, true)),
                                 true),
                         INTEGER),
                 Domain.create(ValueSet.ofRanges(lessThanOrEqual(INTEGER, (long) Integer.MAX_VALUE)), true));

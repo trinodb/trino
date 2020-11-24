@@ -13,18 +13,25 @@
  */
 package io.prestosql.plugin.postgresql;
 
+import io.prestosql.Session;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -51,8 +58,14 @@ public class TestPostgreSqlIntegrationSmokeTest
             postgreSqlServer.close();
             postgreSqlServer = null;
         });
+        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of(), List.of(CUSTOMER, NATION, ORDERS, REGION));
+    }
+
+    @BeforeClass
+    public void setExtensions()
+            throws SQLException
+    {
         execute("CREATE EXTENSION file_fdw");
-        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @Test
@@ -212,6 +225,17 @@ public class TestPostgreSqlIntegrationSmokeTest
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
                 .isFullyPushedDown();
 
+        // bigint equality with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("postgresql", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE nationkey IN (19, 21)"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
         // bigint range, with decimal to bigint simplification
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
@@ -227,7 +251,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     public void testDecimalPredicatePushdown()
             throws Exception
     {
-        try (AutoCloseable ignoreTable = withTable("tpch.test_decimal_pushdown",
+        try (AutoCloseable ignore = withTable("tpch.test_decimal_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             execute("INSERT INTO tpch.test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
 
@@ -259,8 +283,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     public void testCharPredicatePushdown()
             throws Exception
     {
-        // TODO test that that predicate is actually pushed down (here we test only correctness)
-        try (AutoCloseable ignoreTable = withTable("tpch.test_char_pushdown",
+        try (AutoCloseable ignore = withTable("tpch.test_char_pushdown",
                 "(char_1 char(1), char_5 char(5), char_10 char(10))")) {
             execute("INSERT INTO tpch.test_char_pushdown VALUES" +
                     "('0', '0'    , '0'         )," +
@@ -364,7 +387,7 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
 
         // decimals
-        try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+        try (AutoCloseable ignore = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
             execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
 
@@ -389,7 +412,7 @@ public class TestPostgreSqlIntegrationSmokeTest
         // with aggregation
         assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
         assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isFullyPushedDown();
-        // TODO (https://github.com/prestosql/presto/issues/5522) assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
 
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
@@ -417,6 +440,29 @@ public class TestPostgreSqlIntegrationSmokeTest
                 .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
                 .collect(joining(" OR "));
         execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+    }
+
+    /**
+     * Regression test for https://github.com/prestosql/presto/issues/5543
+     */
+    @Test
+    public void testTimestampColumnAndTimestampWithTimeZoneConstant()
+            throws Exception
+    {
+        String tableName = "tpch.test_timestamptz_unwrap_cast" + randomTableSuffix();
+        try (AutoCloseable ignored = withTable(tableName, "(id integer, ts_col timestamp(6))")) {
+            execute("INSERT INTO " + tableName + " (id, ts_col) VALUES " +
+                    "(1, timestamp '2020-01-01 01:01:01.000')," +
+                    "(2, timestamp '2019-01-01 01:01:01.000')");
+
+            assertThat(query(format("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'", tableName, getSession().getTimeZoneKey().getId())))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+
+            assertThat(query(format("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'", tableName, "UTC")))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+        }
     }
 
     private String getLongInClause(int start, int length)

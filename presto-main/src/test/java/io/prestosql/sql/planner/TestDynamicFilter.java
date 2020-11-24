@@ -33,8 +33,10 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.prestosql.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -50,6 +52,12 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 
 public class TestDynamicFilter
         extends BasePlanTest
@@ -119,10 +127,12 @@ public class TestDynamicFilter
                                 RIGHT,
                                 ImmutableList.of(),
                                 Optional.of("LINEITEM_OK < ORDERS_OK"),
-                                Optional.of(ImmutableMap.of()),
+                                Optional.of(ImmutableList.of(new DynamicFilterPattern("ORDERS_OK", GREATER_THAN, "LINEITEM_OK"))),
                                 Optional.empty(),
                                 Optional.empty(),
-                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                filter(
+                                        TRUE_LITERAL,
+                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 exchange(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
@@ -139,6 +149,88 @@ public class TestDynamicFilter
                                 tableScan("orders"),
                                 exchange(
                                         tableScan("lineitem")))));
+    }
+
+    @Test
+    public void testCrossJoinInequalityDF()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey > l.orderkey",
+                anyTree(filter("O_ORDERKEY > L_ORDERKEY",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN, "L_ORDERKEY")),
+                                filter(
+                                        TRUE_LITERAL,
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testCrossJoinBetweenDF()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey",
+                anyTree(filter("O_ORDERKEY BETWEEN L_ORDERKEY AND L_PARTKEY",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                ImmutableList.of(
+                                        new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN_OR_EQUAL, "L_ORDERKEY"),
+                                        new DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY")),
+                                filter(
+                                        TRUE_LITERAL,
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey")))))));
+
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey AND l.partkey - 1",
+                anyTree(filter("O_ORDERKEY BETWEEN L_ORDERKEY AND L_PARTKEY - BIGINT '1'",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                ImmutableList.of(
+                                        new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN_OR_EQUAL, "L_ORDERKEY")),
+                                filter(
+                                        TRUE_LITERAL,
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey")))))));
+
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey BETWEEN l.orderkey + 1 AND l.partkey",
+                anyTree(filter("O_ORDERKEY BETWEEN L_ORDERKEY + BIGINT '1' AND L_PARTKEY",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                ImmutableList.of(
+                                        new DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY")),
+                                filter(
+                                        TRUE_LITERAL,
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey")))))));
+    }
+
+    @Test
+    public void testCrossJoinInequalityNoDFWithCast()
+    {
+        assertPlan("SELECT o.comment, l.comment FROM lineitem l, orders o WHERE o.comment < l.comment",
+                anyTree(filter("CAST(L_COMMENT AS varchar(79)) > O_COMMENT",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("lineitem", ImmutableMap.of("L_COMMENT", "comment")),
+                                exchange(
+                                        tableScan("orders", ImmutableMap.of("O_COMMENT", "comment")))))));
+
+        assertPlan("SELECT o.comment, l.comment FROM orders o, lineitem l WHERE o.comment < l.comment",
+                anyTree(filter("O_COMMENT < CAST(L_COMMENT AS varchar(79))",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("orders", ImmutableMap.of("O_COMMENT", "comment")),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_COMMENT", "comment")))))));
     }
 
     @Test
@@ -274,7 +366,9 @@ public class TestDynamicFilter
                                         INNER,
                                         ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
                                         Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                        Optional.of(ImmutableMap.of("O_SHIPPRIORITY", "L_LINENUMBER")),
+                                        Optional.of(ImmutableList.of(
+                                                new DynamicFilterPattern("O_SHIPPRIORITY", EQUAL, "L_LINENUMBER"),
+                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY"))),
                                         Optional.empty(),
                                         Optional.empty(),
                                         anyTree(tableScan("orders", ImmutableMap.of(
@@ -407,6 +501,7 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S",
                                 project(
@@ -447,6 +542,7 @@ public class TestDynamicFilter
     {
         assertPlan(
                 "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0) AND orderkey > 0",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S",
                                 project(
@@ -464,6 +560,7 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT part.partkey FROM part WHERE part.partkey IN " +
                         "(SELECT lineitem.partkey FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders))",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S0",
                                 project(
@@ -487,6 +584,7 @@ public class TestDynamicFilter
         assertPlan(
                 "WITH t AS (SELECT lineitem.partkey + 1000 partkey FROM lineitem) " +
                         "SELECT t.partkey FROM t WHERE t.partkey IN (SELECT part.partkey FROM part)",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S0",
                                 project(
@@ -515,5 +613,12 @@ public class TestDynamicFilter
                 return new MatchResult(DynamicFilters.extractDynamicFilters(filterNode.getPredicate()).getDynamicConjuncts().size() == numberOfDynamicFilters);
             }
         };
+    }
+
+    private Session noSemiJoinRewrite()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
+                .build();
     }
 }

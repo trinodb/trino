@@ -94,7 +94,7 @@ public final class DistinctOutputQueryUtil
         @Override
         public Boolean visitExcept(ExceptNode node, Void context)
         {
-            return true;
+            return node.isDistinct() || lookupFunction.apply(node.getSources().get(0)).accept(this, null);
         }
 
         @Override
@@ -106,13 +106,13 @@ public final class DistinctOutputQueryUtil
         @Override
         public Boolean visitIntersect(IntersectNode node, Void context)
         {
-            return true;
+            return node.isDistinct() || node.getSources().stream().allMatch(source -> lookupFunction.apply(source).accept(this, null));
         }
 
         @Override
         public Boolean visitValues(ValuesNode node, Void context)
         {
-            return node.getRows().size() == 1;
+            return node.getRowCount() <= 1;
         }
 
         @Override

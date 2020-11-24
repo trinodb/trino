@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session.ResourceEstimateBuilder;
@@ -75,13 +74,12 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class HttpRequestSessionContext
         implements SessionContext
 {
-    private static final Logger log = Logger.get(HttpRequestSessionContext.class);
-
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     public static final String AUTHENTICATED_IDENTITY = "presto.authenticated-identity";
 
@@ -403,7 +401,7 @@ public final class HttpRequestSessionContext
         ResourceEstimateBuilder builder = new ResourceEstimateBuilder();
         parseProperty(headers, PRESTO_RESOURCE_ESTIMATE).forEach((name, value) -> {
             try {
-                switch (name.toUpperCase()) {
+                switch (name.toUpperCase(ENGLISH)) {
                     case ResourceEstimates.EXECUTION_TIME:
                         builder.setExecutionTime(Duration.valueOf(value));
                         break;

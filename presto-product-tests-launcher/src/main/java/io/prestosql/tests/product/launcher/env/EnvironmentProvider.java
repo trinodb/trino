@@ -17,11 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 
+import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.stream.StreamSupport;
+import java.util.Set;
 
+import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
 public abstract class EnvironmentProvider
         implements EnvironmentExtender
@@ -46,20 +47,18 @@ public abstract class EnvironmentProvider
                 .add(environmentConfig)
                 .build();
 
-        compose(extenders).extendEnvironment(builder);
+        Set<EnvironmentExtender> seen = newSetFromMap(new IdentityHashMap<>());
+        extenders.forEach(extender -> extend(extender, builder, seen));
         return builder;
     }
 
-    static EnvironmentExtender compose(Iterable<EnvironmentExtender> extenders)
+    private void extend(EnvironmentExtender extender, Environment.Builder builder, Set<EnvironmentExtender> seen)
     {
-        String extendersNames = StreamSupport.stream(extenders.spliterator(), false)
-                .map(Object::getClass)
-                .map(Class::getSimpleName)
-                .collect(joining(", "));
-
-        return builder -> {
-            log.info("Building environment %s with extenders: %s", builder.getEnvironmentName(), extendersNames);
-            extenders.forEach(extender -> extender.extendEnvironment(builder));
-        };
+        extender.getDependencies()
+                .forEach(dependencyExtender -> extend(dependencyExtender, builder, seen));
+        if (seen.add(extender)) {
+            log.info("Building environment %s with extender: %s", builder.getEnvironmentName(), extender.getClass().getSimpleName());
+            extender.extendEnvironment(builder);
+        }
     }
 }

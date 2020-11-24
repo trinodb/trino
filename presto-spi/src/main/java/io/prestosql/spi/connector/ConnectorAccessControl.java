@@ -39,6 +39,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
@@ -46,11 +47,14 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -261,6 +265,16 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to change the specified table's user/role.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, PrestoPrincipal principal)
+    {
+        denySetTableAuthorization(tableName.toString(), principal);
+    }
+
+    /**
      * Check if identity is allowed to rename a column in the specified table in this catalog.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
@@ -321,6 +335,16 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to change the specified view's user/role.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+        denySetViewAuthorization(viewName.toString(), principal);
+    }
+
+    /**
      * Check if identity is allowed to drop the specified view in this catalog.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
@@ -348,6 +372,21 @@ public interface ConnectorAccessControl
     default void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         denySetCatalogSessionProperty(propertyName);
+    }
+
+    /**
+     * Check if identity is allowed to grant to any other user the specified privilege on the specified schema.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        denyGrantSchemaPrivilege(privilege.toString(), schemaName);
+    }
+
+    default void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal revokee, boolean grantOption)
+    {
+        denyRevokeSchemaPrivilege(privilege.toString(), schemaName);
     }
 
     /**

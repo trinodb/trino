@@ -23,8 +23,9 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Row;
 
 import java.util.Map;
 
@@ -70,7 +71,7 @@ public class PruneCountAggregationOverScalar
             }
         }
         if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
+            return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "1"))))));
         }
         return Result.empty();
     }

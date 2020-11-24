@@ -18,7 +18,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveRecordCursorProvider;
 import io.prestosql.plugin.hive.IonSqlQueryBuilder;
-import io.prestosql.plugin.hive.ReaderProjections;
+import io.prestosql.plugin.hive.ReaderColumns;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordCursor;
@@ -37,9 +37,10 @@ import java.util.Properties;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class S3SelectRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -80,14 +81,15 @@ public class S3SelectRecordCursorProvider
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
         }
 
-        Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
+        Optional<ReaderColumns> projectedReaderColumns = projectBaseColumns(columns);
         // Ignore predicates on partial columns for now.
         effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
 
         String serdeName = getDeserializerClassName(schema);
         if (CSV_SERDES.contains(serdeName)) {
             List<HiveColumnHandle> readerColumns = projectedReaderColumns
-                    .map(ReaderProjections::getReaderColumns)
+                    .map(ReaderColumns::get)
+                    .map(readColumns -> readColumns.stream().map(HiveColumnHandle.class::cast).collect(toUnmodifiableList()))
                     .orElse(columns);
 
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);

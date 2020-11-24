@@ -25,6 +25,12 @@
     </violation>
 
     <violation>
+        <name>java/lang/String.toUpperCase:()Ljava/lang/String;</name>
+        <version>1.1</version>
+        <comment>Prefer String.toUpperCase(java.util.Locale)</comment>
+    </violation>
+
+    <violation>
         <!-- File.getPath() is the canonical way to convert File to its String representation suitable for passing to new File() -->
         <name>java/io/File.toString:()Ljava/lang/String;</name>
         <version>1.1</version>
@@ -65,6 +71,18 @@
         <name>org/apache/hadoop/conf/Configuration."&lt;init&gt;":()V</name>
         <version>1.1</version>
         <comment>Prefer new Configuration(false)</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/TimeZone.getTimeZone:(Ljava/lang/String;)Ljava/util/TimeZone;</name>
+        <version>1.8</version>
+        <comment>Avoid TimeZone.getTimeZone as it returns GMT for a zone not supported by the JVM. Use TimeZone.getTimeZone(ZoneId.of(..)) instead, or TimeZone.getTimeZone(..., false).</comment>
+    </violation>
+
+    <violation>
+        <name>org/joda/time/DateTimeZone.toTimeZone:()Ljava/util/TimeZone;</name>
+        <version>1.8</version>
+        <comment>Avoid DateTimeZone.toTimeZone as it returns GMT for a zone not supported by the JVM. Use TimeZone.getTimeZone(ZoneId.of(dtz.getId())) instead.</comment>
     </violation>
 
     <violation>

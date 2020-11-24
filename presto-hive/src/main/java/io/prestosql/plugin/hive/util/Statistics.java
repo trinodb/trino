@@ -26,13 +26,11 @@ import io.prestosql.plugin.hive.metastore.IntegerStatistics;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.statistics.ColumnStatisticMetadata;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlDecimal;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
 
 import java.math.BigDecimal;
@@ -71,10 +69,9 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static java.lang.Math.floorDiv;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class Statistics
@@ -306,12 +303,10 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()));
         }
-        else if (type.equals(TIMESTAMP_MILLIS)) {
-            result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
-        }
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()));
         }
+        // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -339,13 +334,12 @@ public final class Statistics
     }
 
     public static Map<String, HiveColumnStatistics> fromComputedStatistics(
-            ConnectorSession session,
             Map<ColumnStatisticMetadata, Block> computedStatistics,
             Map<String, Type> columnTypes,
             long rowCount)
     {
         return createColumnToComputedStatisticsMap(computedStatistics).entrySet().stream()
-                .collect(toImmutableMap(Entry::getKey, entry -> createHiveColumnStatistics(session, entry.getValue(), columnTypes.get(entry.getKey()), rowCount)));
+                .collect(toImmutableMap(Entry::getKey, entry -> createHiveColumnStatistics(entry.getValue(), columnTypes.get(entry.getKey()), rowCount)));
     }
 
     private static Map<String, Map<ColumnStatisticType, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
@@ -362,7 +356,6 @@ public final class Statistics
 
     @VisibleForTesting
     static HiveColumnStatistics createHiveColumnStatistics(
-            ConnectorSession session,
             Map<ColumnStatisticType, Block> computedStatistics,
             Type columnType,
             long rowCount)
@@ -373,17 +366,17 @@ public final class Statistics
         // We ask the engine to compute either both or neither
         verify(computedStatistics.containsKey(MIN_VALUE) == computedStatistics.containsKey(MAX_VALUE));
         if (computedStatistics.containsKey(MIN_VALUE)) {
-            setMinMax(session, columnType, computedStatistics.get(MIN_VALUE), computedStatistics.get(MAX_VALUE), result);
+            setMinMax(columnType, computedStatistics.get(MIN_VALUE), computedStatistics.get(MAX_VALUE), result);
         }
 
         // MAX_VALUE_SIZE_IN_BYTES
         if (computedStatistics.containsKey(MAX_VALUE_SIZE_IN_BYTES)) {
-            result.setMaxValueSizeInBytes(getIntegerValue(session, BIGINT, computedStatistics.get(MAX_VALUE_SIZE_IN_BYTES)));
+            result.setMaxValueSizeInBytes(getIntegerValue(BIGINT, computedStatistics.get(MAX_VALUE_SIZE_IN_BYTES)));
         }
 
         // TOTAL_VALUES_SIZE_IN_BYTES
         if (computedStatistics.containsKey(TOTAL_SIZE_IN_BYTES)) {
-            result.setTotalSizeInBytes(getIntegerValue(session, BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES)));
+            result.setTotalSizeInBytes(getIntegerValue(BIGINT, computedStatistics.get(TOTAL_SIZE_IN_BYTES)));
         }
 
         // NUMBER OF NULLS
@@ -413,59 +406,72 @@ public final class Statistics
         return result.build();
     }
 
-    private static void setMinMax(ConnectorSession session, Type type, Block min, Block max, HiveColumnStatistics.Builder result)
+    private static void setMinMax(Type type, Block min, Block max, HiveColumnStatistics.Builder result)
     {
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT)) {
-            result.setIntegerStatistics(new IntegerStatistics(getIntegerValue(session, type, min), getIntegerValue(session, type, max)));
+            result.setIntegerStatistics(new IntegerStatistics(getIntegerValue(type, min), getIntegerValue(type, max)));
         }
         else if (type.equals(DOUBLE) || type.equals(REAL)) {
-            result.setDoubleStatistics(new DoubleStatistics(getDoubleValue(session, type, min), getDoubleValue(session, type, max)));
+            result.setDoubleStatistics(new DoubleStatistics(getDoubleValue(type, min), getDoubleValue(type, max)));
         }
         else if (type.equals(DATE)) {
-            result.setDateStatistics(new DateStatistics(getDateValue(session, type, min), getDateValue(session, type, max)));
-        }
-        else if (type.equals(TIMESTAMP_MILLIS)) {
-            result.setIntegerStatistics(new IntegerStatistics(getTimestampValue(min), getTimestampValue(max)));
+            result.setDateStatistics(new DateStatistics(getDateValue(type, min), getDateValue(type, max)));
         }
         else if (type instanceof DecimalType) {
-            result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(session, type, min), getDecimalValue(session, type, max)));
+            result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(type, min), getDecimalValue(type, max)));
         }
+        // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
     }
 
-    private static OptionalLong getIntegerValue(ConnectorSession session, Type type, Block block)
+    private static OptionalLong getIntegerValue(Type type, Block block)
     {
-        // works for BIGINT as well as for other integer types TINYINT/SMALLINT/INTEGER that store values as byte/short/int
-        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(((Number) type.getObjectValue(session, block, 0)).longValue());
+        verify(type == BIGINT || type == INTEGER || type == SMALLINT || type == TINYINT, "Unsupported type: %s", type);
+        if (block.isNull(0)) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(type.getLong(block, 0));
     }
 
-    private static OptionalDouble getDoubleValue(ConnectorSession session, Type type, Block block)
+    private static OptionalDouble getDoubleValue(Type type, Block block)
     {
+        verify(type == DOUBLE || type == REAL, "Unsupported type: %s", type);
         if (block.isNull(0)) {
             return OptionalDouble.empty();
         }
-        double value = ((Number) type.getObjectValue(session, block, 0)).doubleValue();
+        double value;
+        if (type == DOUBLE) {
+            value = type.getDouble(block, 0);
+        }
+        else {
+            verify(type == REAL);
+            value = intBitsToFloat(toIntExact(type.getLong(block, 0)));
+        }
         if (!Double.isFinite(value)) {
             return OptionalDouble.empty();
         }
         return OptionalDouble.of(value);
     }
 
-    private static Optional<LocalDate> getDateValue(ConnectorSession session, Type type, Block block)
+    private static Optional<LocalDate> getDateValue(Type type, Block block)
     {
-        return block.isNull(0) ? Optional.empty() : Optional.of(LocalDate.ofEpochDay(((SqlDate) type.getObjectValue(session, block, 0)).getDays()));
+        verify(type == DATE, "Unsupported type: %s", type);
+        if (block.isNull(0)) {
+            return Optional.empty();
+        }
+        int days = toIntExact(type.getLong(block, 0));
+        return Optional.of(LocalDate.ofEpochDay(days));
     }
 
-    private static OptionalLong getTimestampValue(Block block)
+    private static Optional<BigDecimal> getDecimalValue(Type type, Block block)
     {
-        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(floorDiv(block.getLong(0, 0), MICROSECONDS_PER_SECOND));
-    }
-
-    private static Optional<BigDecimal> getDecimalValue(ConnectorSession session, Type type, Block block)
-    {
-        return block.isNull(0) ? Optional.empty() : Optional.of(((SqlDecimal) type.getObjectValue(session, block, 0)).toBigDecimal());
+        verify(type instanceof DecimalType, "Unsupported type: %s", type);
+        if (block.isNull(0)) {
+            return Optional.empty();
+        }
+        return Optional.of(Decimals.readBigDecimal((DecimalType) type, block, 0));
     }
 
     public enum ReduceOperator

@@ -21,8 +21,7 @@ import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.ServerPackage;
-import io.prestosql.tests.product.launcher.env.common.Hadoop;
-import io.prestosql.tests.product.launcher.env.common.Kerberos;
+import io.prestosql.tests.product.launcher.env.common.HadoopKerberos;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
@@ -55,13 +54,12 @@ public final class MultinodeTlsKerberos
     public MultinodeTlsKerberos(
             DockerFiles dockerFiles,
             Standard standard,
-            Hadoop hadoop,
-            Kerberos kerberos,
+            HadoopKerberos hadoopKerberos,
             EnvironmentConfig config,
             @ServerPackage File serverPackage,
             @Debug boolean debug)
     {
-        super(ImmutableList.of(standard, hadoop, kerberos));
+        super(ImmutableList.of(standard, hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         String hadoopBaseImage = requireNonNull(config, "config is null").getHadoopBaseImage();
         String hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();

@@ -26,6 +26,9 @@ public class MillisecondsSinceEpochFormatter
 {
     public static boolean isSupportedType(Type type)
     {
+        // milliseconds-since-epoch cannot encode a timezone hence writing TIMESTAMP WITH TIME ZONE
+        // is not supported to avoid losing the irrecoverable timezone information after write.
+        // TODO allow TIMESTAMP_TZ_MILLIS to be inserted too https://github.com/prestosql/presto/issues/5955
         return type.equals(TIME_MILLIS) ||
                 type.equals(TIMESTAMP_MILLIS);
     }

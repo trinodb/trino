@@ -48,6 +48,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -63,6 +64,14 @@ public class TestSetSessionTask
 {
     private static final String CATALOG_NAME = "foo";
     private static final String MUST_BE_POSITIVE = "property must be positive";
+
+    private enum Size
+    {
+        SMALL,
+        MEDIUM,
+        LARGE,
+    }
+
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
@@ -94,6 +103,12 @@ public class TestSetSessionTask
                         "property that should be positive",
                         null,
                         TestSetSessionTask::validatePositive,
+                        false),
+                enumProperty(
+                        "size_property",
+                        "size enum property",
+                        Size.class,
+                        null,
                         false));
 
         metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
@@ -121,8 +136,8 @@ public class TestSetSessionTask
     @Test
     public void testSetSession()
     {
-        testSetSession(new StringLiteral("baz"), "baz");
-        testSetSession(
+        testSetSession("bar", new StringLiteral("baz"), "baz");
+        testSetSession("bar",
                 new FunctionCallBuilder(metadata)
                         .setName(QualifiedName.of("concat"))
                         .addArgument(VARCHAR, new StringLiteral("ban"))
@@ -134,15 +149,28 @@ public class TestSetSessionTask
     @Test
     public void testSetSessionWithValidation()
     {
-        testSetSessionWithValidation(new LongLiteral("0"), "0");
-        testSetSessionWithValidation(new LongLiteral("2"), "2");
+        testSetSession("positive_property", new LongLiteral("0"), "0");
+        testSetSession("positive_property", new LongLiteral("2"), "2");
 
         try {
-            testSetSessionWithValidation(new LongLiteral("-1"), "-1");
+            testSetSession("positive_property", new LongLiteral("-1"), "-1");
             fail();
         }
         catch (PrestoException e) {
             assertEquals(e.getMessage(), MUST_BE_POSITIVE);
+        }
+    }
+
+    @Test
+    public void testSetSessionWithInvalidEnum()
+    {
+        try {
+            testSetSession("size_property", new StringLiteral("XL"), "XL");
+            fail();
+        }
+        catch (PrestoException e) {
+            assertEquals(INVALID_SESSION_PROPERTY.toErrorCode(), e.getErrorCode());
+            assertEquals("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]", e.getMessage());
         }
     }
 
@@ -157,14 +185,9 @@ public class TestSetSessionTask
         testSetSessionWithParameters("bar", functionCall, "banana", ImmutableList.of(new StringLiteral("ana")));
     }
 
-    private void testSetSession(Expression expression, String expectedValue)
+    private void testSetSession(String property, Expression expression, String expectedValue)
     {
-        testSetSessionWithParameters("bar", expression, expectedValue, emptyList());
-    }
-
-    private void testSetSessionWithValidation(Expression expression, String expectedValue)
-    {
-        testSetSessionWithParameters("positive_property", expression, expectedValue, emptyList());
+        testSetSessionWithParameters(property, expression, expectedValue, emptyList());
     }
 
     private void testSetSessionWithParameters(String property, Expression expression, String expectedValue, List<Expression> parameters)

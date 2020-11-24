@@ -27,7 +27,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -36,6 +35,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 
@@ -70,7 +70,7 @@ public class TestKillQuery
     public void testKillQuery()
             throws Exception
     {
-        String testQueryId = "test_query_id_" + ThreadLocalRandom.current().nextInt(100_000_000);
+        String testQueryId = "test_query_id_" + randomUUID().toString().replace("-", "");
         Future<?> queryFuture = executor.submit(() -> {
             getQueryRunner().execute(format("SELECT count(comment) as %s FROM tpch.sf100000.lineitem", testQueryId));
         });

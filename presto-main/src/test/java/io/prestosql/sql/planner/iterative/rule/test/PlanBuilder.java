@@ -90,7 +90,9 @@ import io.prestosql.sql.planner.plan.WindowNode.Specification;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.testing.TestingHandle;
+import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingMetadata.TestingTableHandle;
 import io.prestosql.testing.TestingTransactionHandle;
 
@@ -218,7 +220,12 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<Expression>> rows)
     {
-        return new ValuesNode(id, columns, rows);
+        return new ValuesNode(id, columns, rows.stream().map(Row::new).collect(toImmutableList()));
+    }
+
+    public ValuesNode valuesOfExpressions(List<Symbol> columns, List<Expression> rows)
+    {
+        return new ValuesNode(idAllocator.getNextId(), columns, rows);
     }
 
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)
@@ -482,6 +489,17 @@ public class PlanBuilder
         return new CorrelatedJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
     }
 
+    public TableScanNode tableScan(List<Symbol> symbols, boolean forDelete)
+    {
+        return new TableScanNode(
+                idAllocator.getNextId(),
+                new TableHandle(new CatalogName("testConnector"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
+                symbols,
+                symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingMetadata.TestingColumnHandle(symbol.getName()))),
+                TupleDomain.all(),
+                forDelete);
+    }
+
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
     {
         return tableScan(
@@ -509,7 +527,8 @@ public class PlanBuilder
                 tableHandle,
                 symbols,
                 assignments,
-                enforcedConstraint);
+                enforcedConstraint,
+                false);
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
@@ -889,14 +908,24 @@ public class PlanBuilder
 
     public IntersectNode intersect(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
     {
+        return intersect(outputsToInputs, sources, true);
+    }
+
+    public IntersectNode intersect(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources, boolean distinct)
+    {
         List<Symbol> outputs = ImmutableList.copyOf(outputsToInputs.keySet());
-        return new IntersectNode(idAllocator.getNextId(), sources, outputsToInputs, outputs);
+        return new IntersectNode(idAllocator.getNextId(), sources, outputsToInputs, outputs, distinct);
     }
 
     public ExceptNode except(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
     {
+        return except(outputsToInputs, sources, true);
+    }
+
+    public ExceptNode except(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources, boolean distinct)
+    {
         List<Symbol> outputs = ImmutableList.copyOf(outputsToInputs.keySet());
-        return new ExceptNode(idAllocator.getNextId(), sources, outputsToInputs, outputs);
+        return new ExceptNode(idAllocator.getNextId(), sources, outputsToInputs, outputs, distinct);
     }
 
     public TableWriterNode tableWriter(List<Symbol> columns, List<String> columnNames, PlanNode source)

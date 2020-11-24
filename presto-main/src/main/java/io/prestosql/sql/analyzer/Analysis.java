@@ -150,6 +150,10 @@ public class Analysis
     private final Map<NodeRef<Expression>, Type> types = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, Type> coercions = new LinkedHashMap<>();
     private final Set<NodeRef<Expression>> typeOnlyCoercions = new LinkedHashSet<>();
+
+    private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations = new LinkedHashMap<>();
     private final Map<NodeRef<Relation>, List<Type>> relationCoercions = new LinkedHashMap<>();
     private final Map<NodeRef<FunctionCall>, RoutineEntry> resolvedFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
@@ -213,6 +217,11 @@ public class Analysis
     {
         this.updateType = null;
         this.target = Optional.empty();
+    }
+
+    public boolean isDeleteTarget(QualifiedObjectName name)
+    {
+        return "DELETE".equals(updateType) && Optional.of(name).equals(target);
     }
 
     public boolean isSkipMaterializedViewRefresh()
@@ -568,10 +577,36 @@ public class Analysis
         }
     }
 
-    public void addCoercions(Map<NodeRef<Expression>, Type> coercions, Set<NodeRef<Expression>> typeOnlyCoercions)
+    public void addCoercions(
+            Map<NodeRef<Expression>, Type> coercions,
+            Set<NodeRef<Expression>> typeOnlyCoercions,
+            Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundCalculation,
+            Map<NodeRef<Expression>, Type> sortKeyCoercionsForFrameBoundComparison)
     {
         this.coercions.putAll(coercions);
         this.typeOnlyCoercions.addAll(typeOnlyCoercions);
+        this.sortKeyCoercionsForFrameBoundCalculation.putAll(sortKeyCoercionsForFrameBoundCalculation);
+        this.sortKeyCoercionsForFrameBoundComparison.putAll(sortKeyCoercionsForFrameBoundComparison);
+    }
+
+    public Type getSortKeyCoercionForFrameBoundCalculation(Expression frameOffset)
+    {
+        return sortKeyCoercionsForFrameBoundCalculation.get(NodeRef.of(frameOffset));
+    }
+
+    public Type getSortKeyCoercionForFrameBoundComparison(Expression frameOffset)
+    {
+        return sortKeyCoercionsForFrameBoundComparison.get(NodeRef.of(frameOffset));
+    }
+
+    public void addFrameBoundCalculations(Map<NodeRef<Expression>, ResolvedFunction> frameBoundCalculations)
+    {
+        this.frameBoundCalculations.putAll(frameBoundCalculations);
+    }
+
+    public ResolvedFunction getFrameBoundCalculation(Expression frameOffset)
+    {
+        return frameBoundCalculations.get(NodeRef.of(frameOffset));
     }
 
     public Expression getHaving(QuerySpecification query)
@@ -1001,14 +1036,14 @@ public class Analysis
     @Immutable
     public static final class RefreshMaterializedViewAnalysis
     {
-        private final TableHandle materializedViewHandle;
+        private final QualifiedObjectName materializedViewName;
         private final TableHandle target;
         private final Query query;
         private final List<ColumnHandle> columns;
 
-        public RefreshMaterializedViewAnalysis(TableHandle materializedViewHandle, TableHandle target, Query query, List<ColumnHandle> columns)
+        public RefreshMaterializedViewAnalysis(QualifiedObjectName materializedViewName, TableHandle target, Query query, List<ColumnHandle> columns)
         {
-            this.materializedViewHandle = requireNonNull(materializedViewHandle, "Materialized view handle is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "Materialized view handle is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");
@@ -1030,9 +1065,9 @@ public class Analysis
             return target;
         }
 
-        public TableHandle getMaterializedViewHandle()
+        public QualifiedObjectName getMaterializedViewName()
         {
-            return materializedViewHandle;
+            return materializedViewName;
         }
     }
 

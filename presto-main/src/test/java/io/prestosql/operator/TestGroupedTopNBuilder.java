@@ -515,6 +515,7 @@ public class TestGroupedTopNBuilder
     }
 
     // this class is for memory tracking comparison
+    @SuppressWarnings("unused")
     private static class TestPageReference
     {
         // only need reference overhead

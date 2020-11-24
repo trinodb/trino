@@ -47,7 +47,7 @@ interface ParquetCompressor
             case UNCOMPRESSED:
                 return null;
         }
-        throw new RuntimeException(String.format("%s codec is not supported", codec));
+        throw new RuntimeException("Unsupported codec: " + codec);
     }
 
     class GzipCompressor

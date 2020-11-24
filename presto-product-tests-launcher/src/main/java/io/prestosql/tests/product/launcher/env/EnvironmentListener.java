@@ -15,23 +15,23 @@ package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import io.airlift.log.Logger;
+import io.prestosql.tests.product.launcher.util.ConsoleTable;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.function.Consumer;
 
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.tests.product.launcher.env.StatisticsFetcher.Stats.HEADER;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -84,7 +84,7 @@ public interface EnvironmentListener
                 throw new RuntimeException(e);
             }
             catch (ExecutionException | RuntimeException e) {
-                log.error("Could not invoke listener %s due to %s", listener.getClass().getSimpleName(), getStackTraceAsString(e));
+                log.error(e, "Could not invoke listener %s", listener.getClass().getSimpleName());
             }
         });
     }
@@ -217,46 +217,59 @@ public interface EnvironmentListener
     static EnvironmentListener statsPrintingListener()
     {
         ScheduledExecutorService executorService = Executors.newScheduledThreadPool(2, daemonThreadsNamed("container-stats-%d"));
-        List<ScheduledFuture<?>> futures = new ArrayList<>();
+        Map<String, StatisticsFetcher> fetchers = new TreeMap<>(); // keep map sorted
 
         return new EnvironmentListener()
         {
             @Override
-            public void containerStarting(DockerContainer container, InspectContainerResponse response)
+            public void containerStarted(DockerContainer container, InspectContainerResponse response)
             {
-                // Print stats every 30 seconds
-                futures.add(executorService.scheduleWithFixedDelay(() ->
-                {
-                    StatisticsFetcher.Stats stats = container.getStats();
-                    if (stats.areCalculated()) {
-                        log.info("%s - %s", container.getLogicalName(), container.getStats());
-                    }
-                }, 5 * 1000L, 30 * 1000L, MILLISECONDS));
-            }
-
-            @Override
-            public void containerStopping(DockerContainer container, InspectContainerResponse response)
-            {
-                log.info("Container %s final statistics - %s", container, container.getStats());
-            }
-
-            @Override
-            public void containerStarted(DockerContainer container, InspectContainerResponse containerInfo)
-            {
-                // Force fetching of stats so CPU usage can be calculated from delta
-                container.getStats();
+                // Start listening on statistics stream
+                fetcher(container).start();
             }
 
             @Override
             public void environmentStopping(Environment environment)
             {
-                futures.forEach(future -> future.cancel(true));
+                fetchers.values().forEach(StatisticsFetcher::close);
+                executorService.shutdownNow();
+                printContainerStats();
+            }
+
+            @Override
+            public void environmentStarted(Environment environment)
+            {
+                // Print stats for all containers every 30s after environment is started
+                executorService.scheduleWithFixedDelay(() ->
+                {
+                    printContainerStats();
+                }, 5 * 1000L, 30 * 1000L, MILLISECONDS);
             }
 
             @Override
             public void environmentStopped(Environment environment)
             {
                 executorService.shutdown();
+            }
+
+            private StatisticsFetcher fetcher(DockerContainer container)
+            {
+                return fetchers.computeIfAbsent(container.getLogicalName(), key -> StatisticsFetcher.create(container));
+            }
+
+            private void printContainerStats()
+            {
+                ConsoleTable statistics = new ConsoleTable();
+                statistics.addHeader(HEADER);
+                fetchers.entrySet().forEach(entry -> statistics.addRow(entry.getValue().get().toRow(entry.getKey())));
+                statistics.addSeparator();
+
+                try {
+                    log.info("Container stats:\n%s", statistics.render());
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         };
     }

@@ -19,13 +19,13 @@ import com.linkedin.coral.presto.rel2presto.RelToPrestoConverter;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.CoralSemiTransactionalHiveMSCAdapter;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.type.TypeManager;
@@ -70,9 +70,13 @@ public final class ViewReaderUtil
     public static final String PRESTO_VIEW_FLAG = "presto_view";
     static final String VIEW_PREFIX = "/* Presto View: ";
     static final String VIEW_SUFFIX = " */";
+    private static final String MATERIALIZED_VIEW_PREFIX = "/* Presto Materialized View: ";
+    private static final String MATERIALIZED_VIEW_SUFFIX = " */";
     private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
-    private static Logger log = Logger.get(io.prestosql.plugin.hive.ViewReaderUtil.class);
+
+    private static final JsonCodec<ConnectorMaterializedViewDefinition> MATERIALIZED_VIEW_CODEC =
+            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorMaterializedViewDefinition.class);
 
     public static boolean isPrestoView(Table table)
     {
@@ -97,6 +101,13 @@ public final class ViewReaderUtil
         return VIEW_PREFIX + data + VIEW_SUFFIX;
     }
 
+    public static String encodeMaterializedViewData(ConnectorMaterializedViewDefinition definition)
+    {
+        byte[] bytes = MATERIALIZED_VIEW_CODEC.toJsonBytes(definition);
+        String data = Base64.getEncoder().encodeToString(bytes);
+        return MATERIALIZED_VIEW_PREFIX + data + MATERIALIZED_VIEW_SUFFIX;
+    }
+
     /**
      * Supports decoding of Presto views
      */
@@ -112,6 +123,16 @@ public final class ViewReaderUtil
             viewData = viewData.substring(0, viewData.length() - VIEW_SUFFIX.length());
             byte[] bytes = Base64.getDecoder().decode(viewData);
             return VIEW_CODEC.fromJson(bytes);
+        }
+
+        public static ConnectorMaterializedViewDefinition decodeMaterializedViewData(String data)
+        {
+            checkCondition(data.startsWith(MATERIALIZED_VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "Materialized View data missing prefix: %s", data);
+            checkCondition(data.endsWith(MATERIALIZED_VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "Materialized View data missing suffix: %s", data);
+            data = data.substring(MATERIALIZED_VIEW_PREFIX.length());
+            data = data.substring(0, data.length() - MATERIALIZED_VIEW_SUFFIX.length());
+            byte[] bytes = Base64.getDecoder().decode(data);
+            return MATERIALIZED_VIEW_CODEC.fromJson(bytes);
         }
     }
 

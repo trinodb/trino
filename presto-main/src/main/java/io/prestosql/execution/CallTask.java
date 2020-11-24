@@ -20,8 +20,10 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.InjectedConnectorAccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.procedure.Procedure;
@@ -166,8 +168,11 @@ public class CallTask
         List<Object> arguments = new ArrayList<>();
         Iterator<Object> valuesIterator = asList(values).iterator();
         for (Class<?> type : methodType.parameterList()) {
-            if (ConnectorSession.class.isAssignableFrom(type)) {
+            if (ConnectorSession.class.equals(type)) {
                 arguments.add(session.toConnectorSession(catalogName));
+            }
+            else if (ConnectorAccessControl.class.equals(type)) {
+                arguments.add(new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogName.getCatalogName()));
             }
             else {
                 arguments.add(valuesIterator.next());

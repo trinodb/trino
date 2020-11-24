@@ -69,7 +69,8 @@ public class PushSampleIntoTableScan
                         result,
                         tableScan.getOutputSymbols(),
                         tableScan.getAssignments(),
-                        tableScan.getEnforcedConstraint())))
+                        tableScan.getEnforcedConstraint(),
+                        tableScan.isForDelete())))
                 .orElseGet(Result::empty);
     }
 

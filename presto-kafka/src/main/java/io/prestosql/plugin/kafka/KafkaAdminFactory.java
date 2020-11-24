@@ -14,41 +14,17 @@
 
 package io.prestosql.plugin.kafka;
 
-import io.prestosql.spi.HostAddress;
-import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 
-import javax.inject.Inject;
-
 import java.util.Properties;
-import java.util.Set;
 
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
-import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG;
-
-public class KafkaAdminFactory
+public interface KafkaAdminFactory
 {
-    private final Set<HostAddress> nodes;
-
-    @Inject
-    public KafkaAdminFactory(KafkaConfig kafkaConfig)
-    {
-        requireNonNull(kafkaConfig, "kafkaConfig is null");
-        nodes = kafkaConfig.getNodes();
-    }
-
-    public AdminClient create()
+    default Admin create()
     {
         return KafkaAdminClient.create(configure());
     }
 
-    public Properties configure()
-    {
-        Properties properties = new Properties();
-        properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()
-                .map(HostAddress::toString)
-                .collect(joining(",")));
-        return properties;
-    }
+    Properties configure();
 }

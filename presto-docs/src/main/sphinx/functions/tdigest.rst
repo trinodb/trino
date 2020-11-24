@@ -37,6 +37,7 @@ Functions
     of any numeric type.
 
 .. function:: tdigest_agg(x, w) -> tdigest
+    :noindex:
 
     Composes all input values of ``x`` into a ``tdigest`` using
     the per-item weight ``w``. ``w`` must be greater or equal than 1.

@@ -14,6 +14,8 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.hive.acid.AcidOperation;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
@@ -29,10 +31,13 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -89,9 +94,9 @@ public class HiveMetastoreClosure
         return delegate.getPartitionStatistics(identity, table, partitions);
     }
 
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction)
     {
-        delegate.updateTableStatistics(identity, databaseName, tableName, update);
+        delegate.updateTableStatistics(identity, databaseName, tableName, update, transaction);
     }
 
     public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
@@ -133,6 +138,11 @@ public class HiveMetastoreClosure
     public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
     {
         delegate.setDatabaseOwner(identity, databaseName, principal);
+    }
+
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        delegate.setTableOwner(identity, databaseName, tableName, principal);
     }
 
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
@@ -314,5 +324,35 @@ public class HiveMetastoreClosure
     public Optional<String> getConfigValue(String name)
     {
         return delegate.getConfigValue(name);
+    }
+
+    public long allocateWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId)
+    {
+        return delegate.allocateWriteId(identity, dbName, tableName, transactionId);
+    }
+
+    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isPartitioned)
+    {
+        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation, isPartitioned);
+    }
+
+    public void updateTableWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+    {
+        delegate.updateTableWriteId(identity, dbName, tableName, transactionId, writeId, rowCountChange);
+    }
+
+    public void alterPartitions(HiveIdentity identity, String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        delegate.alterPartitions(identity, dbName, tableName, partitions, writeId);
+    }
+
+    public void addDynamicPartitions(HiveIdentity identity, String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    {
+        delegate.addDynamicPartitions(identity, dbName, tableName, partitionNames, transactionId, writeId, operation);
+    }
+
+    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, EnvironmentContext context, PrincipalPrivileges principalPrivileges)
+    {
+        delegate.alterTransactionalTable(identity, table, transactionId, writeId, context, principalPrivileges);
     }
 }

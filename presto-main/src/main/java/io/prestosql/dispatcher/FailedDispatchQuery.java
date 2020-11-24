@@ -36,7 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.dispatcher.DispatchQuery.DispatchStatus.FAILED;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.util.Failures.toFailure;
@@ -104,9 +104,9 @@ public class FailedDispatchQuery
     }
 
     @Override
-    public ListenableFuture<?> getDispatchedFuture()
+    public ListenableFuture<DispatchStatus> getDispatchedFuture()
     {
-        return immediateFuture(null);
+        return immediateFuture(FAILED);
     }
 
     @Override
@@ -118,7 +118,7 @@ public class FailedDispatchQuery
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        executor.execute(() -> stateChangeListener.stateChanged(FAILED));
+        executor.execute(() -> stateChangeListener.stateChanged(QueryState.FAILED));
     }
 
     @Override
@@ -208,7 +208,7 @@ public class FailedDispatchQuery
         QueryInfo queryInfo = new QueryInfo(
                 session.getQueryId(),
                 session.toSessionRepresentation(),
-                FAILED,
+                QueryState.FAILED,
                 GENERAL_POOL,
                 false,
                 self,

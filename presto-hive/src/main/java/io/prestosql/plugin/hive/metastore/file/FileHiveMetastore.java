@@ -28,10 +28,12 @@ import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.PartitionNotFoundException;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.SchemaAlreadyExistsException;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Column;
@@ -45,6 +47,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnNotFoundException;
@@ -103,6 +106,8 @@ import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig.VERSION_COMPATIBILITY_CONFIG;
+import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
@@ -110,6 +115,7 @@ import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -131,6 +137,8 @@ public class FileHiveMetastore
     private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
+    private final String currentVersion;
+    private final VersionCompatibility versionCompatibility;
     private final HdfsEnvironment hdfsEnvironment;
     private final Path catalogDirectory;
     private final HdfsContext hdfsContext;
@@ -152,6 +160,7 @@ public class FileHiveMetastore
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(
+                new NodeVersion("test_version"),
                 hdfsEnvironment,
                 new MetastoreConfig(),
                 new FileHiveMetastoreConfig()
@@ -160,11 +169,13 @@ public class FileHiveMetastore
     }
 
     @Inject
-    public FileHiveMetastore(HdfsEnvironment hdfsEnvironment, MetastoreConfig metastoreConfig, FileHiveMetastoreConfig config)
+    public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, MetastoreConfig metastoreConfig, FileHiveMetastoreConfig config)
     {
+        this.currentVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
+        requireNonNull(config, "config is null");
+        this.versionCompatibility = requireNonNull(config.getVersionCompatibility(), "config.getVersionCompatibility() is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         requireNonNull(metastoreConfig, "metastoreConfig is null");
-        requireNonNull(config, "config is null");
         this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
         this.assumeCanonicalPartitionKeys = config.isAssumeCanonicalPartitionKeys();
@@ -189,7 +200,7 @@ public class FileHiveMetastore
         verifyDatabaseNotExists(database.getDatabaseName());
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
-        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(database), false);
+        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
     }
 
     @Override
@@ -234,7 +245,7 @@ public class FileHiveMetastore
                 .setOwnerType(principal.getType())
                 .build();
 
-        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(newDatabase), true);
+        writeSchemaFile("database", databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, newDatabase), true);
     }
 
     @Override
@@ -244,7 +255,10 @@ public class FileHiveMetastore
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
         return readSchemaFile("database", databaseMetadataDirectory, databaseCodec)
-                .map(databaseMetadata -> databaseMetadata.toDatabase(databaseName, databaseMetadataDirectory.toString()));
+                .map(databaseMetadata -> {
+                    checkVersion(databaseMetadata.getWriterVersion());
+                    return databaseMetadata.toDatabase(databaseName, databaseMetadataDirectory.toString());
+                });
     }
 
     private Database getRequiredDatabase(String databaseName)
@@ -301,7 +315,7 @@ public class FileHiveMetastore
             throw new PrestoException(NOT_SUPPORTED, "Table type not supported: " + table.getTableType());
         }
 
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(table), false);
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, table), false);
 
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
             setTablePrivileges(new HivePrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
@@ -324,7 +338,27 @@ public class FileHiveMetastore
 
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         return readSchemaFile("table", tableMetadataDirectory, tableCodec)
-                .map(tableMetadata -> tableMetadata.toTable(databaseName, tableName, tableMetadataDirectory.toString()));
+                .map(tableMetadata -> {
+                    checkVersion(tableMetadata.getWriterVersion());
+                    return tableMetadata.toTable(databaseName, tableName, tableMetadataDirectory.toString());
+                });
+    }
+
+    @Override
+    public synchronized void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        // TODO Add role support https://github.com/prestosql/presto/issues/5706
+        if (principal.getType() != USER) {
+            throw new PrestoException(NOT_SUPPORTED, "Setting table owner type as a role is not supported");
+        }
+
+        Table table = getRequiredTable(databaseName, tableName);
+        Path tableMetadataDirectory = getTableMetadataDirectory(table);
+        Table newTable = Table.builder(table)
+                .setOwner(principal.getName())
+                .build();
+
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
     }
 
     @Override
@@ -344,6 +378,7 @@ public class FileHiveMetastore
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile("table", tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        checkVersion(tableMetadata.getWriterVersion());
         HiveBasicStatistics basicStatistics = getHiveBasicStatistics(tableMetadata.getParameters());
         Map<String, HiveColumnStatistics> columnStatistics = tableMetadata.getColumnStatistics();
         return new PartitionStatistics(basicStatistics, columnStatistics);
@@ -379,7 +414,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction)
     {
         PartitionStatistics originalStatistics = getTableStatistics(databaseName, tableName);
         PartitionStatistics updatedStatistics = update.apply(originalStatistics);
@@ -387,10 +422,11 @@ public class FileHiveMetastore
         Path tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile("table", tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        checkVersion(tableMetadata.getWriterVersion());
 
         TableMetadata updatedMetadata = tableMetadata
-                .withParameters(updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                .withColumnStatistics(updatedStatistics.getColumnStatistics());
+                .withParameters(currentVersion, updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
+                .withColumnStatistics(currentVersion, updatedStatistics.getColumnStatistics());
 
         writeSchemaFile("table", tableMetadataDirectory, tableCodec, updatedMetadata, true);
     }
@@ -499,7 +535,7 @@ public class FileHiveMetastore
         }
 
         Path tableMetadataDirectory = getTableMetadataDirectory(table);
-        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(newTable), true);
+        writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(currentVersion, newTable), true);
 
         // replace existing permissions
         deleteTablePrivileges(table);
@@ -552,9 +588,7 @@ public class FileHiveMetastore
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             comment.ifPresent(value -> parameters.put(TABLE_COMMENT, value));
 
-            return oldTable.withParameters(ImmutableMap.<String, String>builder()
-                    .putAll(parameters)
-                    .build());
+            return oldTable.withParameters(currentVersion, parameters);
         });
     }
 
@@ -577,7 +611,7 @@ public class FileHiveMetastore
                 }
             }
 
-            return oldTable.withDataColumns(newDataColumns.build());
+            return oldTable.withDataColumns(currentVersion, newDataColumns.build());
         });
     }
 
@@ -589,10 +623,12 @@ public class FileHiveMetastore
                 throw new PrestoException(ALREADY_EXISTS, "Column already exists: " + columnName);
             }
 
-            return oldTable.withDataColumns(ImmutableList.<Column>builder()
-                    .addAll(oldTable.getDataColumns())
-                    .add(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
-                    .build());
+            return oldTable.withDataColumns(
+                    currentVersion,
+                    ImmutableList.<Column>builder()
+                            .addAll(oldTable.getDataColumns())
+                            .add(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
+                            .build());
         });
     }
 
@@ -623,7 +659,7 @@ public class FileHiveMetastore
                 }
             }
 
-            return oldTable.withDataColumns(newDataColumns.build());
+            return oldTable.withDataColumns(currentVersion, newDataColumns.build());
         });
     }
 
@@ -644,7 +680,7 @@ public class FileHiveMetastore
                 }
             }
 
-            return oldTable.withDataColumns(newDataColumns.build());
+            return oldTable.withDataColumns(currentVersion, newDataColumns.build());
         });
     }
 
@@ -657,6 +693,8 @@ public class FileHiveMetastore
 
         TableMetadata oldTableSchema = readSchemaFile("table", tableMetadataDirectory, tableCodec)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        checkVersion(oldTableSchema.getWriterVersion());
+
         TableMetadata newTableSchema = alterFunction.apply(oldTableSchema);
         if (oldTableSchema == newTableSchema) {
             return;
@@ -1262,6 +1300,26 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+    }
+
+    private void checkVersion(Optional<String> writerVersion)
+    {
+        if (writerVersion.isPresent() && writerVersion.get().equals(currentVersion)) {
+            return;
+        }
+        if (versionCompatibility == UNSAFE_ASSUME_COMPATIBILITY) {
+            return;
+        }
+        throw new RuntimeException(format(
+                "The metadata file was written with %s while current version is %s. " +
+                        "File metastore provides no compatibility for metadata written with a different version. " +
+                        "You can disable this check by setting '%s=%s' configuration property.",
+                writerVersion
+                        .map(version -> "version " + version)
+                        .orElse("unknown version"),
+                currentVersion,
+                VERSION_COMPATIBILITY_CONFIG,
+                UNSAFE_ASSUME_COMPATIBILITY));
     }
 
     private <T> Optional<T> readSchemaFile(String type, Path metadataDirectory, JsonCodec<T> codec)

@@ -25,6 +25,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
@@ -55,7 +56,10 @@ import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.Cast;
+import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.tests.QueryTemplate;
 import io.prestosql.util.MorePredicates;
 import org.testng.annotations.Test;
@@ -71,6 +75,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.SystemSessionProperties.DISTRIBUTED_SORT;
+import static io.prestosql.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.prestosql.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -78,9 +83,16 @@ import static io.prestosql.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.prestosql.spi.predicate.Domain.singleValue;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.CREATED;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aliasToIndex;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -125,6 +137,9 @@ import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONE
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.LAST;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
@@ -298,8 +313,11 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         filter("O_ORDERKEY < L_ORDERKEY",
-                                                join(INNER, ImmutableList.of(), Optional.empty(),
-                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                                join(INNER,
+                                                        ImmutableList.of(),
+                                                        ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")),
+                                                        filter(TRUE_LITERAL,
+                                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
                                                         any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))
                                                         .withExactOutputs(ImmutableList.of("O_ORDERKEY", "L_ORDERKEY")))))));
 
@@ -341,8 +359,11 @@ public class TestLogicalPlanner
         assertPlan("SELECT 1 FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey",
                 anyTree(
                         filter("O_ORDERKEY < L_ORDERKEY",
-                                join(INNER, ImmutableList.of(), Optional.empty(),
-                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                join(INNER,
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")),
+                                        filter(TRUE_LITERAL,
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
                                         any(tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
     }
 
@@ -355,9 +376,16 @@ public class TestLogicalPlanner
                                 join(INNER,
                                         ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
                                         Optional.of("O_ORDERKEY < L_ORDERKEY"),
-                                        anyTree(tableScan("orders", ImmutableMap.of(
-                                                "O_SHIPPRIORITY", "shippriority",
-                                                "O_ORDERKEY", "orderkey"))),
+                                        Optional.of(ImmutableList.of(
+                                                new DynamicFilterPattern("O_SHIPPRIORITY", EQUAL, "L_LINENUMBER"),
+                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        project(
+                                                filter(TRUE_LITERAL,
+                                                        tableScan("orders", ImmutableMap.of(
+                                                                "O_SHIPPRIORITY", "shippriority",
+                                                                "O_ORDERKEY", "orderkey")))),
                                         anyTree(tableScan("lineitem", ImmutableMap.of(
                                                 "L_LINENUMBER", "linenumber",
                                                 "L_ORDERKEY", "orderkey")))))));
@@ -370,7 +398,8 @@ public class TestLogicalPlanner
                 anyTree(
                         filter("O_ORDERKEY < L_ORDERKEY",
                                 join(INNER, ImmutableList.of(), Optional.empty(),
-                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                        filter(TRUE_LITERAL,
+                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
                                         any(
                                                 filter("NOT (L_ORDERKEY IS NULL)",
                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey"))))))));
@@ -423,8 +452,7 @@ public class TestLogicalPlanner
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("X", "Y")),
                                 project(
-                                        node(
-                                                FilterNode.class,
+                                        filter(TRUE_LITERAL,
                                                 tableScan("orders", ImmutableMap.of("X", "orderkey")))),
                                 project(
                                         node(EnforceSingleRowNode.class,
@@ -432,6 +460,7 @@ public class TestLogicalPlanner
                                                         tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
 
         assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
+                noSemiJoinRewrite(),
                 anyTree(
                         filter("S",
                                 project(
@@ -510,14 +539,14 @@ public class TestLogicalPlanner
         // same IN query used for left, right and complex condition
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey IN (SELECT 1) AND (o1.orderkey IN (SELECT 1) OR o1.orderkey IN (SELECT 1))"),
+                        plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey NOT IN (SELECT 1) AND (o1.orderkey NOT IN (SELECT 1) OR o1.orderkey NOT IN (SELECT 1))"),
                         SemiJoinNode.class::isInstance),
                 1);
 
         // one subquery used for "1 IN (SELECT 1)", one subquery used for "2 IN (SELECT 1)"
         assertEquals(
                 countOfMatchingNodes(
-                        plan("SELECT 1 IN (SELECT 1), 2 IN (SELECT 1) WHERE 1 IN (SELECT 1)"),
+                        plan("SELECT 1 NOT IN (SELECT 1), 2 NOT IN (SELECT 1) WHERE 1 NOT IN (SELECT 1)"),
                         SemiJoinNode.class::isInstance),
                 2);
     }
@@ -909,7 +938,7 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT count(*) FROM (SELECT sum(orderkey) FROM orders)",
                 output(
-                        values(ImmutableList.of("_col0"), ImmutableList.of(ImmutableList.of(new LongLiteral("1"))))));
+                        values(ImmutableList.of("_col0"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1"))))));
         assertPlan(
                 "SELECT count(s) FROM (SELECT sum(orderkey) AS s FROM orders)",
                 anyTree(
@@ -1083,8 +1112,30 @@ public class TestLogicalPlanner
     public void testRemoveAggregationInSemiJoin()
     {
         assertPlanDoesNotContain(
-                "SELECT custkey FROM orders WHERE custkey IN (SELECT distinct custkey FROM customer)",
+                "SELECT custkey FROM orders WHERE custkey NOT IN (SELECT distinct custkey FROM customer)",
                 AggregationNode.class);
+    }
+
+    @Test
+    public void testFilteringSemiJoinRewriteToInnerJoin()
+    {
+        assertPlan(
+                "SELECT custkey FROM orders WHERE custkey IN (SELECT custkey FROM customer)",
+                any(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("CUSTOMER_CUSTKEY", "ORDER_CUSTKEY")),
+                                project(
+                                        aggregation(
+                                                singleGroupingSet("CUSTOMER_CUSTKEY"),
+                                                ImmutableMap.of(),
+                                                ImmutableMap.of(),
+                                                Optional.empty(),
+                                                FINAL,
+                                                anyTree(
+                                                        tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))))),
+                                anyTree(
+                                        tableScan("orders", ImmutableMap.of("ORDER_CUSTKEY", "custkey"))))));
     }
 
     @Test
@@ -1508,7 +1559,7 @@ public class TestLogicalPlanner
     public void testSizeBasedSemiJoin()
     {
         // both local.sf100000.nation and local.sf100000.orders don't provide stats, therefore no reordering happens
-        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey IN (SELECT nationkey FROM local.\"sf42.5\".nation)",
+        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey NOT IN (SELECT nationkey FROM local.\"sf42.5\".nation)",
                 automaticJoinDistribution(),
                 output(
                         anyTree(
@@ -1519,7 +1570,7 @@ public class TestLogicalPlanner
                                                 tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey")))))));
 
         // values node provides stats
-        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey IN (SELECT t.a FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a))",
+        assertDistributedPlan("SELECT custkey FROM local.\"sf42.5\".orders WHERE orders.custkey NOT IN (SELECT t.a FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT)) t(a))",
                 automaticJoinDistribution(),
                 output(
                         anyTree(
@@ -1540,6 +1591,44 @@ public class TestLogicalPlanner
                                         strictTableScan("nation", ImmutableMap.of("regionkey", "regionkey"))))));
     }
 
+    @Test
+    public void testValuesCoercions()
+    {
+        assertPlan("VALUES TINYINT '1', REAL '1'",
+                CREATED,
+                anyTree(
+                        values(
+                                ImmutableList.of("field"),
+                                ImmutableList.of(
+                                        ImmutableList.of(new Cast(new GenericLiteral("TINYINT", "1"), toSqlType(REAL))),
+                                        ImmutableList.of(new GenericLiteral("REAL", "1"))))));
+
+        // rows coerced by field
+        assertPlan("VALUES (TINYINT '1', REAL '1'), (DOUBLE '2', SMALLINT '2')",
+                CREATED,
+                anyTree(
+                        values(
+                                ImmutableList.of("field", "field0"),
+                                ImmutableList.of(
+                                        ImmutableList.of(new Cast(new GenericLiteral("TINYINT", "1"), toSqlType(DOUBLE)), new GenericLiteral("REAL", "1")),
+                                        ImmutableList.of(new GenericLiteral("DOUBLE", "2"), new Cast(new GenericLiteral("SMALLINT", "2"), toSqlType(REAL)))))));
+
+        // entry of type other than Row coerced as a whole
+        assertPlan("VALUES DOUBLE '1', CAST(ROW(2) AS row(bigint))",
+                CREATED,
+                anyTree(
+                        values(
+                                aliasToIndex(ImmutableList.of("field")),
+                                Optional.of(1),
+                                Optional.of(ImmutableList.of(
+                                        new Row(ImmutableList.of(new GenericLiteral("DOUBLE", "1"))),
+                                        new Cast(
+                                                new Cast(
+                                                        new Row(ImmutableList.of(new LongLiteral("2"))),
+                                                        toSqlType(RowType.anonymous(ImmutableList.of(BIGINT)))),
+                                                toSqlType(RowType.anonymous(ImmutableList.of(DOUBLE)))))))));
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
@@ -1553,6 +1642,13 @@ public class TestLogicalPlanner
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .build();
+    }
+
+    private Session noSemiJoinRewrite()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                 .build();
     }
 }
