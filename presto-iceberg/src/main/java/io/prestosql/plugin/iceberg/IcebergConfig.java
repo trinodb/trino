@@ -63,7 +63,7 @@ public class IcebergConfig
     }
 
     @Config("iceberg.table-type")
-    @ConfigDescription("Type of the table: MANAGED_TABLE or EXTERNAL_TABLE")
+    @ConfigDescription("Type of the table: `MANAGED_TABLE` or `EXTERNAL_TABLE`")
     public IcebergConfig setTableType(TableType tableType)
     {
         this.tableType = tableType;
