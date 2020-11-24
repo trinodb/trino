@@ -15,6 +15,7 @@ package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
+import io.prestosql.execution.buffer.BenchmarkDataGenerator;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
@@ -49,10 +50,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.execution.buffer.BenchmarkDataGenerator.createValues;
+import static io.prestosql.execution.buffer.BenchmarkDataGenerator.randomAsciiString;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -90,7 +94,6 @@ public class BenchmarkColumnReaders
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 5);
     public static final int ROWS = 10_000_000;
     private static final int DICTIONARY = 22;
-    private static final int MAX_STRING = 19;
     private static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
     @Benchmark
@@ -341,6 +344,16 @@ public class BenchmarkColumnReaders
         return blocks;
     }
 
+    public abstract static class TypeBenchmarkData
+            extends BenchmarkData
+    {
+        public void setup(Type type, Function<Random, ?> valueGenerator, double nullChance)
+                throws Exception
+        {
+            setup(type, createValues(ROWS, valueGenerator, nullChance));
+        }
+    }
+
     public abstract static class BenchmarkData
     {
         protected final Random random = new Random(0);
@@ -436,284 +449,151 @@ public class BenchmarkColumnReaders
 
     @State(Thread)
     public static class BooleanNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(BOOLEAN, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Boolean> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextBoolean());
-            }
-            return values.iterator();
+            setup(BOOLEAN, Random::nextBoolean, 0);
         }
     }
 
     @State(Thread)
     public static class BooleanWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(BOOLEAN, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Boolean> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextBoolean() ? random.nextBoolean() : null);
-            }
-            return values.iterator();
+            setup(BOOLEAN, Random::nextBoolean, .5);
         }
     }
 
     @State(Thread)
     public static class TinyIntNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(TINYINT, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Byte> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(Long.valueOf(random.nextLong()).byteValue());
-            }
-            return values.iterator();
+            setup(TINYINT, BenchmarkDataGenerator::randomByte, 0);
         }
     }
 
     @State(Thread)
     public static class TinyIntWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(TINYINT, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Byte> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(Long.valueOf(random.nextLong()).byteValue());
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(TINYINT, BenchmarkDataGenerator::randomByte, .5);
         }
     }
 
     @State(Thread)
     public static class ShortDecimalNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(SHORT_DECIMAL_TYPE, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<SqlDecimal> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), 10, 5));
-            }
-            return values.iterator();
+            setup(SHORT_DECIMAL_TYPE, BenchmarkColumnReaders::randomShortDecimal, 0);
         }
     }
 
     @State(Thread)
     public static class ShortDecimalWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(SHORT_DECIMAL_TYPE, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<SqlDecimal> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10000000000L), 10, 5));
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(SHORT_DECIMAL_TYPE, BenchmarkColumnReaders::randomShortDecimal, .5);
         }
     }
 
     @State(Thread)
     public static class LongDecimalNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(LONG_DECIMAL_TYPE, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<SqlDecimal> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(new SqlDecimal(new BigInteger(96, random), 30, 5));
-            }
-            return values.iterator();
+            setup(LONG_DECIMAL_TYPE, BenchmarkDataGenerator::randomLongDecimal, 0);
         }
     }
 
     @State(Thread)
     public static class LongDecimalWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(LONG_DECIMAL_TYPE, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<SqlDecimal> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(new SqlDecimal(new BigInteger(96, random), 30, 5));
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(LONG_DECIMAL_TYPE, BenchmarkDataGenerator::randomLongDecimal, .5);
         }
     }
 
     @State(Thread)
     public static class DoubleNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(DOUBLE, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Double> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextDouble());
-            }
-            return values.iterator();
+            setup(DOUBLE, Random::nextDouble, 0);
         }
     }
 
     @State(Thread)
     public static class DoubleWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(DOUBLE, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Double> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(random.nextDouble());
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(DOUBLE, Random::nextDouble, .5);
         }
     }
 
     @State(Thread)
     public static class FloatNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(REAL, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Float> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextFloat());
-            }
-            return values.iterator();
+            setup(REAL, Random::nextFloat, 0);
         }
     }
 
     @State(Thread)
     public static class FloatWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(REAL, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Float> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(random.nextFloat());
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(REAL, Random::nextFloat, .5);
         }
     }
 
     @State(Thread)
     public static class BigintNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         public static BigintNoNullBenchmarkData create()
                 throws Exception
@@ -727,22 +607,13 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BIGINT, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Long> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextLong());
-            }
-            return values.iterator();
+            setup(BIGINT, Random::nextLong, 0);
         }
     }
 
     @State(Thread)
     public static class BigintWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         public static BigintWithNullBenchmarkData create()
                 throws Exception
@@ -756,27 +627,13 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BIGINT, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Long> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(random.nextLong());
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(BIGINT, Random::nextLong, .5);
         }
     }
 
     @State(Thread)
     public static class IntegerNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         public static IntegerNoNullBenchmarkData create()
                 throws Exception
@@ -790,22 +647,13 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(INTEGER, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Integer> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(random.nextInt());
-            }
-            return values.iterator();
+            setup(INTEGER, Random::nextInt, 0);
         }
     }
 
     @State(Thread)
     public static class IntegerWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         public static IntegerWithNullBenchmarkData create()
                 throws Exception
@@ -819,27 +667,13 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(INTEGER, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Integer> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(random.nextInt());
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(INTEGER, Random::nextInt, .5);
         }
     }
 
     @State(Thread)
     public static class SmallintNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         public static SmallintNoNullBenchmarkData create()
                 throws Exception
@@ -853,22 +687,13 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SMALLINT, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Short> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add((short) random.nextInt());
-            }
-            return values.iterator();
+            setup(SMALLINT, BenchmarkDataGenerator::randomShort, 0);
         }
     }
 
     @State(Thread)
     public static class SmallintWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         public static SmallintWithNullBenchmarkData create()
                 throws Exception
@@ -882,119 +707,61 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SMALLINT, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<Short> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add((short) random.nextInt());
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(SMALLINT, BenchmarkDataGenerator::randomShort, .5);
         }
     }
 
     @State(Thread)
     public static class VarcharDirectNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<String> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(randomAsciiString(random));
-            }
-            return values.iterator();
+            setup(VARCHAR, BenchmarkDataGenerator::randomAsciiString, 0);
         }
     }
 
     @State(Thread)
     public static class VarcharDirectWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<String> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(randomAsciiString(random));
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(VARCHAR, BenchmarkDataGenerator::randomAsciiString, .5);
         }
     }
 
     @State(Thread)
     public static class VarcharDictionaryNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
+        private List<String> dictionary;
+
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<String> dictionary = createDictionary(random);
-
-            List<String> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(dictionary.get(random.nextInt(dictionary.size())));
-            }
-            return values.iterator();
+            dictionary = createDictionary(random);
+            setup(VARCHAR, random -> dictionary.get(random.nextInt(dictionary.size())), 0);
         }
     }
 
     @State(Thread)
     public static class VarcharDictionaryWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
+        private List<String> dictionary;
+
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<String> dictionary = createDictionary(random);
-
-            List<String> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(dictionary.get(random.nextInt(dictionary.size())));
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            dictionary = createDictionary(random);
+            setup(VARCHAR, random -> dictionary.get(random.nextInt(dictionary.size())), .5);
         }
     }
 
@@ -1007,60 +774,27 @@ public class BenchmarkColumnReaders
         return dictionary;
     }
 
-    // this is not appropriate for benchmarking with compression
-    private static String randomAsciiString(Random random)
-    {
-        char[] value = new char[random.nextInt(MAX_STRING)];
-        for (int i = 0; i < value.length; i++) {
-            value[i] = (char) random.nextInt(Byte.MAX_VALUE);
-        }
-        return new String(value);
-    }
-
     @State(Thread)
     public static class TimestampNoNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP_MILLIS, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<SqlTimestamp> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                values.add(SqlTimestamp.fromMillis(3, (random.nextLong())));
-            }
-            return values.iterator();
+            setup(TIMESTAMP_MILLIS, BenchmarkColumnReaders::randomTimestamp, 0);
         }
     }
 
     @State(Thread)
     public static class TimestampWithNullBenchmarkData
-            extends BenchmarkData
+            extends TypeBenchmarkData
     {
         @Setup
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP_MILLIS, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            List<SqlTimestamp> values = new ArrayList<>();
-            for (int i = 0; i < ROWS; ++i) {
-                if (random.nextBoolean()) {
-                    values.add(SqlTimestamp.fromMillis(3, random.nextLong()));
-                }
-                else {
-                    values.add(null);
-                }
-            }
-            return values.iterator();
+            setup(TIMESTAMP_MILLIS, BenchmarkColumnReaders::randomTimestamp, .5);
         }
     }
 
@@ -1076,6 +810,16 @@ public class BenchmarkColumnReaders
                     getTableColumns("lineitem"),
                     getTablePages("lineitem", 0.1));
         }
+    }
+
+    private static SqlDecimal randomShortDecimal(Random random)
+    {
+        return new SqlDecimal(BigInteger.valueOf(random.nextLong() % 10_000_000_000L), 10, 5);
+    }
+
+    private static SqlTimestamp randomTimestamp(Random random)
+    {
+        return SqlTimestamp.fromMillis(3, random.nextLong());
     }
 
     static {
