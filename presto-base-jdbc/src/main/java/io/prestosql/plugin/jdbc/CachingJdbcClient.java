@@ -43,6 +43,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -76,8 +78,6 @@ public class CachingJdbcClient
         schemaNamesCache = cacheBuilder.build(CacheLoader.from(delegate::getSchemaNames));
         tableNamesCache = cacheBuilder.build(CacheLoader.from(key -> delegate.getTableNames(key.identity, key.schemaName)));
         tableHandleCache = cacheBuilder.build(CacheLoader.from(key -> delegate.getTableHandle(key.identity, key.tableName)));
-
-        // TODO use LoadingCache for columns (columns depend on session and session cannot be used in cache key)
         columnsCache = cacheBuilder.build();
     }
 
@@ -106,15 +106,8 @@ public class CachingJdbcClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
-
         ColumnsCacheKey key = new ColumnsCacheKey(JdbcIdentity.from(session), tableHandle.getSchemaTableName());
-        List<JdbcColumnHandle> columns = columnsCache.getIfPresent(key);
-        if (columns != null) {
-            return columns;
-        }
-        columns = delegate.getColumns(session, tableHandle);
-        columnsCache.put(key, columns);
-        return columns;
+        return get(columnsCache, key, () -> delegate.getColumns(session, tableHandle));
     }
 
     @Override
@@ -488,6 +481,21 @@ public class CachingJdbcClient
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw e;
+        }
+    }
+
+    private static <K, V> V get(Cache<K, V> cache, K key, Callable<V> loader)
+    {
+        try {
+            return cache.get(key, loader);
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw e;
+        }
+        catch (ExecutionException e) {
+            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throw new UncheckedExecutionException(e);
         }
     }
 }
