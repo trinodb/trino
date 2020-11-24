@@ -999,6 +999,7 @@
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
+                        <!-- Exclude everything because shaded version of calcite-core still pulls in all the original dependencies -->
                         <groupId>*</groupId>
                         <artifactId>*</artifactId>
                     </exclusion>
