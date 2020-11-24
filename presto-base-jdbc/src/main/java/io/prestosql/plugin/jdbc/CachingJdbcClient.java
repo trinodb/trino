@@ -189,7 +189,7 @@ public class CachingJdbcClient
             return cachedTableHandle;
         }
         Optional<JdbcTableHandle> tableHandle = delegate.getTableHandle(identity, schemaTableName);
-        if (tableHandle.isEmpty() || cacheMissing) {
+        if (tableHandle.isPresent() || cacheMissing) {
             tableHandleCache.put(key, tableHandle);
         }
         return tableHandle;
