@@ -15,7 +15,6 @@ package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
-import io.airlift.units.Duration;
 import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.execution.QueryState;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
@@ -58,8 +57,6 @@ import java.util.regex.Pattern;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.airlift.testing.Assertions.assertLessThan;
-import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static java.lang.Float.POSITIVE_INFINITY;
@@ -96,19 +93,9 @@ public class TestPrestoDriver
         server.createCatalog(TEST_CATALOG, "tpch");
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
-        waitForNodeRefresh(server);
+        server.waitForNodeRefresh(java.time.Duration.ofSeconds(10));
         setupTestTables();
         executorService = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-    }
-
-    static void waitForNodeRefresh(TestingPrestoServer server)
-            throws InterruptedException
-    {
-        long start = System.nanoTime();
-        while (server.refreshNodes().getActiveNodes().size() < 1) {
-            assertLessThan(nanosSince(start), new Duration(10, SECONDS));
-            MILLISECONDS.sleep(10);
-        }
     }
 
     private void setupTestTables()

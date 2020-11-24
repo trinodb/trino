@@ -36,6 +36,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -45,7 +46,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -79,7 +79,7 @@ public class TestJdbcWarnings
                 .build();
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
-        waitForNodeRefresh(server);
+        server.waitForNodeRefresh(Duration.ofSeconds(10));
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
