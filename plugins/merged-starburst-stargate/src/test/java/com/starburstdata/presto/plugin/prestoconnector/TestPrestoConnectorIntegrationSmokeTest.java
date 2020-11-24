@@ -22,6 +22,7 @@ import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPrestoConnectorIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -58,5 +59,15 @@ public class TestPrestoConnectorIntegrationSmokeTest
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(AggregationNode.class);
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(AggregationNode.class);
+    }
+
+    @Test
+    public void testCreateView()
+    {
+        // The test ensures that we do not inherit CREATE VIEW capabilities from presto-base-jdbc.
+        // While generic VIEW support in base JDBC is feasible, Presto Connector would require special
+        // considerations, see https://starburstdata.atlassian.net/browse/PRESTO-4795.
+        assertThatThrownBy(() -> query("CREATE VIEW v AS SELECT 1 a"))
+                .hasMessage("This connector does not support creating views");
     }
 }
