@@ -18,7 +18,6 @@ import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
@@ -35,93 +34,93 @@ public class TestUnwrapCastInComparison
         // representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A = BIGINT '1'",
                                 values("A"))));
 
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '1.9'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         // below top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '32766'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '32766'",
                                 values("A"))));
 
         // round to top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '32766.9'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         // top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '32767'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '32767'",
                                 values("A"))));
 
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '32768.1'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         // above bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '-32767'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '-32767'",
                                 values("A"))));
 
         // round to bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '-32767.9'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         // bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '-32768'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '-32768'",
                                 values("A"))));
 
         // below range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '-32768.1'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = DOUBLE '-18446744073709551616'", // -2^64 constant
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
     }
@@ -132,93 +131,93 @@ public class TestUnwrapCastInComparison
         // representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A <> SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <> DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A <> BIGINT '1'",
                                 values("A"))));
 
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '1.9'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <> DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         // below top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '32766'",
-                anyTree(
+                output(
                         filter("A <> SMALLINT '32766'",
                                 values("A"))));
 
         // round to top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '32766.9'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         // top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '32767'",
-                anyTree(
+                output(
                         filter("A <> SMALLINT '32767'",
                                 values("A"))));
 
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '32768.1'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <> DOUBLE '18446744073709551616'", // 2^64 constant
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         // above bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '-32767'",
-                anyTree(
+                output(
                         filter("A <> SMALLINT '-32767'",
                                 values("A"))));
 
         // round to bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '-32767.9'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         // bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '-32768'",
-                anyTree(
+                output(
                         filter("A <> SMALLINT '-32768'",
                                 values("A"))));
 
         // below range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '-32768.1'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
     }
@@ -229,94 +228,94 @@ public class TestUnwrapCastInComparison
         // representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A < SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a < DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A < BIGINT '1'",
                                 values("A"))));
 
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("A <= SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a < DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("A <= BIGINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '1.9'",
-                anyTree(
+                output(
                         filter("A < SMALLINT '2'",
                                 values("A"))));
 
         // below top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '32766'",
-                anyTree(
+                output(
                         filter("A < SMALLINT '32766'",
                                 values("A"))));
 
         // round to top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '32766.9'",
-                anyTree(
+                output(
                         filter("A < SMALLINT '32767'",
                                 values("A"))));
 
         // top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '32767'",
-                anyTree(
+                output(
                         filter("A <> SMALLINT '32767'",
                                 values("A"))));
 
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '32768.1'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         // above bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '-32767'",
-                anyTree(
+                output(
                         filter("A < SMALLINT '-32767'",
                                 values("A"))));
 
         // round to bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '-32767.9'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '-32768'",
                                 values("A"))));
 
         // bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '-32768'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         // below range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '-32768.1'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a < DOUBLE '-18446744073709551616'", // -2^64 constant
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
     }
@@ -327,94 +326,94 @@ public class TestUnwrapCastInComparison
         // representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A <= SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <= DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A <= BIGINT '1'",
                                 values("A"))));
 
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("A <= SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <= DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("A <= BIGINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '1.9'",
-                anyTree(
+                output(
                         filter("A < SMALLINT '2'",
                                 values("A"))));
 
         // below top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '32766'",
-                anyTree(
+                output(
                         filter("A <= SMALLINT '32766'",
                                 values("A"))));
 
         // round to top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '32766.9'",
-                anyTree(
+                output(
                         filter("A < SMALLINT '32767'",
                                 values("A"))));
 
         // top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '32767'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '32768.1'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <= DOUBLE '18446744073709551616'", // 2^64 constant
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         // above bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '-32767'",
-                anyTree(
+                output(
                         filter("A <= SMALLINT '-32767'",
                                 values("A"))));
 
         // round to bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '-32767.9'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '-32768'",
                                 values("A"))));
 
         // bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '-32768'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '-32768'",
                                 values("A"))));
 
         // below range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '-32768.1'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
     }
@@ -425,94 +424,94 @@ public class TestUnwrapCastInComparison
         // representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A > SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a > DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A > BIGINT '1'",
                                 values("A"))));
 
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("A > SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '1.9'",
-                anyTree(
+                output(
                         filter("A >= SMALLINT '2'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a > DOUBLE '1.9'",
-                anyTree(
+                output(
                         filter("A >= BIGINT '2'",
                                 values("A"))));
 
         // below top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '32766'",
-                anyTree(
+                output(
                         filter("A > SMALLINT '32766'",
                                 values("A"))));
 
         // round to top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '32766.9'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '32767'",
                                 values("A"))));
 
         // top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '32767'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '32768.1'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a > DOUBLE '18446744073709551616'", // 2^64 constant
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         // above bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '-32767'",
-                anyTree(
+                output(
                         filter("A > SMALLINT '-32767'",
                                 values("A"))));
 
         // round to bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '-32767.9'",
-                anyTree(
+                output(
                         filter("A > SMALLINT '-32768'",
                                 values("A"))));
 
         // bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '-32768'",
-                anyTree(
+                output(
                         filter("A <> SMALLINT '-32768'",
                                 values("A"))));
 
         // below range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '-32768.1'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
     }
@@ -523,94 +522,94 @@ public class TestUnwrapCastInComparison
         // representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A >= SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a >= DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A >= BIGINT '1'",
                                 values("A"))));
 
         // non-representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("A > SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a >= DOUBLE '1.1'",
-                anyTree(
+                output(
                         filter("A > BIGINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '1.9'",
-                anyTree(
+                output(
                         filter("A >= SMALLINT '2'",
                                 values("A"))));
 
         // below top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '32766'",
-                anyTree(
+                output(
                         filter("A >= SMALLINT '32766'",
                                 values("A"))));
 
         // round to top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '32766.9'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '32767'",
                                 values("A"))));
 
         // top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '32767'",
-                anyTree(
+                output(
                         filter("A = SMALLINT '32767'",
                                 values("A"))));
 
         // above range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '32768.1'",
-                anyTree(
+                output(
                         filter("A IS NULL AND NULL",
                                 values("A"))));
 
         // above bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '-32767'",
-                anyTree(
+                output(
                         filter("A >= SMALLINT '-32767'",
                                 values("A"))));
 
         // round to bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '-32767.9'",
-                anyTree(
+                output(
                         filter("A > SMALLINT '-32768' ",
                                 values("A"))));
 
         // bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '-32768'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         // below range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '-32768.1'",
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a >= DOUBLE '-18446744073709551616'", // -2^64 constant
-                anyTree(
+                output(
                         filter("NOT (A IS NULL) OR NULL",
                                 values("A"))));
     }
@@ -621,13 +620,13 @@ public class TestUnwrapCastInComparison
         // representable
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A IS DISTINCT FROM SMALLINT '1'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A IS DISTINCT FROM BIGINT '1'",
                                 values("A"))));
 
@@ -650,7 +649,7 @@ public class TestUnwrapCastInComparison
         // below top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '32766'",
-                anyTree(
+                output(
                         filter("A IS DISTINCT FROM SMALLINT '32766'",
                                 values("A"))));
 
@@ -663,7 +662,7 @@ public class TestUnwrapCastInComparison
         // top of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '32767'",
-                anyTree(
+                output(
                         filter("A IS DISTINCT FROM SMALLINT '32767'",
                                 values("A"))));
 
@@ -681,7 +680,7 @@ public class TestUnwrapCastInComparison
         // above bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '-32767'",
-                anyTree(
+                output(
                         filter("A IS DISTINCT FROM SMALLINT '-32767'",
                                 values("A"))));
 
@@ -694,7 +693,7 @@ public class TestUnwrapCastInComparison
         // bottom of range
         assertPlan(
                 "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '-32768'",
-                anyTree(
+                output(
                         filter("A IS DISTINCT FROM SMALLINT '-32768'",
                                 values("A"))));
 
@@ -832,7 +831,7 @@ public class TestUnwrapCastInComparison
         for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
             assertPlan(
                     format("SELECT * FROM (VALUES TINYINT '1') t(a) WHERE a = %s '1'", type),
-                    anyTree(
+                    output(
                             filter("A = TINYINT '1'",
                                     values("A"))));
         }
@@ -840,7 +839,7 @@ public class TestUnwrapCastInComparison
         for (String type : asList("INTEGER", "BIGINT", "REAL", "DOUBLE")) {
             assertPlan(
                     format("SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = %s '1'", type),
-                    anyTree(
+                    output(
                             filter("A = SMALLINT '1'",
                                     values("A"))));
         }
@@ -848,13 +847,13 @@ public class TestUnwrapCastInComparison
         for (String type : asList("BIGINT", "DOUBLE")) {
             assertPlan(
                     format("SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = %s '1'", type),
-                    anyTree(
+                    output(
                             filter("A = 1",
                                     values("A"))));
         }
 
         assertPlan("SELECT * FROM (VALUES REAL '1') t(a) WHERE a = DOUBLE '1'",
-                anyTree(
+                output(
                         filter("A = REAL '1.0'",
                                 values("A"))));
     }
@@ -865,7 +864,7 @@ public class TestUnwrapCastInComparison
         // ensure the optimization works when the terms of the comparison are reversed
         // vs the canonical <expr> <op> <literal> form
         assertPlan("SELECT * FROM (VALUES REAL '1') t(a) WHERE DOUBLE '1' = a",
-                anyTree(
+                output(
                         filter("A = REAL '1.0'",
                                 values("A"))));
     }
@@ -968,106 +967,106 @@ public class TestUnwrapCastInComparison
         // BIGINT->DOUBLE implicit cast is not injective if the double constant is >= 2^53 and <= double(2^63 - 1)
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '9007199254740992'",
-                anyTree(
+                output(
                         filter("CAST(A AS DOUBLE) = 9.007199254740992E15",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '9223372036854775807'",
-                anyTree(
+                output(
                         filter("CAST(A AS DOUBLE) = 9.223372036854776E18",
                                 values("A"))));
 
         // BIGINT->DOUBLE implicit cast is not injective if the double constant is <= -2^53 and >= double(-2^63 + 1)
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '-9007199254740992'",
-                anyTree(
+                output(
                         filter("CAST(A AS DOUBLE) = -9.007199254740992E15",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '-9223372036854775807'",
-                anyTree(
+                output(
                         filter("CAST(A AS DOUBLE) = -9.223372036854776E18",
                                 values("A"))));
 
         // BIGINT->REAL implicit cast is not injective if the real constant is >= 2^23 and <= real(2^63 - 1)
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '8388608'",
-                anyTree(
+                output(
                         filter("CAST(A AS REAL) = REAL '8388608.0'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '9223372036854775807'",
-                anyTree(
+                output(
                         filter("CAST(A AS REAL) = REAL '9.223372E18'",
                                 values("A"))));
 
         // BIGINT->REAL implicit cast is not injective if the real constant is <= -2^23 and >= real(-2^63 + 1)
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '-8388608'",
-                anyTree(
+                output(
                         filter("CAST(A AS REAL) = REAL '-8388608.0'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '-9223372036854775807'",
-                anyTree(
+                output(
                         filter("CAST(A AS REAL) = REAL '-9.223372E18'",
                                 values("A"))));
 
         // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
         assertPlan(
                 "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '8388608'",
-                anyTree(
+                output(
                         filter("CAST(A AS REAL) = REAL '8388608.0'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '2147483647'",
-                anyTree(
+                output(
                         filter("CAST(A AS REAL) = REAL '2.14748365E9'",
                                 values("A"))));
 
         // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
         assertPlan(
                 "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '-8388608'",
-                anyTree(
+                output(
                         filter("CAST(A AS REAL) = REAL '-8388608.0'",
                                 values("A"))));
 
         assertPlan(
                 "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '-2147483647'",
-                anyTree(
+                output(
                         filter("CAST(A AS REAL) = REAL '-2.14748365E9'",
                                 values("A"))));
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
         assertPlan(
                 "SELECT * FROM (VALUES CAST('1' AS DECIMAL(16))) t(a) WHERE a = DOUBLE '1'",
-                anyTree(
+                output(
                         filter("CAST(A AS DOUBLE) = 1E0",
                                 values("A"))));
 
         // DECIMAL(p)->REAL not injective for p > 7
         assertPlan(
                 "SELECT * FROM (VALUES CAST('1' AS DECIMAL(8))) t(a) WHERE a = REAL '1'",
-                anyTree(
+                output(
                         filter("CAST(A AS REAL) = REAL '1.0'",
                                 values("A"))));
 
         // no implicit cast between VARCHAR->INTEGER
         assertPlan(
                 "SELECT * FROM (VALUES VARCHAR '1') t(a) WHERE CAST(a AS INTEGER) = INTEGER '1'",
-                anyTree(
+                output(
                         filter("CAST(A AS INTEGER) = 1",
                                 values("A"))));
 
         // no implicit cast between DOUBLE->INTEGER
         assertPlan(
                 "SELECT * FROM (VALUES DOUBLE '1') t(a) WHERE CAST(a AS INTEGER) = INTEGER '1'",
-                anyTree(
+                output(
                         filter("CAST(A AS INTEGER) = 1",
                                 values("A"))));
     }
@@ -1078,7 +1077,7 @@ public class TestUnwrapCastInComparison
         try {
             assertPlan(sql,
                     session,
-                    anyTree(
+                    output(
                             filter(format("CAST(A AS %s) %s", expectedCastType, inputPredicate),
                                     values("A"))));
         }
@@ -1094,7 +1093,7 @@ public class TestUnwrapCastInComparison
         try {
             assertPlan(sql,
                     session,
-                    anyTree(
+                    output(
                             filter(expectedPredicate,
                                     values("a"))));
         }
