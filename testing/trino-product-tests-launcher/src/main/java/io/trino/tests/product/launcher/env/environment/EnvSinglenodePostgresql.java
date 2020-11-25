@@ -26,10 +26,12 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
-import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
+import static org.testcontainers.containers.wait.strategy.Wait.forListeningPort;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -71,7 +73,8 @@ public final class EnvSinglenodePostgresql
                 .withEnv("POSTGRES_DB", "test")
                 .withEnv("PGPORT", Integer.toString(POSTGRESQL_PORT))
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(POSTGRESQL_PORT));
+                .withHealthCheckCommand(format("pg_isready -t 1 -p %d -U ${POSTGRES_USER}", POSTGRESQL_PORT))
+                .waitingForAll(forHealthcheck(), forListeningPort());
 
         portBinder.exposePort(container, POSTGRESQL_PORT);
 
