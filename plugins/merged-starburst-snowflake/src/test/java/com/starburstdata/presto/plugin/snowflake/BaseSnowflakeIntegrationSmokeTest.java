@@ -544,4 +544,53 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
                             "TIME '04:05:06.123')");
         }
     }
+
+    @Test
+    public void testSnowflakeTemporalRounding()
+    {
+        try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_timestamp_rounding",
+                "(t timestamp(9))",
+                ImmutableList.of(
+                        "TIMESTAMP '1901-02-03 04:05:06.123499999'",
+                        "TIMESTAMP '1901-02-03 04:05:06.123900000'",
+                        "TIMESTAMP '1969-12-31 23:59:59.999999999'",
+                        "TIMESTAMP '2001-02-03 04:05:06.123499999'",
+                        "TIMESTAMP '2001-02-03 04:05:06.123900000'"))) {
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES " +
+                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123'," + // Snowflake truncates on cast
+                            "TIMESTAMP '1969-12-31 23:59:59.999'," + // Snowflake truncates on cast
+                            "TIMESTAMP '2001-02-03 04:05:06.123'," +
+                            "TIMESTAMP '2001-02-03 04:05:06.123'"); // Snowflake truncates on cast
+        }
+
+        try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_timestamptz_rounding",
+                "(t timestamp_tz(9))",
+                ImmutableList.of(
+                        "'1901-02-03 04:05:06.123499999 +02:00'",
+                        "'1901-02-03 04:05:06.123900000 +02:00'",
+                        "'2001-02-03 04:05:06.123499999 +02:00'",
+                        "'2001-02-03 04:05:06.123900000 +02:00'"))) {
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES " +
+                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123 +02:00'," + // Snowflake truncates on cast
+                            "TIMESTAMP '2001-02-03 04:05:06.123 +02:00'," +
+                            "TIMESTAMP '2001-02-03 04:05:06.123 +02:00'"); // Snowflake truncates on cast
+        }
+
+        try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_time_rounding",
+                "(t time(9))",
+                ImmutableList.of(
+                        "TIME '04:05:06.123499999'",
+                        "TIME '04:05:06.123900000'",
+                        "TIME '23:59:59.999999999'"))) {
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES " +
+                            "TIME '04:05:06.123'," +
+                            "TIME '04:05:06.123'," + // Snowflake truncates on cast
+                            "TIME '23:59:59.999'");
+        }
+    }
 }
