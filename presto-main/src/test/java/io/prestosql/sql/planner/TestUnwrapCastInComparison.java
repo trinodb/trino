@@ -882,39 +882,39 @@ public class TestUnwrapCastInComparison
         Session losAngelesSession = withZone(session, TimeZoneKey.getTimeZoneKey("America/Los_Angeles"));
 
         // same zone
-        testUnwrap(utcSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 UTC'", "> TIMESTAMP '2020-10-26 11:02:18'");
-        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 Europe/Warsaw'", "> TIMESTAMP '2020-10-26 11:02:18'");
-        testUnwrap(losAngelesSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 America/Los_Angeles'", "> TIMESTAMP '2020-10-26 11:02:18'");
+        testUnwrap(utcSession, "timestamp(0)", "a > TIMESTAMP '2020-10-26 11:02:18 UTC'", "a > TIMESTAMP '2020-10-26 11:02:18'");
+        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-26 11:02:18 Europe/Warsaw'", "a > TIMESTAMP '2020-10-26 11:02:18'");
+        testUnwrap(losAngelesSession, "timestamp(0)", "a > TIMESTAMP '2020-10-26 11:02:18 America/Los_Angeles'", "a > TIMESTAMP '2020-10-26 11:02:18'");
 
         // different zone
-        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 UTC'", "> TIMESTAMP '2020-10-26 12:02:18'");
-        testUnwrap(losAngelesSession, "timestamp(0)", "> TIMESTAMP '2020-10-26 11:02:18 UTC'", "> TIMESTAMP '2020-10-26 04:02:18'");
+        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-26 11:02:18 UTC'", "a > TIMESTAMP '2020-10-26 12:02:18'");
+        testUnwrap(losAngelesSession, "timestamp(0)", "a > TIMESTAMP '2020-10-26 11:02:18 UTC'", "a > TIMESTAMP '2020-10-26 04:02:18'");
 
         // short timestamp, short timestamp with time zone being coerced to long timestamp with time zone
-        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "> TIMESTAMP '2020-10-26 12:02:18.120000'");
-        testUnwrap(losAngelesSession, "timestamp(6)", "> TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "> TIMESTAMP '2020-10-26 04:02:18.120000'");
+        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "a > TIMESTAMP '2020-10-26 12:02:18.120000'");
+        testUnwrap(losAngelesSession, "timestamp(6)", "a > TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "a > TIMESTAMP '2020-10-26 04:02:18.120000'");
 
         // long timestamp, short timestamp with time zone being coerced to long timestamp with time zone
-        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "> TIMESTAMP '2020-10-26 12:02:18.120000000'");
-        testUnwrap(losAngelesSession, "timestamp(9)", "> TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "> TIMESTAMP '2020-10-26 04:02:18.120000000'");
+        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "a > TIMESTAMP '2020-10-26 12:02:18.120000000'");
+        testUnwrap(losAngelesSession, "timestamp(9)", "a > TIMESTAMP '2020-10-26 11:02:18.12 UTC'", "a > TIMESTAMP '2020-10-26 04:02:18.120000000'");
 
         // long timestamp, long timestamp with time zone
-        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", "> TIMESTAMP '2020-10-26 12:02:18.123456000'");
-        testUnwrap(losAngelesSession, "timestamp(9)", "> TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", "> TIMESTAMP '2020-10-26 04:02:18.123456000'");
+        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", "a > TIMESTAMP '2020-10-26 12:02:18.123456000'");
+        testUnwrap(losAngelesSession, "timestamp(9)", "a > TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", "a > TIMESTAMP '2020-10-26 04:02:18.123456000'");
 
         // maximum precision
-        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", "> TIMESTAMP '2020-10-26 12:02:18.123456789321'");
-        testUnwrap(losAngelesSession, "timestamp(12)", "> TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", "> TIMESTAMP '2020-10-26 04:02:18.123456789321'");
+        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", "a > TIMESTAMP '2020-10-26 12:02:18.123456789321'");
+        testUnwrap(losAngelesSession, "timestamp(12)", "a > TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", "a > TIMESTAMP '2020-10-26 04:02:18.123456789321'");
 
         // DST forward -- Warsaw changed clock 1h forward on 2020-03-29T01:00 UTC (2020-03-29T02:00 local time)
         // Note that in given session input TIMESTAMP values  2020-03-29 02:31 and 2020-03-29 03:31 produce the same value 2020-03-29 01:31 UTC (conversion is not monotonic)
         // last before
-        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-03-29 00:59:59 UTC'", "> TIMESTAMP '2020-03-29 01:59:59'");
-        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-03-29 00:59:59.999 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.999'");
-        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 00:59:59.13 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.130000'");
-        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 00:59:59.999999 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.999999'");
-        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-03-29 00:59:59.999999999 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.999999999'");
-        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-03-29 00:59:59.999999999999 UTC'", "> TIMESTAMP '2020-03-29 01:59:59.999999999999'");
+        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-03-29 00:59:59 UTC'", "a > TIMESTAMP '2020-03-29 01:59:59'");
+        testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-03-29 00:59:59.999 UTC'", "a > TIMESTAMP '2020-03-29 01:59:59.999'");
+        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-03-29 00:59:59.13 UTC'", "a > TIMESTAMP '2020-03-29 01:59:59.130000'");
+        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-03-29 00:59:59.999999 UTC'", "a > TIMESTAMP '2020-03-29 01:59:59.999999'");
+        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-03-29 00:59:59.999999999 UTC'", "a > TIMESTAMP '2020-03-29 01:59:59.999999999'");
+        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-03-29 00:59:59.999999999999 UTC'", "a > TIMESTAMP '2020-03-29 01:59:59.999999999999'");
         // first within
         testNoUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-03-29 01:00:00 UTC'", "timestamp(0) with time zone");
         testNoUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-03-29 01:00:00.000 UTC'", "timestamp(3) with time zone");
@@ -928,38 +928,38 @@ public class TestUnwrapCastInComparison
         testNoUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-03-29 01:59:59.999999999 UTC'", "timestamp(9) with time zone");
         testNoUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-03-29 01:59:59.999999999999 UTC'", "timestamp(12) with time zone");
         // first after
-        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-03-29 02:00:00 UTC'", "> TIMESTAMP '2020-03-29 04:00:00'");
-        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-03-29 02:00:00.000 UTC'", "> TIMESTAMP '2020-03-29 04:00:00.000'");
-        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-03-29 02:00:00.000000 UTC'", "> TIMESTAMP '2020-03-29 04:00:00.000000'");
-        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-03-29 02:00:00.000000000 UTC'", "> TIMESTAMP '2020-03-29 04:00:00.000000000'");
-        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-03-29 02:00:00.000000000000 UTC'", "> TIMESTAMP '2020-03-29 04:00:00.000000000000'");
+        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-03-29 02:00:00 UTC'", "a > TIMESTAMP '2020-03-29 04:00:00'");
+        testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-03-29 02:00:00.000 UTC'", "a > TIMESTAMP '2020-03-29 04:00:00.000'");
+        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-03-29 02:00:00.000000 UTC'", "a > TIMESTAMP '2020-03-29 04:00:00.000000'");
+        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-03-29 02:00:00.000000000 UTC'", "a > TIMESTAMP '2020-03-29 04:00:00.000000000'");
+        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-03-29 02:00:00.000000000000 UTC'", "a > TIMESTAMP '2020-03-29 04:00:00.000000000000'");
 
         // DST backward -- Warsaw changed clock 1h backward on 2020-10-25T01:00 UTC (2020-03-29T03:00 local time)
         // Note that in given session no input TIMESTAMP value can produce TIMESTAMP WITH TIME ZONE within [2020-10-25 00:00:00 UTC, 2020-10-25 01:00:00 UTC], so '>=' is OK
         // last before
-        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-25 00:59:59 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59'");
-        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-10-25 00:59:59.999 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59.999'");
-        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-25 00:59:59.999999 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59.999999'");
-        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-25 00:59:59.999999999 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59.999999999'");
-        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-25 00:59:59.999999999999 UTC'", ">= TIMESTAMP '2020-10-25 02:59:59.999999999999'");
+        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-25 00:59:59 UTC'", "a >= TIMESTAMP '2020-10-25 02:59:59'");
+        testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-10-25 00:59:59.999 UTC'", "a >= TIMESTAMP '2020-10-25 02:59:59.999'");
+        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-10-25 00:59:59.999999 UTC'", "a >= TIMESTAMP '2020-10-25 02:59:59.999999'");
+        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-25 00:59:59.999999999 UTC'", "a >= TIMESTAMP '2020-10-25 02:59:59.999999999'");
+        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-25 00:59:59.999999999999 UTC'", "a >= TIMESTAMP '2020-10-25 02:59:59.999999999999'");
         // first within
-        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-25 01:00:00 UTC'", "> TIMESTAMP '2020-10-25 02:00:00'");
-        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-10-25 01:00:00.000 UTC'", "> TIMESTAMP '2020-10-25 02:00:00.000'");
-        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-25 01:00:00.000000 UTC'", "> TIMESTAMP '2020-10-25 02:00:00.000000'");
-        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-25 01:00:00.000000000 UTC'", "> TIMESTAMP '2020-10-25 02:00:00.000000000'");
-        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-25 01:00:00.000000000000 UTC'", "> TIMESTAMP '2020-10-25 02:00:00.000000000000'");
+        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-25 01:00:00 UTC'", "a > TIMESTAMP '2020-10-25 02:00:00'");
+        testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-10-25 01:00:00.000 UTC'", "a > TIMESTAMP '2020-10-25 02:00:00.000'");
+        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-10-25 01:00:00.000000 UTC'", "a > TIMESTAMP '2020-10-25 02:00:00.000000'");
+        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-25 01:00:00.000000000 UTC'", "a > TIMESTAMP '2020-10-25 02:00:00.000000000'");
+        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-25 01:00:00.000000000000 UTC'", "a > TIMESTAMP '2020-10-25 02:00:00.000000000000'");
         // last within
-        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-25 01:59:59 UTC'", "> TIMESTAMP '2020-10-25 02:59:59'");
-        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-10-25 01:59:59.999 UTC'", "> TIMESTAMP '2020-10-25 02:59:59.999'");
-        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-25 01:59:59.999999 UTC'", "> TIMESTAMP '2020-10-25 02:59:59.999999'");
-        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-25 01:59:59.999999999 UTC'", "> TIMESTAMP '2020-10-25 02:59:59.999999999'");
-        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-25 01:59:59.999999999999 UTC'", "> TIMESTAMP '2020-10-25 02:59:59.999999999999'");
+        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-25 01:59:59 UTC'", "a > TIMESTAMP '2020-10-25 02:59:59'");
+        testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-10-25 01:59:59.999 UTC'", "a > TIMESTAMP '2020-10-25 02:59:59.999'");
+        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-10-25 01:59:59.999999 UTC'", "a > TIMESTAMP '2020-10-25 02:59:59.999999'");
+        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-25 01:59:59.999999999 UTC'", "a > TIMESTAMP '2020-10-25 02:59:59.999999999'");
+        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-25 01:59:59.999999999999 UTC'", "a > TIMESTAMP '2020-10-25 02:59:59.999999999999'");
         // first after
-        testUnwrap(warsawSession, "timestamp(0)", "> TIMESTAMP '2020-10-25 02:00:00 UTC'", "> TIMESTAMP '2020-10-25 03:00:00'");
-        testUnwrap(warsawSession, "timestamp(3)", "> TIMESTAMP '2020-10-25 02:00:00.000 UTC'", "> TIMESTAMP '2020-10-25 03:00:00.000'");
-        testUnwrap(warsawSession, "timestamp(6)", "> TIMESTAMP '2020-10-25 02:00:00.000000 UTC'", "> TIMESTAMP '2020-10-25 03:00:00.000000'");
-        testUnwrap(warsawSession, "timestamp(9)", "> TIMESTAMP '2020-10-25 02:00:00.000000000 UTC'", "> TIMESTAMP '2020-10-25 03:00:00.000000000'");
-        testUnwrap(warsawSession, "timestamp(12)", "> TIMESTAMP '2020-10-25 02:00:00.000000000000 UTC'", "> TIMESTAMP '2020-10-25 03:00:00.000000000000'");
+        testUnwrap(warsawSession, "timestamp(0)", "a > TIMESTAMP '2020-10-25 02:00:00 UTC'", "a > TIMESTAMP '2020-10-25 03:00:00'");
+        testUnwrap(warsawSession, "timestamp(3)", "a > TIMESTAMP '2020-10-25 02:00:00.000 UTC'", "a > TIMESTAMP '2020-10-25 03:00:00.000'");
+        testUnwrap(warsawSession, "timestamp(6)", "a > TIMESTAMP '2020-10-25 02:00:00.000000 UTC'", "a > TIMESTAMP '2020-10-25 03:00:00.000000'");
+        testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-25 02:00:00.000000000 UTC'", "a > TIMESTAMP '2020-10-25 03:00:00.000000000'");
+        testUnwrap(warsawSession, "timestamp(12)", "a > TIMESTAMP '2020-10-25 02:00:00.000000000000 UTC'", "a > TIMESTAMP '2020-10-25 03:00:00.000000000000'");
     }
 
     @Test
@@ -1090,13 +1090,13 @@ public class TestUnwrapCastInComparison
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
     {
-        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE a %s", inputType, inputPredicate);
+        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s", inputType, inputPredicate);
         try {
             assertPlan(sql,
                     session,
                     anyTree(
-                            filter("A " + expectedPredicate,
-                                    values("A"))));
+                            filter(expectedPredicate,
+                                    values("a"))));
         }
         catch (Throwable e) {
             e.addSuppressed(new Exception("Query: " + sql));
