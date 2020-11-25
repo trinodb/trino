@@ -83,7 +83,7 @@ public class HashCollisionPlanNodeStats
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
-        checkArgument(other instanceof HashCollisionPlanNodeStats, "other is not an instanceof HashCollisionPlanNodeStats");
+        checkArgument(other instanceof HashCollisionPlanNodeStats, "other is not an instanceof HashCollisionPlanNodeStats: %s", other);
         PlanNodeStats merged = super.mergeWith(other);
 
         return new HashCollisionPlanNodeStats(
