@@ -137,6 +137,7 @@ public class PlanNodeStats
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
         checkArgument(planNodeId.equals(other.getPlanNodeId()), "planNodeIds do not match. %s != %s", planNodeId, other.getPlanNodeId());
+        checkMergeable(other);
 
         long planNodeInputPositions = this.planNodeInputPositions + other.planNodeInputPositions;
         DataSize planNodeInputDataSize = succinctBytes(this.planNodeInputDataSize.toBytes() + other.planNodeInputDataSize.toBytes());
@@ -152,5 +153,10 @@ public class PlanNodeStats
                 planNodeInputPositions, planNodeInputDataSize,
                 planNodeOutputPositions, planNodeOutputDataSize,
                 operatorInputStats);
+    }
+
+    protected void checkMergeable(PlanNodeStats other)
+    {
+        checkArgument(this.getClass() == other.getClass(), "Cannot merge stats %s and %s, make sure all worker nodes have consistent configuration", this, other);
     }
 }
