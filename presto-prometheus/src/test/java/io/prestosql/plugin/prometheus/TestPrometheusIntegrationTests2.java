@@ -60,7 +60,6 @@ public class TestPrometheusIntegrationTests2
 
     @BeforeClass
     protected void createQueryRunner()
-            throws Exception
     {
         this.server = new PrometheusServer();
         this.client = createPrometheusClient(server);
