@@ -13,10 +13,8 @@
  */
 package io.prestosql.plugin.base.security;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaRoutineName;
@@ -34,7 +32,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
@@ -216,7 +213,7 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
             return columns;
@@ -228,7 +225,7 @@ public class FileBasedAccessControl
                 .findFirst()
                 .orElse(null);
         if (rule == null || rule.getPrivileges().isEmpty()) {
-            return ImmutableList.of();
+            return ImmutableSet.of();
         }
 
         // if user has privileges other than select, show all columns
@@ -238,8 +235,8 @@ public class FileBasedAccessControl
 
         Set<String> restrictedColumns = rule.getRestrictedColumns();
         return columns.stream()
-                .filter(columnMetadata -> !restrictedColumns.contains(columnMetadata.getName()))
-                .collect(toImmutableList());
+                .filter(column -> !restrictedColumns.contains(column))
+                .collect(toImmutableSet());
     }
 
     @Override

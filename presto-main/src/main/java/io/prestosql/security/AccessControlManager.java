@@ -31,7 +31,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -513,13 +512,13 @@ public class AccessControlManager
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(SecurityContext securityContext, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(SecurityContext securityContext, CatalogSchemaTableName table, Set<String> columns)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(table, "tableName is null");
 
         if (filterTables(securityContext, table.getCatalogName(), ImmutableSet.of(table.getSchemaTableName())).isEmpty()) {
-            return ImmutableList.of();
+            return ImmutableSet.of();
         }
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {

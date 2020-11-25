@@ -25,7 +25,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.security.Identity;
@@ -48,7 +47,6 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
@@ -561,10 +559,10 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
     {
         if (!checkAnyTablePermission(context, tableName)) {
-            return ImmutableList.of();
+            return ImmutableSet.of();
         }
 
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaTableName().getSchemaName())) {
@@ -577,7 +575,7 @@ public class FileBasedSystemAccessControl
                 .findFirst()
                 .orElse(null);
         if (rule == null || rule.getPrivileges().isEmpty()) {
-            return ImmutableList.of();
+            return ImmutableSet.of();
         }
 
         // if user has privileges other than select, show all columns
@@ -587,8 +585,8 @@ public class FileBasedSystemAccessControl
 
         Set<String> restrictedColumns = rule.getRestrictedColumns();
         return columns.stream()
-                .filter(columnMetadata -> !restrictedColumns.contains(columnMetadata.getName()))
-                .collect(toImmutableList());
+                .filter(column -> !restrictedColumns.contains(column))
+                .collect(toImmutableSet());
     }
 
     @Override
