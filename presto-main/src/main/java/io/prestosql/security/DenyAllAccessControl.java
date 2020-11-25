@@ -13,19 +13,16 @@
  */
 package io.prestosql.security;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 
 import java.security.Principal;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -223,9 +220,9 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
     {
-        return ImmutableList.of();
+        return ImmutableSet.of();
     }
 
     @Override

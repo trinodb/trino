@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -140,12 +141,21 @@ public final class MetadataListing
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
         for (Entry<SchemaTableName, List<ColumnMetadata>> entry : tableColumns.entrySet()) {
-            if (allowedTables.contains(entry.getKey())) {
-                result.put(entry.getKey(), accessControl.filterColumns(
-                        session.toSecurityContext(),
-                        new CatalogSchemaTableName(prefix.getCatalogName(), entry.getKey()),
-                        entry.getValue()));
+            if (!allowedTables.contains(entry.getKey())) {
+                continue;
             }
+            List<ColumnMetadata> columns = entry.getValue();
+            Set<String> allowedColumns = accessControl.filterColumns(
+                    session.toSecurityContext(),
+                    new CatalogSchemaTableName(prefix.getCatalogName(), entry.getKey()),
+                    columns.stream()
+                            .map(ColumnMetadata::getName)
+                            .collect(toImmutableSet()));
+            result.put(
+                    entry.getKey(),
+                    columns.stream()
+                            .filter(column -> allowedColumns.contains(column.getName()))
+                            .collect(toImmutableList()));
         }
         return result.build();
     }

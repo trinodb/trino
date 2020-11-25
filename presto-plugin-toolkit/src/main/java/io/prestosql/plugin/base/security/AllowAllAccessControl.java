@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.base.security;
 
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaRoutineName;
@@ -23,7 +22,6 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -113,7 +111,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         return columns;
     }

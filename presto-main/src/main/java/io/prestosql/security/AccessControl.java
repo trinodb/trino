@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
@@ -224,7 +223,7 @@ public interface AccessControl
     /**
      * Filter the list of columns to those visible to the identity.
      */
-    List<ColumnMetadata> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns);
+    Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns);
 
     /**
      * Check if identity is allowed to add columns to the specified table.

@@ -15,13 +15,11 @@
 package io.prestosql.plugin.hive.security;
 
 import io.prestosql.plugin.base.security.ForwardingConnectorAccessControl;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -64,7 +62,7 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
         if (sourceTableName.isPresent()) {

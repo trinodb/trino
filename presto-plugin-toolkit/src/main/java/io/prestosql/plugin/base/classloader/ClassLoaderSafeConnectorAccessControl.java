@@ -14,7 +14,6 @@
 package io.prestosql.plugin.base.classloader;
 
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaRoutineName;
@@ -26,7 +25,6 @@ import io.prestosql.spi.type.Type;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -174,7 +172,7 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.filterColumns(context, tableName, columns);
