@@ -21,6 +21,7 @@ import io.prestosql.client.IntervalYearMonth;
 import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.jdbc.ColumnInfo.Nullable;
+import io.prestosql.jdbc.TypeConversions.NoConversionRegisteredException;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
@@ -67,10 +68,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
+import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -117,6 +120,11 @@ abstract class AbstractPrestoResultSet
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
     // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.
     private static final long START_OF_MODERN_ERA = new LocalDate(1901, 1, 1).toDateTimeAtStartOfDay(UTC).getMillis();
+
+    private static final TypeConversions TYPE_CONVERSIONS =
+            TypeConversions.builder()
+                    .add(PrestoArray.class, List.class, array -> asList((Object[]) array.getArray()))
+                    .build();
 
     private final DateTimeZone resultTimeZone;
     protected final Iterator<List<Object>> results;
@@ -1657,14 +1665,21 @@ abstract class AbstractPrestoResultSet
             //noinspection unchecked
             return (T) object;
         }
-        throw new SQLException(format("Cannot convert an instance of %s to %s", object.getClass(), type));
+        try {
+            T converted = TYPE_CONVERSIONS.convert(object, type);
+            verify(converted != null, "Conversion cannot return null for non-null input, as this breask wasNull()");
+            return converted;
+        }
+        catch (NoConversionRegisteredException e) {
+            throw new SQLException(format("Cannot convert an instance of %s to %s", object.getClass(), type));
+        }
     }
 
     @Override
     public <T> T getObject(String columnLabel, Class<T> type)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getObject");
+        return getObject(columnIndex(columnLabel), type);
     }
 
     @SuppressWarnings("unchecked")
