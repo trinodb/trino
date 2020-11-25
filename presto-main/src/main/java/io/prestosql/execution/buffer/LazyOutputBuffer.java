@@ -24,6 +24,7 @@ import io.prestosql.execution.TaskId;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.memory.context.LocalMemoryContext;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
@@ -54,8 +55,10 @@ public class LazyOutputBuffer
     private final Executor executor;
     private final Runnable notifyStatusChanged;
 
+    // Note: this is a write once field, so an unsynchronized volatile read that returns a non-null value is safe, but if a null value is observed instead
+    // a subsequent synchronized read is required to ensure the writing thread can complete any in-flight initialization
     @GuardedBy("this")
-    private OutputBuffer delegate;
+    private volatile OutputBuffer delegate;
 
     @GuardedBy("this")
     private final Set<OutputBufferId> abortedBuffers = new HashSet<>();
@@ -98,10 +101,7 @@ public class LazyOutputBuffer
     @Override
     public double getUtilization()
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            outputBuffer = delegate;
-        }
+        OutputBuffer outputBuffer = getDelegateOutputBuffer();
 
         // until output buffer is initialized, it is "full"
         if (outputBuffer == null) {
@@ -113,10 +113,7 @@ public class LazyOutputBuffer
     @Override
     public boolean isOverutilized()
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            outputBuffer = delegate;
-        }
+        OutputBuffer outputBuffer = getDelegateOutputBuffer();
 
         // until output buffer is initialized, readers cannot enqueue and thus cannot be blocked
         return (outputBuffer != null) && outputBuffer.isOverutilized();
@@ -125,10 +122,7 @@ public class LazyOutputBuffer
     @Override
     public OutputBufferInfo getInfo()
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            outputBuffer = delegate;
-        }
+        OutputBuffer outputBuffer = getDelegateOutputBuffer();
 
         if (outputBuffer == null) {
             //
@@ -155,32 +149,36 @@ public class LazyOutputBuffer
     {
         Set<OutputBufferId> abortedBuffers = ImmutableSet.of();
         List<PendingRead> pendingReads = ImmutableList.of();
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            if (delegate == null) {
-                // ignore set output if buffer was already destroyed or failed
-                if (state.get().isTerminal()) {
-                    return;
-                }
-                switch (newOutputBuffers.getType()) {
-                    case PARTITIONED:
-                        delegate = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryContextSupplier, executor);
-                        break;
-                    case BROADCAST:
-                        delegate = new BroadcastOutputBuffer(taskInstanceId, state, maxBroadcastBufferSize, systemMemoryContextSupplier, executor, notifyStatusChanged);
-                        break;
-                    case ARBITRARY:
-                        delegate = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
-                        break;
-                }
+        OutputBuffer outputBuffer = delegate;
+        if (outputBuffer == null) {
+            synchronized (this) {
+                outputBuffer = delegate;
+                if (outputBuffer == null) {
+                    // ignore set output if buffer was already destroyed or failed
+                    if (state.get().isTerminal()) {
+                        return;
+                    }
+                    switch (newOutputBuffers.getType()) {
+                        case PARTITIONED:
+                            outputBuffer = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryContextSupplier, executor);
+                            break;
+                        case BROADCAST:
+                            outputBuffer = new BroadcastOutputBuffer(taskInstanceId, state, maxBroadcastBufferSize, systemMemoryContextSupplier, executor, notifyStatusChanged);
+                            break;
+                        case ARBITRARY:
+                            outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
+                            break;
+                    }
 
-                // process pending aborts and reads outside of synchronized lock
-                abortedBuffers = ImmutableSet.copyOf(this.abortedBuffers);
-                this.abortedBuffers.clear();
-                pendingReads = ImmutableList.copyOf(this.pendingReads);
-                this.pendingReads.clear();
+                    // process pending aborts and reads outside of synchronized lock
+                    abortedBuffers = ImmutableSet.copyOf(this.abortedBuffers);
+                    this.abortedBuffers.clear();
+                    pendingReads = ImmutableList.copyOf(this.pendingReads);
+                    this.pendingReads.clear();
+                    // Must be assigned last to avoid a race condition with unsynchronized readers
+                    delegate = outputBuffer;
+                }
             }
-            outputBuffer = delegate;
         }
 
         outputBuffer.setOutputBuffers(newOutputBuffers);
@@ -195,18 +193,20 @@ public class LazyOutputBuffer
     @Override
     public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            if (delegate == null) {
-                if (state.get() == FINISHED) {
-                    return immediateFuture(emptyResults(taskInstanceId, 0, true));
-                }
+        OutputBuffer outputBuffer = delegate;
+        if (outputBuffer == null) {
+            synchronized (this) {
+                if (delegate == null) {
+                    if (state.get() == FINISHED) {
+                        return immediateFuture(emptyResults(taskInstanceId, 0, true));
+                    }
 
-                PendingRead pendingRead = new PendingRead(bufferId, token, maxSize);
-                pendingReads.add(pendingRead);
-                return pendingRead.getFutureResult();
+                    PendingRead pendingRead = new PendingRead(bufferId, token, maxSize);
+                    pendingReads.add(pendingRead);
+                    return pendingRead.getFutureResult();
+                }
+                outputBuffer = delegate;
             }
-            outputBuffer = delegate;
         }
         return outputBuffer.get(bufferId, token, maxSize);
     }
@@ -214,26 +214,24 @@ public class LazyOutputBuffer
     @Override
     public void acknowledge(OutputBufferId bufferId, long token)
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            checkState(delegate != null, "delegate is null");
-            outputBuffer = delegate;
-        }
+        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
         outputBuffer.acknowledge(bufferId, token);
     }
 
     @Override
     public void abort(OutputBufferId bufferId)
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            if (delegate == null) {
-                abortedBuffers.add(bufferId);
-                // Normally, we should free any pending readers for this buffer,
-                // but we assume that the real buffer will be created quickly.
-                return;
+        OutputBuffer outputBuffer = delegate;
+        if (outputBuffer == null) {
+            synchronized (this) {
+                if (delegate == null) {
+                    abortedBuffers.add(bufferId);
+                    // Normally, we should free any pending readers for this buffer,
+                    // but we assume that the real buffer will be created quickly.
+                    return;
+                }
+                outputBuffer = delegate;
             }
-            outputBuffer = delegate;
         }
         outputBuffer.abort(bufferId);
     }
@@ -241,63 +239,49 @@ public class LazyOutputBuffer
     @Override
     public ListenableFuture<?> isFull()
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            checkState(delegate != null, "Buffer has not been initialized");
-            outputBuffer = delegate;
-        }
+        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
         return outputBuffer.isFull();
     }
 
     @Override
     public void enqueue(List<SerializedPage> pages)
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            checkState(delegate != null, "Buffer has not been initialized");
-            outputBuffer = delegate;
-        }
+        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
         outputBuffer.enqueue(pages);
     }
 
     @Override
     public void enqueue(int partition, List<SerializedPage> pages)
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            checkState(delegate != null, "Buffer has not been initialized");
-            outputBuffer = delegate;
-        }
+        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
         outputBuffer.enqueue(partition, pages);
     }
 
     @Override
     public void setNoMorePages()
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            checkState(delegate != null, "Buffer has not been initialized");
-            outputBuffer = delegate;
-        }
+        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
         outputBuffer.setNoMorePages();
     }
 
     @Override
     public void destroy()
     {
-        OutputBuffer outputBuffer;
         List<PendingRead> pendingReads = ImmutableList.of();
-        synchronized (this) {
-            if (delegate == null) {
-                // ignore destroy if the buffer already in a terminal state.
-                if (!state.setIf(FINISHED, state -> !state.isTerminal())) {
-                    return;
-                }
+        OutputBuffer outputBuffer = delegate;
+        if (outputBuffer == null) {
+            synchronized (this) {
+                if (delegate == null) {
+                    // ignore destroy if the buffer already in a terminal state.
+                    if (!state.setIf(FINISHED, state -> !state.isTerminal())) {
+                        return;
+                    }
 
-                pendingReads = ImmutableList.copyOf(this.pendingReads);
-                this.pendingReads.clear();
+                    pendingReads = ImmutableList.copyOf(this.pendingReads);
+                    this.pendingReads.clear();
+                }
+                outputBuffer = delegate;
             }
-            outputBuffer = delegate;
         }
 
         // if there is no output buffer, free the pending reads
@@ -314,16 +298,18 @@ public class LazyOutputBuffer
     @Override
     public void fail()
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            if (delegate == null) {
-                // ignore fail if the buffer already in a terminal state.
-                state.setIf(FAILED, state -> !state.isTerminal());
+        OutputBuffer outputBuffer = delegate;
+        if (outputBuffer == null) {
+            synchronized (this) {
+                if (delegate == null) {
+                    // ignore fail if the buffer already in a terminal state.
+                    state.setIf(FAILED, state -> !state.isTerminal());
 
-                // Do not free readers on fail
-                return;
+                    // Do not free readers on fail
+                    return;
+                }
+                outputBuffer = delegate;
             }
-            outputBuffer = delegate;
         }
         outputBuffer.fail();
     }
@@ -331,15 +317,31 @@ public class LazyOutputBuffer
     @Override
     public long getPeakMemoryUsage()
     {
-        OutputBuffer outputBuffer;
-        synchronized (this) {
-            outputBuffer = delegate;
-        }
+        OutputBuffer outputBuffer = getDelegateOutputBuffer();
 
         if (outputBuffer != null) {
             return outputBuffer.getPeakMemoryUsage();
         }
         return 0;
+    }
+
+    @Nullable
+    private OutputBuffer getDelegateOutputBuffer()
+    {
+        OutputBuffer outputBuffer = delegate;
+        if (outputBuffer == null) {
+            synchronized (this) {
+                outputBuffer = delegate;
+            }
+        }
+        return outputBuffer;
+    }
+
+    private OutputBuffer getDelegateOutputBufferOrFail()
+    {
+        OutputBuffer outputBuffer = getDelegateOutputBuffer();
+        checkState(outputBuffer != null, "Buffer has not been initialized");
+        return outputBuffer;
     }
 
     private static class PendingRead
