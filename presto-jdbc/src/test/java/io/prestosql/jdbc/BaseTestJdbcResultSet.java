@@ -13,10 +13,12 @@
  */
 package io.prestosql.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.ResultSet;
@@ -30,6 +32,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Verify.verify;
@@ -540,7 +543,11 @@ public abstract class BaseTestJdbcResultSet
             throws Exception
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
-            checkRepresentation(connectedStatement.getStatement(), "ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
+            checkRepresentation(connectedStatement.getStatement(), "ARRAY[1, 2]", Types.ARRAY, (rs, column) -> {
+                assertEquals(rs.getArray(column).getArray(), new int[] {1, 2});
+                assertEquals(((Array) rs.getObject(column)).getArray(), new int[] {1, 2}); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                assertEquals(rs.getObject(column, List.class), ImmutableList.of(1, 2));
+            });
         }
     }
 
