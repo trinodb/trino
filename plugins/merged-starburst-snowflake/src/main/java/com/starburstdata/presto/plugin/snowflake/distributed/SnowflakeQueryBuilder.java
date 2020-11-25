@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 
 import java.util.List;
@@ -69,6 +70,9 @@ public class SnowflakeQueryBuilder
                                 columnHandle.toSqlExpression(jdbcClient::quoted),
                                 TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT,
                                 ZONE_OFFSET_MINUTES_BIAS);
+                    }
+                    else if (columnHandle.getColumnType() instanceof TimestampType) {
+                        expression = format("CAST(%s as TIMESTAMP(3))", columnHandle.toSqlExpression(jdbcClient::quoted));
                     }
                     else {
                         expression = columnHandle.toSqlExpression(jdbcClient::quoted);

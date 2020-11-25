@@ -379,4 +379,59 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
             assertThat(query("SELECT min(timestamp_tz_column) FROM " + testTable.getName())).isFullyPushedDown();
         }
     }
+
+    @Test
+    public void testSnowflakeTimestampWithPrecision()
+    {
+        try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_timestamp_with_precision",
+                "(" +
+                        "timestamp0 timestamp(0)," +
+                        "timestamp1 timestamp(1)," +
+                        "timestamp2 timestamp(2)," +
+                        "timestamp3 timestamp(3)," +
+                        "timestamp4 timestamp(4)," +
+                        "timestamp5 timestamp(5)," +
+                        "timestamp6 timestamp(6)," +
+                        "timestamp7 timestamp(7)," +
+                        "timestamp8 timestamp(8)," +
+                        "timestamp9 timestamp(9))",
+                ImmutableList.of("" +
+                        "TIMESTAMP '1901-02-03 04:05:06'," +
+                        "TIMESTAMP '1901-02-03 04:05:06.1'," +
+                        "TIMESTAMP '1901-02-03 04:05:06.12'," +
+                        "TIMESTAMP '1901-02-03 04:05:06.123'," +
+                        "TIMESTAMP '1901-02-03 04:05:06.1234'," +
+                        "TIMESTAMP '1901-02-03 04:05:06.12345'," +
+                        "TIMESTAMP '1901-02-03 04:05:06.123456'," +
+                        "TIMESTAMP '1901-02-03 04:05:06.1234567'," +
+                        "TIMESTAMP '1901-02-03 04:05:06.12345678'," +
+                        "TIMESTAMP '1901-02-03 04:05:06.123456789'"))) {
+            assertThat((String) computeActual("SHOW CREATE TABLE " + testTable.getName()).getOnlyValue())
+                    .matches("CREATE TABLE \\w+\\.\\w+\\.\\w+ \\Q(\n" +
+                            "   timestamp0 timestamp(3),\n" +
+                            "   timestamp1 timestamp(3),\n" +
+                            "   timestamp2 timestamp(3),\n" +
+                            "   timestamp3 timestamp(3),\n" +
+                            "   timestamp4 timestamp(3),\n" +
+                            "   timestamp5 timestamp(3),\n" +
+                            "   timestamp6 timestamp(3),\n" +
+                            "   timestamp7 timestamp(3),\n" +
+                            "   timestamp8 timestamp(3),\n" +
+                            "   timestamp9 timestamp(3)\n" +
+                            ")");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES (" +
+                            "TIMESTAMP '1901-02-03 04:05:06.000'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.100'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.120'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123'," +
+                            "TIMESTAMP '1901-02-03 04:05:06.123')");
+        }
+    }
 }
