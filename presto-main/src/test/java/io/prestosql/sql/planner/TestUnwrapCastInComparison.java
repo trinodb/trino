@@ -32,796 +32,345 @@ public class TestUnwrapCastInComparison
     public void testEquals()
     {
         // representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '1'",
-                output(
-                        filter("A = SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '1'", "a = SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = DOUBLE '1'",
-                output(
-                        filter("A = BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a = DOUBLE '1'", "a = BIGINT '1'");
 
         // non-representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '1.1'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '1.9'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '1.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '1.9'", "a IS NULL AND NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = DOUBLE '1.1'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("bigint", "a = DOUBLE '1.1'", "a IS NULL AND NULL");
 
         // below top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '32766'",
-                output(
-                        filter("A = SMALLINT '32766'",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '32766'", "a = SMALLINT '32766'");
 
         // round to top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '32766.9'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '32766.9'", "a IS NULL AND NULL");
 
         // top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '32767'",
-                output(
-                        filter("A = SMALLINT '32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '32767'", "a = SMALLINT '32767'");
 
         // above range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '32768.1'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '32768.1'", "a IS NULL AND NULL");
 
         // above bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '-32767'",
-                output(
-                        filter("A = SMALLINT '-32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '-32767'", "a = SMALLINT '-32767'");
 
         // round to bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '-32767.9'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '-32767.9'", "a IS NULL AND NULL");
 
         // bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '-32768'",
-                output(
-                        filter("A = SMALLINT '-32768'",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '-32768'", "a = SMALLINT '-32768'");
 
         // below range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = DOUBLE '-32768.1'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a = DOUBLE '-32768.1'", "a IS NULL AND NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = DOUBLE '-18446744073709551616'", // -2^64 constant
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        // -2^64 constant
+        testUnwrap("bigint", "a = DOUBLE '-18446744073709551616'", "a IS NULL AND NULL");
     }
 
     @Test
     public void testNotEquals()
     {
         // representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '1'",
-                output(
-                        filter("A <> SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '1'", "a <> SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <> DOUBLE '1'",
-                output(
-                        filter("A <> BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a <> DOUBLE '1'", "a <> BIGINT '1'");
 
         // non-representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '1.1'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '1.9'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '1.9'", "NOT (a IS NULL) OR NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <> DOUBLE '1.1'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("bigint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR NULL");
 
         // below top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '32766'",
-                output(
-                        filter("A <> SMALLINT '32766'",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '32766'", "a <> SMALLINT '32766'");
 
         // round to top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '32766.9'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '32766.9'", "NOT (a IS NULL) OR NULL");
 
         // top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '32767'",
-                output(
-                        filter("A <> SMALLINT '32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '32767'", "a <> SMALLINT '32767'");
 
         // above range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '32768.1'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '32768.1'", "NOT (a IS NULL) OR NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <> DOUBLE '18446744073709551616'", // 2^64 constant
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        // 2^64 constant
+        testUnwrap("bigint", "a <> DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR NULL");
 
         // above bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '-32767'",
-                output(
-                        filter("A <> SMALLINT '-32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '-32767'", "a <> SMALLINT '-32767'");
 
         // round to bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '-32767.9'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '-32767.9'", "NOT (a IS NULL) OR NULL");
 
         // bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '-32768'",
-                output(
-                        filter("A <> SMALLINT '-32768'",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '-32768'", "a <> SMALLINT '-32768'");
 
         // below range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> DOUBLE '-32768.1'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a <> DOUBLE '-32768.1'", "NOT (a IS NULL) OR NULL");
     }
 
     @Test
     public void testLessThan()
     {
         // representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '1'",
-                output(
-                        filter("A < SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '1'", "a < SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a < DOUBLE '1'",
-                output(
-                        filter("A < BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a < DOUBLE '1'", "a < BIGINT '1'");
 
         // non-representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '1.1'",
-                output(
-                        filter("A <= SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '1.1'", "a <= SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a < DOUBLE '1.1'",
-                output(
-                        filter("A <= BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a < DOUBLE '1.1'", "a <= BIGINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '1.9'",
-                output(
-                        filter("A < SMALLINT '2'",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '1.9'", "a < SMALLINT '2'");
 
         // below top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '32766'",
-                output(
-                        filter("A < SMALLINT '32766'",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '32766'", "a < SMALLINT '32766'");
 
         // round to top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '32766.9'",
-                output(
-                        filter("A < SMALLINT '32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '32766.9'", "a < SMALLINT '32767'");
 
         // top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '32767'",
-                output(
-                        filter("A <> SMALLINT '32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '32767'", "a <> SMALLINT '32767'");
 
         // above range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '32768.1'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '32768.1'", "NOT (a IS NULL) OR NULL");
 
         // above bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '-32767'",
-                output(
-                        filter("A < SMALLINT '-32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '-32767'", "a < SMALLINT '-32767'");
 
         // round to bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '-32767.9'",
-                output(
-                        filter("A = SMALLINT '-32768'",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '-32767.9'", "a = SMALLINT '-32768'");
 
         // bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '-32768'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '-32768'", "a IS NULL AND NULL");
 
         // below range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < DOUBLE '-32768.1'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a < DOUBLE '-32768.1'", "a IS NULL AND NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a < DOUBLE '-18446744073709551616'", // -2^64 constant
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        // -2^64 constant
+        testUnwrap("bigint", "a < DOUBLE '-18446744073709551616'", "a IS NULL AND NULL");
     }
 
     @Test
     public void testLessThanOrEqual()
     {
         // representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '1'",
-                output(
-                        filter("A <= SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '1'", "a <= SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <= DOUBLE '1'",
-                output(
-                        filter("A <= BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a <= DOUBLE '1'", "a <= BIGINT '1'");
 
         // non-representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '1.1'",
-                output(
-                        filter("A <= SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '1.1'", "a <= SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <= DOUBLE '1.1'",
-                output(
-                        filter("A <= BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a <= DOUBLE '1.1'", "a <= BIGINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '1.9'",
-                output(
-                        filter("A < SMALLINT '2'",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '1.9'", "a < SMALLINT '2'");
 
         // below top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '32766'",
-                output(
-                        filter("A <= SMALLINT '32766'",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '32766'", "a <= SMALLINT '32766'");
 
         // round to top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '32766.9'",
-                output(
-                        filter("A < SMALLINT '32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '32766.9'", "a < SMALLINT '32767'");
 
         // top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '32767'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '32767'", "NOT (a IS NULL) OR NULL");
 
         // above range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '32768.1'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '32768.1'", "NOT (a IS NULL) OR NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a <= DOUBLE '18446744073709551616'", // 2^64 constant
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        // 2^64 constant
+        testUnwrap("bigint", "a <= DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR NULL");
 
         // above bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '-32767'",
-                output(
-                        filter("A <= SMALLINT '-32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '-32767'", "a <= SMALLINT '-32767'");
 
         // round to bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '-32767.9'",
-                output(
-                        filter("A = SMALLINT '-32768'",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '-32767.9'", "a = SMALLINT '-32768'");
 
         // bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '-32768'",
-                output(
-                        filter("A = SMALLINT '-32768'",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '-32768'", "a = SMALLINT '-32768'");
 
         // below range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= DOUBLE '-32768.1'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a <= DOUBLE '-32768.1'", "a IS NULL AND NULL");
     }
 
     @Test
     public void testGreaterThan()
     {
         // representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '1'",
-                output(
-                        filter("A > SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '1'", "a > SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a > DOUBLE '1'",
-                output(
-                        filter("A > BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a > DOUBLE '1'", "a > BIGINT '1'");
 
         // non-representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '1.1'",
-                output(
-                        filter("A > SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '1.1'", "a > SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '1.9'",
-                output(
-                        filter("A >= SMALLINT '2'",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '1.9'", "a >= SMALLINT '2'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a > DOUBLE '1.9'",
-                output(
-                        filter("A >= BIGINT '2'",
-                                values("A"))));
+        testUnwrap("bigint", "a > DOUBLE '1.9'", "a >= BIGINT '2'");
 
         // below top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '32766'",
-                output(
-                        filter("A > SMALLINT '32766'",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '32766'", "a > SMALLINT '32766'");
 
         // round to top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '32766.9'",
-                output(
-                        filter("A = SMALLINT '32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '32766.9'", "a = SMALLINT '32767'");
 
         // top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '32767'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '32767'", "a IS NULL AND NULL");
 
         // above range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '32768.1'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '32768.1'", "a IS NULL AND NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a > DOUBLE '18446744073709551616'", // 2^64 constant
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        // 2^64 constant
+        testUnwrap("bigint", "a > DOUBLE '18446744073709551616'", "a IS NULL AND NULL");
 
         // above bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '-32767'",
-                output(
-                        filter("A > SMALLINT '-32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '-32767'", "a > SMALLINT '-32767'");
 
         // round to bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '-32767.9'",
-                output(
-                        filter("A > SMALLINT '-32768'",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '-32767.9'", "a > SMALLINT '-32768'");
 
         // bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '-32768'",
-                output(
-                        filter("A <> SMALLINT '-32768'",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '-32768'", "a <> SMALLINT '-32768'");
 
         // below range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > DOUBLE '-32768.1'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a > DOUBLE '-32768.1'", "NOT (a IS NULL) OR NULL");
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
         // representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '1'",
-                output(
-                        filter("A >= SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '1'", "a >= SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a >= DOUBLE '1'",
-                output(
-                        filter("A >= BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a >= DOUBLE '1'", "a >= BIGINT '1'");
 
         // non-representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '1.1'",
-                output(
-                        filter("A > SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '1.1'", "a > SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a >= DOUBLE '1.1'",
-                output(
-                        filter("A > BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a >= DOUBLE '1.1'", "a > BIGINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '1.9'",
-                output(
-                        filter("A >= SMALLINT '2'",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '1.9'", "a >= SMALLINT '2'");
 
         // below top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '32766'",
-                output(
-                        filter("A >= SMALLINT '32766'",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '32766'", "a >= SMALLINT '32766'");
 
         // round to top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '32766.9'",
-                output(
-                        filter("A = SMALLINT '32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '32766.9'", "a = SMALLINT '32767'");
 
         // top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '32767'",
-                output(
-                        filter("A = SMALLINT '32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '32767'", "a = SMALLINT '32767'");
 
         // above range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '32768.1'",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '32768.1'", "a IS NULL AND NULL");
 
         // above bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '-32767'",
-                output(
-                        filter("A >= SMALLINT '-32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '-32767'", "a >= SMALLINT '-32767'");
 
         // round to bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '-32767.9'",
-                output(
-                        filter("A > SMALLINT '-32768' ",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '-32767.9'", "a > SMALLINT '-32768' ");
 
         // bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '-32768'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '-32768'", "NOT (a IS NULL) OR NULL");
 
         // below range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= DOUBLE '-32768.1'",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a >= DOUBLE '-32768.1'", "NOT (a IS NULL) OR NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a >= DOUBLE '-18446744073709551616'", // -2^64 constant
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        // -2^64 constant
+        testUnwrap("bigint", "a >= DOUBLE '-18446744073709551616'", "NOT (a IS NULL) OR NULL");
     }
 
     @Test
     public void testDistinctFrom()
     {
         // representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1'",
-                output(
-                        filter("A IS DISTINCT FROM SMALLINT '1'",
-                                values("A"))));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '1'", "a IS DISTINCT FROM SMALLINT '1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1'",
-                output(
-                        filter("A IS DISTINCT FROM BIGINT '1'",
-                                values("A"))));
+        testUnwrap("bigint", "a IS DISTINCT FROM DOUBLE '1'", "a IS DISTINCT FROM BIGINT '1'");
 
         // non-representable
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1.1'",
-                output(
-                        values("A")));
+        testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '1.1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1.9'",
-                output(
-                        values("A")));
+        testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '1.9'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '1.9'",
-                output(
-                        values("A")));
+        testRemoveFilter("bigint", "a IS DISTINCT FROM DOUBLE '1.9'");
 
         // below top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '32766'",
-                output(
-                        filter("A IS DISTINCT FROM SMALLINT '32766'",
-                                values("A"))));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32766'", "a IS DISTINCT FROM SMALLINT '32766'");
 
         // round to top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '32766.9'",
-                output(
-                        values("A")));
+        testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '32766.9'");
 
         // top of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '32767'",
-                output(
-                        filter("A IS DISTINCT FROM SMALLINT '32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '32767'", "a IS DISTINCT FROM SMALLINT '32767'");
 
         // above range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '32768.1'",
-                output(
-                        values("A")));
+        testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '32768.1'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a IS DISTINCT FROM DOUBLE '18446744073709551616'", // 2^64 constant
-                output(
-                        values("A")));
+        // 2^64 constant
+        testRemoveFilter("bigint", "a IS DISTINCT FROM DOUBLE '18446744073709551616'");
 
         // above bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '-32767'",
-                output(
-                        filter("A IS DISTINCT FROM SMALLINT '-32767'",
-                                values("A"))));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32767'", "a IS DISTINCT FROM SMALLINT '-32767'");
 
         // round to bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '-32767.9'",
-                output(
-                        values("A")));
+        testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '-32767.9'");
 
         // bottom of range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '-32768'",
-                output(
-                        filter("A IS DISTINCT FROM SMALLINT '-32768'",
-                                values("A"))));
+        testUnwrap("smallint", "a IS DISTINCT FROM DOUBLE '-32768'", "a IS DISTINCT FROM SMALLINT '-32768'");
 
         // below range
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM DOUBLE '-32768.1'",
-                output(
-                        values("A")));
+        testRemoveFilter("smallint", "a IS DISTINCT FROM DOUBLE '-32768.1'");
     }
 
     @Test
     public void testNull()
     {
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = CAST(NULL AS DOUBLE)",
-                output(
-                        filter("CAST(NULL AS BOOLEAN)",
-                                values("A"))));
+        testUnwrap("smallint", "a = CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = CAST(NULL AS DOUBLE)",
-                output(
-                        filter("CAST(NULL AS BOOLEAN)",
-                                values("A"))));
+        testUnwrap("bigint", "a = CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> CAST(NULL AS DOUBLE)",
-                output(
-                        filter("CAST(NULL AS BOOLEAN)",
-                                values("A"))));
+        testUnwrap("smallint", "a <> CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a > CAST(NULL AS DOUBLE)",
-                output(
-                        filter("CAST(NULL AS BOOLEAN)",
-                                values("A"))));
+        testUnwrap("smallint", "a > CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < CAST(NULL AS DOUBLE)",
-                output(
-                        filter("CAST(NULL AS BOOLEAN)",
-                                values("A"))));
+        testUnwrap("smallint", "a < CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a >= CAST(NULL AS DOUBLE)",
-                output(
-                        filter("CAST(NULL AS BOOLEAN)",
-                                values("A"))));
+        testUnwrap("smallint", "a >= CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <= CAST(NULL AS DOUBLE)",
-                output(
-                        filter("CAST(NULL AS BOOLEAN)",
-                                values("A"))));
+        testUnwrap("smallint", "a <= CAST(NULL AS DOUBLE)", "CAST(NULL AS BOOLEAN)");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM CAST(NULL AS DOUBLE)",
-                output(
-                        filter("NOT (CAST(A AS DOUBLE) IS NULL)",
-                                values("A"))));
+        testUnwrap("smallint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", "NOT (CAST(a AS DOUBLE) IS NULL)");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a IS DISTINCT FROM CAST(NULL AS DOUBLE)",
-                output(
-                        filter("NOT (CAST(A AS DOUBLE) IS NULL)",
-                                values("A"))));
+        testUnwrap("bigint", "a IS DISTINCT FROM CAST(NULL AS DOUBLE)", "NOT (CAST(a AS DOUBLE) IS NULL)");
     }
 
     @Test
     public void testNaN()
     {
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = nan()",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a = nan()", "a IS NULL AND NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a = nan()",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("bigint", "a = nan()", "a IS NULL AND NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a < nan()",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a < nan()", "a IS NULL AND NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a <> nan()",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("smallint", "a <> nan()", "NOT (a IS NULL) OR NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a IS DISTINCT FROM nan()",
-                output(
-                        values("A")));
+        testRemoveFilter("smallint", "a IS DISTINCT FROM nan()");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '0') t(a) WHERE a IS DISTINCT FROM nan()",
-                output(
-                        values("A")));
+        testRemoveFilter("bigint", "a IS DISTINCT FROM nan()");
 
-        assertPlan(
-                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a = nan()",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("real", "a = nan()", "a IS NULL AND NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a < nan()",
-                output(
-                        filter("A IS NULL AND NULL",
-                                values("A"))));
+        testUnwrap("real", "a < nan()", "a IS NULL AND NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a <> nan()",
-                output(
-                        filter("NOT (A IS NULL) OR NULL",
-                                values("A"))));
+        testUnwrap("real", "a <> nan()", "NOT (a IS NULL) OR NULL");
 
-        assertPlan(
-                "SELECT * FROM (VALUES REAL '0.0') t(a) WHERE a IS DISTINCT FROM nan()",
-                output(
-                        filter("A IS DISTINCT FROM CAST(nan() AS REAL)",
-                                values("A"))));
+        testUnwrap("real", "a IS DISTINCT FROM nan()", "a IS DISTINCT FROM CAST(nan() AS REAL)");
     }
 
     @Test
@@ -829,33 +378,18 @@ public class TestUnwrapCastInComparison
     {
         // smoke tests for various type combinations
         for (String type : asList("SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            assertPlan(
-                    format("SELECT * FROM (VALUES TINYINT '1') t(a) WHERE a = %s '1'", type),
-                    output(
-                            filter("A = TINYINT '1'",
-                                    values("A"))));
+            testUnwrap("tinyint", format("a = %s '1'", type), "a = TINYINT '1'");
         }
 
         for (String type : asList("INTEGER", "BIGINT", "REAL", "DOUBLE")) {
-            assertPlan(
-                    format("SELECT * FROM (VALUES SMALLINT '0') t(a) WHERE a = %s '1'", type),
-                    output(
-                            filter("A = SMALLINT '1'",
-                                    values("A"))));
+            testUnwrap("smallint", format("a = %s '1'", type), "a = SMALLINT '1'");
         }
 
         for (String type : asList("BIGINT", "DOUBLE")) {
-            assertPlan(
-                    format("SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = %s '1'", type),
-                    output(
-                            filter("A = 1",
-                                    values("A"))));
+            testUnwrap("integer", format("a = %s '1'", type), "a = 1");
         }
 
-        assertPlan("SELECT * FROM (VALUES REAL '1') t(a) WHERE a = DOUBLE '1'",
-                output(
-                        filter("A = REAL '1.0'",
-                                values("A"))));
+        testUnwrap("real", "a = DOUBLE '1'", "a = REAL '1.0'");
     }
 
     @Test
@@ -965,110 +499,46 @@ public class TestUnwrapCastInComparison
     public void testNoEffect()
     {
         // BIGINT->DOUBLE implicit cast is not injective if the double constant is >= 2^53 and <= double(2^63 - 1)
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '9007199254740992'",
-                output(
-                        filter("CAST(A AS DOUBLE) = 9.007199254740992E15",
-                                values("A"))));
+        testUnwrap("bigint", "a = DOUBLE '9007199254740992'", "CAST(a AS DOUBLE) = 9.007199254740992E15");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '9223372036854775807'",
-                output(
-                        filter("CAST(A AS DOUBLE) = 9.223372036854776E18",
-                                values("A"))));
+        testUnwrap("bigint", "a = DOUBLE '9223372036854775807'", "CAST(a AS DOUBLE) = 9.223372036854776E18");
 
         // BIGINT->DOUBLE implicit cast is not injective if the double constant is <= -2^53 and >= double(-2^63 + 1)
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '-9007199254740992'",
-                output(
-                        filter("CAST(A AS DOUBLE) = -9.007199254740992E15",
-                                values("A"))));
+        testUnwrap("bigint", "a = DOUBLE '-9007199254740992'", "CAST(a AS DOUBLE) = -9.007199254740992E15");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = DOUBLE '-9223372036854775807'",
-                output(
-                        filter("CAST(A AS DOUBLE) = -9.223372036854776E18",
-                                values("A"))));
+        testUnwrap("bigint", "a = DOUBLE '-9223372036854775807'", "CAST(a AS DOUBLE) = -9.223372036854776E18");
 
         // BIGINT->REAL implicit cast is not injective if the real constant is >= 2^23 and <= real(2^63 - 1)
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '8388608'",
-                output(
-                        filter("CAST(A AS REAL) = REAL '8388608.0'",
-                                values("A"))));
+        testUnwrap("bigint", "a = REAL '8388608'", "CAST(a AS REAL) = REAL '8388608.0'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '9223372036854775807'",
-                output(
-                        filter("CAST(A AS REAL) = REAL '9.223372E18'",
-                                values("A"))));
+        testUnwrap("bigint", "a = REAL '9223372036854775807'", "CAST(a AS REAL) = REAL '9.223372E18'");
 
         // BIGINT->REAL implicit cast is not injective if the real constant is <= -2^23 and >= real(-2^63 + 1)
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '-8388608'",
-                output(
-                        filter("CAST(A AS REAL) = REAL '-8388608.0'",
-                                values("A"))));
+        testUnwrap("bigint", "a = REAL '-8388608'", "CAST(a AS REAL) = REAL '-8388608.0'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES BIGINT '1') t(a) WHERE a = REAL '-9223372036854775807'",
-                output(
-                        filter("CAST(A AS REAL) = REAL '-9.223372E18'",
-                                values("A"))));
+        testUnwrap("bigint", "a = REAL '-9223372036854775807'", "CAST(a AS REAL) = REAL '-9.223372E18'");
 
         // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
-        assertPlan(
-                "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '8388608'",
-                output(
-                        filter("CAST(A AS REAL) = REAL '8388608.0'",
-                                values("A"))));
+        testUnwrap("integer", "a = REAL '8388608'", "CAST(a AS REAL) = REAL '8388608.0'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '2147483647'",
-                output(
-                        filter("CAST(A AS REAL) = REAL '2.14748365E9'",
-                                values("A"))));
+        testUnwrap("integer", "a = REAL '2147483647'", "CAST(a AS REAL) = REAL '2.14748365E9'");
 
         // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
-        assertPlan(
-                "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '-8388608'",
-                output(
-                        filter("CAST(A AS REAL) = REAL '-8388608.0'",
-                                values("A"))));
+        testUnwrap("integer", "a = REAL '-8388608'", "CAST(a AS REAL) = REAL '-8388608.0'");
 
-        assertPlan(
-                "SELECT * FROM (VALUES INTEGER '1') t(a) WHERE a = REAL '-2147483647'",
-                output(
-                        filter("CAST(A AS REAL) = REAL '-2.14748365E9'",
-                                values("A"))));
+        testUnwrap("integer", "a = REAL '-2147483647'", "CAST(a AS REAL) = REAL '-2.14748365E9'");
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
-        assertPlan(
-                "SELECT * FROM (VALUES CAST('1' AS DECIMAL(16))) t(a) WHERE a = DOUBLE '1'",
-                output(
-                        filter("CAST(A AS DOUBLE) = 1E0",
-                                values("A"))));
+        testUnwrap("decimal(16)", "a = DOUBLE '1'", "CAST(a AS DOUBLE) = 1E0");
 
         // DECIMAL(p)->REAL not injective for p > 7
-        assertPlan(
-                "SELECT * FROM (VALUES CAST('1' AS DECIMAL(8))) t(a) WHERE a = REAL '1'",
-                output(
-                        filter("CAST(A AS REAL) = REAL '1.0'",
-                                values("A"))));
+        testUnwrap("decimal(8)", "a = REAL '1'", "CAST(a AS REAL) = REAL '1.0'");
 
         // no implicit cast between VARCHAR->INTEGER
-        assertPlan(
-                "SELECT * FROM (VALUES VARCHAR '1') t(a) WHERE CAST(a AS INTEGER) = INTEGER '1'",
-                output(
-                        filter("CAST(A AS INTEGER) = 1",
-                                values("A"))));
+        testUnwrap("varchar", "CAST(a AS INTEGER) = INTEGER '1'", "CAST(a AS INTEGER) = 1");
 
         // no implicit cast between DOUBLE->INTEGER
-        assertPlan(
-                "SELECT * FROM (VALUES DOUBLE '1') t(a) WHERE CAST(a AS INTEGER) = INTEGER '1'",
-                output(
-                        filter("CAST(A AS INTEGER) = 1",
-                                values("A"))));
+        testUnwrap("double", "CAST(a AS INTEGER) = INTEGER '1'", "CAST(a AS INTEGER) = 1");
     }
 
     private void testNoUnwrap(Session session, String inputType, String inputPredicate, String expectedCastType)
@@ -1078,13 +548,32 @@ public class TestUnwrapCastInComparison
             assertPlan(sql,
                     session,
                     output(
-                            filter(format("CAST(A AS %s) %s", expectedCastType, inputPredicate),
+                            filter(format("CAST(a AS %s) %s", expectedCastType, inputPredicate),
                                     values("A"))));
         }
         catch (Throwable e) {
             e.addSuppressed(new Exception("Query: " + sql));
             throw e;
         }
+    }
+
+    private void testRemoveFilter(String inputType, String inputPredicate)
+    {
+        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s", inputType, inputPredicate);
+        try {
+            assertPlan(sql,
+                    output(
+                            values("a")));
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("Query: " + sql));
+            throw e;
+        }
+    }
+
+    private void testUnwrap(String inputType, String inputPredicate, String expectedPredicate)
+    {
+        testUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedPredicate);
     }
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
