@@ -434,4 +434,59 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
                             "TIMESTAMP '1901-02-03 04:05:06.123')");
         }
     }
+
+    @Test
+    public void testSnowflakeTimeWithPrecision()
+    {
+        try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_time_with_precision",
+                "(" +
+                        "time0 time(0)," +
+                        "time1 time(1)," +
+                        "time2 time(2)," +
+                        "time3 time(3)," +
+                        "time4 time(4)," +
+                        "time5 time(5)," +
+                        "time6 time(6)," +
+                        "time7 time(7)," +
+                        "time8 time(8)," +
+                        "time9 time(9))",
+                ImmutableList.of("" +
+                        "TIME '04:05:06'," +
+                        "TIME '04:05:06.1'," +
+                        "TIME '04:05:06.12'," +
+                        "TIME '04:05:06.123'," +
+                        "TIME '04:05:06.1234'," +
+                        "TIME '04:05:06.12345'," +
+                        "TIME '04:05:06.123456'," +
+                        "TIME '04:05:06.1234567'," +
+                        "TIME '04:05:06.12345678'," +
+                        "TIME '04:05:06.123456789'"))) {
+            assertThat((String) computeActual("SHOW CREATE TABLE " + testTable.getName()).getOnlyValue())
+                    .matches("CREATE TABLE \\w+\\.\\w+\\.\\w+ \\Q(\n" +
+                            "   time0 time(3),\n" +
+                            "   time1 time(3),\n" +
+                            "   time2 time(3),\n" +
+                            "   time3 time(3),\n" +
+                            "   time4 time(3),\n" +
+                            "   time5 time(3),\n" +
+                            "   time6 time(3),\n" +
+                            "   time7 time(3),\n" +
+                            "   time8 time(3),\n" +
+                            "   time9 time(3)\n" +
+                            ")");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("VALUES (" +
+                            "TIME '04:05:06.000'," +
+                            "TIME '04:05:06.100'," +
+                            "TIME '04:05:06.120'," +
+                            "TIME '04:05:06.123'," +
+                            "TIME '04:05:06.123'," +
+                            "TIME '04:05:06.123'," +
+                            "TIME '04:05:06.123'," +
+                            "TIME '04:05:06.123'," +
+                            "TIME '04:05:06.123'," +
+                            "TIME '04:05:06.123')");
+        }
+    }
 }
