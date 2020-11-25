@@ -15,6 +15,7 @@ package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.Column;
 import io.prestosql.client.IntervalDayTime;
 import io.prestosql.client.IntervalYearMonth;
@@ -77,6 +78,7 @@ import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeZone.UTC;
 
 abstract class AbstractPrestoResultSet
@@ -561,6 +563,32 @@ abstract class AbstractPrestoResultSet
                 }
         }
         return column(columnIndex);
+    }
+
+    @javax.annotation.Nullable
+    private Object convertFromClientRepresentation(ClientTypeSignature columnType, @javax.annotation.Nullable Object value)
+    {
+        requireNonNull(columnType, "columnType is null");
+
+        if (value == null) {
+            return null;
+        }
+
+        switch (columnType.getRawType()) {
+            case "array": {
+                ClientTypeSignature elementType = getOnlyElement(columnType.getArgumentsAsTypeSignatures());
+                return ((List<?>) value).stream()
+                        .map(element -> convertFromClientRepresentation(elementType, element))
+                        .collect(toList());
+            }
+
+            // TODO map
+            // TODO row
+        }
+
+        // TODO (https://github.com/prestosql/presto/issues/6048) add conversions for decimal, date, time, timestamp, interval
+
+        return value;
     }
 
     private PrestoIntervalYearMonth getIntervalYearMonth(int columnIndex)
@@ -1164,9 +1192,10 @@ abstract class AbstractPrestoResultSet
         }
 
         ColumnInfo columnInfo = columnInfo(columnIndex);
-        String elementTypeName = getOnlyElement(columnInfo.getColumnTypeSignature().getArguments()).toString();
+        ClientTypeSignature columnTypeSignature = columnInfo.getColumnTypeSignature();
+        String elementTypeName = getOnlyElement(columnTypeSignature.getArguments()).toString();
         int elementType = getOnlyElement(columnInfo.getColumnParameterTypes());
-        return new PrestoArray(elementTypeName, elementType, (List<?>) value);
+        return new PrestoArray(elementTypeName, elementType, (List<?>) convertFromClientRepresentation(columnTypeSignature, value));
     }
 
     @Override

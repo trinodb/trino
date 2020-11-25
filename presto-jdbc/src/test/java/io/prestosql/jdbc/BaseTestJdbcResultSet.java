@@ -37,6 +37,7 @@ import java.util.Map;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -547,6 +548,20 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getArray(column).getArray(), new int[] {1, 2});
                 assertEquals(((Array) rs.getObject(column)).getArray(), new int[] {1, 2}); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
                 assertEquals(rs.getObject(column, List.class), ImmutableList.of(1, 2));
+            });
+
+            // array of bigint, and with NULL
+            checkRepresentation(connectedStatement.getStatement(), "ARRAY[NULL, BIGINT '1', 2]", Types.ARRAY, (rs, column) -> {
+                assertEquals(rs.getArray(column).getArray(), new Long[] {null, 1L, 2L});
+                assertEquals(((Array) rs.getObject(column)).getArray(), new Long[] {null, 1L, 2L}); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                assertEquals(rs.getObject(column, List.class), asList(null, 1L, 2L));
+            });
+
+            // array or array
+            checkRepresentation(connectedStatement.getStatement(), "ARRAY[NULL, ARRAY[NULL, BIGINT '1', 2]]", Types.ARRAY, (rs, column) -> {
+                assertEquals(rs.getArray(column).getArray(), new Object[] {null, asList(null, 1L, 2L)});
+                assertEquals(((Array) rs.getObject(column)).getArray(), new Object[] {null, asList(null, 1L, 2L)}); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                assertEquals(rs.getObject(column, List.class), asList(null, asList(null, 1L, 2L)));
             });
         }
     }
