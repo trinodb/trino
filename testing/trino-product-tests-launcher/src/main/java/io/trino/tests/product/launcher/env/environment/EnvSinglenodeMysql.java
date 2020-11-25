@@ -28,7 +28,9 @@ import javax.inject.Inject;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -70,7 +72,8 @@ public final class EnvSinglenodeMysql
                 .withEnv("MYSQL_DATABASE", "test")
                 .withCommand("mysqld", "--port", Integer.toString(MYSQL_PORT))
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(MYSQL_PORT));
+                .withHealthCheckCommand(format("mysqladmin ping -h 127.0.0.1 -P %d -u $MYSQL_USER --password=$MYSQL_PASSWORD", MYSQL_PORT))
+                .waitingForAll(forHealthcheck(), forSelectedPorts(MYSQL_PORT));
 
         portBinder.exposePort(container, MYSQL_PORT);
 
