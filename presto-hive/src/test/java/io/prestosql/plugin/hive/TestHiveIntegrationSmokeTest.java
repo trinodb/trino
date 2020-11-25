@@ -3620,7 +3620,7 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         testCreateExternalTable(
-                "test_create_external",
+                "test_create_external_with_field_separator",
                 "helloXworld\nbyeXworld",
                 "VALUES ('hello', 'world'), ('bye', 'world')",
                 ImmutableList.of("textfile_field_separator = 'X'"));
