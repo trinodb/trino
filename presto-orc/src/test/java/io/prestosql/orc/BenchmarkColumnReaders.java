@@ -44,8 +44,6 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
@@ -58,7 +56,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.execution.buffer.BenchmarkDataGenerator.createValues;
 import static io.prestosql.execution.buffer.BenchmarkDataGenerator.randomAsciiString;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.writeOrcColumnPresto;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
@@ -94,19 +91,9 @@ public class BenchmarkColumnReaders
     private static final DecimalType LONG_DECIMAL_TYPE = createDecimalType(30, 5);
     public static final int ROWS = 10_000_000;
     private static final int DICTIONARY = 22;
-    private static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
     @Benchmark
     public Object readBoolean(BooleanBenchmarkData data)
-            throws Exception
-    {
-        try (OrcRecordReader recordReader = data.createRecordReader()) {
-            return readFirstColumn(recordReader);
-        }
-    }
-
-    @Benchmark
-    public Object readAllNull(AllNullBenchmarkData data)
             throws Exception
     {
         try (OrcRecordReader recordReader = data.createRecordReader()) {
@@ -239,7 +226,7 @@ public class BenchmarkColumnReaders
     public abstract static class TypeBenchmarkData
             extends BenchmarkData
     {
-        @Param({"0", ".5"})
+        @Param({"0", ".5", "1"})
         private double nullChance;
 
         public void setup(Type type, Function<Random, ?> valueGenerator)
@@ -308,43 +295,6 @@ public class BenchmarkColumnReaders
                     newSimpleAggregatedMemoryContext(),
                     INITIAL_BATCH_SIZE,
                     RuntimeException::new);
-        }
-    }
-
-    @State(Thread)
-    public static class AllNullBenchmarkData
-            extends BenchmarkData
-    {
-        @SuppressWarnings("unused")
-        @Param({
-                "boolean",
-
-                "tinyint",
-                "integer",
-                "bigint",
-                "decimal(10,5)",
-
-                "timestamp",
-
-                "real",
-                "double",
-
-                "varchar",
-                "varbinary",
-        })
-        private String typeName;
-
-        @Setup
-        public void setup()
-                throws Exception
-        {
-            Type type = createTestMetadataManager().fromSqlType(typeName);
-            setup(type, createValues());
-        }
-
-        private Iterator<?> createValues()
-        {
-            return NULL_VALUES.iterator();
         }
     }
 
