@@ -29,6 +29,7 @@ import net.jodah.failsafe.function.CheckedRunnable;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
+import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.testcontainers.images.builder.Transferable;
@@ -59,6 +60,7 @@ import static java.time.Duration.ofSeconds;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.testcontainers.containers.wait.strategy.WaitAllStrategy.Mode.WITH_OUTER_TIMEOUT;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class DockerContainer
@@ -83,7 +85,6 @@ public class DockerContainer
     {
         super(dockerImageName);
         this.logicalName = requireNonNull(logicalName, "logicalName is null");
-
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
         setCopyToFileContainerPathMap(new LinkedHashMap<>());
     }
@@ -288,14 +289,28 @@ public class DockerContainer
         }
     }
 
-    public DockerContainer waitingForAll(WaitStrategy... strategies)
+    @Override
+    public DockerContainer waitingFor(WaitStrategy waitStrategy)
     {
-        WaitAllStrategy waitAllStrategy = new WaitAllStrategy();
+        if (this.waitStrategy instanceof HostPortWaitStrategy) {
+            this.waitStrategy = new WaitAllStrategy();
+        }
+
+        if (this.waitStrategy instanceof WaitAllStrategy) {
+            // add to existing wait all strategy
+            return super.waitingFor(((WaitAllStrategy) this.waitStrategy).withStrategy(waitStrategy));
+        }
+
+        throw new IllegalStateException("current waitStrategy should be WaitAllStrategy");
+    }
+
+    private static WaitStrategy waitingForAll(WaitStrategy... strategies)
+    {
+        WaitAllStrategy waitAllStrategy = new WaitAllStrategy(WITH_OUTER_TIMEOUT);
         for (WaitStrategy strategy : strategies) {
             waitAllStrategy.withStrategy(strategy);
         }
-        waitingFor(waitAllStrategy);
-        return this;
+        return waitAllStrategy;
     }
 
     private void copyFileFromContainer(String filename, Path targetPath)

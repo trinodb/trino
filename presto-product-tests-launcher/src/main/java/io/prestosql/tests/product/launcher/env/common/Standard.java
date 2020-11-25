@@ -131,7 +131,8 @@ public final class Standard
                 .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
+                .waitingFor(forLogMessage(".*======== SERVER STARTED ========.*", 1))
+                .waitingFor(forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5));
         if (debug) {
             enablePrestoJavaDebugger(container);

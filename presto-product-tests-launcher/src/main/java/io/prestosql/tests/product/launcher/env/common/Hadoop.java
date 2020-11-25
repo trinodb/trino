@@ -99,7 +99,8 @@ public final class Hadoop
                 .withCommand("/usr/local/hadoop-run.sh")
                 .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive", "/var/log/container-health.log")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingForAll(forSelectedPorts(10000), forHealthcheck()) // HiveServer2
+                .waitingFor(forSelectedPorts(10000)) // HiveServer2
+                .waitingFor(forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5))
                 .withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
     }
