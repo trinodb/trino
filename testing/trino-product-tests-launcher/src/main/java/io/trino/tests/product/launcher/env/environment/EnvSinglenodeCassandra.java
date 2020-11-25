@@ -31,6 +31,7 @@ import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPo
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -70,7 +71,8 @@ public final class EnvSinglenodeCassandra
                         "-cxeu",
                         "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(CASSANDRA_PORT))
+                .withHealthCheck(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/health-check.sh"))
+                .waitingForAll(forHealthcheck(), forSelectedPorts(CASSANDRA_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
 
         portBinder.exposePort(container, CASSANDRA_PORT);
