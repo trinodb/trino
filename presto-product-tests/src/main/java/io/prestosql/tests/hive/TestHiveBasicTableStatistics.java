@@ -14,6 +14,7 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.primitives.Longs;
+import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requires;
 import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestosql.tempto.query.QueryExecutor;
@@ -36,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Requires(ImmutableNationTable.class)
 public class TestHiveBasicTableStatistics
-        extends HiveProductTest
+        extends ProductTest
 {
     @Test
     public void testCreateUnpartitioned()
@@ -154,8 +155,9 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_nationkey <> 23", tableName));
 
         try {
-            if (getHiveVersionMajor() < 3) {
-                BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }
 
@@ -191,8 +193,9 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_regionkey = 1", tableName));
 
         try {
-            if (getHiveVersionMajor() < 3) {
-                BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }
 
@@ -266,9 +269,10 @@ public class TestHiveBasicTableStatistics
                 ") ", tableName));
 
         try {
-            if (getHiveVersionMajor() < 3) {
-                BasicStatistics tableStatisticsAfterCreate = getBasicStatisticsForTable(onHive(), tableName);
-                assertThatStatisticsAreNotPresent(tableStatisticsAfterCreate);
+            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            if (tableStatistics.getNumRows().isEmpty()) {
+                assertThatStatisticsAreNotPresent(tableStatistics);
             }
 
             insertNationData(onPresto(), tableName);
@@ -347,8 +351,9 @@ public class TestHiveBasicTableStatistics
                 "WHERE n_regionkey = 1", tableName));
 
         try {
-            if (getHiveVersionMajor() < 3) {
-                BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+            BasicStatistics tableStatistics = getBasicStatisticsForTable(onHive(), tableName);
+            // Metastore can auto-gather table statistics. This is not relevant for Presto, since we do not use table-level statistics in case of a partitioned table.
+            if (tableStatistics.getNumRows().isEmpty()) {
                 assertThatStatisticsAreNotPresent(tableStatistics);
             }
 
