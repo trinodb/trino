@@ -19,8 +19,6 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public class WindowPlanNodeStats
         extends PlanNodeStats
 {
@@ -49,7 +47,7 @@ public class WindowPlanNodeStats
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
-        checkArgument(other instanceof WindowPlanNodeStats, "other is not an instanceof WindowPlanNodeStats: %s", other);
+        checkMergeable(other);
         PlanNodeStats merged = super.mergeWith(other);
 
         return new WindowPlanNodeStats(

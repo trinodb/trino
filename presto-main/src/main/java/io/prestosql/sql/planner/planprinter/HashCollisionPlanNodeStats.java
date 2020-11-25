@@ -19,7 +19,6 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 import static java.lang.Math.sqrt;
 import static java.util.Objects.requireNonNull;
@@ -83,7 +82,7 @@ public class HashCollisionPlanNodeStats
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
-        checkArgument(other instanceof HashCollisionPlanNodeStats, "other is not an instanceof HashCollisionPlanNodeStats: %s", other);
+        checkMergeable(other);
         PlanNodeStats merged = super.mergeWith(other);
 
         return new HashCollisionPlanNodeStats(
