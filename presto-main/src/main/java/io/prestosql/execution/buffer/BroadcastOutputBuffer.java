@@ -22,6 +22,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.execution.StateMachine;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.prestosql.memory.context.LocalMemoryContext;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -47,6 +48,7 @@ import static io.prestosql.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static io.prestosql.execution.buffer.BufferState.NO_MORE_PAGES;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
+import static io.prestosql.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.util.Objects.requireNonNull;
 
 public class BroadcastOutputBuffer
@@ -55,6 +57,7 @@ public class BroadcastOutputBuffer
     private final String taskInstanceId;
     private final StateMachine<BufferState> state;
     private final OutputBufferMemoryManager memoryManager;
+    private final PagesReleasedListener onPagesReleased;
 
     @GuardedBy("this")
     private OutputBuffers outputBuffers = OutputBuffers.createInitialEmptyOutputBuffers(BROADCAST);
@@ -86,6 +89,10 @@ public class BroadcastOutputBuffer
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
+        this.onPagesReleased = (releasedPageCount, releasedMemorySizeInBytes) -> {
+            checkState(totalBufferedPages.addAndGet(-releasedPageCount) >= 0);
+            memoryManager.updateMemoryUsage(-releasedMemorySizeInBytes);
+        };
         this.notifyStatusChanged = requireNonNull(notifyStatusChanged, "notifyStatusChanged is null");
     }
 
@@ -202,23 +209,24 @@ public class BroadcastOutputBuffer
             return;
         }
 
-        // reserve memory
-        long bytesAdded = pages.stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
-        memoryManager.updateMemoryUsage(bytesAdded);
+        ImmutableList.Builder<SerializedPageReference> references = ImmutableList.builderWithExpectedSize(pages.size());
+        long bytesAdded = 0;
+        long rowCount = 0;
+        for (SerializedPage page : pages) {
+            bytesAdded += page.getRetainedSizeInBytes();
+            rowCount += page.getPositionCount();
+            // create page reference counts with an initial single reference
+            references.add(new SerializedPageReference(page, 1));
+        }
+        List<SerializedPageReference> serializedPageReferences = references.build();
 
         // update stats
-        long rowCount = pages.stream().mapToLong(SerializedPage::getPositionCount).sum();
         totalRowsAdded.addAndGet(rowCount);
-        totalPagesAdded.addAndGet(pages.size());
-        totalBufferedPages.addAndGet(pages.size());
+        totalPagesAdded.addAndGet(serializedPageReferences.size());
+        totalBufferedPages.addAndGet(serializedPageReferences.size());
 
-        // create page reference counts with an initial single reference
-        List<SerializedPageReference> serializedPageReferences = pages.stream()
-                .map(pageSplit -> new SerializedPageReference(pageSplit, 1, () -> {
-                    checkState(totalBufferedPages.decrementAndGet() >= 0);
-                    memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes());
-                }))
-                .collect(toImmutableList());
+        // reserve memory
+        memoryManager.updateMemoryUsage(bytesAdded);
 
         // if we can still add buffers, remember the pages for the future buffers
         Collection<ClientBuffer> buffers;
@@ -236,7 +244,7 @@ public class BroadcastOutputBuffer
         buffers.forEach(partition -> partition.enqueuePages(serializedPageReferences));
 
         // drop the initial reference
-        serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
+        dereferencePages(serializedPageReferences, onPagesReleased);
 
         // if the buffer is full for first time and more clients are expected, update the task status
         // notifying a status change will lead to the SourcePartitionedScheduler sending 'no-more-buffers' to unblock
@@ -352,7 +360,7 @@ public class BroadcastOutputBuffer
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared
-        buffer = new ClientBuffer(taskInstanceId, id);
+        buffer = new ClientBuffer(taskInstanceId, id, onPagesReleased);
 
         // do not setup the new buffer if we are already failed
         if (state != FAILED) {
@@ -396,7 +404,7 @@ public class BroadcastOutputBuffer
         }
 
         // dereference outside of synchronized to avoid making a callback while holding a lock
-        pages.forEach(SerializedPageReference::dereferencePage);
+        dereferencePages(pages, onPagesReleased);
     }
 
     private void checkFlushComplete()

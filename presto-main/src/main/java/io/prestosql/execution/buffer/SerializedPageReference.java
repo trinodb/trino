@@ -15,7 +15,8 @@ package io.prestosql.execution.buffer;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -23,23 +24,23 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-class SerializedPageReference
+final class SerializedPageReference
 {
-    private final SerializedPage serializedPage;
-    private final AtomicInteger referenceCount;
-    private final Runnable onDereference;
+    private static final AtomicIntegerFieldUpdater<SerializedPageReference> REFERENCE_COUNT_UPDATER = AtomicIntegerFieldUpdater.newUpdater(SerializedPageReference.class, "referenceCount");
 
-    public SerializedPageReference(SerializedPage serializedPage, int referenceCount, Runnable onDereference)
+    private final SerializedPage serializedPage;
+    private volatile int referenceCount;
+
+    public SerializedPageReference(SerializedPage serializedPage, int referenceCount)
     {
         this.serializedPage = requireNonNull(serializedPage, "page is null");
         checkArgument(referenceCount > 0, "referenceCount must be at least 1");
-        this.referenceCount = new AtomicInteger(referenceCount);
-        this.onDereference = requireNonNull(onDereference, "onDereference is null");
+        this.referenceCount = referenceCount;
     }
 
     public void addReference()
     {
-        int oldReferences = referenceCount.getAndIncrement();
+        int oldReferences = REFERENCE_COUNT_UPDATER.getAndIncrement(this);
         checkState(oldReferences > 0, "Page has already been dereferenced");
     }
 
@@ -58,14 +59,11 @@ class SerializedPageReference
         return serializedPage.getRetainedSizeInBytes();
     }
 
-    public void dereferencePage()
+    private boolean dereferencePage()
     {
-        int remainingReferences = referenceCount.decrementAndGet();
+        int remainingReferences = REFERENCE_COUNT_UPDATER.decrementAndGet(this);
         checkState(remainingReferences >= 0, "Page reference count is negative");
-
-        if (remainingReferences == 0) {
-            onDereference.run();
-        }
+        return remainingReferences == 0;
     }
 
     @Override
@@ -74,5 +72,32 @@ class SerializedPageReference
         return toStringHelper(this)
                 .add("referenceCount", referenceCount)
                 .toString();
+    }
+
+    public static void dereferencePages(List<SerializedPageReference> serializedPageReferences, PagesReleasedListener onPagesReleased)
+    {
+        requireNonNull(serializedPageReferences, "serializedPageReferences is null");
+        requireNonNull(onPagesReleased, "onPagesReleased is null");
+        int releasedPageCount = 0;
+        long releasedMemorySizeInBytes = 0;
+        for (SerializedPageReference serializedPageReference : serializedPageReferences) {
+            if (serializedPageReference.dereferencePage()) {
+                releasedPageCount++;
+                releasedMemorySizeInBytes += serializedPageReference.getRetainedSizeInBytes();
+            }
+        }
+        if (releasedPageCount > 0) {
+            onPagesReleased.onPagesReleased(releasedPageCount, releasedMemorySizeInBytes);
+        }
+    }
+
+    interface PagesReleasedListener
+    {
+        void onPagesReleased(int releasedPagesCount, long releasedMemorySizeInBytes);
+
+        static PagesReleasedListener forOutputBufferMemoryManager(OutputBufferMemoryManager memoryManager)
+        {
+            return (releasedPagesCount, releasedMemorySizeInBytes) -> memoryManager.updateMemoryUsage(-releasedMemorySizeInBytes);
+        }
     }
 }
