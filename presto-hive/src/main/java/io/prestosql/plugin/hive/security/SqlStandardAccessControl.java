@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive.security;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -22,7 +22,6 @@ import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaRoutineName;
@@ -37,7 +36,6 @@ import io.prestosql.spi.type.Type;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -235,10 +233,10 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         if (!hasAnyTablePermission(context, tableName)) {
-            return ImmutableList.of();
+            return ImmutableSet.of();
         }
         return columns;
     }

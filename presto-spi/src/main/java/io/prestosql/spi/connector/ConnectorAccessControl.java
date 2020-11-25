@@ -18,8 +18,6 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -239,9 +237,9 @@ public interface ConnectorAccessControl
     /**
      * Filter the list of columns to those visible to the identity.
      */
-    default List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    default Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
-        return Collections.emptyList();
+        return emptySet();
     }
 
     /**

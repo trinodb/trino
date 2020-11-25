@@ -16,14 +16,11 @@ package io.prestosql.spi.security;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
-import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -359,9 +356,9 @@ public interface SystemAccessControl
     /**
      * Filter the list of columns to those visible to the identity.
      */
-    default List<ColumnMetadata> filterColumns(SystemSecurityContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+    default Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        return Collections.emptyList();
+        return emptySet();
     }
 
     /**

@@ -13,14 +13,12 @@
  */
 package io.prestosql.plugin.base.security;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
@@ -412,20 +410,20 @@ public class TestFileBasedSystemAccessControl
                 accessControl.filterColumns(
                         ALICE,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
-                        ImmutableList.of(column("private"), column("a"), column("restricted"), column("b"))),
-                ImmutableList.of(column("private"), column("a"), column("restricted"), column("b")));
+                        ImmutableSet.of("private", "a", "restricted", "b")),
+                ImmutableSet.of("private", "a", "restricted", "b"));
         assertEquals(
                 accessControl.filterColumns(
                         BOB,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
-                        ImmutableList.of(column("private"), column("a"), column("restricted"), column("b"))),
-                ImmutableList.of(column("private"), column("a"), column("restricted"), column("b")));
+                        ImmutableSet.of("private", "a", "restricted", "b")),
+                ImmutableSet.of("private", "a", "restricted", "b"));
         assertEquals(
                 accessControl.filterColumns(
                         CHARLIE,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
-                        ImmutableList.of(column("private"), column("a"), column("restricted"), column("b"))),
-                ImmutableList.of(column("a"), column("b")));
+                        ImmutableSet.of("private", "a", "restricted", "b")),
+                ImmutableSet.of("a", "b"));
     }
 
     @Test
@@ -478,8 +476,8 @@ public class TestFileBasedSystemAccessControl
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-no-access.json");
         assertEquals(
-                accessControl.filterColumns(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableList.of(column("a"))),
-                ImmutableList.of());
+                accessControl.filterColumns(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of("a")),
+                ImmutableSet.of());
     }
 
     @Test
@@ -1204,10 +1202,5 @@ public class TestFileBasedSystemAccessControl
         assertThatThrownBy(callable)
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageMatching(expectedMessage);
-    }
-
-    private static ColumnMetadata column(String columnName)
-    {
-        return new ColumnMetadata(columnName, VARCHAR);
     }
 }

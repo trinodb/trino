@@ -13,10 +13,8 @@
  */
 package io.prestosql.plugin.base.security;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.QueryId;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -26,7 +24,6 @@ import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.Privilege;
-import io.prestosql.spi.type.VarcharType;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -251,13 +248,13 @@ public class TestFileBasedAccessControl
 
         accessControl.checkCanShowColumns(ALICE, bobTable);
         assertEquals(
-                accessControl.filterColumns(ALICE, bobTable, ImmutableList.of(column("a"))),
-                ImmutableList.of(column("a")));
+                accessControl.filterColumns(ALICE, bobTable, ImmutableSet.of("a")),
+                ImmutableSet.of("a"));
         accessControl.checkCanSelectFromColumns(BOB, bobTable, ImmutableSet.of());
         accessControl.checkCanShowColumns(BOB, bobTable);
         assertEquals(
-                accessControl.filterColumns(BOB, bobTable, ImmutableList.of(column("a"))),
-                ImmutableList.of(column("a")));
+                accessControl.filterColumns(BOB, bobTable, ImmutableSet.of("a")),
+                ImmutableSet.of("a"));
 
         accessControl.checkCanInsertIntoTable(BOB, bobTable);
         accessControl.checkCanDeleteFromTable(BOB, bobTable);
@@ -348,8 +345,8 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanShowColumns(BOB, new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanShowTables(BOB, "bobschema"));
         assertEquals(
-                accessControl.filterColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
-                ImmutableList.of());
+                accessControl.filterColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("a")),
+                ImmutableSet.of());
 
         Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
                 .add(new SchemaTableName("restricted", "any"))
@@ -450,10 +447,5 @@ public class TestFileBasedAccessControl
                 .isInstanceOf(AccessDeniedException.class)
                 // TODO test expected message precisely, as in TestFileBasedSystemAccessControl
                 .hasMessageStartingWith("Access Denied");
-    }
-
-    private static ColumnMetadata column(String columnName)
-    {
-        return new ColumnMetadata(columnName, VarcharType.VARCHAR);
     }
 }
