@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.execution.buffer.ClientBuffer.PagesSupplier;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.BigintType;
 import org.testng.annotations.Test;
@@ -31,7 +32,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.execution.buffer.BufferResult.emptyResults;
@@ -42,6 +43,7 @@ import static io.prestosql.execution.buffer.BufferTestUtils.createPage;
 import static io.prestosql.execution.buffer.BufferTestUtils.getFuture;
 import static io.prestosql.execution.buffer.BufferTestUtils.serializePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.sizeOfPages;
+import static io.prestosql.execution.buffer.SerializedPageReference.dereferencePages;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -55,11 +57,12 @@ public class TestClientBuffer
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
     private static final OutputBufferId BUFFER_ID = new OutputBufferId(33);
     private static final String INVALID_SEQUENCE_ID = "Invalid sequence id";
+    private static final PagesReleasedListener NOOP_RELEASE_LISTENER = (releasedPagesCount, releasedMemorySizeInBytes) -> {};
 
     @Test
     public void testSimplePushBuffer()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
 
         // add three pages to the buffer
         for (int i = 0; i < 3; i++) {
@@ -113,7 +116,7 @@ public class TestClientBuffer
     @Test
     public void testSimplePullBuffer()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
 
         // create a page supplier with 3 initial pages
         TestingPagesSupplier supplier = new TestingPagesSupplier();
@@ -177,7 +180,7 @@ public class TestClientBuffer
     @Test
     public void testDuplicateRequests()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
 
         // add three pages
         for (int i = 0; i < 3; i++) {
@@ -207,7 +210,7 @@ public class TestClientBuffer
     @Test
     public void testAddAfterNoMorePages()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
         buffer.setNoMorePages();
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(0));
@@ -217,7 +220,7 @@ public class TestClientBuffer
     @Test
     public void testAddAfterDestroy()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
         buffer.destroy();
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(0));
@@ -227,7 +230,7 @@ public class TestClientBuffer
     @Test
     public void testDestroy()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
 
         // add 5 pages the buffer
         for (int i = 0; i < 5; i++) {
@@ -249,7 +252,7 @@ public class TestClientBuffer
     @Test
     public void testNoMorePagesFreesReader()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
@@ -278,7 +281,7 @@ public class TestClientBuffer
     @Test
     public void testDestroyFreesReader()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
@@ -311,7 +314,7 @@ public class TestClientBuffer
     @Test
     public void testInvalidTokenFails()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(1));
         buffer.getPages(1, sizeOfPages(10)).cancel(true);
@@ -329,31 +332,29 @@ public class TestClientBuffer
     @Test
     public void testReferenceCount()
     {
-        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID);
+        AtomicInteger releasedPages = new AtomicInteger();
+        PagesReleasedListener onPagesReleased = (releasedPageCount, releasedMemorySizeInBytes) -> releasedPages.addAndGet(releasedPageCount);
+        ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, onPagesReleased);
 
         // add 2 pages and verify they are referenced
-        AtomicBoolean page0HasReference = addPage(buffer, createPage(0));
-        AtomicBoolean page1HasReference = addPage(buffer, createPage(1));
-        assertTrue(page0HasReference.get());
-        assertTrue(page1HasReference.get());
+        addPage(buffer, createPage(0), onPagesReleased);
+        addPage(buffer, createPage(1), onPagesReleased);
+        assertEquals(releasedPages.get(), 0);
         assertBufferInfo(buffer, 2, 0);
 
         // read one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(0), NO_WAIT), bufferResult(0, createPage(0)));
-        assertTrue(page0HasReference.get());
-        assertTrue(page1HasReference.get());
+        assertEquals(releasedPages.get(), 0);
         assertBufferInfo(buffer, 2, 0);
 
         // acknowledge first page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, 1, sizeOfPages(1), NO_WAIT), bufferResult(1, createPage(1)));
-        assertFalse(page0HasReference.get());
-        assertTrue(page1HasReference.get());
+        assertEquals(releasedPages.get(), 1);
         assertBufferInfo(buffer, 1, 1);
 
         // destroy the buffer
         buffer.destroy();
-        assertFalse(page0HasReference.get());
-        assertFalse(page1HasReference.get());
+        assertEquals(releasedPages.get(), 2);
         assertBufferDestroyed(buffer, 1);
     }
 
@@ -380,13 +381,16 @@ public class TestClientBuffer
         return getFuture(future, maxWait);
     }
 
-    private static AtomicBoolean addPage(ClientBuffer buffer, Page page)
+    private static void addPage(ClientBuffer buffer, Page page)
     {
-        AtomicBoolean dereferenced = new AtomicBoolean(true);
-        SerializedPageReference serializedPageReference = new SerializedPageReference(serializePage(page), 1, () -> dereferenced.set(false));
+        addPage(buffer, page, NOOP_RELEASE_LISTENER);
+    }
+
+    private static void addPage(ClientBuffer buffer, Page page, PagesReleasedListener onPagesReleased)
+    {
+        SerializedPageReference serializedPageReference = new SerializedPageReference(serializePage(page), 1);
         buffer.enqueuePages(ImmutableList.of(serializedPageReference));
-        serializedPageReference.dereferencePage();
-        return dereferenced;
+        dereferencePages(ImmutableList.of(serializedPageReference), onPagesReleased);
     }
 
     private static void assertBufferInfo(
@@ -456,7 +460,7 @@ public class TestClientBuffer
         {
             requireNonNull(page, "page is null");
             checkState(!noMorePages);
-            buffer.add(new SerializedPageReference(serializePage(page), 1, () -> {}));
+            buffer.add(new SerializedPageReference(serializePage(page), 1));
         }
 
         @Override

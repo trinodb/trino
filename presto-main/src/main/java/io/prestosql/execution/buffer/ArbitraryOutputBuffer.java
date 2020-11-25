@@ -23,6 +23,7 @@ import io.prestosql.execution.StateMachine;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.ClientBuffer.PagesSupplier;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.prestosql.memory.context.LocalMemoryContext;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -51,6 +52,7 @@ import static io.prestosql.execution.buffer.BufferState.NO_MORE_PAGES;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -60,6 +62,7 @@ public class ArbitraryOutputBuffer
         implements OutputBuffer
 {
     private final OutputBufferMemoryManager memoryManager;
+    private final PagesReleasedListener onPagesReleased;
 
     @GuardedBy("this")
     private OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY);
@@ -93,7 +96,8 @@ public class ArbitraryOutputBuffer
                 maxBufferSize.toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
-        this.masterBuffer = new MasterBuffer();
+        this.onPagesReleased = PagesReleasedListener.forOutputBufferMemoryManager(memoryManager);
+        this.masterBuffer = new MasterBuffer(onPagesReleased);
     }
 
     @Override
@@ -218,20 +222,19 @@ public class ArbitraryOutputBuffer
         long bytesAdded = 0;
         long rowCount = 0;
         for (SerializedPage page : pages) {
-            long retainedSize = page.getRetainedSizeInBytes();
-            bytesAdded += retainedSize;
+            bytesAdded += page.getRetainedSizeInBytes();
             rowCount += page.getPositionCount();
             // create page reference counts with an initial single reference
-            references.add(new SerializedPageReference(page, 1, () -> memoryManager.updateMemoryUsage(-retainedSize)));
+            references.add(new SerializedPageReference(page, 1));
         }
         List<SerializedPageReference> serializedPageReferences = references.build();
-
-        // reserve memory
-        memoryManager.updateMemoryUsage(bytesAdded);
 
         // update stats
         totalRowsAdded.addAndGet(rowCount);
         totalPagesAdded.addAndGet(serializedPageReferences.size());
+
+        // reserve memory
+        memoryManager.updateMemoryUsage(bytesAdded);
 
         // add pages to the buffer (this will increase the reference count by one)
         masterBuffer.addPages(serializedPageReferences);
@@ -364,7 +367,7 @@ public class ArbitraryOutputBuffer
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared
-        buffer = new ClientBuffer(taskInstanceId, id);
+        buffer = new ClientBuffer(taskInstanceId, id, onPagesReleased);
 
         // buffer may have finished immediately before calling this method
         if (state.get() == FINISHED) {
@@ -406,6 +409,8 @@ public class ArbitraryOutputBuffer
     private static class MasterBuffer
             implements PagesSupplier
     {
+        private final PagesReleasedListener onPagesReleased;
+
         @GuardedBy("this")
         private final LinkedList<SerializedPageReference> masterBuffer = new LinkedList<>();
 
@@ -413,6 +418,11 @@ public class ArbitraryOutputBuffer
         private boolean noMorePages;
 
         private final AtomicInteger bufferedPages = new AtomicInteger();
+
+        private MasterBuffer(PagesReleasedListener onPagesReleased)
+        {
+            this.onPagesReleased = requireNonNull(onPagesReleased, "onPagesReleased is null");
+        }
 
         public synchronized void addPages(List<SerializedPageReference> pages)
         {
@@ -474,7 +484,7 @@ public class ArbitraryOutputBuffer
             }
 
             // dereference outside of synchronized to avoid making a callback while holding a lock
-            pages.forEach(SerializedPageReference::dereferencePage);
+            dereferencePages(pages, onPagesReleased);
         }
 
         public int getBufferedPages()

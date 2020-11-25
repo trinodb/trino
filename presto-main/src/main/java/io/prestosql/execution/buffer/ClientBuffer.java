@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.SerializedPageReference.PagesReleasedListener;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
@@ -37,6 +38,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.execution.buffer.BufferResult.emptyResults;
+import static io.prestosql.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -45,6 +47,7 @@ class ClientBuffer
 {
     private final String taskInstanceId;
     private final OutputBufferId bufferId;
+    private final PagesReleasedListener onPagesReleased;
 
     private final AtomicLong rowsAdded = new AtomicLong();
     private final AtomicLong pagesAdded = new AtomicLong();
@@ -68,10 +71,11 @@ class ClientBuffer
     @GuardedBy("this")
     private PendingRead pendingRead;
 
-    public ClientBuffer(String taskInstanceId, OutputBufferId bufferId)
+    public ClientBuffer(String taskInstanceId, OutputBufferId bufferId, PagesReleasedListener onPagesReleased)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.bufferId = requireNonNull(bufferId, "bufferId is null");
+        this.onPagesReleased = requireNonNull(onPagesReleased, "onPagesReleased is null");
     }
 
     public BufferInfo getInfo()
@@ -120,7 +124,7 @@ class ClientBuffer
             this.pendingRead = null;
         }
 
-        removedPages.forEach(SerializedPageReference::dereferencePage);
+        dereferencePages(removedPages, onPagesReleased);
 
         if (pendingRead != null) {
             pendingRead.completeResultFutureWithEmpty();
@@ -151,14 +155,18 @@ class ClientBuffer
 
     private synchronized void addPages(Collection<SerializedPageReference> pages)
     {
-        pages.forEach(SerializedPageReference::addReference);
+        long rowCount = 0;
+        long bytesAdded = 0;
+        int pageCount = 0;
+        for (SerializedPageReference page : pages) {
+            page.addReference();
+            pageCount++;
+            rowCount += page.getPositionCount();
+            bytesAdded += page.getRetainedSizeInBytes();
+        }
         this.pages.addAll(pages);
-
-        long rowCount = pages.stream().mapToLong(SerializedPageReference::getPositionCount).sum();
         rowsAdded.addAndGet(rowCount);
-        pagesAdded.addAndGet(pages.size());
-
-        long bytesAdded = pages.stream().mapToLong(SerializedPageReference::getRetainedSizeInBytes).sum();
+        pagesAdded.addAndGet(pageCount);
         bufferedBytes.addAndGet(bytesAdded);
     }
 
@@ -285,7 +293,7 @@ class ClientBuffer
         }
 
         // sent pages will have an initial reference count, so drop it
-        pageReferences.forEach(SerializedPageReference::dereferencePage);
+        dereferencePages(pageReferences, onPagesReleased);
 
         return dataAddedOrNoMorePages;
     }
@@ -370,8 +378,12 @@ class ClientBuffer
     public void acknowledgePages(long sequenceId)
     {
         checkArgument(sequenceId >= 0, "Invalid sequence id");
+        // Fast path early-return without synchronizing
+        if (destroyed.get() || sequenceId < currentSequenceId.get()) {
+            return;
+        }
 
-        List<SerializedPageReference> removedPages = new ArrayList<>();
+        ImmutableList.Builder<SerializedPageReference> removedPages;
         synchronized (this) {
             if (destroyed.get()) {
                 return;
@@ -386,6 +398,7 @@ class ClientBuffer
             int pagesToRemove = toIntExact(sequenceId - oldCurrentSequenceId);
             checkArgument(pagesToRemove <= pages.size(), "Invalid sequence id");
 
+            removedPages = ImmutableList.builderWithExpectedSize(pagesToRemove);
             long bytesRemoved = 0;
             for (int i = 0; i < pagesToRemove; i++) {
                 SerializedPageReference removedPage = pages.removeFirst();
@@ -399,9 +412,8 @@ class ClientBuffer
             // update memory tracking
             verify(bufferedBytes.addAndGet(-bytesRemoved) >= 0);
         }
-
-        // dereference outside of synchronized to avoid making a callback while holding a lock
-        removedPages.forEach(SerializedPageReference::dereferencePage);
+        //  Dereference pages outside of synchronized block to trigger callbacks
+        dereferencePages(removedPages.build(), onPagesReleased);
     }
 
     @Override

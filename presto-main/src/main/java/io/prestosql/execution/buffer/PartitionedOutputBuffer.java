@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.execution.StateMachine;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import io.prestosql.memory.context.LocalMemoryContext;
 
 import java.util.List;
@@ -36,6 +37,7 @@ import static io.prestosql.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static io.prestosql.execution.buffer.BufferState.NO_MORE_PAGES;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
+import static io.prestosql.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputBuffer
@@ -44,6 +46,7 @@ public class PartitionedOutputBuffer
     private final StateMachine<BufferState> state;
     private final OutputBuffers outputBuffers;
     private final OutputBufferMemoryManager memoryManager;
+    private final PagesReleasedListener onPagesReleased;
 
     private final List<ClientBuffer> partitions;
 
@@ -64,15 +67,15 @@ public class PartitionedOutputBuffer
         checkArgument(outputBuffers.getType() == PARTITIONED, "Expected a PARTITIONED output buffer descriptor");
         checkArgument(outputBuffers.isNoMoreBufferIds(), "Expected a final output buffer descriptor");
         this.outputBuffers = outputBuffers;
-
         this.memoryManager = new OutputBufferMemoryManager(
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
+        this.onPagesReleased = PagesReleasedListener.forOutputBufferMemoryManager(memoryManager);
 
         ImmutableList.Builder<ClientBuffer> partitions = ImmutableList.builder();
         for (OutputBufferId bufferId : outputBuffers.getBuffers().keySet()) {
-            ClientBuffer partition = new ClientBuffer(taskInstanceId, bufferId);
+            ClientBuffer partition = new ClientBuffer(taskInstanceId, bufferId, onPagesReleased);
             partitions.add(partition);
         }
         this.partitions = partitions.build();
@@ -179,25 +182,25 @@ public class PartitionedOutputBuffer
         long bytesAdded = 0;
         long rowCount = 0;
         for (SerializedPage page : pages) {
-            long retainedSize = page.getRetainedSizeInBytes();
-            bytesAdded += retainedSize;
+            bytesAdded += page.getRetainedSizeInBytes();
             rowCount += page.getPositionCount();
             // create page reference counts with an initial single reference
-            references.add(new SerializedPageReference(page, 1, () -> memoryManager.updateMemoryUsage(-retainedSize)));
+            references.add(new SerializedPageReference(page, 1));
         }
         List<SerializedPageReference> serializedPageReferences = references.build();
 
-        // reserve memory
-        memoryManager.updateMemoryUsage(bytesAdded);
         // update stats
         totalRowsAdded.addAndGet(rowCount);
         totalPagesAdded.addAndGet(serializedPageReferences.size());
+
+        // reserve memory
+        memoryManager.updateMemoryUsage(bytesAdded);
 
         // add pages to the buffer (this will increase the reference count by one)
         partitions.get(partitionNumber).enqueuePages(serializedPageReferences);
 
         // drop the initial reference
-        serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
+        dereferencePages(serializedPageReferences, onPagesReleased);
     }
 
     @Override
