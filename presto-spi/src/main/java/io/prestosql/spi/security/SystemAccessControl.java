@@ -123,7 +123,7 @@ public interface SystemAccessControl
      */
     default Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
@@ -185,7 +185,7 @@ public interface SystemAccessControl
      */
     default Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
@@ -247,7 +247,7 @@ public interface SystemAccessControl
      */
     default Set<String> filterSchemas(SystemSecurityContext context, String catalogName, Set<String> schemaNames)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
@@ -339,7 +339,7 @@ public interface SystemAccessControl
      */
     default Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
