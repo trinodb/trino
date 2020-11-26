@@ -23,6 +23,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
+
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -57,7 +59,7 @@ public class TestConnectorEventListener
             }
         });
         queryRunner.createCatalog("mock-catalog", "mock");
-        queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
+        queries = new EventsAwaitingQueries(generatedEvents, queryRunner, Duration.ofSeconds(1));
     }
 
     @AfterClass(alwaysRun = true)

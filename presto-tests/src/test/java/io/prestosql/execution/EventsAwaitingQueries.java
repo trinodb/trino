@@ -18,6 +18,7 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -30,11 +31,13 @@ class EventsAwaitingQueries
     private final EventsCollector eventsCollector;
 
     private final QueryRunner queryRunner;
+    private final Duration extraWaitTime;
 
-    EventsAwaitingQueries(EventsCollector eventsCollector, QueryRunner queryRunner)
+    EventsAwaitingQueries(EventsCollector eventsCollector, QueryRunner queryRunner, Duration extraWaitTime)
     {
         this.eventsCollector = requireNonNull(eventsCollector, "eventsBuilder is null");
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+        this.extraWaitTime = extraWaitTime;
     }
 
     MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected, Session session)
@@ -64,7 +67,9 @@ class EventsAwaitingQueries
         }
 
         eventsCollector.waitForEvents(10);
-
+        // Sleep some more so extraneous, unexpected events can be recorded too.
+        // This is not rock solid but improves effectiveness on detecting duplicate events.
+        Thread.sleep(extraWaitTime.toMillis());
         return result;
     }
 }
