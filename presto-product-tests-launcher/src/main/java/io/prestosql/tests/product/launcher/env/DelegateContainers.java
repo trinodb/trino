@@ -16,6 +16,10 @@ package io.prestosql.tests.product.launcher.env;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.InternetProtocol;
+import org.testcontainers.containers.PostgreSQLContainer;
+
+import static java.util.Objects.requireNonNull;
 
 public class DelegateContainers
 {
@@ -55,6 +59,59 @@ public class DelegateContainers
             portsAdapter.attachPortController(container::withFixedExposedPort);
             return container;
         };
+    }
+
+    /**
+     * This factory returns FixedPortPostgreSQLContainer (instead of PosgreSQLContainer) to not force @SuppressWarnings("unchecked") on its every usage.
+     */
+    public static DelegateContainerFactory<FixedPortPostgreSQLContainer> postgreSQLContainer(String dockerImageName)
+    {
+        return (listener, portsAdapter) -> {
+            FixedPortPostgreSQLContainer container = new FixedPortPostgreSQLContainer(dockerImageName, listener);
+            portsAdapter.attachPortController(container::withFixedExposedPort);
+            return container;
+        };
+    }
+
+    public static class FixedPortPostgreSQLContainer
+            extends PostgreSQLContainer<FixedPortPostgreSQLContainer>
+    {
+        private final EnvironmentListenerAdapter listenerAdapter;
+
+        public FixedPortPostgreSQLContainer(String dockerImageName, EnvironmentListenerAdapter listenerAdapter)
+        {
+            super(dockerImageName);
+            this.listenerAdapter = requireNonNull(listenerAdapter, "listenerAdapter is null");
+        }
+
+        public void withFixedExposedPort(int hostPort, int containerPort, InternetProtocol protocol)
+        {
+            super.addFixedExposedPort(hostPort, containerPort, protocol);
+        }
+
+        @Override
+        protected void containerIsStarting(InspectContainerResponse containerInfo)
+        {
+            listenerAdapter.containerIsStarting(containerInfo, info -> super.containerIsStarting(info));
+        }
+
+        @Override
+        protected void containerIsStarted(InspectContainerResponse containerInfo)
+        {
+            listenerAdapter.containerIsStarted(containerInfo, info -> super.containerIsStarted(info));
+        }
+
+        @Override
+        protected void containerIsStopping(InspectContainerResponse containerInfo)
+        {
+            listenerAdapter.containerIsStopping(containerInfo, info -> super.containerIsStopping(info));
+        }
+
+        @Override
+        protected void containerIsStopped(InspectContainerResponse containerInfo)
+        {
+            listenerAdapter.containerIsStopped(containerInfo, info -> super.containerIsStopped(info));
+        }
     }
 
     public interface DelegateContainerFactory<T extends GenericContainer>

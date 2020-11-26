@@ -27,6 +27,7 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.prestosql.tests.product.launcher.env.DelegateContainers.postgreSQLContainer;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
@@ -65,13 +66,13 @@ public final class SinglenodePostgresql
     private DockerContainer createPostgreSql()
     {
         // Use the oldest supported PostgreSQL version
-        DockerContainer container = new DockerContainer("postgres:9.5", "postgresql")
-                .withEnv("POSTGRES_PASSWORD", "test")
-                .withEnv("POSTGRES_USER", "test")
-                .withEnv("POSTGRES_DB", "test")
-                .withEnv("PGPORT", Integer.toString(POSTGRESQL_PORT))
-                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(POSTGRESQL_PORT));
+        DockerContainer container = new DockerContainer("postgresql", postgreSQLContainer("postgres:9.5"), postgres ->
+                postgres.withPassword("test")
+                        .withUsername("test")
+                        .withDatabaseName("test")
+                        .withEnv("PGPORT", Integer.toString(POSTGRESQL_PORT))
+                        .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
+                        .waitingFor(forSelectedPorts(POSTGRESQL_PORT)));
 
         portBinder.exposePort(container, POSTGRESQL_PORT);
 
