@@ -33,7 +33,8 @@ public class TestIcebergConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(ORC)
-                .setCompressionCodec(GZIP));
+                .setCompressionCodec(GZIP)
+                .setPurgeDataOnTableDrop(false));
     }
 
     @Test
@@ -42,11 +43,13 @@ public class TestIcebergConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
+                .put("iceberg.delete-files-on-table-drop", "true")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(PARQUET)
-                .setCompressionCodec(HiveCompressionCodec.NONE);
+                .setCompressionCodec(HiveCompressionCodec.NONE)
+                .setPurgeDataOnTableDrop(true);
 
         assertFullMapping(properties, expected);
     }

@@ -133,6 +133,7 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
 
     private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
+    private final boolean purgeDataOnDrop;
 
     private Transaction transaction;
 
@@ -140,12 +141,14 @@ public class IcebergMetadata
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskCodec)
+            JsonCodec<CommitTaskData> commitTaskCodec,
+            boolean purgeDataOnDrop)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.purgeDataOnDrop = purgeDataOnDrop;
     }
 
     @Override
@@ -504,7 +507,24 @@ public class IcebergMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        metastore.dropTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), true);
+        Optional<Table> table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName());
+
+        metastore.dropTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), false);
+        if (purgeDataOnDrop && table.isPresent()) {
+            String tableLocation = table.get().getStorage().getLocation();
+            HdfsContext context = new HdfsContext(session, handle.getSchemaName(), handle.getTableName());
+            deleteDirRecursive(context, hdfsEnvironment, new Path(tableLocation));
+        }
+    }
+
+    private void deleteDirRecursive(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
+    {
+        try {
+            hdfsEnvironment.getFileSystem(context, path).delete(path, true);
+        }
+        catch (IOException | RuntimeException e) {
+            log.error(e, "Failed to delete table data files in path: " + path.toString());
+        }
     }
 
     @Override
