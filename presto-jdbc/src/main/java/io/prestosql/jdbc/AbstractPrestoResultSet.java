@@ -317,7 +317,7 @@ abstract class AbstractPrestoResultSet
             }
         }
 
-        throw new IllegalArgumentException("Expected column to be a time type but is " + columnInfo.getColumnTypeName());
+        throw new SQLException("Expected column to be a time type but is " + columnInfo.getColumnTypeName());
     }
 
     @Override
@@ -359,7 +359,7 @@ abstract class AbstractPrestoResultSet
             }
         }
 
-        throw new IllegalArgumentException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
+        throw new SQLException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
     }
 
     @Override
