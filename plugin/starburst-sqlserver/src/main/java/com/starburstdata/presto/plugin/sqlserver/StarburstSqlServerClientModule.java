@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -29,13 +30,16 @@ import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
 import io.prestosql.plugin.jdbc.JdbcSplitManager;
+import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
 import static java.util.Objects.requireNonNull;
 
 public class StarburstSqlServerClientModule
@@ -52,6 +56,7 @@ public class StarburstSqlServerClientModule
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstSqlServerClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
