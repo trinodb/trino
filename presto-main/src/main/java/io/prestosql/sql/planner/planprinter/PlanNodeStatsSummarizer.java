@@ -120,25 +120,6 @@ public final class PlanNodeStatsSummarizer
                                         operatorStats.getSumSquaredInputPositions())),
                         (map1, map2) -> mergeMaps(map1, map2, OperatorInputStats::merge));
 
-                if (operatorStats.getInfo() instanceof HashCollisionsInfo) {
-                    HashCollisionsInfo hashCollisionsInfo = (HashCollisionsInfo) operatorStats.getInfo();
-                    operatorHashCollisionsStats.merge(planNodeId,
-                            ImmutableMap.of(
-                                    operatorStats.getOperatorType(),
-                                    new OperatorHashCollisionsStats(
-                                            hashCollisionsInfo.getWeightedHashCollisions(),
-                                            hashCollisionsInfo.getWeightedSumSquaredHashCollisions(),
-                                            hashCollisionsInfo.getWeightedExpectedHashCollisions(),
-                                            operatorStats.getInputPositions())),
-                            (map1, map2) -> mergeMaps(map1, map2, OperatorHashCollisionsStats::merge));
-                }
-
-                // The only statistics we have for Window Functions are very low level, thus displayed only in VERBOSE mode
-                if (operatorStats.getInfo() instanceof WindowInfo) {
-                    WindowInfo windowInfo = (WindowInfo) operatorStats.getInfo();
-                    windowNodeStats.merge(planNodeId, WindowOperatorStats.create(windowInfo), WindowOperatorStats::mergeWith);
-                }
-
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
                 planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
                 processedNodes.add(planNodeId);
@@ -160,6 +141,30 @@ public final class PlanNodeStatsSummarizer
                 planNodeOutputPositions.merge(planNodeId, operatorStats.getOutputPositions(), Long::sum);
                 planNodeOutputBytes.merge(planNodeId, operatorStats.getOutputDataSize().toBytes(), Long::sum);
                 processedNodes.add(planNodeId);
+            }
+
+            // Gather auxiliary statistics
+            for (OperatorStats operatorStats : pipelineStats.getOperatorSummaries()) {
+                PlanNodeId planNodeId = operatorStats.getPlanNodeId();
+
+                if (operatorStats.getInfo() instanceof HashCollisionsInfo) {
+                    HashCollisionsInfo hashCollisionsInfo = (HashCollisionsInfo) operatorStats.getInfo();
+                    operatorHashCollisionsStats.merge(planNodeId,
+                            ImmutableMap.of(
+                                    operatorStats.getOperatorType(),
+                                    new OperatorHashCollisionsStats(
+                                            hashCollisionsInfo.getWeightedHashCollisions(),
+                                            hashCollisionsInfo.getWeightedSumSquaredHashCollisions(),
+                                            hashCollisionsInfo.getWeightedExpectedHashCollisions(),
+                                            operatorStats.getInputPositions())),
+                            (map1, map2) -> mergeMaps(map1, map2, OperatorHashCollisionsStats::merge));
+                }
+
+                // The only statistics we have for Window Functions are very low level, thus displayed only in VERBOSE mode
+                if (operatorStats.getInfo() instanceof WindowInfo) {
+                    WindowInfo windowInfo = (WindowInfo) operatorStats.getInfo();
+                    windowNodeStats.merge(planNodeId, WindowOperatorStats.create(windowInfo), WindowOperatorStats::mergeWith);
+                }
             }
         }
 
