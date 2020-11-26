@@ -115,8 +115,8 @@ public class SuiteRun
     {
         private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
 
-        @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite to run", required = true)
-        public String suite;
+        @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite(s) to run (comma separated)", required = true, split = ",")
+        public List<String> suites;
 
         @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.module}-${project.version}-executable.jar")
         public File testJar;
@@ -179,7 +179,7 @@ public class SuiteRun
 
                 diagnosticFlow = diagnosticExecutor.schedule(() -> reportSuspectedTimeout(finished), timeoutMillis - marginMillis, MILLISECONDS);
 
-                return runSuite();
+                return runSuites();
             }
             finally {
                 finished.set(true);
@@ -187,28 +187,39 @@ public class SuiteRun
             }
         }
 
-        private int runSuite()
+        private int runSuites()
         {
-            String suiteName = requireNonNull(suiteRunOptions.suite, "suiteRunOptions.suite is null");
-
-            Suite suite = suiteFactory.getSuite(suiteName);
+            List<String> suiteNames = requireNonNull(suiteRunOptions.suites, "suiteRunOptions.suites is null");
             EnvironmentConfig environmentConfig = configFactory.getConfig(environmentOptions.config);
-            List<SuiteTestRun> suiteTestRuns = suite.getTestRuns(environmentConfig).stream()
-                    .map(suiteRun -> suiteRun.withConfigApplied(environmentConfig))
-                    .collect(toImmutableList());
+            ImmutableList.Builder<TestRunResult> suiteResults = ImmutableList.builder();
 
-            log.info("Starting suite '%s' with config '%s' and test runs:\n%s",
-                    suiteName,
-                    environmentConfig.getConfigName(),
-                    formatSuiteTestRuns(suiteTestRuns));
+            suiteNames.forEach(suiteName -> {
+                Suite suite = suiteFactory.getSuite(suiteName);
 
-            List<TestRunResult> testRunsResults = suiteTestRuns.stream()
-                    .map(testRun -> executeSuiteTestRun(suiteName, testRun, environmentConfig))
-                    .collect(toImmutableList());
+                List<SuiteTestRun> suiteTestRuns = suite.getTestRuns(environmentConfig).stream()
+                        .map(suiteRun -> suiteRun.withConfigApplied(environmentConfig))
+                        .collect(toImmutableList());
 
-            printTestRunsSummary(suiteName, testRunsResults);
+                log.info("Running suite '%s' with config '%s' and test runs:\n%s",
+                        suiteName,
+                        environmentConfig.getConfigName(),
+                        formatSuiteTestRuns(suiteTestRuns));
 
-            return getFailedCount(testRunsResults) == 0 ? ExitCode.OK : ExitCode.SOFTWARE;
+                List<TestRunResult> testRunsResults = suiteTestRuns.stream()
+                        .map(testRun -> executeSuiteTestRun(suiteName, testRun, environmentConfig))
+                        .collect(toImmutableList());
+
+                suiteResults.addAll(testRunsResults);
+            });
+
+            List<TestRunResult> results = suiteResults.build();
+            printTestRunsSummary(results);
+
+            if (getFailedCount(results) > 0) {
+                return ExitCode.SOFTWARE;
+            }
+
+            return ExitCode.OK;
         }
 
         private String formatSuiteTestRuns(List<SuiteTestRun> suiteTestRuns)
@@ -226,11 +237,11 @@ public class SuiteRun
             return table.render();
         }
 
-        private void printTestRunsSummary(String suiteName, List<TestRunResult> results)
+        private void printTestRunsSummary(List<TestRunResult> results)
         {
             ConsoleTable table = new ConsoleTable();
             table.addHeader(HEADER);
-            results.forEach(result -> table.addRow(result.toRow(suiteName)));
+            results.forEach(result -> table.addRow(result.toRow()));
             table.addSeparator();
             log.info("Suite tests results:\n%s", table.render());
         }
@@ -249,6 +260,7 @@ public class SuiteRun
             TestRun.TestRunOptions testRunOptions = createTestRunOptions(runId, suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
             if (testRunOptions.timeout.toMillis() == 0) {
                 return new TestRunResult(
+                        suiteName,
                         runId,
                         suiteTestRun,
                         environmentConfig,
@@ -261,7 +273,7 @@ public class SuiteRun
 
             Stopwatch stopwatch = Stopwatch.createStarted();
             Optional<Throwable> exception = runTest(runId, environmentConfig, testRunOptions);
-            return new TestRunResult(runId, suiteTestRun, environmentConfig, succinctNanos(stopwatch.stop().elapsed(NANOSECONDS)), exception);
+            return new TestRunResult(suiteName, runId, suiteTestRun, environmentConfig, succinctNanos(stopwatch.stop().elapsed(NANOSECONDS)), exception);
         }
 
         private static String generateRandomRunId()
@@ -346,9 +358,11 @@ public class SuiteRun
         private final EnvironmentConfig environmentConfig;
         private final Duration duration;
         private final Optional<Throwable> throwable;
+        private final String suiteName;
 
-        public TestRunResult(String runId, SuiteTestRun suiteRun, EnvironmentConfig environmentConfig, Duration duration, Optional<Throwable> throwable)
+        public TestRunResult(String suiteName, String runId, SuiteTestRun suiteRun, EnvironmentConfig environmentConfig, Duration duration, Optional<Throwable> throwable)
         {
+            this.suiteName = suiteName;
             this.runId = runId;
             this.suiteRun = requireNonNull(suiteRun, "suiteRun is null");
             this.environmentConfig = requireNonNull(environmentConfig, "suiteConfig is null");
@@ -365,6 +379,7 @@ public class SuiteRun
         public String toString()
         {
             return toStringHelper(this)
+                    .add("suiteName", suiteName)
                     .add("runId", runId)
                     .add("suiteRun", suiteRun)
                     .add("suiteConfig", environmentConfig)
@@ -373,7 +388,7 @@ public class SuiteRun
                     .toString();
         }
 
-        public Object[] toRow(String suiteName)
+        public Object[] toRow()
         {
             return new Object[] {
                 runId,
