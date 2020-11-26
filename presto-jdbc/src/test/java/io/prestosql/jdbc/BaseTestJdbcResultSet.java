@@ -103,10 +103,10 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column, Date.class), Date.valueOf(LocalDate.of(2018, 2, 13)));
                 assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
                 assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a time type but is date");
                 assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
             });
 
@@ -115,10 +115,10 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1, 1, 1)));
                 assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1, 1, 1)));
                 assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a time type but is date");
                 assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
             });
 
@@ -127,10 +127,10 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 4)));
                 assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 4)));
                 assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a time type but is date");
                 assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
             });
 
@@ -139,10 +139,10 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 10)));
                 assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 10)));
                 assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a time type but is date");
                 assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
             });
 
@@ -151,10 +151,10 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 15)));
                 assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 15)));
                 assertThatThrownBy(() -> rs.getTime(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a time type but is date");
                 assertThatThrownBy(() -> rs.getTimestamp(column))
-                        .isInstanceOf(IllegalArgumentException.class)
+                        .isInstanceOf(SQLException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
             });
         }
