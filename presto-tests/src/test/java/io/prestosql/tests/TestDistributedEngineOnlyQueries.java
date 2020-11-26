@@ -19,6 +19,8 @@ import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+
 public class TestDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
 {
@@ -100,5 +102,14 @@ public class TestDistributedEngineOnlyQueries
         assertQuery(
                 "SELECT cast(row(1) AS row(\"cross\" bigint)).\"cross\"",
                 "VALUES 1");
+    }
+
+    // explain analyze can only run on coordinator
+    @Test
+    public void testExplainAnalyze()
+    {
+        assertExplainAnalyze(
+                noJoinReordering(BROADCAST),
+                "EXPLAIN ANALYZE SELECT * FROM (SELECT nationkey, regionkey FROM nation GROUP BY nationkey, regionkey) a, nation b WHERE a.regionkey = b.regionkey");
     }
 }
