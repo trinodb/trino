@@ -120,7 +120,7 @@ public class TestWindowFilterPushDown
                                         .maxRowCountPerPartition(1)
                                         .specification(ImmutableList.of(), ImmutableList.of("name"), ImmutableMap.of("name", ASC_NULLS_LAST)),
                                 any(
-                                        tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                        tableScan("nation", ImmutableMap.of("name", "name"))))
                                 .withAlias("row_number", new TopNRowNumberSymbolMatcher())));
 
         // optimize to TopNRowNumber on the basis of predicate; remove filter because predicate is satisfied
@@ -135,7 +135,7 @@ public class TestWindowFilterPushDown
                                         .maxRowCountPerPartition(1)
                                         .specification(ImmutableList.of(), ImmutableList.of("name"), ImmutableMap.of("name", ASC_NULLS_LAST)),
                                 any(
-                                        tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                        tableScan("nation", ImmutableMap.of("name", "name"))))
                                 .withAlias("row_number", new TopNRowNumberSymbolMatcher())));
 
         // optimize to TopNRowNumber on the basis of predicate; remove filter because predicate is satisfied
@@ -150,7 +150,7 @@ public class TestWindowFilterPushDown
                                         .maxRowCountPerPartition(1)
                                         .specification(ImmutableList.of(), ImmutableList.of("name"), ImmutableMap.of("name", ASC_NULLS_LAST)),
                                 any(
-                                        tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                        tableScan("nation", ImmutableMap.of("name", "name"))))
                                 .withAlias("row_number", new TopNRowNumberSymbolMatcher())));
 
         // optimize to TopNRowNumber on the basis of predicate; cannot remove filter because predicate is not satisfied
@@ -167,7 +167,7 @@ public class TestWindowFilterPushDown
                                                 .maxRowCountPerPartition(2)
                                                 .specification(ImmutableList.of(), ImmutableList.of("name"), ImmutableMap.of("name", ASC_NULLS_LAST)),
                                         any(
-                                                tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                                tableScan("nation", ImmutableMap.of("name", "name"))))
                                         .withAlias("row_number", new TopNRowNumberSymbolMatcher()))));
     }
 
@@ -190,7 +190,7 @@ public class TestWindowFilterPushDown
                                 pattern -> pattern
                                         .maxRowCountPerPartition(Optional.of(1)),
                                 any(
-                                        tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                        tableScan("nation", ImmutableMap.of("name", "name"))))
                                 .withAlias("row_number", new RowNumberSymbolMatcher())));
 
         // include limit into RowNUmberNode on the basis of predicate; remove filter because predicate is satisfied
@@ -202,7 +202,7 @@ public class TestWindowFilterPushDown
                                 pattern -> pattern
                                         .maxRowCountPerPartition(Optional.of(1)),
                                 any(
-                                        tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                        tableScan("nation", ImmutableMap.of("name", "name"))))
                                 .withAlias("row_number", new RowNumberSymbolMatcher())));
 
         // include limit into RowNUmberNode on the basis of predicate; remove filter because predicate is satisfied
@@ -214,7 +214,7 @@ public class TestWindowFilterPushDown
                                 pattern -> pattern
                                         .maxRowCountPerPartition(Optional.of(1)),
                                 any(
-                                        tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                        tableScan("nation", ImmutableMap.of("name", "name"))))
                                 .withAlias("row_number", new RowNumberSymbolMatcher())));
 
         // include limit into RowNUmberNode on the basis of predicate; cannot remove filter because predicate is not satisfied
@@ -228,7 +228,7 @@ public class TestWindowFilterPushDown
                                         pattern -> pattern
                                                 .maxRowCountPerPartition(Optional.of(2)),
                                         any(
-                                                tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                                tableScan("nation", ImmutableMap.of("name", "name"))))
                                         .withAlias("row_number", new RowNumberSymbolMatcher()))));
     }
 
