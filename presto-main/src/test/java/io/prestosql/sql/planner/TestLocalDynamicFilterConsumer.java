@@ -16,6 +16,7 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.spi.predicate.Domain;
@@ -23,13 +24,16 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.JoinNode.EquiJoinClause;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -38,9 +42,12 @@ import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -212,6 +219,48 @@ public class TestLocalDynamicFilterConsumer
         assertEquals(result.get(), ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)),
                 new DynamicFilterId("456"), Domain.multipleValues(BIGINT, ImmutableList.of(100L, 200L))));
+    }
+
+    @Test
+    public void testDynamicFilterPruning()
+            throws Exception
+    {
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
+        Symbol left1 = planBuilder.symbol("left1", BIGINT);
+        Symbol left2 = planBuilder.symbol("left2", INTEGER);
+        Symbol left3 = planBuilder.symbol("left3", SMALLINT);
+        Symbol right1 = planBuilder.symbol("right1", BIGINT);
+        Symbol right2 = planBuilder.symbol("right2", INTEGER);
+        Symbol right3 = planBuilder.symbol("right3", SMALLINT);
+        DynamicFilterId filter1 = new DynamicFilterId("filter1");
+        DynamicFilterId filter2 = new DynamicFilterId("filter2");
+        DynamicFilterId filter3 = new DynamicFilterId("filter3");
+        JoinNode joinNode = planBuilder.join(
+                INNER,
+                planBuilder.values(left1, left2, left3),
+                planBuilder.values(right1, right2, right3),
+                ImmutableList.of(
+                        new EquiJoinClause(left1, right1),
+                        new EquiJoinClause(left2, right2),
+                        new EquiJoinClause(left3, right3)),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(filter1, right1, filter2, right2, filter3, right3));
+        LocalDynamicFilterConsumer consumer = LocalDynamicFilterConsumer.create(
+                joinNode,
+                ImmutableList.of(BIGINT, INTEGER, SMALLINT),
+                1,
+                ImmutableSet.of(filter1, filter3));
+        assertEquals(consumer.getBuildChannels(), ImmutableMap.of(filter1, 0, filter3, 2));
+
+        // make sure domain types got propagated correctly
+        consumer.getTupleDomainConsumer().accept(TupleDomain.none());
+        assertEquals(
+                consumer.getDynamicFilterDomains().get(),
+                ImmutableMap.of(filter1, Domain.none(BIGINT), filter3, Domain.none(SMALLINT)));
     }
 
     @Test

@@ -117,8 +117,8 @@ public class LocalDynamicFilterConsumer
         checkArgument(planNode.getDynamicFilters().keySet().containsAll(collectedFilters), "Collected dynamic filters set is not subset of join dynamic filters");
 
         PlanNode buildNode = planNode.getRight();
-        // Collect dynamic filters for all dynamic filters produced by join
         Map<DynamicFilterId, Integer> buildChannels = planNode.getDynamicFilters().entrySet().stream()
+                .filter(entry -> collectedFilters.contains(entry.getKey()))
                 .collect(toImmutableMap(
                         // Dynamic filter ID
                         Map.Entry::getKey,
