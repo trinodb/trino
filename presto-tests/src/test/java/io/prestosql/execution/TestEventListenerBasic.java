@@ -99,7 +99,7 @@ public class TestEventListenerBasic
         queryRunner.getCoordinator().getResourceGroupManager().get()
                 .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
 
-        queries = new EventsAwaitingQueries(generatedEvents, queryRunner);
+        queries = new EventsAwaitingQueries(generatedEvents, queryRunner, Duration.ofSeconds(1));
 
         return queryRunner;
     }
