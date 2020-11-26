@@ -325,7 +325,12 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertExplainAnalyze(@Language("SQL") String query)
     {
-        String value = (String) computeActual(query).getOnlyValue();
+        assertExplainAnalyze(getSession(), query);
+    }
+
+    protected void assertExplainAnalyze(Session session, @Language("SQL") String query)
+    {
+        String value = (String) computeActual(session, query).getOnlyValue();
 
         assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
 
