@@ -24,7 +24,6 @@ import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.cli.Console.STATEMENT_DELIMITERS;
@@ -88,12 +87,6 @@ public class InputHighlighter
 
         return builder.toAttributedString();
     }
-
-    @Override
-    public void setErrorPattern(Pattern pattern) {}
-
-    @Override
-    public void setErrorIndex(int i) {}
 
     private static boolean isKeyword(String text)
     {
