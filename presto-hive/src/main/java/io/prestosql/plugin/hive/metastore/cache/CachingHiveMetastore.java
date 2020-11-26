@@ -179,7 +179,8 @@ public class CachingHiveMetastore
         tableStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
                 .build(asyncReloading(CacheLoader.from(this::loadTableColumnStatistics), executor));
 
-        partitionStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
+        // disable refresh since it can't use the bulk loading and causes too many requests
+        partitionStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, OptionalLong.empty(), maximumSize, statsRecording)
                 .build(asyncReloading(new CacheLoader<>()
                 {
                     @Override
@@ -204,7 +205,8 @@ public class CachingHiveMetastore
         partitionFilterCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
                 .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByFilter), executor));
 
-        partitionCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
+        // disable refresh since it can't use the bulk loading and causes too many requests
+        partitionCache = newCacheBuilder(expiresAfterWriteMillis, OptionalLong.empty(), maximumSize, statsRecording)
                 .build(asyncReloading(new CacheLoader<>()
                 {
                     @Override
