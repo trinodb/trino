@@ -78,7 +78,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.TimeZone;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
@@ -713,18 +712,16 @@ public class SapHanaClient
         @Nullable
         Long getRowCount(String schema, String tableName)
         {
-            OptionalLong rowCount = handle.createQuery("" +
+            Optional<Long> rowCount = handle.createQuery("" +
                     "SELECT RECORD_COUNT " +
                     "FROM SYS.M_TABLES " +
                     "WHERE SCHEMA_NAME = :schema " +
                     "  AND TABLE_NAME = :table_name")
                     .bind("schema", schema)
                     .bind("table_name", tableName)
-                    .collectInto(OptionalLong.class);
-            if (rowCount.isPresent()) {
-                return rowCount.getAsLong();
-            }
-            return null;
+                    .mapTo(Long.class)
+                    .findOne();
+            return rowCount.orElse(null);
         }
 
         List<ColumnStatisticsResult> getColumnStatistics(String schema, String tableName, String statisticsType, BiFunction<String, String, ColumnStatisticsResult> statsJsonToColumnStatisticsResult)
