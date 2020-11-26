@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringModule;
@@ -22,6 +23,7 @@ import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
+import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.prestosql.plugin.oracle.OracleConfig;
 import io.prestosql.plugin.oracle.OracleSessionProperties;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
@@ -32,6 +34,7 @@ import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXT
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindProcedure;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.prestosql.plugin.oracle.OracleClient.ORACLE_MAX_LIST_EXPRESSIONS;
 import static java.util.Objects.requireNonNull;
 
 public class OracleClientModule
@@ -54,6 +57,7 @@ public class OracleClientModule
                 .to(OracleSplitManager.class).in(Scopes.SINGLETON);
 
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstOracleClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(ORACLE_MAX_LIST_EXPRESSIONS);
 
         bindProcedure(binder, AnalyzeProcedure.class);
 
