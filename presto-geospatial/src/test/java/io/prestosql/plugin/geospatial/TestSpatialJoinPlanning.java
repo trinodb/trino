@@ -393,7 +393,7 @@ public class TestSpatialJoinPlanning
                         "WHERE a.name = b.name AND ST_Intersects(ST_GeometryFromText(a.wkt), ST_GeometryFromText(b.wkt))",
                 anyTree(
                         join(JoinNode.Type.INNER, ImmutableList.of(equiJoinClause("name_a", "name_b")),
-                                Optional.of("ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_B as varchar)))"),
+                                Optional.of("ST_Intersects(ST_GeometryFromText(cast(wkt_a as varchar)), ST_GeometryFromText(cast(wkt_b as varchar)))"),
                                 anyTree(
                                         tableScan("polygons", ImmutableMap.of("wkt_a", "wkt", "name_a", "name"))),
                                 anyTree(
