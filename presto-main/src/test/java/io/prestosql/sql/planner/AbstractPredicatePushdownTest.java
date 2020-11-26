@@ -304,7 +304,7 @@ public abstract class AbstractPredicatePushdownTest
                 anyTree(
                         filter("((expr + expr) > BIGINT '1')",
                                 project(ImmutableMap.of("expr", expression("orderkey * BIGINT '2'")),
-                                        tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))))));
+                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))))));
 
         // constant non-singleton should be pushed down
         assertPlan(
@@ -353,7 +353,7 @@ public abstract class AbstractPredicatePushdownTest
                         filter("expr > 5E3",
                                 project(ImmutableMap.of("expr", expression("rand() * CAST(orderkey AS double)")),
                                         tableScan("orders", ImmutableMap.of(
-                                                "ORDERKEY", "orderkey"))))));
+                                                "orderkey", "orderkey"))))));
     }
 
     @Test

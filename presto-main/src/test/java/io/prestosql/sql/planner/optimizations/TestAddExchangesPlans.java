@@ -255,7 +255,7 @@ public class TestAddExchangesPlans
                                                                 ImmutableList.of(sort("regionkey", ASCENDING, LAST), sort("name", ASCENDING, LAST)),
                                                                 FINAL,
                                                                 anyTree(
-                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))
+                                                                        tableScan("nation", ImmutableMap.of("name", "name", "regionkey", "regionkey"))))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
 
@@ -279,7 +279,7 @@ public class TestAddExchangesPlans
                                                         limit(
                                                                 7,
                                                                 anyTree(
-                                                                        tableScan("nation", ImmutableMap.of("NAME", "name")))))
+                                                                        tableScan("nation", ImmutableMap.of("name", "name")))))
                                                         .withAlias("row_num", new RowNumberSymbolMatcher()))))));
     }
 
@@ -302,7 +302,7 @@ public class TestAddExchangesPlans
                                                 ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
                                                 FINAL,
                                                 anyTree(
-                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "NATIONKEY", "nationkey"))))))));
+                                                        tableScan("nation", ImmutableMap.of("name", "name", "nationkey", "nationkey"))))))));
 
         // * source of Projection is distributed (filter)
         // * parent of Projection requires single distribution (rowNumber)
@@ -353,7 +353,7 @@ public class TestAddExchangesPlans
                                                                                 "nationkey", expression("nationkey"),
                                                                                 "hash", expression("combine_hash(bigint '0', COALESCE(\"$operator$hash_code\"(regionkey), 0))")),
                                                                         any(
-                                                                                tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey", "NATIONKEY", "nationkey")))))))))));
+                                                                                tableScan("nation", ImmutableMap.of("regionkey", "regionkey", "nationkey", "nationkey")))))))))));
 
         // * source of Projection is distributed (filter)
         // * parent of Projection requires hashed multiple distribution (rowNumber).
@@ -403,7 +403,7 @@ public class TestAddExchangesPlans
                                                         ImmutableList.of(sort("nationkey", ASCENDING, LAST)),
                                                         FINAL,
                                                         anyTree(
-                                                                tableScan("nation", ImmutableMap.of("NAME", "name", "NATIONKEY", "nationkey")))))))));
+                                                                tableScan("nation", ImmutableMap.of("name", "name", "nationkey", "nationkey")))))))));
 
         // * source of Projection is distributed (filter)
         // * parent of Projection requires random multiple distribution (aggregation)
