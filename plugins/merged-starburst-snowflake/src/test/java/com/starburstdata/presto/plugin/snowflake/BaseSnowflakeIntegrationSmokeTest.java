@@ -155,6 +155,16 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
     }
 
     @Test
+    public void testTooLargeDomainCompactionThreshold()
+    {
+        assertQueryFails(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("snowflake", "domain_compaction_threshold", "10000")
+                        .build(),
+                "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
+    }
+
+    @Test
     @Override
     public void testSelectInformationSchemaTables()
     {

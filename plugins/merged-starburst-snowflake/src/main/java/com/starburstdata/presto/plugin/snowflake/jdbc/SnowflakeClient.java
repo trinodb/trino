@@ -28,7 +28,6 @@ import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
-import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
@@ -46,7 +45,6 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
@@ -81,6 +79,8 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTime;
@@ -123,7 +123,7 @@ public class SnowflakeClient
     public static final String IDENTIFIER_QUOTE = "\"";
 
     private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
-    private static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
+    public static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(BIGINT, WriteMapping.longMapping("number(19)", bigintWriteFunction()))
@@ -232,7 +232,7 @@ public class SnowflakeClient
         }
 
         if (typeName.equals("VARIANT")) {
-            return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), variantReadFunction(), varcharWriteFunction(), SnowflakeClient::pushdown));
+            return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), variantReadFunction(), varcharWriteFunction(), FULL_PUSHDOWN));
         }
 
         if (typeName.equals("OBJECT") || typeName.equals("ARRAY")) {
@@ -264,12 +264,12 @@ public class SnowflakeClient
 
     private ColumnMapping updatePushdownCotroller(ColumnMapping mapping)
     {
-        verify(mapping.getPredicatePushdownController() != ColumnMapping.DISABLE_PUSHDOWN);
+        verify(mapping.getPredicatePushdownController() != DISABLE_PUSHDOWN);
         return new ColumnMapping(
                 mapping.getType(),
                 mapping.getReadFunction(),
                 mapping.getWriteFunction(),
-                SnowflakeClient::pushdown);
+                FULL_PUSHDOWN);
     }
 
     @Override
@@ -354,7 +354,7 @@ public class SnowflakeClient
                             timestamp.getZone().getId());
                 },
                 timestampWithTimezoneWriteFunction(),
-                SnowflakeClient::pushdown);
+                FULL_PUSHDOWN);
     }
 
     private static LongWriteFunction timestampWithTimezoneWriteFunction()
@@ -436,13 +436,5 @@ public class SnowflakeClient
             tableStatistics.setRowCount(Estimate.of(rowCount));
             return Optional.of(tableStatistics.build());
         }
-    }
-
-    private static DomainPushdownResult pushdown(Domain domain)
-    {
-        if (domain.getValues().getRanges().getRangeCount() > SNOWFLAKE_MAX_LIST_EXPRESSIONS) {
-            return new DomainPushdownResult(domain.simplify(), domain);
-        }
-        return new DomainPushdownResult(domain, Domain.all(domain.getType()));
     }
 }

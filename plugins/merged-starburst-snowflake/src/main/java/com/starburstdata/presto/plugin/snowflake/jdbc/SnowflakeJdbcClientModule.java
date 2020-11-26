@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake.jdbc;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -44,6 +45,7 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
@@ -56,6 +58,8 @@ import java.lang.annotation.Target;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient.SNOWFLAKE_MAX_LIST_EXPRESSIONS;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.lang.annotation.ElementType.FIELD;
@@ -84,6 +88,7 @@ public class SnowflakeJdbcClientModule
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SNOWFLAKE_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
