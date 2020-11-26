@@ -41,6 +41,8 @@ public interface EnvironmentListener
 {
     Logger log = Logger.get(EnvironmentListener.class);
 
+    EnvironmentListener NO_OP = new EnvironmentListener() {};
+
     default void environmentStarting(Environment environment)
     {
     }

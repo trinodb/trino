@@ -13,25 +13,40 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HealthCheck;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.RecursiveDeleteOption;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.tests.product.launcher.env.DelegateContainers.DelegateContainerFactory;
+import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
 import net.jodah.failsafe.function.CheckedRunnable;
 import org.testcontainers.containers.BindMode;
-import org.testcontainers.containers.FixedHostPortGenericContainer;
+import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.SelinuxContext;
+import org.testcontainers.containers.output.OutputFrame;
+import org.testcontainers.containers.startupcheck.StartupCheckStrategy;
+import org.testcontainers.containers.traits.LinkableContainer;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
+import org.testcontainers.containers.wait.strategy.WaitStrategyTarget;
+import org.testcontainers.images.ImagePullPolicy;
 import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.lifecycle.Startable;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -42,16 +57,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.ofBytes;
+import static io.prestosql.tests.product.launcher.env.DelegateContainers.fixedHostPort;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.size;
@@ -62,7 +81,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class DockerContainer
-        extends FixedHostPortGenericContainer<DockerContainer>
+        implements Container<DockerContainer>, AutoCloseable, WaitStrategyTarget, Startable
 {
     private static final Logger log = Logger.get(DockerContainer.class);
     private static final long NANOSECONDS_PER_SECOND = 1_000 * 1_000 * 1_000L;
@@ -74,18 +93,32 @@ public class DockerContainer
             .with(asyncTimeout)
             .with(Executors.newCachedThreadPool(daemonThreadsNamed("docker-container-%d")));
 
+    private final FixedPortsAdapter portsAdapter = new FixedPortsAdapter();
     private final String logicalName;
-    private final Stopwatch startupTime = Stopwatch.createUnstarted();
+    private final EnvironmentListenerAdapter listenerAdapter;
+    private final GenericContainer<? extends GenericContainer> delegate;
+
     private List<String> logPaths = new ArrayList<>();
-    private Optional<EnvironmentListener> listener = Optional.empty();
 
     public DockerContainer(String dockerImageName, String logicalName)
     {
-        super(dockerImageName);
+        this(logicalName, fixedHostPort(dockerImageName), container -> {});
+    }
+
+    public <T extends GenericContainer<T>> DockerContainer(String logicalName, DelegateContainerFactory<T> containerFactory, Consumer<T> containerClosure)
+    {
         this.logicalName = requireNonNull(logicalName, "logicalName is null");
+        requireNonNull(containerFactory, "containerFactory is null");
+        requireNonNull(containerClosure, "containerFactory is null");
+
+        this.listenerAdapter = new EnvironmentListenerAdapter(this);
+
+        T container = containerFactory.create(this.listenerAdapter, this.portsAdapter);
+        containerClosure.accept(container);
+        this.delegate = container;
 
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
-        setCopyToFileContainerPathMap(new LinkedHashMap<>());
+        delegate.setCopyToFileContainerPathMap(new LinkedHashMap<>());
     }
 
     public String getLogicalName()
@@ -95,42 +128,372 @@ public class DockerContainer
 
     public DockerContainer withEnvironmentListener(Optional<EnvironmentListener> listener)
     {
-        this.listener = requireNonNull(listener, "listener is null");
+        requireNonNull(listener, "listener is null")
+                .ifPresent(listenerAdapter::set);
         return this;
+    }
+
+    @Override
+    public void setCommand(String command)
+    {
+        delegate.setCommand(command);
+    }
+
+    @Override
+    public void setCommand(String... commands)
+    {
+        delegate.setCommand(commands);
+    }
+
+    @Override
+    public void addEnv(String key, String value)
+    {
+        delegate.addEnv(key, value);
     }
 
     @Override
     public void addFileSystemBind(String hostPath, String containerPath, BindMode mode)
     {
         verifyHostPath(hostPath);
-        super.addFileSystemBind(hostPath, containerPath, mode);
+        delegate.addFileSystemBind(hostPath, containerPath, mode);
     }
 
     @Override
     public void addFileSystemBind(String hostPath, String containerPath, BindMode mode, SelinuxContext selinuxContext)
     {
         verifyHostPath(hostPath);
-        super.addFileSystemBind(hostPath, containerPath, mode, selinuxContext);
+        delegate.addFileSystemBind(hostPath, containerPath, mode, selinuxContext);
     }
 
     @Override
+    public void addLink(LinkableContainer linkableContainer, String alias)
+    {
+        delegate.addLink(linkableContainer, alias);
+    }
+
+    @Override
+    public void addExposedPort(Integer port)
+    {
+        delegate.addExposedPort(port);
+    }
+
+    @Override
+    public void addExposedPorts(int... ports)
+    {
+        delegate.addExposedPorts(ports);
+    }
+
+    @Override
+    public DockerContainer waitingFor(WaitStrategy waitStrategy)
+    {
+        delegate.waitingFor(waitStrategy);
+        return this;
+    }
+
     public DockerContainer withFileSystemBind(String hostPath, String containerPath)
     {
         verifyHostPath(hostPath);
-        return super.withFileSystemBind(hostPath, containerPath);
+        delegate.withFileSystemBind(hostPath, containerPath);
+        return this;
     }
 
     @Override
     public DockerContainer withFileSystemBind(String hostPath, String containerPath, BindMode mode)
     {
         verifyHostPath(hostPath);
-        return super.withFileSystemBind(hostPath, containerPath, mode);
+        delegate.withFileSystemBind(hostPath, containerPath, mode);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withVolumesFrom(Container container, BindMode bindMode)
+    {
+        delegate.withVolumesFrom(container, bindMode);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withExposedPorts(Integer... ports)
+    {
+        delegate.withExposedPorts(ports);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withCopyFileToContainer(MountableFile mountableFile, String containerPath)
+    {
+        delegate.withCopyFileToContainer(mountableFile, containerPath);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withEnv(String key, String value)
+    {
+        delegate.withEnv(key, value);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withEnv(Map<String, String> env)
+    {
+        delegate.withEnv(env);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withLabel(String key, String value)
+    {
+        delegate.withLabel(key, value);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withLabels(Map<String, String> labels)
+    {
+        delegate.withLabels(labels);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withCommand(String command)
+    {
+        delegate.withCommand(command);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withCommand(String... commands)
+    {
+        delegate.withCommand(commands);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withExtraHost(String hostName, String ipAddress)
+    {
+        delegate.withExtraHost(hostName, ipAddress);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withNetworkMode(String networMode)
+    {
+        delegate.withNetworkMode(networMode);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withNetwork(Network network)
+    {
+        delegate.withNetwork(network);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withNetworkAliases(String... aliases)
+    {
+        delegate.withNetworkAliases(aliases);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withImagePullPolicy(ImagePullPolicy imagePullPolicy)
+    {
+        delegate.withImagePullPolicy(imagePullPolicy);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withClasspathResourceMapping(String resourcePath, String containerPath, BindMode bindMode, SelinuxContext selinuxContext)
+    {
+        delegate.withClasspathResourceMapping(resourcePath, containerPath, bindMode, selinuxContext);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withStartupTimeout(java.time.Duration duration)
+    {
+        delegate.withStartupTimeout(duration);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withPrivilegedMode(boolean mode)
+    {
+        delegate.withPrivilegedMode(mode);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withMinimumRunningDuration(java.time.Duration duration)
+    {
+        delegate.withMinimumRunningDuration(duration);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withStartupCheckStrategy(StartupCheckStrategy startupCheckStrategy)
+    {
+        delegate.withStartupCheckStrategy(startupCheckStrategy);
+        return this;
+    }
+
+    @Override
+    public DockerContainer withWorkingDirectory(String workingDir)
+    {
+        delegate.withWorkingDirectory(workingDir);
+        return this;
+    }
+
+    @Override
+    public void setDockerImageName(String dockerImageName)
+    {
+        delegate.setDockerImageName(dockerImageName);
+    }
+
+    @Override
+    public String getDockerImageName()
+    {
+        return delegate.getDockerImageName();
+    }
+
+    @Override
+    public String getTestHostIpAddress()
+    {
+        return delegate.getTestHostIpAddress();
+    }
+
+    @Override
+    public DockerContainer withLogConsumer(Consumer<OutputFrame> consumer)
+    {
+        delegate.withLogConsumer(consumer);
+        return this;
+    }
+
+    @Override
+    public List<String> getPortBindings()
+    {
+        return delegate.getPortBindings();
+    }
+
+    @Override
+    public InspectContainerResponse getContainerInfo()
+    {
+        return delegate.getContainerInfo();
+    }
+
+    @Override
+    public List<String> getExtraHosts()
+    {
+        return delegate.getExtraHosts();
+    }
+
+    @Override
+    public Future<String> getImage()
+    {
+        return delegate.getImage();
+    }
+
+    @Override
+    public List<String> getEnv()
+    {
+        return delegate.getEnv();
+    }
+
+    @Override
+    public Map<String, String> getEnvMap()
+    {
+        return delegate.getEnvMap();
+    }
+
+    @Override
+    public String[] getCommandParts()
+    {
+        return delegate.getCommandParts();
+    }
+
+    @Override
+    public List<Bind> getBinds()
+    {
+        return delegate.getBinds();
+    }
+
+    @Override
+    public Map<String, LinkableContainer> getLinkedContainers()
+    {
+        return delegate.getLinkedContainers();
+    }
+
+    @Override
+    public DockerClient getDockerClient()
+    {
+        return delegate.getDockerClient();
+    }
+
+    @Override
+    public void setExposedPorts(List<Integer> ports)
+    {
+        delegate.setExposedPorts(ports);
+    }
+
+    @Override
+    public void setPortBindings(List<String> bindings)
+    {
+        delegate.setPortBindings(bindings);
+    }
+
+    @Override
+    public void setExtraHosts(List<String> hosts)
+    {
+        delegate.setExtraHosts(hosts);
+    }
+
+    @Override
+    public void setImage(Future<String> image)
+    {
+        delegate.setImage(image);
+    }
+
+    @Override
+    public void setEnv(List<String> env)
+    {
+        delegate.setEnv(env);
+    }
+
+    @Override
+    public void setCommandParts(String[] commandParts)
+    {
+        delegate.setCommandParts(commandParts);
+    }
+
+    @Override
+    public void setBinds(List<Bind> binds)
+    {
+        delegate.setBinds(binds);
+    }
+
+    @Override
+    public void setLinkedContainers(Map<String, LinkableContainer> linkedContainers)
+    {
+        delegate.setLinkedContainers(linkedContainers);
+    }
+
+    @Override
+    public void setWaitStrategy(WaitStrategy waitStrategy)
+    {
+        delegate.setWaitStrategy(waitStrategy);
     }
 
     @Override
     public void copyFileToContainer(Transferable transferable, String containerPath)
     {
-        copyFileToContainer(containerPath, () -> super.copyFileToContainer(transferable, containerPath));
+        copyFileToContainer(containerPath, () -> delegate.copyFileToContainer(transferable, containerPath));
+    }
+
+    public DockerContainer withFixedExposedPort(int hostPort, int containerPort)
+    {
+        portsAdapter.addFixedExposedPort(hostPort, containerPort);
+        return this;
     }
 
     public DockerContainer withExposedLogPaths(String... logPaths)
@@ -142,49 +505,22 @@ public class DockerContainer
 
     public DockerContainer withHealthCheck(Path healthCheckScript)
     {
-        HealthCheck cmd = new HealthCheck()
+        HealthCheck healthCheck = new HealthCheck()
                 .withTest(ImmutableList.of("CMD", "health.sh"))
                 .withInterval(NANOSECONDS_PER_SECOND * 15)
                 .withStartPeriod(NANOSECONDS_PER_SECOND * 5 * 60)
                 .withRetries(3); // try health checking 3 times before marking container as unhealthy
 
-        return withCopyFileToContainer(forHostPath(healthCheckScript), "/usr/local/bin/health.sh")
-                .withCreateContainerCmdModifier(command -> command.withHealthcheck(cmd));
+        delegate.withCopyFileToContainer(forHostPath(healthCheckScript), "/usr/local/bin/health.sh")
+                .withCreateContainerCmdModifier(command -> command.withHealthcheck(healthCheck));
+
+        return this;
     }
 
     public Duration getStartupTime()
     {
-        return Duration.succinctNanos(startupTime.elapsed(NANOSECONDS)).convertToMostSuccinctTimeUnit();
-    }
-
-    @Override
-    protected void containerIsStarting(InspectContainerResponse containerInfo)
-    {
-        this.startupTime.start();
-        super.containerIsStarting(containerInfo);
-        this.listener.ifPresent(listener -> listener.containerStarting(this, containerInfo));
-    }
-
-    @Override
-    protected void containerIsStarted(InspectContainerResponse containerInfo)
-    {
-        this.startupTime.stop();
-        super.containerIsStarted(containerInfo);
-        this.listener.ifPresent(listener -> listener.containerStarted(this, containerInfo));
-    }
-
-    @Override
-    protected void containerIsStopping(InspectContainerResponse containerInfo)
-    {
-        super.containerIsStopping(containerInfo);
-        this.listener.ifPresent(listener -> listener.containerStopping(this, containerInfo));
-    }
-
-    @Override
-    protected void containerIsStopped(InspectContainerResponse containerInfo)
-    {
-        super.containerIsStopped(containerInfo);
-        this.listener.ifPresent(listener -> listener.containerStopped(this, containerInfo));
+        return Duration.succinctNanos(listenerAdapter.getStartupTime().elapsed(NANOSECONDS))
+                .convertToMostSuccinctTimeUnit();
     }
 
     private void copyFileToContainer(String containerPath, CheckedRunnable copy)
@@ -336,12 +672,18 @@ public class DockerContainer
     public boolean isHealthy()
     {
         try {
-            return super.isHealthy();
+            return delegate.isHealthy();
         }
         catch (RuntimeException ignored) {
             // Container without health checks will throw
             return true;
         }
+    }
+
+    @Override
+    public List<Integer> getExposedPorts()
+    {
+        return delegate.getExposedPorts();
     }
 
     public void reset()
@@ -409,6 +751,59 @@ public class DockerContainer
         }
 
         checkState(!isRunning(), "Container %s is still running", logicalName);
+    }
+
+    @Override
+    public String getContainerName()
+    {
+        return delegate.getContainerName();
+    }
+
+    @Override
+    public void start()
+    {
+        delegate.start();
+    }
+
+    @Override
+    public void stop()
+    {
+        delegate.stop();
+    }
+
+    public DockerContainer dependsOn(Startable... dockerContainers)
+    {
+        delegate.dependsOn(dockerContainers);
+        return this;
+    }
+
+    public DockerContainer dependsOn(List<? extends Startable> dockerContainers)
+    {
+        delegate.dependsOn(dockerContainers);
+        return this;
+    }
+
+    public DockerContainer dependsOn(Iterable<? extends Startable> dockerContainers)
+    {
+        delegate.dependsOn(dockerContainers);
+        return this;
+    }
+
+    public DockerContainer withCreateContainerCmdModifier(Consumer<CreateContainerCmd> modifier)
+    {
+        delegate.withCreateContainerCmdModifier(modifier);
+        return this;
+    }
+
+    public DockerContainer withTmpFs(ImmutableMap<String, String> mapping)
+    {
+        delegate.withTmpFs(mapping);
+        return this;
+    }
+
+    public void setNetwork(ExistingNetwork existingNetwork)
+    {
+        delegate.setNetwork(existingNetwork);
     }
 
     public enum OutputMode
