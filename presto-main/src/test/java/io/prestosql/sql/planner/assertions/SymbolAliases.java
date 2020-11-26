@@ -20,7 +20,6 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -83,15 +82,8 @@ public final class SymbolAliases
 
     public Optional<SymbolReference> getOptional(String alias)
     {
-        alias = toKey(alias);
         SymbolReference result = map.get(alias);
         return Optional.ofNullable(result);
-    }
-
-    private static String toKey(String alias)
-    {
-        // Required because the SqlParser lower cases SymbolReferences in the expressions we parse with it.
-        return alias.toLowerCase(Locale.ENGLISH);
     }
 
     private Map<String, SymbolReference> getUpdatedAssignments(Assignments assignments)
@@ -203,8 +195,6 @@ public final class SymbolAliases
         {
             requireNonNull(alias, "alias is null");
             requireNonNull(symbolReference, "symbolReference is null");
-
-            alias = toKey(alias);
 
             // Special case to allow identity binding (i.e. "ALIAS" -> expression("ALIAS"))
             if (bindings.containsKey(alias) && bindings.get(alias).equals(symbolReference)) {
