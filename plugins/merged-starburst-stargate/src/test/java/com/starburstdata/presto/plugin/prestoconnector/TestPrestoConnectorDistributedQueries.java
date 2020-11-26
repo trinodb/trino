@@ -121,17 +121,6 @@ public class TestPrestoConnectorDistributedQueries
     }
 
     @Override
-    public void testLargeIn()
-    {
-        assertThatThrownBy(super::testLargeIn)
-                .hasMessageContaining("Execution of 'actual' query failed: SELECT orderkey FROM orders WHERE orderkey NOT IN (0, 1, 2, 3, 4, 5, 6")
-                .hasStackTraceContaining("io.prestosql.plugin.jdbc.QueryBuilder.buildSql"); // remote exception
-        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4799) be smart, prevent failure
-        // See also https://github.com/prestosql/presto/issues/6075
-        throw new SkipException("TODO");
-    }
-
-    @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         switch (dataMappingTestSetup.getPrestoTypeName()) {
