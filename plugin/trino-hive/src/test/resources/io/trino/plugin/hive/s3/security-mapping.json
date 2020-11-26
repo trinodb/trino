@@ -41,6 +41,12 @@
       "allowedKmsKeyIds": ["kmsKey_11", "kmsKey_12"]
     },
     {
+      "prefix": "s3://foo",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "sessionToken": "iXoGxxxxxxxxxxxxxxxxxxsessiontoken"
+    },
+    {
       "user": "alice",
       "iamRole": "alice_role"
     },

@@ -20,6 +20,8 @@ Property Name                                Description
 
 ``hive.s3.aws-secret-key``                   Default AWS secret key to use.
 
+``hive.s3.aws-session-token``                Default AWS session token to use.
+
 ``hive.s3.iam-role``                         IAM role to assume.
 
 ``hive.s3.external-id``                      External ID for the IAM role trust policy.
@@ -146,6 +148,10 @@ The security mapping must provide one or more configuration settings:
 
 * ``accessKey`` and ``secretKey``: AWS access key and secret key. This overrides
   any globally configured credentials, such as access key or instance credentials.
+
+* ``sessionToken``: AWS temporary security token obtained from the
+  AWS Security Token Service (AWS STS). This is used in combination with
+  ``accessKey`` and ``secretKey``.
 
 * ``iamRole``: IAM role to use if no user provided role is specified as an
   extra credential. This overrides any globally configured IAM role. This role

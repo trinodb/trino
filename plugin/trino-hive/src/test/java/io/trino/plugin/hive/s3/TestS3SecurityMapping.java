@@ -288,7 +288,7 @@ public class TestS3SecurityMapping
     public void testMappingWithoutRoleCredentialsFallbackShouldFail()
     {
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
     }
@@ -300,7 +300,7 @@ public class TestS3SecurityMapping
         Optional<Boolean> useClusterDefault = Optional.of(true);
 
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), iamRole, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), iamRole, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
     }
@@ -312,7 +312,7 @@ public class TestS3SecurityMapping
         Optional<String> kmsKeyId = Optional.of("CLIENT_S3CRT_KEY_ID");
 
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), kmsKeyId, Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), kmsKeyId, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("KMS key ID cannot be provided together with useClusterDefault");
     }

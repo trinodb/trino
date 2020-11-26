@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.hive.s3;
 
+import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.BasicSessionCredentials;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -42,7 +44,7 @@ public class S3SecurityMapping
     private final Set<String> allowedIamRoles;
     private final Optional<String> kmsKeyId;
     private final Set<String> allowedKmsKeyIds;
-    private final Optional<BasicAWSCredentials> credentials;
+    private final Optional<AWSCredentials> credentials;
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
 
@@ -57,6 +59,7 @@ public class S3SecurityMapping
             @JsonProperty("allowedKmsKeyIds") Optional<List<String>> allowedKmsKeyIds,
             @JsonProperty("accessKey") Optional<String> accessKey,
             @JsonProperty("secretKey") Optional<String> secretKey,
+            @JsonProperty("sessionToken") Optional<String> sessionToken,
             @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
             @JsonProperty("endpoint") Optional<String> endpoint)
     {
@@ -83,8 +86,13 @@ public class S3SecurityMapping
 
         requireNonNull(accessKey, "accessKey is null");
         requireNonNull(secretKey, "secretKey is null");
+        requireNonNull(sessionToken, "sessionToken is null");
         checkArgument(accessKey.isPresent() == secretKey.isPresent(), "accessKey and secretKey must be provided together");
-        this.credentials = accessKey.map(access -> new BasicAWSCredentials(access, secretKey.get()));
+        checkArgument(sessionToken.isEmpty() || accessKey.isPresent(), "sessionToken requires accessKey and secretKey");
+
+        this.credentials = sessionToken.isEmpty() ?
+                accessKey.map(access -> new BasicAWSCredentials(access, secretKey.get())) :
+                accessKey.map(access -> new BasicSessionCredentials(access, secretKey.get(), sessionToken.get()));
 
         this.useClusterDefault = requireNonNull(useClusterDefault, "useClusterDefault is null")
                 .orElse(false);
@@ -123,7 +131,7 @@ public class S3SecurityMapping
         return allowedKmsKeyIds;
     }
 
-    public Optional<BasicAWSCredentials> getCredentials()
+    public Optional<AWSCredentials> getCredentials()
     {
         return credentials;
     }

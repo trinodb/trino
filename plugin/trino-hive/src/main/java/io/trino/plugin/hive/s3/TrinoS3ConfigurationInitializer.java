@@ -41,6 +41,7 @@ import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PATH_STYLE_ACCESS;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_REQUESTER_PAYS_ENABLED;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SESSION_TOKEN;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SIGNER_CLASS;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SIGNER_TYPE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
@@ -60,6 +61,7 @@ public class TrinoS3ConfigurationInitializer
 {
     private final String awsAccessKey;
     private final String awsSecretKey;
+    private final String awsSessionToken;
     private final String endpoint;
     private final TrinoS3StorageClass s3StorageClass;
     private final TrinoS3SignerType signerType;
@@ -97,6 +99,7 @@ public class TrinoS3ConfigurationInitializer
         this.awsAccessKey = config.getS3AwsAccessKey();
         this.awsSecretKey = config.getS3AwsSecretKey();
         this.endpoint = config.getS3Endpoint();
+        this.awsSessionToken = config.getS3AwsSessionToken();
         this.s3StorageClass = config.getS3StorageClass();
         this.signerType = config.getS3SignerType();
         this.signerClass = config.getS3SignerClass();
@@ -141,6 +144,9 @@ public class TrinoS3ConfigurationInitializer
         }
         if (awsSecretKey != null) {
             config.set(S3_SECRET_KEY, awsSecretKey);
+        }
+        if (awsSessionToken != null) {
+            config.set(S3_SESSION_TOKEN, awsSessionToken);
         }
         if (endpoint != null) {
             config.set(S3_ENDPOINT, endpoint);

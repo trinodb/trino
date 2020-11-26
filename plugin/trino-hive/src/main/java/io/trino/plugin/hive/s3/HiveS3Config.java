@@ -38,6 +38,7 @@ public class HiveS3Config
 {
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
+    private String s3AwsSessionToken;
     private String s3Endpoint;
     private TrinoS3StorageClass s3StorageClass = TrinoS3StorageClass.STANDARD;
     private TrinoS3SignerType s3SignerType;
@@ -91,6 +92,19 @@ public class HiveS3Config
     public HiveS3Config setS3AwsSecretKey(String s3AwsSecretKey)
     {
         this.s3AwsSecretKey = s3AwsSecretKey;
+        return this;
+    }
+
+    public String getS3AwsSessionToken()
+    {
+        return s3AwsSessionToken;
+    }
+
+    @Config("hive.s3.aws-session-token")
+    @ConfigSecuritySensitive
+    public HiveS3Config setS3AwsSessionToken(String s3AwsSessionToken)
+    {
+        this.s3AwsSessionToken = s3AwsSessionToken;
         return this;
     }
 
