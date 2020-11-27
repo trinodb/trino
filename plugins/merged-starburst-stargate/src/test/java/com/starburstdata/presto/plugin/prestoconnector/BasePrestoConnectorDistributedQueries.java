@@ -10,39 +10,16 @@
 package com.starburstdata.presto.plugin.prestoconnector;
 
 import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 
-import java.util.Map;
 import java.util.Optional;
 
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestPrestoConnectorDistributedQueries
+public abstract class BasePrestoConnectorDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
-                Map.of(),
-                false,
-                TpchTable.getTables()));
-        return createPrestoConnectorQueryRunner(
-                true, // TODO split out test class version with writes disabled (default option)
-                Map.of(),
-                Map.of(
-                        "connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"),
-                        "allow-drop-table", "true"));
-    }
-
     @Override
     protected boolean supportsViews()
     {
