@@ -142,15 +142,15 @@ public class MemSqlClient
             return Optional.of(jsonColumnMapping());
         }
 
-        int columnSize = typeHandle.getColumnSize();
         switch (typeHandle.getJdbcType()) {
             case Types.VARCHAR:
-                VarcharType varcharType = (columnSize <= VarcharType.MAX_LENGTH) ? createVarcharType(columnSize) : createUnboundedVarcharType();
+                int varcharLength = typeHandle.getRequiredColumnSize();
+                VarcharType varcharType = (varcharLength <= VarcharType.MAX_LENGTH) ? createVarcharType(varcharLength) : createUnboundedVarcharType();
                 // Remote database can be case insensitive.
                 PredicatePushdownController predicatePushdownController = PUSHDOWN_AND_KEEP;
                 return Optional.of(ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), predicatePushdownController));
             case Types.DECIMAL:
-                int precision = columnSize;
+                int precision = typeHandle.getRequiredColumnSize();
                 int decimalDigits = typeHandle.getRequiredDecimalDigits();
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));

@@ -133,7 +133,7 @@ public class MySqlClient
         super(config, "`", connectionFactory);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, Optional.empty(), Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule>builder()
@@ -156,7 +156,7 @@ public class MySqlClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     @Override
@@ -248,7 +248,6 @@ public class MySqlClient
             return Optional.of(jsonColumnMapping());
         }
 
-        int columnSize = typeHandle.getColumnSize();
         switch (typeHandle.getJdbcType()) {
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
@@ -270,27 +269,28 @@ public class MySqlClient
 
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
-                int precision = columnSize;
+                int precision = typeHandle.getRequiredColumnSize();
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                 }
                 // TODO does mysql support negative scale?
-                precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
                     break;
                 }
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(columnSize));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             // TODO not all these type constants are necessarily used by the JDBC driver
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                VarcharType varcharType = (columnSize <= VarcharType.MAX_LENGTH) ? createVarcharType(columnSize) : createUnboundedVarcharType();
+                int varcharLength = typeHandle.getRequiredColumnSize();
+                VarcharType varcharType = (varcharLength <= VarcharType.MAX_LENGTH) ? createVarcharType(varcharLength) : createUnboundedVarcharType();
                 // Remote database can be case insensitive.
                 PredicatePushdownController predicatePushdownController = PUSHDOWN_AND_KEEP;
                 return Optional.of(ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), predicatePushdownController));

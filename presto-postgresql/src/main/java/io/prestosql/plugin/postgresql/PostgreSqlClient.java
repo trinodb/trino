@@ -224,7 +224,7 @@ public class PostgreSqlClient
         }
         this.tableTypes = tableTypes.toArray(new String[0]);
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, Optional.empty(), Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule>builder()
@@ -301,7 +301,7 @@ public class PostgreSqlClient
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                             Optional.of(resultSet.getString("TYPE_NAME")),
-                            resultSet.getInt("COLUMN_SIZE"),
+                            getInteger(resultSet, "COLUMN_SIZE"),
                             getInteger(resultSet, "DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)),
                             Optional.empty());
@@ -369,7 +369,6 @@ public class PostgreSqlClient
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        int columnSize = typeHandle.getColumnSize();
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
@@ -413,15 +412,16 @@ public class PostgreSqlClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.NUMERIC: {
+                int columnSize = typeHandle.getRequiredColumnSize();
                 int precision;
                 int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
-                    if (typeHandle.getColumnSize() == 131089) {
+                    if (columnSize == 131089) {
                         // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
                         // 131089 = SELECT LENGTH(pow(10::numeric,131071)::varchar); 131071 = 2^17-1  (org.postgresql.jdbc.TypeInfoCache#getDisplaySize)
                         return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
                     }
-                    precision = typeHandle.getColumnSize();
+                    precision = columnSize;
                     if (precision > Decimals.MAX_PRECISION) {
                         int scale = min(decimalDigits, getDecimalDefaultScale(session));
                         return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
@@ -435,14 +435,14 @@ public class PostgreSqlClient
             }
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(columnSize));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.VARCHAR:
                 if (!jdbcTypeName.equals("varchar")) {
                     // This can be e.g. an ENUM
                     return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
                 }
-                return Optional.of(defaultVarcharColumnMapping(columnSize));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.BINARY:
                 return Optional.of(varbinaryColumnMapping());
@@ -626,7 +626,7 @@ public class PostgreSqlClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
     }
 
     @Override

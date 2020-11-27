@@ -275,7 +275,7 @@ public abstract class BaseJdbcClient
                 JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                         getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                         Optional.ofNullable(resultSet.getString("TYPE_NAME")),
-                        resultSet.getInt("COLUMN_SIZE"),
+                        getInteger(resultSet, "COLUMN_SIZE"),
                         getInteger(resultSet, "DECIMAL_DIGITS"),
                         Optional.empty(),
                         Optional.empty());
