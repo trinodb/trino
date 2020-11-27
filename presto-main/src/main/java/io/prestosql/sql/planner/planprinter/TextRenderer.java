@@ -29,13 +29,13 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
@@ -132,6 +132,7 @@ public class TextRenderer
         output.append(format(", Output: %s (%s)\n", formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString()));
 
         printDistributions(output, nodeStats);
+        printCollisions(output, nodeStats);
 
         if (nodeStats instanceof WindowPlanNodeStats) {
             printWindowOperatorStats(output, ((WindowPlanNodeStats) nodeStats).getWindowOperatorStats());
@@ -144,16 +145,6 @@ public class TextRenderer
     {
         Map<String, Double> inputAverages = stats.getOperatorInputPositionsAverages();
         Map<String, Double> inputStdDevs = stats.getOperatorInputPositionsStdDevs();
-
-        Map<String, Double> hashCollisionsAverages = emptyMap();
-        Map<String, Double> hashCollisionsStdDevs = emptyMap();
-        Map<String, Double> expectedHashCollisionsAverages = emptyMap();
-        if (stats instanceof HashCollisionPlanNodeStats) {
-            hashCollisionsAverages = ((HashCollisionPlanNodeStats) stats).getOperatorHashCollisionsAverages();
-            hashCollisionsStdDevs = ((HashCollisionPlanNodeStats) stats).getOperatorHashCollisionsStdDevs();
-            expectedHashCollisionsAverages = ((HashCollisionPlanNodeStats) stats).getOperatorExpectedCollisionsAverages();
-        }
-
         Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getOperatorTypes());
 
         for (String operator : translatedOperatorTypes.keySet()) {
@@ -163,28 +154,32 @@ public class TextRenderer
             output.append(translatedOperatorType);
             output.append(format(Locale.US, "Input avg.: %s rows, Input std.dev.: %s%%\n",
                     formatDouble(inputAverage), formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
+        }
+    }
 
-            double hashCollisionsAverage = hashCollisionsAverages.getOrDefault(operator, 0.0d);
-            double expectedHashCollisionsAverage = expectedHashCollisionsAverages.getOrDefault(operator, 0.0d);
-            if (hashCollisionsAverage != 0.0d) {
-                double hashCollisionsStdDevRatio = hashCollisionsStdDevs.get(operator) / hashCollisionsAverage;
+    private void printCollisions(StringBuilder output, PlanNodeStats stats)
+    {
+        if (!(stats instanceof HashCollisionPlanNodeStats)) {
+            return;
+        }
 
-                if (!translatedOperatorType.isEmpty()) {
-                    output.append(indentString(2));
-                }
+        HashCollisionPlanNodeStats collisionStats = (HashCollisionPlanNodeStats) stats;
+        Map<String, Double> hashCollisionsAverages = collisionStats.getOperatorHashCollisionsAverages();
+        verify(hashCollisionsAverages.keySet().size() == 1, "Multiple hash collision operator stats %s", hashCollisionsAverages);
 
-                if (expectedHashCollisionsAverage != 0.0d) {
-                    double hashCollisionsRatio = hashCollisionsAverage / expectedHashCollisionsAverage;
-                    output.append(format(Locale.US, "Collisions avg.: %s (%s%% est.), Collisions std.dev.: %s%%",
-                            formatDouble(hashCollisionsAverage), formatDouble(hashCollisionsRatio * 100.0d), formatDouble(hashCollisionsStdDevRatio * 100.0d)));
-                }
-                else {
-                    output.append(format(Locale.US, "Collisions avg.: %s, Collisions std.dev.: %s%%",
-                            formatDouble(hashCollisionsAverage), formatDouble(hashCollisionsStdDevRatio * 100.0d)));
-                }
+        double hashCollisionsAverage = getOnlyElement(hashCollisionsAverages.values());
+        double hashCollisionsStdDev = getOnlyElement(collisionStats.getOperatorHashCollisionsStdDevs().values());
+        double expectedHashCollisionsAverage = getOnlyElement(collisionStats.getOperatorExpectedCollisionsAverages().values());
+        double hashCollisionsStdDevRatio = hashCollisionsStdDev / hashCollisionsAverage;
 
-                output.append("\n");
-            }
+        if (expectedHashCollisionsAverage != 0.0d) {
+            double hashCollisionsRatio = hashCollisionsAverage / expectedHashCollisionsAverage;
+            output.append(format(Locale.US, "Collisions avg.: %s (%s%% est.), Collisions std.dev.: %s%%\n",
+                    formatDouble(hashCollisionsAverage), formatDouble(hashCollisionsRatio * 100.0d), formatDouble(hashCollisionsStdDevRatio * 100.0d)));
+        }
+        else {
+            output.append(format(Locale.US, "Collisions avg.: %s, Collisions std.dev.: %s%%\n",
+                    formatDouble(hashCollisionsAverage), formatDouble(hashCollisionsStdDevRatio * 100.0d)));
         }
     }
 
@@ -214,6 +209,13 @@ public class TextRenderer
             return ImmutableMap.of(
                     "LookupJoinOperator", "Left (probe) ",
                     "HashBuilderOperator", "Right (build) ");
+        }
+
+        if (operators.contains("LookupJoinOperator") && operators.contains("DynamicFilterSourceOperator")) {
+            // join plan node
+            return ImmutableMap.of(
+                    "LookupJoinOperator", "Left (probe) ",
+                    "DynamicFilterSourceOperator", "Right (build) ");
         }
 
         return ImmutableMap.of();

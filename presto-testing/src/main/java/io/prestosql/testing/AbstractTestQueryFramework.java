@@ -72,12 +72,10 @@ import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
-import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestQueryFramework
 {
@@ -323,19 +321,22 @@ public abstract class AbstractTestQueryFramework
         assertEquals(actual, expected);
     }
 
-    protected void assertExplainAnalyze(@Language("SQL") String query)
+    protected void assertExplainAnalyze(@Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
     {
-        assertExplainAnalyze(getSession(), query);
+        assertExplainAnalyze(getSession(), query, expectedExplainRegExps);
     }
 
-    protected void assertExplainAnalyze(Session session, @Language("SQL") String query)
+    protected void assertExplainAnalyze(Session session, @Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
     {
         String value = (String) computeActual(session, query).getOnlyValue();
 
-        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
-
         // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
         // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
+        assertThat(value).containsPattern("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)");
+
+        for (String expectedExplainRegExp : expectedExplainRegExps) {
+            assertThat(value).containsPattern(expectedExplainRegExp);
+        }
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
