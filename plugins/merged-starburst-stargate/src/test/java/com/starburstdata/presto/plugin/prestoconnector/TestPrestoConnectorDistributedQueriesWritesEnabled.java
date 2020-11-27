@@ -32,7 +32,7 @@ public class TestPrestoConnectorDistributedQueriesWritesEnabled
                 false,
                 TpchTable.getTables()));
         return createPrestoConnectorQueryRunner(
-                true, // TODO split out test class version with writes disabled (default option)
+                true,
                 Map.of(),
                 Map.of(
                         "connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"),
