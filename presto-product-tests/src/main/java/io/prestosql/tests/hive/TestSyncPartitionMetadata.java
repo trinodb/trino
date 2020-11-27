@@ -21,6 +21,7 @@ import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import io.prestosql.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.prestosql.tempto.query.QueryResult;
+import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -47,6 +48,7 @@ public class TestSyncPartitionMetadata
     private HdfsDataSourceWriter hdfsDataSourceWriter;
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE, PRESTO_JDBC})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testAddPartition()
     {
         String tableName = "test_sync_partition_metadata_add_partition";
@@ -60,6 +62,7 @@ public class TestSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testDropPartition()
     {
         String tableName = "test_sync_partition_metadata_drop_partition";
@@ -73,6 +76,7 @@ public class TestSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testFullSyncPartition()
     {
         String tableName = "test_sync_partition_metadata_add_drop_partition";
@@ -86,6 +90,7 @@ public class TestSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE, PRESTO_JDBC})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testInvalidSyncMode()
     {
         String tableName = "test_repair_invalid_mode";
@@ -98,6 +103,7 @@ public class TestSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testMixedCasePartitionNames()
     {
         String tableName = "test_sync_partition_mixed_case";
@@ -114,6 +120,7 @@ public class TestSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testConflictingMixedCasePartitionNames()
     {
         String tableName = "test_sync_partition_mixed_case";
