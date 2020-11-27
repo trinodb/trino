@@ -20,7 +20,6 @@ import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.impl.completer.AggregateCompleter;
 import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.AttributedString;
 
 import java.io.Closeable;
@@ -42,12 +41,8 @@ public class InputReader
     public InputReader(Path historyFile, Completer... completers)
             throws IOException
     {
-        Terminal terminal = TerminalBuilder.builder()
-                .name("Presto")
-                .build();
-
         reader = LineReaderBuilder.builder()
-                .terminal(terminal)
+                .terminal(TerminalUtils.getTerminal())
                 .variable(HISTORY_FILE, historyFile)
                 .variable(SECONDARY_PROMPT_PATTERN, colored("%P -> "))
                 .variable(BLINK_MATCHING_PAREN, 0)
