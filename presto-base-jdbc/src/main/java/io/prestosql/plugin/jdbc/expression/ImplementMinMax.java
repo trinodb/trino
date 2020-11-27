@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
 import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.functionName;
@@ -53,8 +52,7 @@ public class ImplementMinMax
     public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
         Variable input = captures.get(INPUT);
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignments().get(input.getName());
-        verifyNotNull(columnHandle, "Unbound variable: %s", input);
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
         verify(columnHandle.getColumnType().equals(aggregateFunction.getOutputType()));
 
         return Optional.of(new JdbcExpression(
