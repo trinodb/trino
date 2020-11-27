@@ -13,15 +13,10 @@
  */
 package io.prestosql.cli;
 
-import org.jline.terminal.Terminal;
-
-import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 
 import static io.prestosql.cli.TerminalUtils.isRealTerminal;
 import static java.util.Objects.requireNonNull;
-import static org.jline.terminal.TerminalBuilder.terminal;
 
 public class ConsolePrinter
 {
@@ -73,16 +68,6 @@ public class ConsolePrinter
             }
             out.flush();
             lines = 0;
-        }
-    }
-
-    public int getWidth()
-    {
-        try (Terminal terminal = terminal()) {
-            return terminal.getWidth();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
     }
 
