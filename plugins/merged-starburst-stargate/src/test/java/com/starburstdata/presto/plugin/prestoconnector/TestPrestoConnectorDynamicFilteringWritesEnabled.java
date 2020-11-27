@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.prestoconnector;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import org.testng.SkipException;
 
 import java.util.List;
 import java.util.Map;
@@ -21,9 +20,8 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQue
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.prestosql.tpch.TpchTable.ORDERS;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestPrestoConnectorDynamicFiltering
+public class TestPrestoConnectorDynamicFilteringWritesEnabled
         extends AbstractDynamicFilteringTest
 {
     @Override
@@ -35,7 +33,7 @@ public class TestPrestoConnectorDynamicFiltering
                 false,
                 List.of(ORDERS)));
         return createPrestoConnectorQueryRunner(
-                false,
+                true,
                 Map.of(),
                 Map.of(
                         "connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"),
@@ -48,13 +46,5 @@ public class TestPrestoConnectorDynamicFiltering
         // JDBC connectors always generate single split
         // TODO https://starburstdata.atlassian.net/browse/PRESTO-4769 revisit in parallel Presto Connector
         return false;
-    }
-
-    @Override
-    public void testDynamicFilteringDomainCompactionThreshold()
-    {
-        assertThatThrownBy(super::testDynamicFilteringDomainCompactionThreshold)
-                .hasMessageContaining("This connector does not support creating tables with data");
-        throw new SkipException("not supported");
     }
 }
