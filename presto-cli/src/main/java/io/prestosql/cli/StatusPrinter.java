@@ -43,6 +43,7 @@ import static io.prestosql.cli.FormatUtils.formatProgressBar;
 import static io.prestosql.cli.FormatUtils.formatTime;
 import static io.prestosql.cli.FormatUtils.pluralize;
 import static io.prestosql.cli.TerminalUtils.isRealTerminal;
+import static io.prestosql.cli.TerminalUtils.terminalWidth;
 import static java.lang.Character.toUpperCase;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -245,7 +246,7 @@ Spilled: 20GB
             // blank line
             reprintLine("");
 
-            int terminalWidth = console.getWidth();
+            int terminalWidth = terminalWidth();
 
             if (terminalWidth < 75) {
                 reprintLine("WARNING: Terminal");

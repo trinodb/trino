@@ -14,30 +14,53 @@
 package io.prestosql.cli;
 
 import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
 
 import java.io.IOException;
-
-import static org.jline.terminal.TerminalBuilder.terminal;
+import java.io.UncheckedIOException;
+import java.nio.charset.Charset;
 
 public class TerminalUtils
 {
-    private static final boolean REAL_TERMINAL = detectRealTerminal();
+    private static final Terminal TERMINAL_INSTANCE = createTerminal();
 
     private TerminalUtils() {}
 
-    public static boolean isRealTerminal()
+    public static Terminal getTerminal()
     {
-        return REAL_TERMINAL;
+        return TERMINAL_INSTANCE;
     }
 
-    private static boolean detectRealTerminal()
+    private static Terminal createTerminal()
     {
-        try (Terminal terminal = terminal()) {
-            return !Terminal.TYPE_DUMB.equals(terminal.getType()) &&
-                    !Terminal.TYPE_DUMB_COLOR.equals(terminal.getType());
+        try {
+            return TerminalBuilder.builder()
+                    .name("Presto")
+                    .build();
         }
         catch (IOException e) {
-            return false;
+            throw new UncheckedIOException(e);
         }
+    }
+
+    public static boolean isRealTerminal(Terminal terminal)
+    {
+        return !Terminal.TYPE_DUMB.equals(terminal.getType()) &&
+                !Terminal.TYPE_DUMB_COLOR.equals(terminal.getType());
+    }
+
+    public static boolean isRealTerminal()
+    {
+        return isRealTerminal(getTerminal());
+    }
+
+    public static int terminalWidth()
+    {
+        return getTerminal().getWidth();
+    }
+
+    public static Charset terminalEncoding()
+    {
+        return getTerminal().encoding();
     }
 }

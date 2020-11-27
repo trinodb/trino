@@ -38,7 +38,6 @@ import picocli.CommandLine.Option;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -60,7 +59,9 @@ import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterrup
 import static io.prestosql.cli.Completion.commandCompleter;
 import static io.prestosql.cli.Help.getHelpText;
 import static io.prestosql.cli.QueryPreprocessor.preprocessQuery;
+import static io.prestosql.cli.TerminalUtils.getTerminal;
 import static io.prestosql.cli.TerminalUtils.isRealTerminal;
+import static io.prestosql.cli.TerminalUtils.terminalEncoding;
 import static io.prestosql.client.ClientSession.stripTransactionId;
 import static io.prestosql.sql.parser.StatementSplitter.Statement;
 import static io.prestosql.sql.parser.StatementSplitter.isEmptyStatement;
@@ -69,7 +70,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.jline.terminal.TerminalBuilder.terminal;
 import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
@@ -133,7 +133,7 @@ public class Console
         if (!hasQuery && !isRealTerminal()) {
             try {
                 if (System.in.available() > 0) {
-                    query = new String(ByteStreams.toByteArray(System.in), terminal().encoding()) + ";";
+                    query = new String(ByteStreams.toByteArray(System.in), terminalEncoding()) + ";";
 
                     if (query.length() > 1) {
                         hasQuery = true;
@@ -213,16 +213,8 @@ public class Console
             return "";
         }
 
-        try (Terminal terminal = terminal()) {
-            LineReader reader = LineReaderBuilder.builder().terminal(terminal).build();
-            return reader.readLine("Password: ", (char) 0);
-        }
-        catch (EndOfFileException e) {
-            return "";
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to read password from terminal", e);
-        }
+        LineReader reader = LineReaderBuilder.builder().terminal(getTerminal()).build();
+        return reader.readLine("Password: ", (char) 0);
     }
 
     private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting)
@@ -312,16 +304,11 @@ public class Console
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                try (Terminal terminal = terminal()) {
-                    if (!process(queryRunner, split.statement(), outputFormat, () -> {}, false, showProgress, terminal, System.out, System.err)) {
-                        if (!ignoreErrors) {
-                            return false;
-                        }
-                        success = false;
+                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, false, showProgress, getTerminal(), System.out, System.err)) {
+                    if (!ignoreErrors) {
+                        return false;
                     }
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
+                    success = false;
                 }
             }
             if (exiting.get()) {

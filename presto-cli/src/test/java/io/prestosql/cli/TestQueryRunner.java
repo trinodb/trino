@@ -25,7 +25,6 @@ import io.prestosql.client.QueryResults;
 import io.prestosql.client.StatementStats;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
-import org.jline.terminal.Terminal;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -42,9 +41,9 @@ import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.SET_COOKIE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.cli.ClientOptions.OutputFormat.CSV;
+import static io.prestosql.cli.TerminalUtils.getTerminal;
 import static io.prestosql.client.ClientStandardTypes.BIGINT;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.jline.terminal.TerminalBuilder.terminal;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
@@ -87,13 +86,11 @@ public class TestQueryRunner
 
         QueryRunner queryRunner = createQueryRunner(createClientSession(server), false);
 
-        try (Terminal terminal = terminal()) {
-            try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
-                query.renderOutput(terminal, nullPrintStream(), nullPrintStream(), CSV, false, false);
-            }
-            try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
-                query.renderOutput(terminal, nullPrintStream(), nullPrintStream(), CSV, false, false);
-            }
+        try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, false, false);
+        }
+        try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, false, false);
         }
 
         assertNull(server.takeRequest().getHeader("Cookie"));

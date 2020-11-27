@@ -15,7 +15,6 @@ package io.prestosql.cli;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
-import org.jline.terminal.Terminal;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -31,11 +30,11 @@ import java.security.SecureRandom;
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.prestosql.cli.ClientOptions.OutputFormat.CSV;
+import static io.prestosql.cli.TerminalUtils.getTerminal;
 import static io.prestosql.cli.TestQueryRunner.createClientSession;
 import static io.prestosql.cli.TestQueryRunner.createQueryRunner;
 import static io.prestosql.cli.TestQueryRunner.createResults;
 import static io.prestosql.cli.TestQueryRunner.nullPrintStream;
-import static org.jline.terminal.TerminalBuilder.terminal;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -73,10 +72,8 @@ public class TestInsecureQueryRunner
 
         QueryRunner queryRunner = createQueryRunner(createClientSession(server), true);
 
-        try (Terminal terminal = terminal()) {
-            try (Query query = queryRunner.startQuery("query with insecure mode")) {
-                query.renderOutput(terminal, nullPrintStream(), nullPrintStream(), CSV, false, false);
-            }
+        try (Query query = queryRunner.startQuery("query with insecure mode")) {
+            query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, false, false);
         }
 
         assertEquals(server.takeRequest().getPath(), "/v1/statement");
