@@ -513,7 +513,6 @@ public final class StandardColumnMappings
 
     public static Optional<ColumnMapping> jdbcTypeToPrestoType(JdbcTypeHandle type)
     {
-        int columnSize = type.getColumnSize();
         switch (type.getJdbcType()) {
             case Types.BIT:
             case Types.BOOLEAN:
@@ -541,7 +540,7 @@ public final class StandardColumnMappings
             case Types.NUMERIC:
             case Types.DECIMAL:
                 int decimalDigits = type.getRequiredDecimalDigits();
-                int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                int precision = type.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
                     return Optional.empty();
                 }
@@ -549,13 +548,13 @@ public final class StandardColumnMappings
 
             case Types.CHAR:
             case Types.NCHAR:
-                return Optional.of(defaultCharColumnMapping(columnSize));
+                return Optional.of(defaultCharColumnMapping(type.getRequiredColumnSize()));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(columnSize));
+                return Optional.of(defaultVarcharColumnMapping(type.getRequiredColumnSize()));
 
             case Types.BINARY:
             case Types.VARBINARY:

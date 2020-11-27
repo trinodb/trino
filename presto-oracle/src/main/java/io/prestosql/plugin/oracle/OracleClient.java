@@ -240,8 +240,6 @@ public class OracleClient
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        int columnSize = typeHandle.getColumnSize();
-
         Optional<ColumnMapping> mappingToVarchar = getForcedMappingToVarchar(typeHandle);
         if (mappingToVarchar.isPresent()) {
             return mappingToVarchar;
@@ -269,9 +267,10 @@ public class OracleClient
                         oracleDoubleWriteFunction(),
                         FULL_PUSHDOWN));
             case OracleTypes.NUMBER:
+                int actualPrecision = typeHandle.getRequiredColumnSize();
                 int decimalDigits = typeHandle.getRequiredDecimalDigits();
                 // Map negative scale to decimal(p+s, 0).
-                int precision = columnSize + max(-decimalDigits, 0);
+                int precision = actualPrecision + max(-decimalDigits, 0);
                 int scale = max(decimalDigits, 0);
                 Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
                 RoundingMode roundingMode = getNumberRoundingMode(session);
@@ -286,7 +285,7 @@ public class OracleClient
                     precision = Decimals.MAX_PRECISION;
                     scale = numberDefaultScale.get();
                 }
-                else if (precision > Decimals.MAX_PRECISION || columnSize <= 0) {
+                else if (precision > Decimals.MAX_PRECISION || actualPrecision <= 0) {
                     break;
                 }
                 DecimalType decimalType = createDecimalType(precision, scale);
@@ -306,7 +305,7 @@ public class OracleClient
 
             case OracleTypes.CHAR:
             case OracleTypes.NCHAR:
-                CharType charType = createCharType(columnSize);
+                CharType charType = createCharType(typeHandle.getRequiredColumnSize());
                 return Optional.of(ColumnMapping.sliceMapping(
                         charType,
                         charReadFunction(charType),
@@ -316,7 +315,7 @@ public class OracleClient
             case OracleTypes.VARCHAR:
             case OracleTypes.NVARCHAR:
                 return Optional.of(ColumnMapping.sliceMapping(
-                        createVarcharType(columnSize),
+                        createVarcharType(typeHandle.getRequiredColumnSize()),
                         (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
                         varcharWriteFunction(),
                         FULL_PUSHDOWN));
