@@ -18,12 +18,18 @@ class OperatorHashCollisionsStats
     private final double weightedHashCollisions;
     private final double weightedSumSquaredHashCollisions;
     private final double weightedExpectedHashCollisions;
+    private final long inputPositions;
 
-    public OperatorHashCollisionsStats(double weightedHashCollisions, double weightedSumSquaredHashCollisions, double weightedExpectedHashCollisions)
+    public OperatorHashCollisionsStats(
+            double weightedHashCollisions,
+            double weightedSumSquaredHashCollisions,
+            double weightedExpectedHashCollisions,
+            long inputPositions)
     {
         this.weightedHashCollisions = weightedHashCollisions;
         this.weightedSumSquaredHashCollisions = weightedSumSquaredHashCollisions;
         this.weightedExpectedHashCollisions = weightedExpectedHashCollisions;
+        this.inputPositions = inputPositions;
     }
 
     public double getWeightedHashCollisions()
@@ -41,11 +47,17 @@ class OperatorHashCollisionsStats
         return weightedExpectedHashCollisions;
     }
 
+    public long getInputPositions()
+    {
+        return inputPositions;
+    }
+
     public static OperatorHashCollisionsStats merge(OperatorHashCollisionsStats first, OperatorHashCollisionsStats second)
     {
         return new OperatorHashCollisionsStats(
                 first.weightedHashCollisions + second.weightedHashCollisions,
                 first.weightedSumSquaredHashCollisions + second.weightedSumSquaredHashCollisions,
-                first.weightedExpectedHashCollisions + second.weightedExpectedHashCollisions);
+                first.weightedExpectedHashCollisions + second.weightedExpectedHashCollisions,
+                first.inputPositions + second.inputPositions);
     }
 }

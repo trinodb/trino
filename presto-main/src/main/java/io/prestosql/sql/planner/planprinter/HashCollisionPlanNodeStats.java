@@ -50,7 +50,7 @@ public class HashCollisionPlanNodeStats
         return operatorHashCollisionsStats.entrySet().stream()
                 .collect(toMap(
                         Map.Entry::getKey,
-                        entry -> entry.getValue().getWeightedHashCollisions() / operatorInputStats.get(entry.getKey()).getInputPositions()));
+                        entry -> entry.getValue().getWeightedHashCollisions() / entry.getValue().getInputPositions()));
     }
 
     public Map<String, Double> getOperatorHashCollisionsStdDevs()
@@ -61,7 +61,7 @@ public class HashCollisionPlanNodeStats
                         entry -> computedWeightedStdDev(
                                 entry.getValue().getWeightedSumSquaredHashCollisions(),
                                 entry.getValue().getWeightedHashCollisions(),
-                                operatorInputStats.get(entry.getKey()).getInputPositions())));
+                                entry.getValue().getInputPositions())));
     }
 
     private static double computedWeightedStdDev(double sumSquared, double sum, double totalWeight)
@@ -77,7 +77,7 @@ public class HashCollisionPlanNodeStats
         return operatorHashCollisionsStats.entrySet().stream()
                 .collect(toMap(
                         Map.Entry::getKey,
-                        entry -> entry.getValue().getWeightedExpectedHashCollisions() / operatorInputStats.get(entry.getKey()).getInputPositions()));
+                        entry -> entry.getValue().getWeightedExpectedHashCollisions() / entry.getValue().getInputPositions()));
     }
 
     @Override

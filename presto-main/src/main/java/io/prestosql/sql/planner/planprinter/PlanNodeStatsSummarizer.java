@@ -128,7 +128,8 @@ public final class PlanNodeStatsSummarizer
                                     new OperatorHashCollisionsStats(
                                             hashCollisionsInfo.getWeightedHashCollisions(),
                                             hashCollisionsInfo.getWeightedSumSquaredHashCollisions(),
-                                            hashCollisionsInfo.getWeightedExpectedHashCollisions())),
+                                            hashCollisionsInfo.getWeightedExpectedHashCollisions(),
+                                            operatorStats.getInputPositions())),
                             (map1, map2) -> mergeMaps(map1, map2, OperatorHashCollisionsStats::merge));
                 }
 
