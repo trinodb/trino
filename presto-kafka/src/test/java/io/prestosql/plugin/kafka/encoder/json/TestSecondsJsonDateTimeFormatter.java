@@ -14,19 +14,18 @@
 package io.prestosql.plugin.kafka.encoder.json;
 
 import io.prestosql.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
-import io.prestosql.spi.type.SqlTime;
-import io.prestosql.spi.type.SqlTimestamp;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static io.prestosql.plugin.kafka.encoder.json.format.DateTimeFormat.SECONDS_SINCE_EPOCH;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.time.ZoneOffset.UTC;
 
 public class TestSecondsJsonDateTimeFormatter
 {
@@ -35,27 +34,37 @@ public class TestSecondsJsonDateTimeFormatter
         return SECONDS_SINCE_EPOCH.getFormatter(Optional.empty());
     }
 
-    private void testTime(SqlTime value, int precision, long actualSeconds)
+    @Test(dataProvider = "testTimeProvider")
+    public void testTime(LocalTime time)
     {
-        String formattedStr = getFormatter().formatTime(value, precision);
-        assertEquals(Long.parseLong(formattedStr), actualSeconds);
+        String formatted = getFormatter().formatTime(sqlTimeOf(3, time), 3);
+        assertEquals(Long.parseLong(formatted), time.toSecondOfDay());
     }
 
-    private void testTimestamp(SqlTimestamp value, long actualSeconds)
+    @DataProvider
+    public Object[][] testTimeProvider()
     {
-        String formattedStr = getFormatter().formatTimestamp(value);
-        assertEquals(Long.parseLong(formattedStr), actualSeconds);
+        return new Object[][] {
+                {LocalTime.of(15, 36, 25, 0)},
+                {LocalTime.of(0, 0, 0, 0)},
+                {LocalTime.of(23, 59, 59, 0)},
+        };
     }
 
-    @Test
-    public void testSecondsDateTimeFunctions()
+    @Test(dataProvider = "testTimestampProvider")
+    public void testTimestamp(LocalDateTime dateTime)
     {
-        testTime(sqlTimeOf(3, 15, 36, 25, 0), 3, LocalTime.of(15, 36, 25, 0).toSecondOfDay());
-        testTime(sqlTimeOf(3, 0, 0, 0, 0), 3, 0);
-        testTime(sqlTimeOf(3, 23, 59, 59, 0), 3, LocalTime.of(23, 59, 59, 0).toSecondOfDay());
+        String formatted = getFormatter().formatTimestamp(sqlTimestampOf(3, dateTime));
+        assertEquals(Long.parseLong(formatted), dateTime.toEpochSecond(UTC));
+    }
 
-        testTimestamp(sqlTimestampOf(3, 2020, 8, 18, 12, 38, 29, 0), LocalDateTime.of(2020, 8, 18, 12, 38, 29, 0).toEpochSecond(ZoneOffset.UTC));
-        testTimestamp(sqlTimestampOf(3, 1970, 1, 1, 0, 0, 0, 0), 0);
-        testTimestamp(sqlTimestampOf(3, 1800, 8, 18, 12, 38, 29, 0), LocalDateTime.of(1800, 8, 18, 12, 38, 29, 0).toEpochSecond(ZoneOffset.UTC));
+    @DataProvider
+    public Object[][] testTimestampProvider()
+    {
+        return new Object[][] {
+                {LocalDateTime.of(2020, 8, 18, 12, 38, 29, 0)},
+                {LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0)},
+                {LocalDateTime.of(1800, 8, 18, 12, 38, 29, 0)},
+        };
     }
 }
