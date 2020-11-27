@@ -13,8 +13,10 @@
  */
 package io.prestosql.spi.block;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
 import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -38,11 +40,25 @@ public class Int96ArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, block);
 
-        for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
-                sliceOutput.writeLong(block.getLong(position, 0));
-                sliceOutput.writeInt(block.getInt(position, 8));
+        if (!block.mayHaveNull()) {
+            sliceOutput.writeBytes(getHighSlice(block));
+            sliceOutput.writeBytes(getLowSlice(block));
+        }
+        else {
+            long[] high = new long[positionCount];
+            int[] low = new int[positionCount];
+            int nonNullPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                high[nonNullPositionCount] = block.getLong(i, 0);
+                low[nonNullPositionCount] = block.getInt(i, 8);
+                if (!block.isNull(i)) {
+                    nonNullPositionCount++;
+                }
             }
+
+            sliceOutput.writeInt(nonNullPositionCount);
+            sliceOutput.writeBytes(Slices.wrappedLongArray(high, 0, nonNullPositionCount));
+            sliceOutput.writeBytes(Slices.wrappedIntArray(low, 0, nonNullPositionCount));
         }
     }
 
@@ -55,13 +71,48 @@ public class Int96ArrayBlockEncoding
 
         long[] high = new long[positionCount];
         int[] low = new int[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                high[position] = sliceInput.readLong();
-                low[position] = sliceInput.readInt();
+        if (valueIsNull == null) {
+            sliceInput.readBytes(Slices.wrappedLongArray(high));
+            sliceInput.readBytes(Slices.wrappedIntArray(low));
+        }
+        else {
+            int nonNullPositionCount = sliceInput.readInt();
+            sliceInput.readBytes(Slices.wrappedLongArray(high, 0, nonNullPositionCount));
+            sliceInput.readBytes(Slices.wrappedIntArray(low, 0, nonNullPositionCount));
+            int position = nonNullPositionCount - 1;
+            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
+                high[i] = high[position];
+                low[i] = low[position];
+                if (!valueIsNull[i]) {
+                    position--;
+                }
             }
         }
 
         return new Int96ArrayBlock(0, positionCount, valueIsNull, high, low);
+    }
+
+    private Slice getHighSlice(Block block)
+    {
+        if (block instanceof Int96ArrayBlock) {
+            return ((Int96ArrayBlock) block).getHighSlice();
+        }
+        else if (block instanceof Int96ArrayBlockBuilder) {
+            return ((Int96ArrayBlockBuilder) block).getHighSlice();
+        }
+
+        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
+    }
+
+    private Slice getLowSlice(Block block)
+    {
+        if (block instanceof Int96ArrayBlock) {
+            return ((Int96ArrayBlock) block).getLowSlice();
+        }
+        else if (block instanceof Int96ArrayBlockBuilder) {
+            return ((Int96ArrayBlockBuilder) block).getLowSlice();
+        }
+
+        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }
