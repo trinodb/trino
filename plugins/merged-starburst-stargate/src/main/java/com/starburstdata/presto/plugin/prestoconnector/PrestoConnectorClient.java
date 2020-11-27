@@ -14,24 +14,33 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 
 public class PrestoConnectorClient
         extends BaseJdbcClient
 {
+    private final boolean enableWrites;
+
     @Inject
-    public PrestoConnectorClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
+    public PrestoConnectorClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, @EnableWrites boolean enableWrites)
     {
         super(config, "\"", connectionFactory);
+        this.enableWrites = enableWrites;
     }
 
     @Override
@@ -53,6 +62,69 @@ public class PrestoConnectorClient
                 quoted(column.getColumnName()),
                 comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
         execute(identity, sql);
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    {
+        if (!enableWrites) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
+        }
+        return super.beginInsertTable(session, tableHandle, columns);
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        if (!enableWrites) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
+        }
+        super.createTable(session, tableMetadata);
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        if (!enableWrites) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
+        }
+        return super.beginCreateTable(session, tableMetadata);
+    }
+
+    @Override
+    public void dropTable(JdbcIdentity identity, JdbcTableHandle handle)
+    {
+        if (!enableWrites) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+        }
+        super.dropTable(identity, handle);
+    }
+
+    @Override
+    public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName)
+    {
+        if (!enableWrites) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+        }
+        super.renameTable(identity, handle, newTableName);
+    }
+
+    @Override
+    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    {
+        if (!enableWrites) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+        }
+        super.renameColumn(identity, handle, jdbcColumn, newColumnName);
+    }
+
+    @Override
+    public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        if (!enableWrites) {
+            throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns");
+        }
+        super.dropColumn(identity, handle, column);
     }
 
     @Override

@@ -30,9 +30,10 @@ public class TestPrestoConnectorDynamicFiltering
     {
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
                 Map.of(),
-                false,
+                true,
                 List.of(ORDERS)));
         return createPrestoConnectorQueryRunner(
+                true, // TODO split out test class version with writes disabled (default option)
                 Map.of(),
                 Map.of(
                         "connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"),

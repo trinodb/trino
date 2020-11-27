@@ -40,6 +40,7 @@ public class TestPrestoConnectorIntegrationSmokeTest
                 true,
                 List.of(CUSTOMER, NATION, ORDERS, REGION)));
         return createPrestoConnectorQueryRunner(
+                false,
                 Map.of(),
                 Map.of("connection-url", prestoConnectorConnectionUrl(remotePresto, "tpch")));
     }

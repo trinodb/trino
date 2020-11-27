@@ -33,7 +33,7 @@ public class TestPrestoConnectorPlugin
     @Test
     public void testCreateConnector()
     {
-        Plugin plugin = new TestingPrestoConnectorPlugin();
+        Plugin plugin = new TestingPrestoConnectorPlugin(false);
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
     }

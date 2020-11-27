@@ -70,6 +70,7 @@ public final class PrestoConnectorQueryRunner
     }
 
     public static DistributedQueryRunner createPrestoConnectorQueryRunner(
+            boolean enableWrites,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties)
             throws Exception
@@ -94,7 +95,7 @@ public final class PrestoConnectorQueryRunner
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-user", "p2p");
 
-            queryRunner.installPlugin(new TestingPrestoConnectorPlugin());
+            queryRunner.installPlugin(new TestingPrestoConnectorPlugin(enableWrites));
             queryRunner.createCatalog("p2p_remote", "presto-connector", connectorProperties);
 
             return queryRunner;

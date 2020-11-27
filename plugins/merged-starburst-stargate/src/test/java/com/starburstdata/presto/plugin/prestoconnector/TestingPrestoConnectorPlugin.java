@@ -17,9 +17,16 @@ import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENS
 public class TestingPrestoConnectorPlugin
         extends PrestoConnectorPlugin
 {
+    private final boolean enableWrites;
+
+    public TestingPrestoConnectorPlugin(boolean enableWrites)
+    {
+        this.enableWrites = enableWrites;
+    }
+
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectorFactory(NOOP_LICENSE_MANAGER));
+        return ImmutableList.of(getConnectorFactory(NOOP_LICENSE_MANAGER, enableWrites));
     }
 }

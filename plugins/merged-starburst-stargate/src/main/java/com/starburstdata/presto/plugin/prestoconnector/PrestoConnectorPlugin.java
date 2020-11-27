@@ -28,11 +28,11 @@ public class PrestoConnectorPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(PRESTO_CONNECTOR, getConnectorFactory(new LicenseManagerProvider().get())));
+        return ImmutableList.of(new LicenceCheckingConnectorFactory(PRESTO_CONNECTOR, getConnectorFactory(new LicenseManagerProvider().get(), false)));
     }
 
     @VisibleForTesting
-    ConnectorFactory getConnectorFactory(LicenseManager licenseManager)
+    ConnectorFactory getConnectorFactory(LicenseManager licenseManager, boolean enableWrites)
     {
         requireNonNull(licenseManager, "licenseManager is null");
         return new DynamicFilteringJdbcConnectorFactory(
@@ -40,6 +40,7 @@ public class PrestoConnectorPlugin
                 "presto-connector",
                 (String catalogName) -> combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
+                        binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),
                         new PrestoConnectorModule()),
                 licenseManager);
     }
