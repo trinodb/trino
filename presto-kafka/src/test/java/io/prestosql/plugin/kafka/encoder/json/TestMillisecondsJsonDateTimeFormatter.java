@@ -14,11 +14,11 @@
 package io.prestosql.plugin.kafka.encoder.json;
 
 import io.prestosql.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
-import io.prestosql.spi.type.SqlTime;
-import io.prestosql.spi.type.SqlTimestamp;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Optional;
 
 import static io.prestosql.plugin.kafka.encoder.json.format.DateTimeFormat.MILLISECONDS_SINCE_EPOCH;
@@ -27,6 +27,7 @@ import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
+import static java.time.temporal.ChronoField.MILLI_OF_DAY;
 import static java.time.temporal.ChronoField.NANO_OF_DAY;
 import static java.util.concurrent.TimeUnit.DAYS;
 
@@ -37,37 +38,36 @@ public class TestMillisecondsJsonDateTimeFormatter
         return MILLISECONDS_SINCE_EPOCH.getFormatter(Optional.empty());
     }
 
-    private void testTime(SqlTime value, int precision, long actualMillis)
+    @Test(dataProvider = "testTimeProvider")
+    public void testTime(LocalTime time)
     {
-        String formattedStr = getFormatter().formatTime(value, precision);
-        assertEquals(Long.parseLong(formattedStr), actualMillis);
+        String formatted = getFormatter().formatTime(sqlTimeOf(3, time), 3);
+        assertEquals(Long.parseLong(formatted), time.getLong(MILLI_OF_DAY));
     }
 
-    private void testTimestamp(SqlTimestamp value, long actualMillis)
+    @DataProvider
+    public Object[][] testTimeProvider()
     {
-        String formattedStr = getFormatter().formatTimestamp(value);
-        assertEquals(Long.parseLong(formattedStr), actualMillis);
+        return new Object[][] {
+                {LocalTime.of(15, 36, 25, 123000000)},
+                {LocalTime.of(15, 36, 25, 0)},
+        };
     }
 
-    private long getMillisFromTime(int hour, int minuteOfHour, int secondOfMinute, int nanoOfSecond)
+    @Test(dataProvider = "testTimestampProvider")
+    public void testTimestamp(LocalDateTime dateTime)
     {
-        return getMillisFromDateTime(1970, 1, 1, hour, minuteOfHour, secondOfMinute, nanoOfSecond);
+        String formattedStr = getFormatter().formatTimestamp(sqlTimestampOf(3, dateTime));
+        assertEquals(Long.parseLong(formattedStr), DAYS.toMillis(dateTime.getLong(EPOCH_DAY)) + scaleNanosToMillis(dateTime.getLong(NANO_OF_DAY)));
     }
 
-    private long getMillisFromDateTime(int year, int monthOfYear, int dayOfMonth, int hourOfDay, int minuteOfHour, int secondOfMinute, int nanoOfSecond)
+    @DataProvider
+    public Object[][] testTimestampProvider()
     {
-        LocalDateTime localDateTime = LocalDateTime.of(year, monthOfYear, dayOfMonth, hourOfDay, minuteOfHour, secondOfMinute, nanoOfSecond);
-        return DAYS.toMillis(localDateTime.getLong(EPOCH_DAY)) + scaleNanosToMillis(localDateTime.getLong(NANO_OF_DAY));
-    }
-
-    @Test
-    public void testMillisecondsDateTimeFunctions()
-    {
-        testTime(sqlTimeOf(3, 15, 36, 25, 123000000), 3, getMillisFromTime(15, 36, 25, 123000000));
-        testTime(sqlTimeOf(3, 15, 36, 25, 0), 3, getMillisFromTime(15, 36, 25, 0));
-
-        testTimestamp(sqlTimestampOf(3, 2020, 8, 18, 12, 38, 29, 123), getMillisFromDateTime(2020, 8, 18, 12, 38, 29, 123000000));
-        testTimestamp(sqlTimestampOf(3, 1970, 1, 1, 0, 0, 0, 0), 0);
-        testTimestamp(sqlTimestampOf(3, 1800, 8, 18, 12, 38, 29, 123), getMillisFromDateTime(1800, 8, 18, 12, 38, 29, 123000000));
+        return new Object[][] {
+                {LocalDateTime.of(2020, 8, 18, 12, 38, 29, 123000000)},
+                {LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0)},
+                {LocalDateTime.of(1800, 8, 18, 12, 38, 29, 123000000)},
+        };
     }
 }
