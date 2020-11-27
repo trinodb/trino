@@ -27,7 +27,7 @@ public final class JdbcTypeHandle
 {
     private final int jdbcType;
     private final Optional<String> jdbcTypeName;
-    private final int columnSize;
+    private final Optional<Integer> columnSize;
     private final Optional<Integer> decimalDigits;
     private final Optional<Integer> arrayDimensions;
     private final Optional<CaseSensitivity> caseSensitivity;
@@ -47,21 +47,21 @@ public final class JdbcTypeHandle
             Optional<Integer> arrayDimensions,
             Optional<CaseSensitivity> caseSensitivity)
     {
-        this(jdbcType, jdbcTypeName, columnSize, Optional.of(decimalDigits), arrayDimensions, caseSensitivity);
+        this(jdbcType, jdbcTypeName, Optional.of(columnSize), Optional.of(decimalDigits), arrayDimensions, caseSensitivity);
     }
 
     @JsonCreator
     public JdbcTypeHandle(
             @JsonProperty("jdbcType") int jdbcType,
             @JsonProperty("jdbcTypeName") Optional<String> jdbcTypeName,
-            @JsonProperty("columnSize") int columnSize,
+            @JsonProperty("columnSize") Optional<Integer> columnSize,
             @JsonProperty("decimalDigits") Optional<Integer> decimalDigits,
             @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions,
             @JsonProperty("caseSensitivity") Optional<CaseSensitivity> caseSensitivity)
     {
         this.jdbcType = jdbcType;
         this.jdbcTypeName = requireNonNull(jdbcTypeName, "jdbcTypeName is null");
-        this.columnSize = columnSize;
+        this.columnSize = requireNonNull(columnSize, "columnSize is null");
         this.decimalDigits = requireNonNull(decimalDigits, "decimalDigits is null");
         this.arrayDimensions = requireNonNull(arrayDimensions, "arrayDimensions is null");
         this.caseSensitivity = requireNonNull(caseSensitivity, "caseSensitivity is null");
@@ -80,9 +80,15 @@ public final class JdbcTypeHandle
     }
 
     @JsonProperty
-    public int getColumnSize()
+    public Optional<Integer> getColumnSize()
     {
         return columnSize;
+    }
+
+    @JsonIgnore
+    public int getRequiredColumnSize()
+    {
+        return getColumnSize().orElseThrow(() -> new IllegalStateException("column size not present"));
     }
 
     @JsonProperty
@@ -126,7 +132,7 @@ public final class JdbcTypeHandle
         }
         JdbcTypeHandle that = (JdbcTypeHandle) o;
         return jdbcType == that.jdbcType &&
-                columnSize == that.columnSize &&
+                Objects.equals(columnSize, that.columnSize) &&
                 Objects.equals(decimalDigits, that.decimalDigits) &&
                 Objects.equals(jdbcTypeName, that.jdbcTypeName) &&
                 Objects.equals(arrayDimensions, that.arrayDimensions);

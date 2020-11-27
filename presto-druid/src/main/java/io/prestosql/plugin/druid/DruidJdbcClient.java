@@ -136,7 +136,7 @@ public class DruidJdbcClient
     {
         switch (typeHandle.getJdbcType()) {
             case Types.VARCHAR:
-                int columnSize = typeHandle.getColumnSize();
+                int columnSize = typeHandle.getRequiredColumnSize();
                 if (columnSize == -1) {
                     return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
