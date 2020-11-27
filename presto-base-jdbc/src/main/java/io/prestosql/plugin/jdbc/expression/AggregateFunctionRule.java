@@ -24,6 +24,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Verify.verifyNotNull;
+import static java.util.Objects.requireNonNull;
+
 public interface AggregateFunctionRule
 {
     Pattern<AggregateFunction> getPattern();
@@ -32,6 +35,14 @@ public interface AggregateFunctionRule
 
     interface RewriteContext
     {
+        default ColumnHandle getAssignment(String name)
+        {
+            requireNonNull(name, "name is null");
+            ColumnHandle columnHandle = getAssignments().get(name);
+            verifyNotNull(columnHandle, "No assignment for %s", name);
+            return columnHandle;
+        }
+
         Map<String, ColumnHandle> getAssignments();
 
         Function<String, String> getIdentifierQuote();
