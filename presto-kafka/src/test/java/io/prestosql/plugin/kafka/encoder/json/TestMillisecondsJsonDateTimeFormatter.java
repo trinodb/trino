@@ -14,15 +14,19 @@
 package io.prestosql.plugin.kafka.encoder.json;
 
 import io.prestosql.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
+import io.prestosql.spi.type.SqlTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeZoneKey;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.Optional;
 
 import static io.prestosql.plugin.kafka.encoder.json.format.DateTimeFormat.MILLISECONDS_SINCE_EPOCH;
 import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.scaleNanosToMillis;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -68,6 +72,26 @@ public class TestMillisecondsJsonDateTimeFormatter
                 {LocalDateTime.of(2020, 8, 18, 12, 38, 29, 123000000)},
                 {LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0)},
                 {LocalDateTime.of(1800, 8, 18, 12, 38, 29, 123000000)},
+        };
+    }
+
+    @Test(dataProvider = "testTimestampWithTimeZoneProvider")
+    public void testTimestampWithTimeZone(ZonedDateTime zonedDateTime)
+    {
+        String formattedStr = getFormatter().formatTimestampWithZone(SqlTimestampWithTimeZone.fromInstant(3, zonedDateTime.toInstant(), zonedDateTime.getZone()));
+        assertEquals(Long.parseLong(formattedStr), zonedDateTime.toInstant().toEpochMilli());
+    }
+
+    @DataProvider
+    public Object[][] testTimestampWithTimeZoneProvider()
+    {
+        return new Object[][] {
+                {ZonedDateTime.of(2020, 8, 18, 12, 38, 29, 123000000, UTC_KEY.getZoneId())},
+                {ZonedDateTime.of(2020, 8, 18, 12, 38, 29, 123000000, TimeZoneKey.getTimeZoneKey("America/New_York").getZoneId())},
+                {ZonedDateTime.of(1800, 8, 18, 12, 38, 29, 123000000, UTC_KEY.getZoneId())},
+                {ZonedDateTime.of(2020, 8, 18, 12, 38, 29, 123000000, TimeZoneKey.getTimeZoneKey("Asia/Hong_Kong").getZoneId())},
+                {ZonedDateTime.of(2020, 8, 18, 12, 38, 29, 123000000, TimeZoneKey.getTimeZoneKey("Africa/Mogadishu").getZoneId())},
+                {ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, UTC_KEY.getZoneId())},
         };
     }
 }
