@@ -72,10 +72,12 @@ import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestQueryFramework
 {
@@ -319,6 +321,16 @@ public abstract class AbstractTestQueryFramework
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());
         assertEquals(actual, expected);
+    }
+
+    protected void assertExplainAnalyze(@Language("SQL") String query)
+    {
+        String value = (String) computeActual(query).getOnlyValue();
+
+        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
+
+        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
+        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
