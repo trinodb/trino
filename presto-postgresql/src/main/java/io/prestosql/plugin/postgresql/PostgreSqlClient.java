@@ -299,7 +299,7 @@ public class PostgreSqlClient
                 while (resultSet.next()) {
                     String columnName = resultSet.getString("COLUMN_NAME");
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                            resultSet.getInt("DATA_TYPE"),
+                            getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                             Optional.of(resultSet.getString("TYPE_NAME")),
                             resultSet.getInt("COLUMN_SIZE"),
                             getInteger(resultSet, "DECIMAL_DIGITS"),
