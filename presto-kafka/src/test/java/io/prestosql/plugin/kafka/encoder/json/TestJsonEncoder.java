@@ -121,6 +121,7 @@ public class TestJsonEncoder
         for (DateTimeFormat dataFormat : ImmutableList.of(MILLISECONDS_SINCE_EPOCH, SECONDS_SINCE_EPOCH)) {
             assertSupportedDataType(() -> singleColumnEncoder(TIME, dataFormat, null));
             assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP, dataFormat, null));
+            assertSupportedDataType(() -> singleColumnEncoder(TIMESTAMP_WITH_TIME_ZONE, dataFormat, null));
         }
 
         assertUnsupportedColumnTypeException(() -> singleColumnEncoder(REAL));
