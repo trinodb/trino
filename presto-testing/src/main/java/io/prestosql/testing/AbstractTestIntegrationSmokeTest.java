@@ -26,7 +26,6 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DataProviders.toDataProvider;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -325,16 +324,6 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders");
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
-    }
-
-    protected void assertExplainAnalyze(@Language("SQL") String query)
-    {
-        String value = (String) computeActual(query).getOnlyValue();
-
-        assertTrue(value.matches("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)"), format("Expected output to contain \"CPU:.*, Input:.*, Output\", but it is %s", value));
-
-        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
     }
 
     @Test
