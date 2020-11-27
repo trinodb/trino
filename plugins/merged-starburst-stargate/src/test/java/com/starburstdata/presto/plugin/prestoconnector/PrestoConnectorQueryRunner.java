@@ -35,8 +35,7 @@ public final class PrestoConnectorQueryRunner
 
     public static DistributedQueryRunner createRemotePrestoQueryRunner(
             Map<String, String> extraProperties,
-            boolean readOnly,
-            Iterable<TpchTable<?>> requiredTables)
+            Iterable<TpchTable<?>> requiredTablesInMemoryConnector)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -49,17 +48,15 @@ public final class PrestoConnectorQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            if (!readOnly) {
-                queryRunner.installPlugin(new MemoryPlugin());
-                queryRunner.createCatalog("memory", "memory");
+            queryRunner.installPlugin(new MemoryPlugin());
+            queryRunner.createCatalog("memory", "memory");
 
-                queryRunner.execute("CREATE SCHEMA memory.tiny");
-                Session tpchSetupSession = testSessionBuilder()
-                        .setCatalog("memory")
-                        .setSchema("tiny")
-                        .build();
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTables);
-            }
+            queryRunner.execute("CREATE SCHEMA memory.tiny");
+            Session tpchSetupSession = testSessionBuilder()
+                    .setCatalog("memory")
+                    .setSchema("tiny")
+                    .build();
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTablesInMemoryConnector);
 
             return queryRunner;
         }

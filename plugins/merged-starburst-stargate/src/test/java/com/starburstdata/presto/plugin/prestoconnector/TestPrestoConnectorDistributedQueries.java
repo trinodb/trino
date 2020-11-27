@@ -32,7 +32,6 @@ public class TestPrestoConnectorDistributedQueries
     {
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
                 Map.of(),
-                false,
                 TpchTable.getTables()));
         return createPrestoConnectorQueryRunner(
                 false,

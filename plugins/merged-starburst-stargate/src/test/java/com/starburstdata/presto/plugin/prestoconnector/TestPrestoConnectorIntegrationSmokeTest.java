@@ -21,10 +21,6 @@ import java.util.Map;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
-import static io.prestosql.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -37,8 +33,7 @@ public class TestPrestoConnectorIntegrationSmokeTest
     {
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
                 Map.of(),
-                true,
-                List.of(CUSTOMER, NATION, ORDERS, REGION)));
+                List.of()));
         return createPrestoConnectorQueryRunner(
                 false,
                 Map.of(),

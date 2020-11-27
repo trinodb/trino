@@ -30,7 +30,6 @@ public class TestPrestoConnectorDynamicFilteringWritesEnabled
     {
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
                 Map.of(),
-                false,
                 List.of(ORDERS)));
         return createPrestoConnectorQueryRunner(
                 true,
