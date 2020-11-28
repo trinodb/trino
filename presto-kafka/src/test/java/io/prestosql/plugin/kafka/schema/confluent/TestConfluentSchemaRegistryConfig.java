@@ -21,6 +21,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.ADD_DUMMY;
+import static io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
 
 public class TestConfluentSchemaRegistryConfig
 {
@@ -29,7 +31,8 @@ public class TestConfluentSchemaRegistryConfig
     {
         assertRecordedDefaults(recordDefaults(ConfluentSchemaRegistryConfig.class)
                 .setConfluentSchemaRegistryUrl(null)
-                .setConfluentSchemaRegistryClientCacheSize(1000));
+                .setConfluentSchemaRegistryClientCacheSize(1000)
+                .setEmptyFieldStrategy(IGNORE));
     }
 
     @Test
@@ -38,11 +41,13 @@ public class TestConfluentSchemaRegistryConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("kafka.confluent-schema-registry-url", "http://schema-registry:8081")
                 .put("kafka.confluent-schema-registry-client-cache-size", "1500")
+                .put("kafka.empty-field-strategy", "ADD_DUMMY")
                 .build();
 
         ConfluentSchemaRegistryConfig expected = new ConfluentSchemaRegistryConfig()
                 .setConfluentSchemaRegistryUrl("http://schema-registry:8081")
-                .setConfluentSchemaRegistryClientCacheSize(1500);
+                .setConfluentSchemaRegistryClientCacheSize(1500)
+                .setEmptyFieldStrategy(ADD_DUMMY);
 
         assertFullMapping(properties, expected);
     }
