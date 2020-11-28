@@ -14,9 +14,7 @@
 package io.prestosql.spi.type;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.function.OperatorType;
 
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -26,7 +24,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TestingIdType.ID;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -34,7 +32,9 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 public class TestingTypeManager
         implements TypeManager
 {
-    private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, INTEGER, VARCHAR, VARBINARY, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE, DATE, ID, HYPER_LOG_LOG);
+    private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE, DATE, ID, HYPER_LOG_LOG);
+
+    private final TypeOperators typeOperators = new TypeOperators();
 
     @Override
     public Type getType(TypeSignature signature)
@@ -65,8 +65,8 @@ public class TestingTypeManager
     }
 
     @Override
-    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public TypeOperators getTypeOperators()
     {
-        throw new UnsupportedOperationException();
+        return typeOperators;
     }
 }

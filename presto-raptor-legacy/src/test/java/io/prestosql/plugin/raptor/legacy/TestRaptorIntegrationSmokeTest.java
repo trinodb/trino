@@ -22,6 +22,7 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -236,7 +237,7 @@ public class TestRaptorIntegrationSmokeTest
 
         assertUpdate(joiner.toString(), format("VALUES(%s)", rows));
 
-        MaterializedResult results = computeActual("SELECT format_datetime(col2 AT TIME ZONE 'UTC', 'yyyyMMdd'), \"$shard_uuid\" FROM test_shard_temporal_timestamp");
+        MaterializedResult results = computeActual("SELECT cast(cast(col2 as DATE) as VARCHAR), \"$shard_uuid\" FROM test_shard_temporal_timestamp");
         assertEquals(results.getRowCount(), rows);
 
         // Each shard will only contain data of one date.
@@ -269,7 +270,7 @@ public class TestRaptorIntegrationSmokeTest
         assertUpdate(joiner.toString(), format("VALUES(%s)", rows));
 
         MaterializedResult results = computeActual("" +
-                "SELECT format_datetime(col2 AT TIME ZONE 'UTC', 'yyyyMMdd'), \"$shard_uuid\" " +
+                "SELECT cast(cast(col2 as DATE) as VARCHAR), \"$shard_uuid\" " +
                 "FROM test_shard_temporal_timestamp_bucketed");
 
         assertEquals(results.getRowCount(), rows);
@@ -421,6 +422,9 @@ public class TestRaptorIntegrationSmokeTest
     }
 
     @Test
+    @Flaky(
+            issue = "https://github.com/prestosql/presto/issues/1977",
+            match = "(?s)AssertionError.*query.*SELECT count\\(DISTINCT \"\\$shard_uuid\"\\) FROM orders_bucketed.*Actual rows.*\\[\\d\\d\\].*Expected rows.*\\[100\\]")
     public void testCreateBucketedTable()
     {
         assertUpdate("" +

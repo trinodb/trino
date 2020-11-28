@@ -27,28 +27,28 @@ public class TestEventListenerPlugin
     static class TestingEventListenerPlugin
             implements Plugin
     {
-        private final EventsBuilder eventsBuilder;
+        private final EventsCollector eventsCollector;
 
-        public TestingEventListenerPlugin(EventsBuilder eventsBuilder)
+        public TestingEventListenerPlugin(EventsCollector eventsCollector)
         {
-            this.eventsBuilder = requireNonNull(eventsBuilder, "eventsBuilder is null");
+            this.eventsCollector = requireNonNull(eventsCollector, "eventsBuilder is null");
         }
 
         @Override
         public Iterable<EventListenerFactory> getEventListenerFactories()
         {
-            return ImmutableList.of(new TestingEventListenerFactory(eventsBuilder));
+            return ImmutableList.of(new TestingEventListenerFactory(eventsCollector));
         }
     }
 
     private static class TestingEventListenerFactory
             implements EventListenerFactory
     {
-        private final EventsBuilder eventsBuilder;
+        private final EventsCollector eventsCollector;
 
-        public TestingEventListenerFactory(EventsBuilder eventsBuilder)
+        public TestingEventListenerFactory(EventsCollector eventsCollector)
         {
-            this.eventsBuilder = eventsBuilder;
+            this.eventsCollector = eventsCollector;
         }
 
         @Override
@@ -60,7 +60,7 @@ public class TestEventListenerPlugin
         @Override
         public EventListener create(Map<String, String> config)
         {
-            return new TestingEventListener(eventsBuilder);
+            return new TestingEventListener(eventsCollector);
         }
     }
 }

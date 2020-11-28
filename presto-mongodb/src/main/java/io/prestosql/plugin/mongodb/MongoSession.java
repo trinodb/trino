@@ -35,6 +35,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -74,7 +75,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
@@ -98,19 +99,14 @@ public class MongoSession
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
     private static final String OR_OP = "$or";
-    private static final String AND_OP = "$and";
-    private static final String NOT_OP = "$not";
-    private static final String NOR_OP = "$nor";
 
     private static final String EQ_OP = "$eq";
     private static final String NOT_EQ_OP = "$ne";
-    private static final String EXISTS_OP = "$exists";
     private static final String GTE_OP = "$gte";
     private static final String GT_OP = "$gt";
     private static final String LT_OP = "$lt";
     private static final String LTE_OP = "$lte";
     private static final String IN_OP = "$in";
-    private static final String NOTIN_OP = "$nin";
 
     private final TypeManager typeManager;
     private final MongoClient client;
@@ -190,6 +186,30 @@ public class MongoSession
         tableCache.invalidate(tableName);
     }
 
+    public void addColumn(SchemaTableName schemaTableName, ColumnMetadata columnMetadata)
+    {
+        Document metadata = getTableMetadata(schemaTableName);
+
+        List<Document> columns = new ArrayList<>(getColumnMetadata(metadata));
+
+        Document newColumn = new Document();
+        newColumn.append(FIELDS_NAME_KEY, columnMetadata.getName());
+        newColumn.append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString());
+        newColumn.append(FIELDS_HIDDEN_KEY, false);
+        columns.add(newColumn);
+
+        String schemaName = toRemoteSchemaName(schemaTableName.getSchemaName());
+        String tableName = toRemoteTableName(schemaName, schemaTableName.getTableName());
+
+        metadata.append(FIELDS_KEY, columns);
+
+        MongoDatabase db = client.getDatabase(schemaName);
+        MongoCollection<Document> schema = db.getCollection(schemaCollection);
+        schema.findOneAndReplace(new Document(TABLE_NAME_KEY, tableName), metadata);
+
+        tableCache.invalidate(schemaTableName);
+    }
+
     private MongoTable loadTableSchema(SchemaTableName tableName)
             throws TableNotFoundException
     {
@@ -253,7 +273,10 @@ public class MongoSession
             output.append(column.getName(), 1);
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
-        FindIterable<Document> iterable = collection.find(buildQuery(tableHandle.getConstraint())).projection(output);
+        Document query = buildQuery(tableHandle.getConstraint());
+        FindIterable<Document> iterable = collection.find(query).projection(output);
+        tableHandle.getLimit().ifPresent(iterable::limit);
+        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), query.toJson(), output.toJson());
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
@@ -408,7 +431,7 @@ public class MongoSession
 
     private static Document isNullPredicate()
     {
-        return documentOf(EXISTS_OP, true).append(EQ_OP, null);
+        return documentOf(EQ_OP, null);
     }
 
     private static Document isNotNullPredicate()
@@ -565,7 +588,7 @@ public class MongoSession
             typeSignature = DOUBLE.getTypeSignature();
         }
         else if (value instanceof Date) {
-            typeSignature = TIMESTAMP.getTypeSignature();
+            typeSignature = TIMESTAMP_MILLIS.getTypeSignature();
         }
         else if (value instanceof ObjectId) {
             typeSignature = OBJECT_ID.getTypeSignature();
@@ -575,7 +598,7 @@ public class MongoSession
                     .map(this::guessFieldType)
                     .collect(toList());
 
-            if (subTypes.isEmpty() || subTypes.stream().anyMatch(t -> t.isEmpty())) {
+            if (subTypes.isEmpty() || subTypes.stream().anyMatch(Optional::isEmpty)) {
                 return Optional.empty();
             }
 

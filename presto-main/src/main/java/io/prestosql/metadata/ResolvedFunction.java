@@ -15,42 +15,59 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.compress.zstd.ZstdDecompressor;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.analyzer.TypeSignatureTranslator;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.type.TypeDeserializer;
+import io.prestosql.type.TypeSignatureDeserializer;
+import io.prestosql.type.TypeSignatureKeyDeserializer;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.BaseEncoding.base32Hex;
+import static java.lang.Math.toIntExact;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ResolvedFunction
 {
+    private static final JsonCodec<ResolvedFunction> SERIALIZE_JSON_CODEC = new JsonCodecFactory().jsonCodec(ResolvedFunction.class);
     private static final String PREFIX = "@";
-    private final Signature signature;
+    private final BoundSignature signature;
     private final FunctionId functionId;
+    private final Map<TypeSignature, Type> typeDependencies;
+    private final Set<ResolvedFunction> functionDependencies;
 
     @JsonCreator
     public ResolvedFunction(
-            @JsonProperty("signature") Signature signature,
-            @JsonProperty("id") FunctionId functionId)
+            @JsonProperty("signature") BoundSignature signature,
+            @JsonProperty("id") FunctionId functionId,
+            @JsonProperty("typeDependencies") Map<TypeSignature, Type> typeDependencies,
+            @JsonProperty("functionDependencies") Set<ResolvedFunction> functionDependencies)
     {
         this.signature = requireNonNull(signature, "signature is null");
         this.functionId = requireNonNull(functionId, "functionId is null");
-        checkArgument(signature.getTypeVariableConstraints().isEmpty() && signature.getLongVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
-        checkArgument(!signature.isVariableArity(), "%s has variable arity", signature);
+        this.typeDependencies = ImmutableMap.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
+        this.functionDependencies = ImmutableSet.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
     }
 
     @JsonProperty
-    public Signature getSignature()
+    public BoundSignature getSignature()
     {
         return signature;
     }
@@ -61,44 +78,47 @@ public class ResolvedFunction
         return functionId;
     }
 
+    @JsonProperty
+    public Map<TypeSignature, Type> getTypeDependencies()
+    {
+        return typeDependencies;
+    }
+
+    @JsonProperty
+    public Set<ResolvedFunction> getFunctionDependencies()
+    {
+        return functionDependencies;
+    }
+
+    public static boolean isResolved(QualifiedName name)
+    {
+        return name.getSuffix().startsWith(PREFIX);
+    }
+
     public QualifiedName toQualifiedName()
     {
-        return QualifiedName.of(PREFIX + encodeSimpleSignature(signature) + PREFIX + functionId);
+        byte[] json = SERIALIZE_JSON_CODEC.toJsonBytes(this);
+
+        // json can be large so use zstd to compress
+        ZstdCompressor compressor = new ZstdCompressor();
+        byte[] compressed = new byte[toIntExact(compressor.maxCompressedLength(json.length))];
+        int outputSize = compressor.compress(json, 0, json.length, compressed, 0, compressed.length);
+
+        // names are case insensitive, so use base32 instead of base64
+        String base32 = base32Hex().encode(compressed, 0, outputSize);
+        // add name so expressions are still readable
+        return QualifiedName.of(PREFIX + signature.getName() + PREFIX + base32);
     }
 
-    public static Optional<ResolvedFunction> fromQualifiedName(QualifiedName name)
+    public static String extractFunctionName(QualifiedName qualifiedName)
     {
-        String data = name.getSuffix();
+        String data = qualifiedName.getSuffix();
         if (!data.startsWith(PREFIX)) {
-            return Optional.empty();
+            return data;
         }
         List<String> parts = Splitter.on(PREFIX).splitToList(data.subSequence(1, data.length()));
-        checkArgument(parts.size() == 2, "Expected encoded resolved function to contain two parts: %s", name);
-        Signature signature = decodeSimpleSignature(parts.get(0));
-        FunctionId functionId = new FunctionId(parts.get(1));
-        return Optional.of(new ResolvedFunction(signature, functionId));
-    }
-
-    private static String encodeSimpleSignature(Signature signature)
-    {
-        List<Object> parts = new ArrayList<>(2 + signature.getArgumentTypes().size());
-        parts.add(signature.getName());
-        parts.add(signature.getReturnType());
-        parts.addAll(signature.getArgumentTypes());
-        // TODO: this needs to be canonicalized elsewhere
-        return Joiner.on('|').join(parts).toLowerCase(Locale.US);
-    }
-
-    private static Signature decodeSimpleSignature(String encodedSignature)
-    {
-        List<String> parts = Splitter.on('|').splitToList(encodedSignature);
-        checkArgument(parts.size() >= 2, "Expected encoded signature to contain at least 2 parts: %s", encodedSignature);
-        String name = parts.get(0);
-        TypeSignature returnType = TypeSignatureTranslator.parseTypeSignature(parts.get(1), ImmutableSet.of());
-        List<TypeSignature> argumentTypes = parts.subList(2, parts.size()).stream()
-                .map(part -> TypeSignatureTranslator.parseTypeSignature(part, ImmutableSet.of()))
-                .collect(toImmutableList());
-        return new Signature(name, returnType, argumentTypes);
+        checkArgument(parts.size() == 2, "Expected encoded resolved function to contain two parts: %s", qualifiedName);
+        return parts.get(0);
     }
 
     @Override
@@ -112,18 +132,60 @@ public class ResolvedFunction
         }
         ResolvedFunction that = (ResolvedFunction) o;
         return Objects.equals(signature, that.signature) &&
-                Objects.equals(functionId, that.functionId);
+                Objects.equals(functionId, that.functionId) &&
+                Objects.equals(typeDependencies, that.typeDependencies) &&
+                Objects.equals(functionDependencies, that.functionDependencies);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, functionId);
+        return Objects.hash(signature, functionId, typeDependencies, functionDependencies);
     }
 
     @Override
     public String toString()
     {
         return signature.toString();
+    }
+
+    public static class ResolvedFunctionDecoder
+    {
+        private final JsonCodec<ResolvedFunction> jsonCodec;
+
+        public ResolvedFunctionDecoder(Function<TypeId, Type> typeLoader)
+        {
+            ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+            objectMapperProvider.setJsonDeserializers(ImmutableMap.of(
+                    Type.class, new TypeDeserializer(typeLoader),
+                    TypeSignature.class, new TypeSignatureDeserializer()));
+            objectMapperProvider.setKeyDeserializers(ImmutableMap.of(
+                    TypeSignature.class, new TypeSignatureKeyDeserializer()));
+            jsonCodec = new JsonCodecFactory(objectMapperProvider).jsonCodec(ResolvedFunction.class);
+        }
+
+        public Optional<ResolvedFunction> fromQualifiedName(QualifiedName qualifiedName)
+        {
+            String data = qualifiedName.getSuffix();
+            if (!data.startsWith(PREFIX)) {
+                return Optional.empty();
+            }
+            List<String> parts = Splitter.on(PREFIX).splitToList(data.subSequence(1, data.length()));
+            checkArgument(parts.size() == 2, "Expected encoded resolved function to contain two parts: %s", qualifiedName);
+            String name = parts.get(0);
+
+            String base32 = parts.get(1);
+        // name may have been lower cased, but base32 decoder requires upper case
+            base32 = base32.toUpperCase(ENGLISH);
+            byte[] compressed = base32Hex().decode(base32);
+
+            byte[] json = new byte[toIntExact(ZstdDecompressor.getDecompressedSize(compressed, 0, compressed.length))];
+            new ZstdDecompressor().decompress(compressed, 0, compressed.length, json, 0, json.length);
+
+            ResolvedFunction resolvedFunction = jsonCodec.fromJson(json);
+            checkArgument(resolvedFunction.getSignature().getName().equalsIgnoreCase(name),
+                    "Expected decoded function to have name %s, but name is %s", resolvedFunction.getSignature().getName(), name);
+            return Optional.of(resolvedFunction);
+        }
     }
 }

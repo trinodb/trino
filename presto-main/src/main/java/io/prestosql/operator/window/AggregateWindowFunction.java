@@ -54,6 +54,7 @@ public class AggregateWindowFunction
                 null,
                 false,
                 null,
+                null,
                 lambdaProviders,
                 null);
 
@@ -145,7 +146,7 @@ public class AggregateWindowFunction
         }
     }
 
-    public static WindowFunctionSupplier supplier(Signature signature, final InternalAggregationFunction function)
+    public static WindowFunctionSupplier supplier(Signature signature, InternalAggregationFunction function)
     {
         requireNonNull(function, "function is null");
         return new AbstractWindowFunctionSupplier(signature, null, function.getLambdaInterfaces())

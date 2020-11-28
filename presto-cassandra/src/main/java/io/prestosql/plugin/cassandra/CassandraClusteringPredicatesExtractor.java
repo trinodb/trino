@@ -129,7 +129,7 @@ public class CassandraClusteringPredicatesExtractor
                         }
                         return predicate;
                     }, discreteValues -> {
-                        if (discreteValues.isWhiteList()) {
+                        if (discreteValues.isInclusive()) {
                             ImmutableList.Builder<Object> discreteValuesList = ImmutableList.builder();
                             for (Object discreteValue : discreteValues.getValues()) {
                                 discreteValuesList.add(columnHandle.getCassandraType().toCqlLiteral(discreteValue));

@@ -20,7 +20,6 @@ public final class TestGroups
     public static final String ALTER_TABLE = "alter_table";
     public static final String COMMENT = "comment";
     public static final String SIMPLE = "simple";
-    public static final String QUARANTINE = "quarantine";
     public static final String FUNCTIONS = "functions";
     public static final String CLI = "cli";
     public static final String SYSTEM_CONNECTOR = "system";
@@ -33,17 +32,7 @@ public final class TestGroups
     public static final String QUERY_ENGINE = "qe";
     public static final String COMPARISON = "comparison";
     public static final String LOGICAL = "logical";
-    public static final String SET_OPERATION = "set_operation";
     public static final String JSON_FUNCTIONS = "json_functions";
-    public static final String URL_FUNCTIONS = "url_functions";
-    public static final String ARRAY_FUNCTIONS = "array_functions";
-    public static final String BINARY_FUNCTIONS = "binary_functions";
-    public static final String CONVERSION_FUNCTIONS = "conversion_functions";
-    public static final String HOROLOGY_FUNCTIONS = "horology_functions";
-    public static final String MAP_FUNCTIONS = "map_functions";
-    public static final String REGEX_FUNCTIONS = "regex_functions";
-    public static final String STRING_FUNCTIONS = "string_functions";
-    public static final String MATH_FUNCTIONS = "math_functions";
     public static final String STORAGE_FORMATS = "storage_formats";
     public static final String PROFILE_SPECIFIC_TESTS = "profile_specific_tests";
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
@@ -53,6 +42,7 @@ public final class TestGroups
     public static final String HIVE_TRANSACTIONAL = "hive_transactional";
     public static final String HIVE_VIEWS = "hive_views";
     public static final String HIVE_CACHING = "hive_caching";
+    public static final String HIVE_WITH_EXTERNAL_WRITES = "hive_with_external_writes";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String CASSANDRA = "cassandra";

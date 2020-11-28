@@ -16,59 +16,55 @@ package io.prestosql.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
-import io.prestosql.tests.product.launcher.env.common.Hadoop;
-import io.prestosql.tests.product.launcher.env.common.Kerberos;
-import io.prestosql.tests.product.launcher.env.common.KerberosKms;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.common.HadoopKerberosKms;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeKerberosKmsHdfsImpersonation
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     private final DockerFiles dockerFiles;
 
     @Inject
-    public SinglenodeKerberosKmsHdfsImpersonation(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, Kerberos kerberos, KerberosKms kerberosKms)
+    public SinglenodeKerberosKmsHdfsImpersonation(DockerFiles dockerFiles, Standard standard, HadoopKerberosKms hadoopKerberosKms)
     {
-        super(ImmutableList.of(standard, hadoop, kerberos, kerberosKms));
+        super(ImmutableList.of(standard, hadoopKerberosKms));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
     }
 
     @Override
     @SuppressWarnings("resource")
-    protected void extendEnvironment(Environment.Builder builder)
+    public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer("hadoop-master", container -> {
+        builder.configureContainer(HADOOP, container -> {
             container
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/kms-acls.xml"),
-                            "/etc/hadoop-kms/conf/kms-acls.xml",
-                            READ_ONLY)
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/hiveserver2-site.xml"),
-                            "/etc/hive/conf/hiveserver2-site.xml",
-                            READ_ONLY);
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/kms-acls.xml")),
+                            "/etc/hadoop-kms/conf/kms-acls.xml")
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/hiveserver2-site.xml")),
+                            "/etc/hive/conf/hiveserver2-site.xml");
         });
 
-        builder.configureContainer("presto-master", container -> {
+        builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/hive.properties"),
-                            CONTAINER_PRESTO_HIVE_PROPERTIES,
-                            READ_ONLY)
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/iceberg.properties"),
-                            CONTAINER_PRESTO_ICEBERG_PROPERTIES,
-                            READ_ONLY);
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/hive.properties")),
+                            CONTAINER_PRESTO_HIVE_PROPERTIES)
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-kms-hdfs-impersonation/iceberg.properties")),
+                            CONTAINER_PRESTO_ICEBERG_PROPERTIES);
         });
     }
 }

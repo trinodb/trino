@@ -29,7 +29,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -43,19 +44,20 @@ public class InternalHiveSplit
 
     private final String path;
     private final long end;
-    private final long fileSize;
+    private final long estimatedFileSize;
     private final long fileModifiedTime;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<InternalHiveBlock> blocks;
     private final String partitionName;
     private final OptionalInt bucketNumber;
+    private final int statementId;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
-    private final Optional<DeleteDeltaLocations> deleteDeltaLocations;
+    private final Optional<AcidInfo> acidInfo;
 
     private long start;
     private int currentBlockIndex;
@@ -65,22 +67,23 @@ public class InternalHiveSplit
             String path,
             long start,
             long end,
-            long fileSize,
+            long estimatedFileSize,
             long fileModifiedTime,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt bucketNumber,
+            int statementId,
             boolean splittable,
             boolean forceLocalScheduling,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean s3SelectPushdownEnabled,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            Optional<AcidInfo> acidInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "length must be positive");
-        checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(estimatedFileSize >= 0, "fileSize must be positive");
         requireNonNull(partitionName, "partitionName is null");
         requireNonNull(path, "path is null");
         requireNonNull(schema, "schema is null");
@@ -89,24 +92,25 @@ public class InternalHiveSplit
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
-        requireNonNull(deleteDeltaLocations, "deleteDeltaLocations is null");
+        requireNonNull(acidInfo, "acidInfo is null");
 
         this.partitionName = partitionName;
         this.path = path;
         this.start = start;
         this.end = end;
-        this.fileSize = fileSize;
+        this.estimatedFileSize = estimatedFileSize;
         this.fileModifiedTime = fileModifiedTime;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.blocks = ImmutableList.copyOf(blocks);
         this.bucketNumber = bucketNumber;
+        this.statementId = statementId;
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
-        this.deleteDeltaLocations = deleteDeltaLocations;
+        this.acidInfo = acidInfo;
     }
 
     public String getPath()
@@ -124,9 +128,9 @@ public class InternalHiveSplit
         return end;
     }
 
-    public long getFileSize()
+    public long getEstimatedFileSize()
     {
-        return fileSize;
+        return estimatedFileSize;
     }
 
     public long getFileModifiedTime()
@@ -157,6 +161,11 @@ public class InternalHiveSplit
     public OptionalInt getBucketNumber()
     {
         return bucketNumber;
+    }
+
+    public int getStatementId()
+    {
+        return statementId;
     }
 
     public boolean isSplittable()
@@ -204,24 +213,18 @@ public class InternalHiveSplit
 
     public int getEstimatedSizeInBytes()
     {
-        int result = INSTANCE_SIZE;
-        result += path.length() * Character.BYTES;
-        result += sizeOfObjectArray(partitionKeys.size());
-        for (HivePartitionKey partitionKey : partitionKeys) {
-            result += partitionKey.getEstimatedSizeInBytes();
-        }
-        result += sizeOfObjectArray(blocks.size());
-        for (InternalHiveBlock block : blocks) {
-            result += block.getEstimatedSizeInBytes();
-        }
-        result += partitionName.length() * Character.BYTES;
-        result += tableToPartitionMapping.getEstimatedSizeInBytes();
-        return result;
+        long result = INSTANCE_SIZE +
+                estimatedSizeOf(path) +
+                estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes) +
+                estimatedSizeOf(blocks, InternalHiveBlock::getEstimatedSizeInBytes) +
+                estimatedSizeOf(partitionName) +
+                tableToPartitionMapping.getEstimatedSizeInBytes();
+        return toIntExact(result);
     }
 
-    public Optional<DeleteDeltaLocations> getDeleteDeltaLocations()
+    public Optional<AcidInfo> getAcidInfo()
     {
-        return deleteDeltaLocations;
+        return acidInfo;
     }
 
     @Override
@@ -231,7 +234,7 @@ public class InternalHiveSplit
                 .add("path", path)
                 .add("start", start)
                 .add("end", end)
-                .add("fileSize", fileSize)
+                .add("estimatedFileSize", estimatedFileSize)
                 .toString();
     }
 
@@ -268,14 +271,9 @@ public class InternalHiveSplit
             return addresses;
         }
 
-        public int getEstimatedSizeInBytes()
+        public long getEstimatedSizeInBytes()
         {
-            int result = INSTANCE_SIZE;
-            result += sizeOfObjectArray(addresses.size());
-            for (HostAddress address : addresses) {
-                result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
-            }
-            return result;
+            return INSTANCE_SIZE + estimatedSizeOf(addresses, address -> HOST_ADDRESS_INSTANCE_SIZE + estimatedSizeOf(address.getHostText()));
         }
     }
 }

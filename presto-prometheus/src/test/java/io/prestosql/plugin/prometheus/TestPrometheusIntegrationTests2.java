@@ -20,21 +20,19 @@ import io.airlift.units.Duration;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.TimestampType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.plugin.prometheus.MetadataUtil.varcharMapType;
+import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.prestosql.plugin.prometheus.PrometheusQueryRunner.createPrometheusClient;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -62,7 +60,6 @@ public class TestPrometheusIntegrationTests2
 
     @BeforeClass
     protected void createQueryRunner()
-            throws Exception
     {
         this.server = new PrometheusServer();
         this.client = createPrometheusClient(server);
@@ -78,13 +75,12 @@ public class TestPrometheusIntegrationTests2
     public void testRetrieveUpValue()
             throws Exception
     {
-        this.server.checkServerReady(this.client);
+        PrometheusServer.checkServerReady(this.client);
         assertTrue(client.getTableNames("default").contains("up"), "Prometheus' own `up` metric should be available in default");
     }
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testMetadata()
-            throws Exception
     {
         assertTrue(client.getTableNames("default").contains("up"));
         PrometheusTable table = client.getTable("default", "up");
@@ -92,13 +88,12 @@ public class TestPrometheusIntegrationTests2
         assertEquals(table.getName(), "up");
         assertEquals(table.getColumns(), ImmutableList.of(
                 new PrometheusColumn("labels", varcharMapType),
-                new PrometheusColumn("timestamp", TimestampType.TIMESTAMP),
-                new PrometheusColumn("value", DoubleType.DOUBLE)));
+                new PrometheusColumn("timestamp", TIMESTAMP_COLUMN_TYPE),
+                new PrometheusColumn("value", DOUBLE)));
     }
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testGetTableHandle()
-            throws Exception
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         assertEquals(metadata.getTableHandle(SESSION, new SchemaTableName("default", "up")), RUNTIME_DETERMINED_TABLE_HANDLE);
@@ -109,14 +104,13 @@ public class TestPrometheusIntegrationTests2
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testGetColumnHandles()
-            throws Exception
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         // known table
         assertEquals(metadata.getColumnHandles(SESSION, RUNTIME_DETERMINED_TABLE_HANDLE), ImmutableMap.of(
                 "labels", new PrometheusColumnHandle("labels", createUnboundedVarcharType(), 0),
                 "value", new PrometheusColumnHandle("value", DOUBLE, 1),
-                "timestamp", new PrometheusColumnHandle("timestamp", TimestampType.TIMESTAMP, 2)));
+                "timestamp", new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 2)));
 
         // unknown table
         try {
@@ -135,7 +129,6 @@ public class TestPrometheusIntegrationTests2
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testGetTableMetadata()
-            throws Exception
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         // known table
@@ -143,7 +136,7 @@ public class TestPrometheusIntegrationTests2
         assertEquals(tableMetadata.getTable(), new SchemaTableName("default", "up"));
         assertEquals(tableMetadata.getColumns(), ImmutableList.of(
                 new ColumnMetadata("labels", varcharMapType),
-                new ColumnMetadata("timestamp", TimestampType.TIMESTAMP),
+                new ColumnMetadata("timestamp", TIMESTAMP_COLUMN_TYPE),
                 new ColumnMetadata("value", DOUBLE)));
 
         // unknown tables should produce null
@@ -154,7 +147,6 @@ public class TestPrometheusIntegrationTests2
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testListTables()
-            throws Exception
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         assertTrue(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("default"))).contains(new SchemaTableName("default", "up")));
@@ -167,20 +159,20 @@ public class TestPrometheusIntegrationTests2
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testCorrectNumberOfSplitsCreated()
-            throws Exception
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
-        config.setPrometheusURI(new URI("http://" + server.getAddress().getHost() + ":" + server.getAddress().getPort() + "/"));
+        config.setPrometheusURI(server.getUri());
         config.setMaxQueryRangeDuration(Duration.valueOf("21d"));
         config.setQueryChunkSizeDuration(Duration.valueOf("1d"));
         config.setCacheDuration(Duration.valueOf("30s"));
         PrometheusTable table = client.getTable("default", "up");
-        PrometheusSplitManager splitManager = new PrometheusSplitManager(client, config);
+        PrometheusSplitManager splitManager = new PrometheusSplitManager(client, new PrometheusClock(), config);
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
                 null,
-                (ConnectorTableHandle) new PrometheusTableHandle("default", table.getName()),
-                null);
+                new PrometheusTableHandle("default", table.getName()),
+                null,
+                (DynamicFilter) null);
         int numSplits = splits.getNextBatch(NOT_PARTITIONED, NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();
         assertEquals(numSplits, config.getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS) / config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS),
                 0.001);

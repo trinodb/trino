@@ -39,6 +39,7 @@ import java.util.UUID;
 
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -106,7 +107,7 @@ public class TestRecordAccess
             PutRecordsRequestEntry putRecordsRequestEntry = new PutRecordsRequestEntry();
             long id = idStart + i;
             String name = UUID.randomUUID().toString();
-            String jsonVal = String.format(jsonFormat, id, name);
+            String jsonVal = format(jsonFormat, id, name);
 
             // ? with StandardCharsets.UTF_8
             putRecordsRequestEntry.setData(ByteBuffer.wrap(jsonVal.getBytes(UTF_8)));

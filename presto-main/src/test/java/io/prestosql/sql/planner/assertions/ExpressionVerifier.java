@@ -45,6 +45,7 @@ import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.sql.tree.TimestampLiteral;
 import io.prestosql.sql.tree.TryExpression;
 import io.prestosql.sql.tree.WhenClause;
 
@@ -52,7 +53,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -103,7 +104,8 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
+        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression)) &&
+                actual.getType().equals(((GenericLiteral) expectedExpression).getType());
     }
 
     @Override
@@ -149,6 +151,16 @@ public final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitTimestampLiteral(TimestampLiteral actual, Node expectedExpression)
+    {
+        if (!(expectedExpression instanceof TimestampLiteral)) {
+            return false;
+        }
+
+        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
+    }
+
+    @Override
     protected Boolean visitBooleanLiteral(BooleanLiteral actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof BooleanLiteral)) {
@@ -180,6 +192,10 @@ public final class ExpressionVerifier
 
         if (expression instanceof DecimalLiteral) {
             return String.valueOf(((DecimalLiteral) expression).getValue());
+        }
+
+        if (expression instanceof TimestampLiteral) {
+            return ((TimestampLiteral) expression).getValue();
         }
 
         if (expression instanceof GenericLiteral) {
@@ -485,7 +501,7 @@ public final class ExpressionVerifier
         FunctionCall expected = (FunctionCall) expectedExpression;
 
         return actual.isDistinct() == expected.isDistinct() &&
-                getFunctionName(actual).equals(getFunctionName(expected)) &&
+                extractFunctionName(actual.getName()).equals(extractFunctionName(expected.getName())) &&
                 process(actual.getArguments(), expected.getArguments()) &&
                 process(actual.getFilter(), expected.getFilter()) &&
                 process(actual.getWindow(), expected.getWindow());

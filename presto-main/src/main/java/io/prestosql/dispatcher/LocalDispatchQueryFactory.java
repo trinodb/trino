@@ -33,6 +33,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.transaction.TransactionManager;
+import io.prestosql.util.StatementUtils;
 
 import javax.inject.Inject;
 
@@ -40,7 +41,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
 import static java.util.Objects.requireNonNull;
 
@@ -107,7 +107,8 @@ public class LocalDispatchQueryFactory
                 accessControl,
                 executor,
                 metadata,
-                warningCollector);
+                warningCollector,
+                StatementUtils.getQueryType(preparedQuery.getStatement().getClass()));
 
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
@@ -122,7 +123,6 @@ public class LocalDispatchQueryFactory
             }
             catch (Throwable e) {
                 stateMachine.transitionToFailed(e);
-                queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(e));
                 throw e;
             }
         });

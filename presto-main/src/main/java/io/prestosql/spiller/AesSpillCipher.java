@@ -13,6 +13,7 @@
  */
 package io.prestosql.spiller;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.prestosql.spi.PrestoException;
 
 import javax.crypto.Cipher;
@@ -27,7 +28,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
-final class AesSpillCipher
+@VisibleForTesting
+public final class AesSpillCipher
         implements SpillCipher
 {
     //  256-bit AES CBC mode
@@ -39,7 +41,8 @@ final class AesSpillCipher
     private Cipher encryptSizer;
     private final int ivBytes;
 
-    AesSpillCipher()
+    @VisibleForTesting
+    public AesSpillCipher()
     {
         this.key = generateNewSecretKey();
         this.encryptSizer = createEncryptCipher(key);
@@ -69,7 +72,9 @@ final class AesSpillCipher
         Cipher cipher = createEncryptCipher(key);
         System.arraycopy(cipher.getIV(), 0, destination, destinationOffset, ivBytes);
         try {
-            return ivBytes + cipher.doFinal(data, inputOffset, length, destination, destinationOffset + ivBytes);
+            // Do not refactor into single doFinal call, performance and allocation rate are significantly worse. See prestosql#5557
+            int n = cipher.update(data, inputOffset, length, destination, destinationOffset + ivBytes);
+            return ivBytes + n + cipher.doFinal(destination, destinationOffset + ivBytes + n);
         }
         catch (GeneralSecurityException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to encrypt data: " + e.getMessage(), e);
@@ -83,7 +88,9 @@ final class AesSpillCipher
         checkArgument(destination.length - destinationOffset >= decryptedMaxLength(length), "destination buffer too small for decrypted output");
         Cipher cipher = createDecryptCipher(key, new IvParameterSpec(encryptedData, inputOffset, ivBytes));
         try {
-            return cipher.doFinal(encryptedData, inputOffset + ivBytes, length - ivBytes, destination, destinationOffset);
+            // Do not refactor into single doFinal call, performance and allocation rate are significantly worse. See prestosql#5557
+            int n = cipher.update(encryptedData, inputOffset + ivBytes, length - ivBytes, destination, destinationOffset);
+            return n + cipher.doFinal(destination, destinationOffset + n);
         }
         catch (GeneralSecurityException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Cannot decrypt previously encrypted data: " + e.getMessage(), e);

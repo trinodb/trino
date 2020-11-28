@@ -1,5 +1,3 @@
-package io.prestosql.sql.tree;
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +11,7 @@ package io.prestosql.sql.tree;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.sql.tree;
 
 import com.google.common.collect.ImmutableList;
 
@@ -61,5 +60,11 @@ public class CurrentPath
             return false;
         }
         return true;
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
     }
 }

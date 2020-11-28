@@ -14,11 +14,16 @@
 package io.prestosql.plugin.hive.parquet;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.prestosql.parquet.writer.ParquetWriterOptions;
 import org.apache.parquet.hadoop.ParquetWriter;
 
 public class ParquetWriterConfig
 {
+    private boolean parquetOptimizedWriterEnabled;
+
     private DataSize blockSize = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
     private DataSize pageSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE);
 
@@ -27,7 +32,8 @@ public class ParquetWriterConfig
         return blockSize;
     }
 
-    @Config("hive.parquet.writer.block-size")
+    @Config("parquet.writer.block-size")
+    @LegacyConfig("hive.parquet.writer.block-size")
     public ParquetWriterConfig setBlockSize(DataSize blockSize)
     {
         this.blockSize = blockSize;
@@ -39,10 +45,33 @@ public class ParquetWriterConfig
         return pageSize;
     }
 
-    @Config("hive.parquet.writer.page-size")
+    @Config("parquet.writer.page-size")
+    @LegacyConfig("hive.parquet.writer.page-size")
     public ParquetWriterConfig setPageSize(DataSize pageSize)
     {
         this.pageSize = pageSize;
         return this;
+    }
+
+    public boolean isParquetOptimizedWriterEnabled()
+    {
+        return parquetOptimizedWriterEnabled;
+    }
+
+    @Config("parquet.experimental-optimized-writer.enabled")
+    @LegacyConfig("hive.parquet.optimized-writer.enabled")
+    @ConfigDescription("Experimental: Enable optimized Parquet writer")
+    public ParquetWriterConfig setParquetOptimizedWriterEnabled(boolean parquetOptimizedWriterEnabled)
+    {
+        this.parquetOptimizedWriterEnabled = parquetOptimizedWriterEnabled;
+        return this;
+    }
+
+    public ParquetWriterOptions toParquetWriterOptions()
+    {
+        return ParquetWriterOptions.builder()
+                .setMaxBlockSize(getBlockSize())
+                .setMaxPageSize(getPageSize())
+                .build();
     }
 }

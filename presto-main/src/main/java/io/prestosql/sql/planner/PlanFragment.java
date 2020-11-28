@@ -54,6 +54,36 @@ public class PlanFragment
     private final StatsAndCosts statsAndCosts;
     private final Optional<String> jsonRepresentation;
 
+    // Only for creating instances without the JSON representation embedded
+    private PlanFragment(
+            PlanFragmentId id,
+            PlanNode root,
+            Map<Symbol, Type> symbols,
+            PartitioningHandle partitioning,
+            List<PlanNodeId> partitionedSources,
+            Set<PlanNodeId> partitionedSourcesSet,
+            List<Type> types,
+            Set<PlanNode> partitionedSourceNodes,
+            List<RemoteSourceNode> remoteSourceNodes,
+            PartitioningScheme partitioningScheme,
+            StageExecutionDescriptor stageExecutionDescriptor,
+            StatsAndCosts statsAndCosts)
+    {
+        this.id = requireNonNull(id, "id is null");
+        this.root = requireNonNull(root, "root is null");
+        this.symbols = requireNonNull(symbols, "symbols is null");
+        this.partitioning = requireNonNull(partitioning, "partitioning is null");
+        this.partitionedSources = requireNonNull(partitionedSources, "partitionedSources is null");
+        this.partitionedSourcesSet = requireNonNull(partitionedSourcesSet, "partitionedSourcesSet is null");
+        this.types = requireNonNull(types, "types is null");
+        this.partitionedSourceNodes = requireNonNull(partitionedSourceNodes, "partitionedSourceNodes is null");
+        this.remoteSourceNodes = requireNonNull(remoteSourceNodes, "remoteSourceNodes is null");
+        this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
+        this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
+        this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.jsonRepresentation = Optional.empty();
+    }
+
     @JsonCreator
     public PlanFragment(
             @JsonProperty("id") PlanFragmentId id,
@@ -152,6 +182,26 @@ public class PlanFragment
         // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
         // workers don't need this, so that should be OK, but it's worth thinking about.
         return jsonRepresentation;
+    }
+
+    public PlanFragment withoutEmbeddedJsonRepresentation()
+    {
+        if (!jsonRepresentation.isPresent()) {
+            return this;
+        }
+        return new PlanFragment(
+                this.id,
+                this.root,
+                this.symbols,
+                this.partitioning,
+                this.partitionedSources,
+                this.partitionedSourcesSet,
+                this.types,
+                this.partitionedSourceNodes,
+                this.remoteSourceNodes,
+                this.partitioningScheme,
+                this.stageExecutionDescriptor,
+                this.statsAndCosts);
     }
 
     public List<Type> getTypes()

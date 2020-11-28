@@ -85,6 +85,12 @@ public class TestExpressionEquivalence
         assertEquivalent("4 is distinct from 5", "5 is distinct from 4");
         assertEquivalent("4 < 5", "5 > 4");
         assertEquivalent("4 <= 5", "5 >= 4");
+        assertEquivalent(
+                "TIMESTAMP '2020-05-10 12:34:56.123456789' = TIMESTAMP '2021-05-10 12:34:56.123456789'",
+                "TIMESTAMP '2021-05-10 12:34:56.123456789' = TIMESTAMP '2020-05-10 12:34:56.123456789'");
+        assertEquivalent(
+                "TIMESTAMP '2020-05-10 12:34:56.123456789 +8' = TIMESTAMP '2021-05-10 12:34:56.123456789 +8'",
+                "TIMESTAMP '2021-05-10 12:34:56.123456789 +8' = TIMESTAMP '2020-05-10 12:34:56.123456789 +8'");
 
         assertEquivalent("mod(4, 5)", "mod(4, 5)");
 

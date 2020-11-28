@@ -15,6 +15,8 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.util.Types;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
@@ -40,11 +42,13 @@ import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public final class InternalIcebergConnectorFactory
 {
@@ -59,6 +63,7 @@ public final class InternalIcebergConnectorFactory
                     new MBeanModule(),
                     new JsonModule(),
                     new IcebergModule(),
+                    new IcebergMetastoreModule(),
                     new HiveS3Module(),
                     new HiveAuthenticationModule(),
                     new HiveMetastoreModule(metastore),
@@ -86,6 +91,7 @@ public final class InternalIcebergConnectorFactory
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
             IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
+            Set<Procedure> procedures = injector.getInstance((Key<Set<Procedure>>) Key.get(Types.setOf(Procedure.class)));
 
             return new IcebergConnector(
                     lifeCycleManager,
@@ -99,7 +105,8 @@ public final class InternalIcebergConnectorFactory
                     icebergSessionProperties.getSessionProperties(),
                     IcebergSchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
-                    new AllowAllAccessControl());
+                    new AllowAllAccessControl(),
+                    procedures);
         }
     }
 }

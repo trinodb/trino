@@ -42,6 +42,7 @@ public class GenerateTraceTokenRequestFilter
                 .build();
     }
 
+    @SuppressWarnings("StringRepeatCanBeUsed")
     private String createToken(long value)
     {
         // optimized version of this: prefix + format("%010x", value)

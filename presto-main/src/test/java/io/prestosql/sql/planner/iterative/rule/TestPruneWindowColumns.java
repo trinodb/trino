@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
@@ -66,14 +66,16 @@ public class TestPruneWindowColumns
             UNBOUNDED_PRECEDING,
             Optional.of("startValue1"),
             CURRENT_ROW,
-            Optional.of("endValue1"));
+            Optional.of("endValue1"),
+            Optional.of("orderKey"));
 
     private static final ExpectedValueProvider<WindowNode.Frame> frameProvider2 = windowFrame(
             WindowFrame.Type.RANGE,
             UNBOUNDED_PRECEDING,
             Optional.of("startValue2"),
             CURRENT_ROW,
-            Optional.of("endValue2"));
+            Optional.of("endValue2"),
+            Optional.of("orderKey"));
 
     @Test
     public void testWindowNotNeeded()
@@ -219,8 +221,10 @@ public class TestPruneWindowColumns
                                                 WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue1),
+                                                Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
+                                                Optional.of(orderKey),
                                                 Optional.of(startValue1.toSymbolReference()),
                                                 Optional.of(endValue2.toSymbolReference())),
                                         false),
@@ -232,8 +236,10 @@ public class TestPruneWindowColumns
                                                 WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue2),
+                                                Optional.of(orderKey),
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
+                                                Optional.of(orderKey),
                                                 Optional.of(startValue2.toSymbolReference()),
                                                 Optional.of(endValue2.toSymbolReference())),
                                         false)),

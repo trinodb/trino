@@ -25,7 +25,8 @@ import io.prestosql.server.ExpressionSerialization.ExpressionDeserializer;
 import io.prestosql.server.ExpressionSerialization.ExpressionSerializer;
 import io.prestosql.server.SliceSerialization.SliceDeserializer;
 import io.prestosql.server.SliceSerialization.SliceSerializer;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.OrderingScheme;
@@ -35,7 +36,9 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.WindowFrame;
+import io.prestosql.type.TypeDeserializer;
 import io.prestosql.type.TypeSignatureDeserializer;
+import io.prestosql.type.TypeSignatureKeyDeserializer;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -69,9 +72,12 @@ public class TestWindowNode
                 Slice.class, new SliceSerializer(),
                 Expression.class, new ExpressionSerializer()));
         provider.setJsonDeserializers(ImmutableMap.of(
+                Type.class, new TypeDeserializer(metadata),
                 Slice.class, new SliceDeserializer(),
                 Expression.class, new ExpressionDeserializer(sqlParser),
                 TypeSignature.class, new TypeSignatureDeserializer()));
+        provider.setKeyDeserializers(ImmutableMap.of(
+                TypeSignature.class, new TypeSignatureKeyDeserializer()));
         objectMapper = provider.get();
     }
 
@@ -99,7 +105,9 @@ public class TestWindowNode
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
                 Optional.empty(),
+                Optional.empty(),
                 FrameBound.Type.UNBOUNDED_FOLLOWING,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

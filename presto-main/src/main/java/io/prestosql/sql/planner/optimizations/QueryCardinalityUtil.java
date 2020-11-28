@@ -73,6 +73,11 @@ public final class QueryCardinalityUtil
         return Range.atLeast(minCardinality).encloses(extractCardinality(node, lookup));
     }
 
+    public static boolean isEmpty(PlanNode node, Lookup lookup)
+    {
+        return isAtMost(node, lookup, 0);
+    }
+
     public static Range<Long> extractCardinality(PlanNode node)
     {
         return extractCardinality(node, noLookup());
@@ -165,7 +170,7 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitValues(ValuesNode node, Void context)
         {
-            return Range.singleton((long) node.getRows().size());
+            return Range.singleton((long) node.getRowCount());
         }
 
         @Override

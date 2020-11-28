@@ -27,7 +27,7 @@ public class WindowFrame
 {
     public enum Type
     {
-        RANGE, ROWS
+        RANGE, ROWS, GROUPS
     }
 
     private final Type type;
@@ -111,5 +111,16 @@ public class WindowFrame
                 .add("start", start)
                 .add("end", end)
                 .toString();
+    }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        WindowFrame otherNode = (WindowFrame) other;
+        return type == otherNode.type;
     }
 }

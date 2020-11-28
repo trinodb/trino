@@ -21,9 +21,12 @@ import io.prestosql.plugin.hive.HdfsConfiguration;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
+import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.prestosql.plugin.hive.testing.TestingHivePlugin;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
@@ -62,7 +65,13 @@ public class TestIcebergMetadataListing
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
 
-        metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        metastore = new FileHiveMetastore(
+                new NodeVersion("test_version"),
+                hdfsEnvironment,
+                new MetastoreConfig(),
+                new FileHiveMetastoreConfig()
+                        .setCatalogDirectory(baseDir.toURI().toString())
+                        .setMetastoreUser("test"));
 
         queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
         queryRunner.createCatalog("iceberg", "iceberg");

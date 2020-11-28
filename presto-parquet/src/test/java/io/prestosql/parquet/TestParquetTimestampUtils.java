@@ -13,15 +13,18 @@
  */
 package io.prestosql.parquet;
 
+import io.prestosql.plugin.base.type.DecodedTimestamp;
 import io.prestosql.spi.PrestoException;
-import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
 
-import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
-import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static io.prestosql.parquet.ParquetTimestampUtils.decode;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.time.ZoneOffset.UTC;
+import static org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils.getNanoTime;
 import static org.testng.Assert.assertEquals;
 
 public class TestParquetTimestampUtils
@@ -29,9 +32,9 @@ public class TestParquetTimestampUtils
     @Test
     public void testGetTimestampMillis()
     {
-        assertTimestampCorrect("2011-01-01 00:00:00.000000000");
-        assertTimestampCorrect("2001-01-01 01:01:01.000000001");
-        assertTimestampCorrect("2015-12-31 23:59:59.999999999");
+        assertTimestampCorrect(LocalDateTime.parse("2011-01-01T00:00:00.000000000"));
+        assertTimestampCorrect(LocalDateTime.parse("2001-01-01T01:01:01.000000001"));
+        assertTimestampCorrect(LocalDateTime.parse("2015-12-31T23:59:59.999999999"));
     }
 
     @Test
@@ -39,7 +42,7 @@ public class TestParquetTimestampUtils
     {
         try {
             byte[] invalidLengthBinaryTimestamp = new byte[8];
-            getTimestampMillis(Binary.fromByteArray(invalidLengthBinaryTimestamp));
+            decode(Binary.fromByteArray(invalidLengthBinaryTimestamp));
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
@@ -47,11 +50,12 @@ public class TestParquetTimestampUtils
         }
     }
 
-    private static void assertTimestampCorrect(String timestampString)
+    private static void assertTimestampCorrect(LocalDateTime dateTime)
     {
-        Timestamp timestamp = Timestamp.valueOf(timestampString);
-        Binary timestampBytes = NanoTimeUtils.getNanoTime(timestamp, false).toBinary();
-        long decodedTimestampMillis = getTimestampMillis(timestampBytes);
-        assertEquals(decodedTimestampMillis, timestamp.getTime());
+        Timestamp timestamp = Timestamp.ofEpochSecond(dateTime.toEpochSecond(UTC), dateTime.getNano());
+        Binary timestampBytes = getNanoTime(timestamp, false).toBinary();
+        DecodedTimestamp decodedTimestamp = decode(timestampBytes);
+        assertEquals(decodedTimestamp.getEpochSeconds(), dateTime.toEpochSecond(UTC));
+        assertEquals(decodedTimestamp.getNanosOfSecond(), dateTime.getNano());
     }
 }

@@ -79,7 +79,7 @@ import static java.util.Objects.requireNonNull;
 public class StripeReader
 {
     private final OrcDataSource orcDataSource;
-    private final ZoneId storageTimeZone;
+    private final ZoneId legacyFileTimeZone;
     private final Optional<OrcDecompressor> decompressor;
     private final ColumnMetadata<OrcType> types;
     private final HiveWriterVersion hiveWriterVersion;
@@ -91,7 +91,7 @@ public class StripeReader
 
     public StripeReader(
             OrcDataSource orcDataSource,
-            ZoneId storageTimeZone,
+            ZoneId legacyFileTimeZone,
             Optional<OrcDecompressor> decompressor,
             ColumnMetadata<OrcType> types,
             Set<OrcColumn> readColumns,
@@ -102,7 +102,7 @@ public class StripeReader
             Optional<OrcWriteValidation> writeValidation)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
-        this.storageTimeZone = requireNonNull(storageTimeZone, "storageTimeZone is null");
+        this.legacyFileTimeZone = requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
         this.types = requireNonNull(types, "types is null");
         this.includedOrcColumnIds = getIncludeColumns(requireNonNull(readColumns, "readColumns is null"));
@@ -120,9 +120,9 @@ public class StripeReader
         StripeFooter stripeFooter = readStripeFooter(stripe, systemMemoryUsage);
         ColumnMetadata<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
         if (writeValidation.isPresent()) {
-            writeValidation.get().validateTimeZone(orcDataSource.getId(), stripeFooter.getTimeZone().orElse(null));
+            writeValidation.get().validateTimeZone(orcDataSource.getId(), stripeFooter.getTimeZone());
         }
-        ZoneId fileTimeZone = stripeFooter.getTimeZone().orElse(storageTimeZone);
+        ZoneId fileTimeZone = stripeFooter.getTimeZone();
 
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
@@ -177,7 +177,7 @@ public class StripeReader
                         selectedRowGroups,
                         columnEncodings);
 
-                return new Stripe(stripe.getNumberOfRows(), fileTimeZone, storageTimeZone, columnEncodings, rowGroups, dictionaryStreamSources);
+                return new Stripe(stripe.getNumberOfRows(), fileTimeZone, columnEncodings, rowGroups, dictionaryStreamSources);
             }
             catch (InvalidCheckpointException e) {
                 // The ORC file contains a corrupt checkpoint stream treat the stripe as a single row group.
@@ -231,7 +231,7 @@ public class StripeReader
         }
         RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), minAverageRowBytes, new InputStreamSources(builder.build()));
 
-        return new Stripe(stripe.getNumberOfRows(), fileTimeZone, storageTimeZone, columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
+        return new Stripe(stripe.getNumberOfRows(), fileTimeZone, columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
     private static boolean isSupportedStreamType(Stream stream, OrcTypeKind orcTypeKind)
@@ -239,7 +239,15 @@ public class StripeReader
         if (stream.getStreamKind() == BLOOM_FILTER) {
             // non-utf8 bloom filters are not allowed for character types
             // non-utf8 bloom filters are not supported for timestamp
-            return orcTypeKind != OrcTypeKind.STRING && orcTypeKind != OrcTypeKind.VARCHAR && orcTypeKind != OrcTypeKind.CHAR && orcTypeKind != OrcTypeKind.TIMESTAMP;
+            switch (orcTypeKind) {
+                case STRING:
+                case VARCHAR:
+                case CHAR:
+                case TIMESTAMP:
+                case TIMESTAMP_INSTANT:
+                    return false;
+            }
+            return true;
         }
         if (stream.getStreamKind() == BLOOM_FILTER_UTF8) {
             // char types require padding for bloom filters, which is not supported
@@ -382,7 +390,7 @@ public class StripeReader
         // read the footer
         Slice tailBuffer = orcDataSource.readFully(offset, tailLength);
         try (InputStream inputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), tailBuffer, decompressor, systemMemoryUsage))) {
-            return metadataReader.readStripeFooter(types, inputStream);
+            return metadataReader.readStripeFooter(types, inputStream, legacyFileTimeZone);
         }
     }
 

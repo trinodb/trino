@@ -15,7 +15,6 @@ package io.prestosql.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.prestosql.sql.planner.Symbol;
@@ -24,6 +23,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -45,7 +45,7 @@ public class OutputNode
         requireNonNull(source, "source is null");
         requireNonNull(columnNames, "columnNames is null");
         requireNonNull(outputs, "outputs is null");
-        Preconditions.checkArgument(columnNames.size() == outputs.size(), "columnNames and assignments sizes don't match");
+        checkArgument(columnNames.size() == outputs.size(), "columnNames and assignments sizes don't match");
 
         this.source = source;
         this.columnNames = ImmutableList.copyOf(columnNames);

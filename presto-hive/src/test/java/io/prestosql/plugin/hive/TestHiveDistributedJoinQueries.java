@@ -13,19 +13,11 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.collect.MoreCollectors;
 import io.prestosql.Session;
+import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.operator.OperatorStats;
-import io.prestosql.spi.QueryId;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.AbstractTestJoinQueries;
-import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
@@ -46,7 +38,7 @@ public class TestHiveDistributedJoinQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        verify(new FeaturesConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
+        verify(new DynamicFilterConfig().isEnableDynamicFiltering(), "this class assumes dynamic filtering is enabled by default");
         return HiveQueryRunner.builder()
                 .setInitialTables(getTables())
                 .build();
@@ -66,8 +58,7 @@ public class TestHiveDistributedJoinQueries
         Session session = Session.builder(getSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
                 session,
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 123.4567");
         assertEquals(result.getResult().getRowCount(), 0);
@@ -76,31 +67,5 @@ public class TestHiveDistributedJoinQueries
         // Probe-side is not scanned at all, due to dynamic filtering:
         assertEquals(probeStats.getInputPositions(), 0L);
         assertEquals(probeStats.getDynamicFilterSplitsProcessed(), probeStats.getTotalDrivers());
-    }
-
-    private OperatorStats searchScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
-    {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        Plan plan = runner.getQueryPlan(queryId);
-        PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
-                .where(node -> {
-                    if (!(node instanceof ProjectNode)) {
-                        return false;
-                    }
-                    ProjectNode projectNode = (ProjectNode) node;
-                    FilterNode filterNode = (FilterNode) projectNode.getSource();
-                    TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
-                    return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
-                })
-                .findOnlyElement()
-                .getId();
-        return runner.getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(queryId)
-                .getQueryStats()
-                .getOperatorSummaries()
-                .stream()
-                .filter(summary -> nodeId.equals(summary.getPlanNodeId()))
-                .collect(MoreCollectors.onlyElement());
     }
 }

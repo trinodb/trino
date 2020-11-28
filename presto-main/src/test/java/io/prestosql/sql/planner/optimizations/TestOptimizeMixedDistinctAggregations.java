@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.sql.planner.RuleStatsRecorder;
-import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
@@ -87,7 +86,7 @@ public class TestOptimizeMixedDistinctAggregations
                         project(
                                 aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(), SINGLE,
                                         groupId(groups.build(), group,
-                                                anyTree(tableScan))))));
+                                                tableScan)))));
 
         assertUnitPlan(sql, expectedPlanPattern);
     }
@@ -125,7 +124,7 @@ public class TestOptimizeMixedDistinctAggregations
                                 new SingleDistinctAggregationToGroupBy(),
                                 new MultipleDistinctAggregationToMarkDistinct())),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
-                new PruneUnreferencedOutputs(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata())));
+                new PruneUnreferencedOutputs(getQueryRunner().getMetadata()));
         assertPlan(sql, pattern, optimizers);
     }
 }

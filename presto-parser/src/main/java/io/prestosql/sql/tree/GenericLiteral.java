@@ -87,4 +87,16 @@ public final class GenericLiteral
         return Objects.equals(this.value, other.value) &&
                 Objects.equals(this.type, other.type);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        GenericLiteral otherLiteral = (GenericLiteral) other;
+
+        return value.equals(otherLiteral.value) && type.equals(otherLiteral.type);
+    }
 }

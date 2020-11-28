@@ -20,6 +20,7 @@ import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.Test;
 
 import java.util.Optional;
 
@@ -60,6 +61,18 @@ public class TestKuduDistributedQueries
     }
 
     @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Kudu connector does not support column default values");
@@ -69,6 +82,20 @@ public class TestKuduDistributedQueries
     public void testInsert()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
+    }
+
+    @Override
+    public void testCommentTable()
+    {
+        // TODO
+        throw new SkipException("TODO");
+    }
+
+    @Override
+    public void testCommentColumn()
+    {
+        // TODO
+        throw new SkipException("TODO");
     }
 
     @Override
@@ -122,12 +149,7 @@ public class TestKuduDistributedQueries
     }
 
     @Override
-    public void testCommentTable()
-    {
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
+    @Test
     public void testWrittenStats()
     {
         // TODO Kudu connector supports CTAS and inserts, but the test would fail
@@ -145,7 +167,7 @@ public class TestKuduDistributedQueries
     {
         String typeName = dataMappingTestSetup.getPrestoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp with time zone")) {
+                || typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 

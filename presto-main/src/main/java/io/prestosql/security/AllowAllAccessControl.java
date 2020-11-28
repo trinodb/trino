@@ -16,14 +16,12 @@ package io.prestosql.security;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 
 import java.security.Principal;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -37,6 +35,16 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
+    {
+    }
+
+    @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
     {
     }
 
@@ -129,6 +137,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
     {
     }
@@ -145,7 +158,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
     {
         return columns;
     }
@@ -157,6 +170,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, PrestoPrincipal principal)
     {
     }
 
@@ -186,6 +204,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
     }
@@ -197,6 +220,16 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal revokee, boolean grantOption)
     {
     }
 

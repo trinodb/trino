@@ -13,8 +13,6 @@
  */
 package io.prestosql.util;
 
-import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
@@ -26,40 +24,41 @@ import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static java.lang.Boolean.TRUE;
+import static java.lang.invoke.MethodType.methodType;
+import static java.util.Objects.requireNonNull;
 
 public final class FastutilSetHelper
 {
     private FastutilSetHelper() {}
 
     @SuppressWarnings("unchecked")
-    public static Set<?> toFastutilHashSet(Set<?> set, Type type, Metadata metadata)
+    public static Set<?> toFastutilHashSet(Set<?> set, Type type, MethodHandle hashCodeHandle, MethodHandle equalsHandle)
     {
+        requireNonNull(set, "set is null");
+        requireNonNull(type, "type is null");
+
         // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),
         // and the return set is assumed to be read-heavy.
         // The performance of InCodeGenerator heavily depends on the load factor being small.
         Class<?> javaElementType = type.getJavaType();
         if (javaElementType == long.class) {
-            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(metadata, type));
+            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(hashCodeHandle, equalsHandle));
         }
         if (javaElementType == double.class) {
-            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(metadata, type));
+            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(hashCodeHandle, equalsHandle));
         }
         if (javaElementType == boolean.class) {
             return new BooleanOpenHashSet((Collection<Boolean>) set, 0.25f);
         }
         else if (!type.getJavaType().isPrimitive()) {
-            return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(metadata, type));
+            return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(hashCodeHandle, equalsHandle));
         }
         else {
             throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
@@ -92,10 +91,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private LongStrategy(Metadata metadata, Type type)
+        public LongStrategy(MethodHandle hashCodeHandle, MethodHandle equalsHandle)
         {
-            hashCodeHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty()).getMethodHandle();
-            equalsHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty()).getMethodHandle();
+            this.hashCodeHandle = requireNonNull(hashCodeHandle, "hashCodeHandle is null");
+            this.equalsHandle = requireNonNull(equalsHandle, "equalsHandle is null");
         }
 
         @Override
@@ -134,10 +133,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private DoubleStrategy(Metadata metadata, Type type)
+        public DoubleStrategy(MethodHandle hashCodeHandle, MethodHandle equalsHandle)
         {
-            hashCodeHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty()).getMethodHandle();
-            equalsHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty()).getMethodHandle();
+            this.hashCodeHandle = requireNonNull(hashCodeHandle, "hashCodeHandle is null");
+            this.equalsHandle = requireNonNull(equalsHandle, "equalsHandle is null");
         }
 
         @Override
@@ -176,14 +175,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private ObjectStrategy(Metadata metadata, Type type)
+        public ObjectStrategy(MethodHandle hashCodeHandle, MethodHandle equalsHandle)
         {
-            hashCodeHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty())
-                    .getMethodHandle()
-                    .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty())
-                    .getMethodHandle()
-                    .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
+            this.hashCodeHandle = requireNonNull(hashCodeHandle, "hashCodeHandle is null").asType(methodType(long.class, Object.class));
+            this.equalsHandle = requireNonNull(equalsHandle, "equalsHandle is null").asType(methodType(Boolean.class, Object.class, Object.class));
         }
 
         @Override

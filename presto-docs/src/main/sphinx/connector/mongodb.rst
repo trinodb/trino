@@ -6,7 +6,7 @@ The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`
 
 .. note::
 
-    MongoDB 2.6+ is supported, although it is highly recommend to use 3.0 or later.
+    The connector is tested against MongoDB 3.4 and 4.4, but any intermediate or newer versions are expected to work.
 
 Configuration
 -------------
@@ -44,6 +44,7 @@ Property Name                              Description
 ``mongodb.min-connections-per-host``       The minimum size of the connection pool per host
 ``mongodb.connections-per-host``           The maximum size of the connection pool per host
 ``mongodb.max-wait-time``                  The maximum wait time
+``mongodb.max-connection-idle-time``       The maximum idle time of a pooled connection
 ``mongodb.connection-timeout``             The socket connect timeout
 ``mongodb.socket-timeout``                 The socket timeout
 ``mongodb.socket-keep-alive``              Whether keep-alive is enabled on each socket
@@ -69,6 +70,13 @@ As MongoDB is a document database, there is no fixed schema information in the s
 At startup, this connector tries guessing fields' types, but it might not be correct for your collection. In that case, you need to modify it manually. ``CREATE TABLE`` and ``CREATE TABLE AS SELECT`` will create an entry for you.
 
 This property is optional; the default is ``_schema``.
+
+``mongodb.case-insensitive-name-matching``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Match database and collection names case insensitively.
+
+This property is optional; the default is ``false``.
 
 ``mongodb.credentials``
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -98,6 +106,14 @@ The maximum wait time in milliseconds, that a thread may wait for a connection t
 A value of ``0`` means that it does not wait. A negative value means to wait indefinitely for a connection to become available.
 
 This property is optional; the default is ``120000``.
+
+``mongodb.max-connection-idle-time``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The maximum idle time of a pooled connection in milliseconds. A value of ``0`` indicates no limit to the idle time.
+A pooled connection that has exceeded its idle time will be closed and replaced when necessary by a new connection.
+
+This property is optional; the default is ``0``.
 
 ``mongodb.connection-timeout``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -259,6 +275,22 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
      55 b1 51 63 38 64 d6 43 8c 61 a9 ce |        1 | bad         |       50.0 | 2015-07-23
     (1 row)
 
-.. note::
+You can render the ``_id`` field to readable values with a cast to ``VARCHAR``:
 
-    Unfortunately, there is no way to represent ``_id`` fields more fancy like ``55b151633864d6438c61a9ce``.
+.. code-block:: sql
+
+    SELECT CAST(_id AS VARCHAR), * FROM orders WHERE _id = ObjectId('55b151633864d6438c61a9ce');
+
+.. code-block:: none
+
+               _id             | orderkey | orderstatus | totalprice | orderdate
+    ---------------------------+----------+-------------+------------+------------
+     55b151633864d6438c61a9ce  |        1 | bad         |       50.0 | 2015-07-23
+    (1 row)
+
+Limitations
+-----------
+
+The following operations are not supported:
+
+- Row deletion with :doc:`/sql/delete`

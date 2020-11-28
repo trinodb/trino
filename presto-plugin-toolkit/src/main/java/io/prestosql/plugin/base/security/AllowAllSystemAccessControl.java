@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -29,7 +28,6 @@ import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -42,7 +40,7 @@ public class AllowAllSystemAccessControl
 {
     public static final String NAME = "allow-all";
 
-    private static final AllowAllSystemAccessControl INSTANCE = new AllowAllSystemAccessControl();
+    public static final AllowAllSystemAccessControl INSTANCE = new AllowAllSystemAccessControl();
 
     public static class Factory
             implements SystemAccessControlFactory
@@ -69,6 +67,16 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanSetUser(Optional<Principal> principal, String userName)
+    {
+    }
+
+    @Override
+    public void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(SystemSecurityContext context)
     {
     }
 
@@ -171,6 +179,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
@@ -187,7 +200,7 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
     {
         return columns;
     }
@@ -204,6 +217,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, PrestoPrincipal principal)
     {
     }
 
@@ -233,6 +251,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
     }
@@ -249,6 +272,16 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
+    {
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal revokee, boolean grantOption)
     {
     }
 

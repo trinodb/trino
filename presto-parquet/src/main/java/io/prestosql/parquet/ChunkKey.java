@@ -15,6 +15,8 @@ package io.prestosql.parquet;
 
 import java.util.Objects;
 
+import static java.lang.String.format;
+
 public class ChunkKey
 {
     private int column;
@@ -41,7 +43,7 @@ public class ChunkKey
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final ChunkKey other = (ChunkKey) obj;
+        ChunkKey other = (ChunkKey) obj;
         return Objects.equals(this.column, other.column)
                 && Objects.equals(this.rowGroup, other.rowGroup);
     }
@@ -49,6 +51,6 @@ public class ChunkKey
     @Override
     public String toString()
     {
-        return String.format("[rowGroup=%s, column=%s]", rowGroup, column);
+        return format("[rowGroup=%s, column=%s]", rowGroup, column);
     }
 }

@@ -16,6 +16,7 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
+import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -47,8 +48,8 @@ public class TestNestedLoopBuildOperator
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -127,9 +128,40 @@ public class TestNestedLoopBuildOperator
         assertTrue(nestedLoopJoinBridge.getPagesFuture().isDone());
         List<Page> buildPages = nestedLoopJoinBridge.getPagesFuture().get().getPages();
 
-        assertEquals(buildPages.get(0), buildPage1);
-        assertEquals(buildPages.get(1), buildPage2);
+        assertEquals(buildPages.size(), 1);
+        assertEquals(buildPages.get(0).getPositionCount(), 3003);
+    }
+
+    @Test
+    public void testNestedLoopNoBlocksMaxSizeLimit()
+            throws Exception
+    {
+        TaskContext taskContext = createTaskContext();
+        List<Type> buildTypes = ImmutableList.of();
+        JoinBridgeManager<NestedLoopJoinBridge> nestedLoopJoinBridgeManager = new JoinBridgeManager<>(
+                false,
+                PipelineExecutionStrategy.UNGROUPED_EXECUTION,
+                PipelineExecutionStrategy.UNGROUPED_EXECUTION,
+                lifespan -> new NestedLoopJoinPagesSupplier(),
+                buildTypes);
+        NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
+        NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge(Lifespan.taskWide());
+
+        assertFalse(nestedLoopJoinBridge.getPagesFuture().isDone());
+
+        // build pages
+        Page massivePage = new Page(PageProcessor.MAX_BATCH_SIZE + 100);
+
+        nestedLoopBuildOperator.addInput(massivePage);
+        nestedLoopBuildOperator.finish();
+
+        assertTrue(nestedLoopJoinBridge.getPagesFuture().isDone());
+        List<Page> buildPages = nestedLoopJoinBridge.getPagesFuture().get().getPages();
         assertEquals(buildPages.size(), 2);
+        assertEquals(buildPages.get(0).getPositionCount(), PageProcessor.MAX_BATCH_SIZE);
+        assertEquals(buildPages.get(1).getPositionCount(), 100);
     }
 
     private TaskContext createTaskContext()

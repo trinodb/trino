@@ -99,4 +99,10 @@ public class With
                 .add("queries", queries)
                 .toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

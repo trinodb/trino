@@ -24,16 +24,16 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
@@ -49,8 +49,12 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
@@ -58,16 +62,27 @@ import static io.prestosql.sql.gen.BytecodeUtils.invoke;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
 import static io.prestosql.util.FastutilSetHelper.toFastutilHashSet;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public class InCodeGenerator
         implements BytecodeGenerator
 {
-    private final Metadata metadata;
+    private final RowExpression valueExpression;
+    private final List<RowExpression> testExpressions;
 
-    public InCodeGenerator(Metadata metadata)
+    private final ResolvedFunction resolvedEqualsFunction;
+    private final ResolvedFunction resolvedHashCodeFunction;
+    private final ResolvedFunction resolvedIsIndeterminate;
+
+    public InCodeGenerator(SpecialForm specialForm)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        checkArgument(specialForm.getArguments().size() >= 2, "At least two arguments are required");
+        valueExpression = specialForm.getArguments().get(0);
+        testExpressions = specialForm.getArguments().subList(1, specialForm.getArguments().size());
+
+        checkArgument(specialForm.getFunctionDependencies().size() == 3);
+        resolvedEqualsFunction = specialForm.getOperatorDependency(EQUAL);
+        resolvedHashCodeFunction = specialForm.getOperatorDependency(HASH_CODE);
+        resolvedIsIndeterminate = specialForm.getOperatorDependency(INDETERMINATE);
     }
 
     enum SwitchGenerationCase
@@ -110,33 +125,26 @@ public class InCodeGenerator
     }
 
     @Override
-    public BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
-        List<RowExpression> values = arguments.subList(1, arguments.size());
-        // empty IN statements are not allowed by the standard, and not possible here
-        // the implementation assumes this condition is always met
-        checkArgument(values.size() > 0, "values must not be empty");
-
-        Type type = arguments.get(0).getType();
+        Type type = valueExpression.getType();
         Class<?> javaType = type.getJavaType();
 
-        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
+        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, testExpressions);
 
-        Metadata metadata = generatorContext.getMetadata();
-        ResolvedFunction resolvedHashCodeFunction = metadata.resolveOperator(HASH_CODE, ImmutableList.of(type));
-        MethodHandle hashCodeFunction = metadata.getScalarFunctionInvoker(resolvedHashCodeFunction, Optional.empty()).getMethodHandle();
-        ResolvedFunction resolvedIsIndeterminate = metadata.resolveOperator(INDETERMINATE, ImmutableList.of(type));
+        MethodHandle equalsMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedEqualsFunction, Optional.of(simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL))).getMethodHandle();
+        MethodHandle hashCodeMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedHashCodeFunction, Optional.of(simpleConvention(FAIL_ON_NULL, NEVER_NULL))).getMethodHandle();
         InvocationConvention indeterminateCallingConvention = new InvocationConvention(ImmutableList.of(NULL_FLAG), FAIL_ON_NULL, false, false);
-        MethodHandle isIndeterminateFunction = metadata.getScalarFunctionInvoker(resolvedIsIndeterminate, Optional.of(indeterminateCallingConvention)).getMethodHandle();
+        FunctionInvoker indeterminateInvoker = generatorContext.getScalarFunctionInvoker(resolvedIsIndeterminate, Optional.of(indeterminateCallingConvention));
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
-        for (RowExpression testValue : values) {
+        for (RowExpression testValue : testExpressions) {
             BytecodeNode testBytecode = generatorContext.generate(testValue);
 
-            if (isDeterminateConstant(testValue, isIndeterminateFunction)) {
+            if (isDeterminateConstant(testValue, indeterminateInvoker.getMethodHandle())) {
                 ConstantExpression constant = (ConstantExpression) testValue;
                 Object object = constant.getValue();
                 switch (switchGenerationCase) {
@@ -146,7 +154,7 @@ public class InCodeGenerator
                         break;
                     case HASH_SWITCH:
                         try {
-                            int hashCode = Long.hashCode((Long) hashCodeFunction.invoke(object));
+                            int hashCode = Long.hashCode((Long) hashCodeMethodHandle.invoke(object));
                             hashBucketsBuilder.put(hashCode, testBytecode);
                         }
                         catch (Throwable throwable) {
@@ -200,7 +208,7 @@ public class InCodeGenerator
                     BytecodeBlock caseBlock = buildInCase(
                             generatorContext,
                             scope,
-                            type,
+                            resolvedEqualsFunction,
                             match,
                             defaultLabel,
                             value,
@@ -212,7 +220,7 @@ public class InCodeGenerator
                 switchBuilder.defaultCase(jump(defaultLabel));
                 Binding hashCodeBinding = generatorContext
                         .getCallSiteBinder()
-                        .bind(hashCodeFunction);
+                        .bind(hashCodeMethodHandle);
                 switchBlock = new BytecodeBlock()
                         .comment("lookupSwitch(hashCode(<stackValue>))")
                         .getVariable(value)
@@ -222,7 +230,7 @@ public class InCodeGenerator
                         .append(switchBuilder.build());
                 break;
             case SET_CONTAINS:
-                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, this.metadata);
+                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, hashCodeMethodHandle, equalsMethodHandle);
                 Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
                 switchBlock = new BytecodeBlock()
@@ -244,7 +252,7 @@ public class InCodeGenerator
         BytecodeBlock defaultCaseBlock = buildInCase(
                 generatorContext,
                 scope,
-                type,
+                resolvedEqualsFunction,
                 match,
                 noMatch,
                 value,
@@ -255,7 +263,7 @@ public class InCodeGenerator
 
         BytecodeBlock block = new BytecodeBlock()
                 .comment("IN")
-                .append(generatorContext.generate(arguments.get(0)))
+                .append(generatorContext.generate(valueExpression))
                 .append(ifWasNullPopAndGoto(scope, end, boolean.class, javaType))
                 .putVariable(value)
                 .append(switchBlock)
@@ -290,7 +298,7 @@ public class InCodeGenerator
     private static BytecodeBlock buildInCase(
             BytecodeGeneratorContext generatorContext,
             Scope scope,
-            Type type,
+            ResolvedFunction equals,
             LabelNode matchLabel,
             LabelNode noMatchLabel,
             Variable value,
@@ -332,14 +340,12 @@ public class InCodeGenerator
 
         elseBlock.gotoLabel(noMatchLabel);
 
-        ResolvedFunction resolvedEqualsFunction = generatorContext.getMetadata().resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type));
-
         BytecodeNode elseNode = elseBlock;
         for (BytecodeNode testNode : testValues) {
             LabelNode testLabel = new LabelNode("test");
             IfStatement test = new IfStatement();
 
-            BytecodeNode equalsCall = generatorContext.generateCall(resolvedEqualsFunction, ImmutableList.of(value, testNode));
+            BytecodeNode equalsCall = generatorContext.generateCall(equals, ImmutableList.of(value, testNode));
 
             test.condition()
                     .visitLabel(testLabel)

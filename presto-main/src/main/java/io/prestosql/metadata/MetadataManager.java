@@ -23,11 +23,13 @@ import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.ArrayBlockEncoding;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.ByteArrayBlockEncoding;
@@ -48,10 +50,12 @@ import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
+import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
@@ -69,11 +73,15 @@ import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.MaterializedViewFreshness;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
+import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.function.InvocationConvention;
@@ -92,6 +100,7 @@ import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeNotFoundException;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
@@ -99,36 +108,46 @@ import io.prestosql.sql.planner.ConnectorExpressions;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.FunctionType;
 import io.prestosql.type.InternalTypeManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.metadata.FunctionId.toFunctionId;
+import static com.google.common.primitives.Primitives.wrap;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
+import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
@@ -136,22 +155,21 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
@@ -164,6 +182,7 @@ public final class MetadataManager
         implements Metadata
 {
     private final FunctionRegistry functions;
+    private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
     private final ProcedureRegistry procedures;
     private final SessionPropertyManager sessionPropertyManager;
@@ -177,6 +196,8 @@ public final class MetadataManager
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
+    private final ResolvedFunctionDecoder functionDecoder;
+
     @Inject
     public MetadataManager(
             FeaturesConfig featuresConfig,
@@ -185,19 +206,22 @@ public final class MetadataManager
             TablePropertyManager tablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            TypeOperators typeOperators,
+            BlockTypeOperators blockTypeOperators)
     {
         typeRegistry = new TypeRegistry(featuresConfig);
-        functions = new FunctionRegistry(this, featuresConfig);
+        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators);
         functionResolver = new FunctionResolver(this);
 
-        this.procedures = new ProcedureRegistry(this);
+        this.procedures = new ProcedureRegistry();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
 
         // add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
@@ -209,14 +233,16 @@ public final class MetadataManager
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding(new InternalTypeManager(this)));
-        addBlockEncoding(new SingleMapBlockEncoding(new InternalTypeManager(this)));
+        addBlockEncoding(new MapBlockEncoding(new InternalTypeManager(this, typeOperators)));
+        addBlockEncoding(new SingleMapBlockEncoding(new InternalTypeManager(this, typeOperators)));
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
 
-        verifyComparableOrderableContract();
+        verifyTypes();
+
+        functionDecoder = new ResolvedFunctionDecoder(this::getType);
     }
 
     public static MetadataManager createTestMetadataManager()
@@ -241,6 +267,7 @@ public final class MetadataManager
 
     public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
     {
+        TypeOperators typeOperators = new TypeOperators();
         return new MetadataManager(
                 featuresConfig,
                 new SessionPropertyManager(),
@@ -248,7 +275,9 @@ public final class MetadataManager
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,
+                typeOperators,
+                new BlockTypeOperators(typeOperators));
     }
 
     @Override
@@ -261,21 +290,6 @@ public final class MetadataManager
     public boolean catalogExists(Session session, String catalogName)
     {
         return getOptionalCatalogMetadata(session, catalogName).isPresent();
-    }
-
-    private boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-    {
-        FunctionId functionId = toFunctionId(new Signature(
-                mangleOperatorName(operatorType),
-                returnType.getTypeSignature(),
-                argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())));
-        try {
-            functions.get(functionId);
-            return true;
-        }
-        catch (IllegalStateException e) {
-            return false;
-        }
     }
 
     @Override
@@ -674,6 +688,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.setColumnComment(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), column, comment);
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
@@ -695,6 +717,14 @@ public final class MetadataManager
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
         metadata.dropColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), column);
+    }
+
+    @Override
+    public void setTableAuthorization(Session session, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+        CatalogName catalogName = new CatalogName(table.getCatalogName());
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.setTableAuthorization(session.toConnectorSession(catalogName), table.getSchemaTableName(), principal);
     }
 
     @Override
@@ -751,7 +781,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        catalogMetadata.getMetadata().finishStatisticsCollection(session.toConnectorSession(), tableHandle.getConnectorHandle(), computedStatistics);
+        catalogMetadata.getMetadata().finishStatisticsCollection(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), computedStatistics);
     }
 
     @Override
@@ -822,6 +852,50 @@ public final class MetadataManager
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
         return metadata.finishInsert(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+    }
+
+    @Override
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogName);
+
+        List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
+                .map(TableHandle::getConnectorHandle)
+                .collect(Collectors.toList());
+        sourceConnectorHandles.add(tableHandle.getConnectorHandle());
+
+        if (sourceConnectorHandles.stream()
+                .map(Object::getClass)
+                .distinct()
+                .count() > 1) {
+            throw new PrestoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
+        }
+
+        ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), sourceConnectorHandles);
+
+        return new InsertTableHandle(tableHandle.getCatalogName(), transactionHandle, handle);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            Session session,
+            TableHandle tableHandle,
+            InsertTableHandle insertHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles)
+    {
+        CatalogName catalogName = insertHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
+                .map(TableHandle::getConnectorHandle)
+                .collect(toImmutableList());
+        return metadata.finishRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), insertHandle.getConnectorHandle(),
+            fragments, computedStatistics, sourceConnectorHandles);
     }
 
     @Override
@@ -1048,6 +1122,16 @@ public final class MetadataManager
     }
 
     @Override
+    public void setViewAuthorization(Session session, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, view.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.setViewAuthorization(session.toConnectorSession(catalogName), view.getSchemaTableName(), principal);
+    }
+
+    @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
@@ -1055,6 +1139,71 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         metadata.dropView(session.toConnectorSession(catalogName), viewName.asSchemaTableName());
+    }
+
+    @Override
+    public void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.createMaterializedView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), definition, replace, ignoreExisting);
+    }
+
+    @Override
+    public void dropMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.dropMaterializedView(session.toConnectorSession(catalogName), viewName.asSchemaTableName());
+    }
+
+    @Override
+    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        if (viewName.getCatalogName().isEmpty() || viewName.getSchemaName().isEmpty() || viewName.getObjectName().isEmpty()) {
+            // View cannot exist
+            return Optional.empty();
+        }
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+            return metadata.getMaterializedView(connectorSession, viewName.asSchemaTableName());
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName)
+    {
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
+        }
+        return new MaterializedViewFreshness(false);
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applyTableScanRedirect(connectorSession, tableHandle.getConnectorHandle());
     }
 
     @Override
@@ -1119,6 +1268,9 @@ public final class MetadataManager
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets)
     {
+        // Global aggregation is represented by [[]]
+        checkArgument(!groupingSets.isEmpty(), "No grouping sets provided");
+
         CatalogName catalogName = table.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
 
@@ -1137,6 +1289,28 @@ public final class MetadataManager
                             result.getAssignments(),
                             result.getGroupingColumnMapping());
                 });
+    }
+
+    @Override
+    public Optional<TopNApplicationResult<TableHandle>> applyTopN(
+            Session session,
+            TableHandle table,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        if (metadata.usesLegacyTableLayouts()) {
+            return Optional.empty();
+        }
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applyTopN(connectorSession, table.getConnectorHandle(), topNCount, sortItems, assignments)
+                .map(result -> new TopNApplicationResult<>(
+                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                        result.isTopNGuaranteed()));
     }
 
     private void verifyProjection(TableHandle table, List<ConnectorExpression> projections, List<Assignment> assignments, int expectedProjectionSize)
@@ -1341,6 +1515,26 @@ public final class MetadataManager
     }
 
     @Override
+    public void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.grantSchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee, grantOption);
+    }
+
+    @Override
+    public void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
+        CatalogName catalogName = catalogMetadata.getCatalogName();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.revokeSchemaPrivileges(session.toConnectorSession(catalogName), schemaName.getSchemaName(), privileges, grantee, grantOption);
+    }
+
+    @Override
     public List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
@@ -1370,19 +1564,19 @@ public final class MetadataManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        return typeRegistry.getType(new InternalTypeManager(this), signature);
+        return typeRegistry.getType(new InternalTypeManager(this, typeOperators), signature);
     }
 
     @Override
     public Type fromSqlType(String sqlType)
     {
-        return typeRegistry.fromSqlType(new InternalTypeManager(this), sqlType);
+        return typeRegistry.fromSqlType(new InternalTypeManager(this, typeOperators), sqlType);
     }
 
     @Override
     public Type getType(TypeId id)
     {
-        return typeRegistry.getType(new InternalTypeManager(this), id);
+        return typeRegistry.getType(new InternalTypeManager(this, typeOperators), id);
     }
 
     @Override
@@ -1408,42 +1602,142 @@ public final class MetadataManager
     }
 
     @Override
-    public void verifyComparableOrderableContract()
+    public void verifyTypes()
     {
+        Set<Type> missingOperatorDeclaration = new HashSet<>();
         Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
         for (Type type : typeRegistry.getTypes()) {
+            if (type.getTypeOperatorDeclaration(typeOperators) == null) {
+                missingOperatorDeclaration.add(type);
+                continue;
+            }
             if (type.isComparable()) {
-                for (OperatorType operator : ImmutableList.of(HASH_CODE, XX_HASH_64)) {
-                    if (!canResolveOperator(operator, BIGINT, ImmutableList.of(type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasEqualMethod(type)) {
+                    missingOperators.put(type, EQUAL);
                 }
-                for (OperatorType operator : ImmutableList.of(INDETERMINATE)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasHashCodeMethod(type)) {
+                    missingOperators.put(type, HASH_CODE);
                 }
-                for (OperatorType operator : ImmutableList.of(EQUAL, NOT_EQUAL, IS_DISTINCT_FROM)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasXxHash64Method(type)) {
+                    missingOperators.put(type, XX_HASH_64);
+                }
+                if (!hasDistinctFromMethod(type)) {
+                    missingOperators.put(type, IS_DISTINCT_FROM);
+                }
+                if (!hasIndeterminateMethod(type)) {
+                    missingOperators.put(type, INDETERMINATE);
                 }
             }
             if (type.isOrderable()) {
-                for (OperatorType operator : ImmutableList.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasComparisonMethod(type)) {
+                    missingOperators.put(type, COMPARISON);
+                }
+                if (!hasLessThanMethod(type)) {
+                    missingOperators.put(type, LESS_THAN);
+                }
+                if (!hasLessThanOrEqualMethod(type)) {
+                    missingOperators.put(type, LESS_THAN_OR_EQUAL);
                 }
             }
         }
         // TODO: verify the parametric types too
         if (!missingOperators.isEmpty()) {
             List<String> messages = new ArrayList<>();
+            for (Type type : missingOperatorDeclaration) {
+                messages.add(format("%s types operators is null", type));
+            }
             for (Type type : missingOperators.keySet()) {
                 messages.add(format("%s missing for %s", missingOperators.get(type), type));
             }
             throw new IllegalStateException(Joiner.on(", ").join(messages));
+        }
+    }
+
+    private boolean hasEqualMethod(Type type)
+    {
+        try {
+            typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasHashCodeMethod(Type type)
+    {
+        try {
+            typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasXxHash64Method(Type type)
+    {
+        try {
+            typeOperators.getXxHash64Operator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasDistinctFromMethod(Type type)
+    {
+        try {
+            typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasIndeterminateMethod(Type type)
+    {
+        try {
+            typeOperators.getIndeterminateOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasComparisonMethod(Type type)
+    {
+        try {
+            typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasLessThanMethod(Type type)
+    {
+        try {
+            typeOperators.getLessThanOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasLessThanOrEqualMethod(Type type)
+    {
+        try {
+            typeOperators.getLessThanOrEqualOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
         }
     }
 
@@ -1464,10 +1758,17 @@ public final class MetadataManager
     }
 
     @Override
+    public ResolvedFunction decodeFunction(QualifiedName name)
+    {
+        return functionDecoder.fromQualifiedName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Function is not resolved: " + name));
+    }
+
+    @Override
     public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return ResolvedFunction.fromQualifiedName(name)
-                .orElseGet(() -> functionResolver.resolveFunction(functions.get(name), name, parameterTypes));
+        return functionDecoder.fromQualifiedName(name)
+                .orElseGet(() -> resolve(functionResolver.resolveFunction(functions.get(name), name, parameterTypes)));
     }
 
     @Override
@@ -1479,7 +1780,9 @@ public final class MetadataManager
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, argumentTypes);
+                OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, argumentTypes);
+                operatorNotFound.addSuppressed(e);
+                throw operatorNotFound;
             }
             else {
                 throw e;
@@ -1493,11 +1796,13 @@ public final class MetadataManager
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
             String name = mangleOperatorName(operatorType);
-            return functionResolver.resolveCoercion(functions.get(QualifiedName.of(name)), new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+            return resolve(functionResolver.resolveCoercion(functions.get(QualifiedName.of(name)), new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()))));
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
+                OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
+                operatorNotFound.addSuppressed(e);
+                throw operatorNotFound;
             }
             throw e;
         }
@@ -1506,7 +1811,77 @@ public final class MetadataManager
     @Override
     public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
     {
-        return functionResolver.resolveCoercion(functions.get(name), new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+        return resolve(functionResolver.resolveCoercion(functions.get(name), new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()))));
+    }
+
+    private ResolvedFunction resolve(FunctionBinding functionBinding)
+    {
+        FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
+        return resolve(functionBinding, declaration);
+    }
+
+    @VisibleForTesting
+    public ResolvedFunction resolve(FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
+    {
+        Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
+                .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                .collect(toImmutableMap(Function.identity(), this::getType, (left, right) -> left));
+
+        ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
+        declaration.getFunctionDependencies().stream()
+                .map(functionDependency -> {
+                    try {
+                        List<TypeSignature> argumentTypes = applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding);
+                        return resolveFunction(functionDependency.getName(), fromTypeSignatures(argumentTypes));
+                    }
+                    catch (PrestoException e) {
+                        if (functionDependency.isOptional()) {
+                            return null;
+                        }
+                        throw e;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .forEach(functions::add);
+
+        declaration.getOperatorDependencies().stream()
+                .map(operatorDependency -> {
+                    try {
+                        List<TypeSignature> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding);
+                        return resolveFunction(QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
+                    }
+                    catch (PrestoException e) {
+                        if (operatorDependency.isOptional()) {
+                            return null;
+                        }
+                        throw e;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .forEach(functions::add);
+
+        declaration.getCastDependencies().stream()
+                .map(castDependency -> {
+                    try {
+                        Type fromType = getType(applyBoundVariables(castDependency.getFromType(), functionBinding));
+                        Type toType = getType(applyBoundVariables(castDependency.getToType(), functionBinding));
+                        return getCoercion(fromType, toType);
+                    }
+                    catch (PrestoException e) {
+                        if (castDependency.isOptional()) {
+                            return null;
+                        }
+                        throw e;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .forEach(functions::add);
+
+        return new ResolvedFunction(
+                functionBinding.getBoundSignature(),
+                functionBinding.getFunctionId(),
+                dependentTypes,
+                functions.build());
     }
 
     @Override
@@ -1537,7 +1912,7 @@ public final class MetadataManager
         }
         return new FunctionMetadata(
                 functionMetadata.getFunctionId(),
-                resolvedFunction.getSignature(),
+                resolvedFunction.getSignature().toSignature(),
                 functionMetadata.isNullable(),
                 argumentDefinitions,
                 functionMetadata.isHidden(),
@@ -1550,26 +1925,121 @@ public final class MetadataManager
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregationFunctionMetadata(this, resolvedFunction);
+        return functions.getAggregationFunctionMetadata(toFunctionBinding(resolvedFunction));
     }
 
     @Override
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getWindowFunctionImplementation(this, resolvedFunction);
+        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        return functions.getWindowFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
     }
 
     @Override
     public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregateFunctionImplementation(this, resolvedFunction);
+        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        return functions.getAggregateFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
     }
 
     @Override
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
     {
         InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(resolvedFunction));
-        return functions.getScalarFunctionInvoker(this, resolvedFunction, expectedConvention);
+        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(toFunctionBinding(resolvedFunction), functionDependencies, expectedConvention);
+        verifyMethodHandleSignature(resolvedFunction.getSignature(), functionInvoker, expectedConvention);
+        return functionInvoker;
+    }
+
+    private static void verifyMethodHandleSignature(BoundSignature boundSignature, FunctionInvoker functionInvoker, InvocationConvention convention)
+    {
+        MethodHandle methodHandle = functionInvoker.getMethodHandle();
+        MethodType methodType = methodHandle.type();
+
+        checkArgument(convention.getArgumentConventions().size() == boundSignature.getArgumentTypes().size(),
+                "Expected %s arguments, but got %s", boundSignature.getArgumentTypes().size(), convention.getArgumentConventions().size());
+
+        int expectedParameterCount = convention.getArgumentConventions().stream()
+                .mapToInt(InvocationArgumentConvention::getParameterCount)
+                .sum();
+        expectedParameterCount += methodType.parameterList().stream().filter(ConnectorSession.class::equals).count();
+        if (functionInvoker.getInstanceFactory().isPresent()) {
+            expectedParameterCount++;
+        }
+        checkArgument(expectedParameterCount == methodType.parameterCount(),
+                "Expected %s method parameters, but got %s", expectedParameterCount, methodType.parameterCount());
+
+        int parameterIndex = 0;
+        if (functionInvoker.getInstanceFactory().isPresent()) {
+            verifyFunctionSignature(convention.supportsInstanceFactor(), "Method requires instance factory, but calling convention does not support an instance factory");
+            MethodHandle factoryMethod = functionInvoker.getInstanceFactory().orElseThrow();
+            verifyFunctionSignature(methodType.parameterType(parameterIndex).equals(factoryMethod.type().returnType()), "Invalid return type");
+            parameterIndex++;
+        }
+
+        int lambdaArgumentIndex = 0;
+        for (int argumentIndex = 0; argumentIndex < boundSignature.getArgumentTypes().size(); argumentIndex++) {
+            // skip session parameters
+            while (methodType.parameterType(parameterIndex).equals(ConnectorSession.class)) {
+                verifyFunctionSignature(convention.supportsSession(), "Method requires session, but calling convention does not support session");
+                parameterIndex++;
+            }
+
+            Class<?> parameterType = methodType.parameterType(parameterIndex);
+            Type argumentType = boundSignature.getArgumentTypes().get(argumentIndex);
+            InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
+            switch (argumentConvention) {
+                case NEVER_NULL:
+                    verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
+                            "Expected argument type to be %s, but is %s", argumentType, parameterType);
+                    break;
+                case NULL_FLAG:
+                    verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
+                            "Expected argument type to be %s, but is %s", argumentType.getJavaType(), parameterType);
+                    verifyFunctionSignature(methodType.parameterType(parameterIndex + 1).equals(boolean.class),
+                            "Expected null flag parameter to be followed by a boolean parameter");
+                    break;
+                case BOXED_NULLABLE:
+                    verifyFunctionSignature(parameterType.isAssignableFrom(wrap(argumentType.getJavaType())),
+                            "Expected argument type to be %s, but is %s", wrap(argumentType.getJavaType()), parameterType);
+                    break;
+                case BLOCK_POSITION:
+                    verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
+                            "Expected BLOCK_POSITION argument have parameters Block and int");
+                    break;
+                case FUNCTION:
+                    Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);
+                    verifyFunctionSignature(parameterType.equals(lambdaInterface),
+                            "Expected function interface to be %s, but is %s", lambdaInterface, parameterType);
+                    lambdaArgumentIndex++;
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
+            }
+            parameterIndex += argumentConvention.getParameterCount();
+        }
+
+        Type returnType = boundSignature.getReturnType();
+        switch (convention.getReturnConvention()) {
+            case FAIL_ON_NULL:
+                verifyFunctionSignature(methodType.returnType().isAssignableFrom(returnType.getJavaType()),
+                        "Expected return type to be %s, but is %s", returnType.getJavaType(), methodType.returnType());
+                break;
+            case NULLABLE_RETURN:
+                verifyFunctionSignature(methodType.returnType().isAssignableFrom(wrap(returnType.getJavaType())),
+                        "Expected return type to be %s, but is %s", returnType.getJavaType(), wrap(methodType.returnType()));
+                break;
+            default:
+                throw new UnsupportedOperationException("Unknown return convention: " + convention.getReturnConvention());
+        }
+    }
+
+    private static void verifyFunctionSignature(boolean check, String message, Object... args)
+    {
+        if (!check) {
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format(message, args));
+        }
     }
 
     /**
@@ -1589,6 +2059,21 @@ public final class MetadataManager
                 returnConvention,
                 true,
                 false);
+    }
+
+    private FunctionBinding toFunctionBinding(ResolvedFunction resolvedFunction)
+    {
+        Signature functionSignature = functions.get(resolvedFunction.getFunctionId()).getSignature();
+        return toFunctionBinding(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionSignature);
+    }
+
+    @VisibleForTesting
+    public static FunctionBinding toFunctionBinding(FunctionId functionId, BoundSignature boundSignature, Signature functionSignature)
+    {
+        return SignatureBinder.bindFunction(
+                functionId,
+                functionSignature,
+                boundSignature);
     }
 
     @Override

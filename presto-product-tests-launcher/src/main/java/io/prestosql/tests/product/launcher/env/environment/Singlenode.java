@@ -15,7 +15,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
@@ -24,7 +24,7 @@ import javax.inject.Inject;
 
 @TestsEnvironment
 public final class Singlenode
-        extends AbstractEnvironmentProvider
+        extends EnvironmentProvider
 {
     @Inject
     public Singlenode(Standard standard, Hadoop hadoop)
@@ -33,5 +33,5 @@ public final class Singlenode
     }
 
     @Override
-    protected void extendEnvironment(Environment.Builder builder) {}
+    public void extendEnvironment(Environment.Builder builder) {}
 }

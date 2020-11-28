@@ -40,12 +40,25 @@ public class DoubleDecoder
         Object value = getter.get();
         if (value == null) {
             output.appendNull();
+            return;
         }
-        else if (value instanceof Number) {
-            DOUBLE.writeDouble(output, ((Number) value).doubleValue());
+
+        double decoded;
+        if (value instanceof Number) {
+            decoded = ((Number) value).doubleValue();
+        }
+        else if (value instanceof String) {
+            try {
+                decoded = Double.parseDouble((String) value);
+            }
+            catch (NumberFormatException e) {
+                throw new PrestoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as DOUBLE: %s", path, value));
+            }
         }
         else {
             throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field %s of type DOUBLE: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
+
+        DOUBLE.writeDouble(output, decoded);
     }
 }

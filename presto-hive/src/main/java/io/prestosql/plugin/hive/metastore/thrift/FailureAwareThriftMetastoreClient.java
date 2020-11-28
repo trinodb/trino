@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.prestosql.plugin.hive.acid.AcidOperation;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -28,10 +29,12 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -393,6 +396,48 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         return runWithHandle(() -> delegate.getDelegationToken(userName));
+    }
+
+    @Override
+    public void abortTransaction(long transactionId)
+            throws TException
+    {
+        runWithHandle(() -> delegate.abortTransaction(transactionId));
+    }
+
+    @Override
+    public List<TxnToWriteId> allocateTableWriteIds(String database, String tableName, List<Long> transactionIds)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.allocateTableWriteIds(database, tableName, transactionIds));
+    }
+
+    @Override
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+            throws TException
+    {
+        runWithHandle(() -> delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange));
+    }
+
+    @Override
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException
+    {
+        runWithHandle(() -> delegate.alterPartitions(dbName, tableName, partitions, writeId));
+    }
+
+    @Override
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+            throws TException
+    {
+        runWithHandle(() -> delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation));
+    }
+
+    @Override
+    public void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext context)
+            throws TException
+    {
+        runWithHandle(() -> delegate.alterTransactionalTable(table, transactionId, writeId, context));
     }
 
     private <T> T runWithHandle(ThrowingSupplier<T> supplier)

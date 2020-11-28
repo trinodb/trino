@@ -16,7 +16,6 @@ package io.prestosql.security;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -54,6 +53,18 @@ public abstract class ForwardingAccessControl
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
         delegate().checkCanImpersonateUser(identity, userName);
+    }
+
+    @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+        delegate().checkCanReadSystemInformation(identity);
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+        delegate().checkCanWriteSystemInformation(identity);
     }
 
     @Override
@@ -166,6 +177,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName)
+    {
+        delegate().checkCanSetColumnComment(context, tableName);
+    }
+
+    @Override
     public void checkCanShowTables(SecurityContext context, CatalogSchemaName schema)
     {
         delegate().checkCanShowTables(context, schema);
@@ -184,7 +201,7 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
     {
         return delegate().filterColumns(context, tableName, columns);
     }
@@ -205,6 +222,12 @@ public abstract class ForwardingAccessControl
     public void checkCanRenameColumn(SecurityContext context, QualifiedObjectName tableName)
     {
         delegate().checkCanRenameColumn(context, tableName);
+    }
+
+    @Override
+    public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetTableAuthorization(context, tableName, principal);
     }
 
     @Override
@@ -232,6 +255,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetViewAuthorization(context, view, principal);
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         delegate().checkCanDropView(context, viewName);
@@ -247,6 +276,18 @@ public abstract class ForwardingAccessControl
     public void checkCanGrantExecuteFunctionPrivilege(SecurityContext context, String functionName, Identity grantee, boolean grantOption)
     {
         delegate().checkCanGrantExecuteFunctionPrivilege(context, functionName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantSchemaPrivilege(context, privilege, schemaName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SecurityContext context, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal revokee, boolean grantOption)
+    {
+        delegate().checkCanRevokeSchemaPrivilege(context, privilege, schemaName, revokee, grantOption);
     }
 
     @Override

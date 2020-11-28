@@ -52,7 +52,9 @@ public class TestMergeAdjacentWindows
             WindowFrame.Type.RANGE,
             UNBOUNDED_PRECEDING,
             Optional.empty(),
+            Optional.empty(),
             CURRENT_ROW,
+            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty());

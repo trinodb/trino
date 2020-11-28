@@ -53,6 +53,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.prestosql.plugin.iceberg.IcebergUtil.isIcebergTable;
@@ -177,7 +178,7 @@ public class HiveTableOperations
         Table table;
         try {
             if (base == null) {
-                table = Table.builder()
+                Table.Builder builder = Table.builder()
                         .setDatabaseName(database)
                         .setTableName(tableName)
                         .setOwner(owner.orElseThrow(() -> new IllegalStateException("Owner not set")))
@@ -187,8 +188,12 @@ public class HiveTableOperations
                         .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
                         .setParameter("EXTERNAL", "TRUE")
                         .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
-                        .setParameter(METADATA_LOCATION, newMetadataLocation)
-                        .build();
+                        .setParameter(METADATA_LOCATION, newMetadataLocation);
+                String tableComment = metadata.properties().get(TABLE_COMMENT);
+                if (tableComment != null) {
+                    builder.setParameter(TABLE_COMMENT, tableComment);
+                }
+                table = builder.build();
             }
             else {
                 Table currentTable = getTable();

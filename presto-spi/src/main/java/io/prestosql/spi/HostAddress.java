@@ -19,10 +19,13 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -247,6 +250,12 @@ public class HostAddress
         return InetAddress.getByName(getHostText());
     }
 
+    public List<InetAddress> getAllInetAddresses()
+            throws UnknownHostException
+    {
+        return unmodifiableList(Arrays.asList(InetAddress.getAllByName(getHostText())));
+    }
+
     @Override
     public int hashCode()
     {
@@ -262,7 +271,7 @@ public class HostAddress
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final HostAddress other = (HostAddress) obj;
+        HostAddress other = (HostAddress) obj;
         return Objects.equals(this.host, other.host) &&
                 Objects.equals(this.port, other.port);
     }

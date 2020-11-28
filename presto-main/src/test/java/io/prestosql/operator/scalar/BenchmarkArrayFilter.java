@@ -13,10 +13,9 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionListBuilder;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
@@ -63,14 +62,15 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
@@ -98,7 +98,7 @@ public class BenchmarkArrayFilter
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
 
     static {
-        Verify.verify(NUM_TYPES == TYPES.size());
+        verify(NUM_TYPES == TYPES.size());
     }
 
     @Benchmark
@@ -137,13 +137,13 @@ public class BenchmarkArrayFilter
                 ResolvedFunction resolvedFunction = metadata.resolveFunction(
                         QualifiedName.of(name),
                         fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN)));
-                ResolvedFunction greaterThan = metadata.resolveOperator(GREATER_THAN, ImmutableList.of(BIGINT, BIGINT));
-                projectionsBuilder.add(new CallExpression(resolvedFunction, arrayType, ImmutableList.of(
+                ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
+                projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("x"),
-                                new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
+                                new CallExpression(lessThan, ImmutableList.of(constant(0L, BIGINT), new VariableReferenceExpression("x", BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
@@ -226,14 +226,13 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+        protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
         {
-            Type type = boundVariables.getTypeVariable("T");
-            return new ScalarFunctionImplementation(
-                    false,
-                    ImmutableList.of(
-                            valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                            valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+            Type type = functionBinding.getTypeVariable("T");
+            return new ChoicesScalarFunctionImplementation(
+                    functionBinding,
+                    FAIL_ON_NULL,
+                    ImmutableList.of(NEVER_NULL, NEVER_NULL),
                     METHOD_HANDLE.bindTo(type));
         }
 

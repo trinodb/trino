@@ -49,7 +49,7 @@ public class WindowPlanNodeStats
     @Override
     public PlanNodeStats mergeWith(PlanNodeStats other)
     {
-        checkArgument(other instanceof WindowPlanNodeStats, "other is not an instanceof WindowPlanNodeStats");
+        checkArgument(other instanceof WindowPlanNodeStats, "other is not an instanceof WindowPlanNodeStats: %s", other);
         PlanNodeStats merged = super.mergeWith(other);
 
         return new WindowPlanNodeStats(

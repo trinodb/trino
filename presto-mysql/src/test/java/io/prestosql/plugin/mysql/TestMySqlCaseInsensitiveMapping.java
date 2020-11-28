@@ -41,7 +41,7 @@ public class TestMySqlCaseInsensitiveMapping
             throws Exception
     {
         mySqlServer = new TestingMySqlServer();
-        return createMySqlQueryRunner(mySqlServer, ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
+        return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)

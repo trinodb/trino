@@ -19,6 +19,7 @@ import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -85,7 +86,7 @@ public class ChannelSet
         private final OperatorContext operatorContext;
         private final LocalMemoryContext localMemoryContext;
 
-        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler)
+        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
         {
             List<Type> types = ImmutableList.of(type);
             this.hash = createGroupByHash(
@@ -95,6 +96,7 @@ public class ChannelSet
                     expectedPositions,
                     isDictionaryAggregationEnabled(operatorContext.getSession()),
                     joinCompiler,
+                    blockTypeOperators,
                     this::updateMemoryReservation);
             this.nullBlockPage = new Page(type.createBlockBuilder(null, 1, UNKNOWN.getFixedSize()).appendNull().build());
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");

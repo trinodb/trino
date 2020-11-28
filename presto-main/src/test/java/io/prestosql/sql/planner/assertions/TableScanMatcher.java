@@ -110,12 +110,11 @@ final class TableScanMatcher
 
         PlanMatchPattern build()
         {
-            PlanMatchPattern result = node(TableScanNode.class).with(
+            return node(TableScanNode.class).with(
                     new TableScanMatcher(
                             expectedTableName,
                             expectedConstraint,
                             hasTableLayout));
-            return result;
         }
     }
 }

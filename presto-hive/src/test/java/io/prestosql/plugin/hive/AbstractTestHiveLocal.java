@@ -55,7 +55,7 @@ public abstract class AbstractTestHiveLocal
 
     protected abstract HiveMetastore createMetastore(File tempDir);
 
-    @BeforeClass
+    @BeforeClass(alwaysRun = true)
     public void initialize()
     {
         tempDir = Files.createTempDir();
@@ -70,7 +70,8 @@ public abstract class AbstractTestHiveLocal
                         .build());
 
         HiveConfig hiveConfig = new HiveConfig()
-                .setTimeZone("America/Los_Angeles");
+                .setParquetTimeZone("America/Los_Angeles")
+                .setRcfileTimeZone("America/Los_Angeles");
 
         setup(testDbName, hiveConfig, metastore, HDFS_ENVIRONMENT);
     }

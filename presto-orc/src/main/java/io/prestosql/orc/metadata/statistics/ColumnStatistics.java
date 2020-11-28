@@ -27,6 +27,7 @@ import static io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder.merge
 import static io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
 import static io.prestosql.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
 import static io.prestosql.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
+import static io.prestosql.orc.metadata.statistics.TimestampStatisticsBuilder.mergeTimestampStatistics;
 
 public class ColumnStatistics
         implements Hashable
@@ -41,6 +42,7 @@ public class ColumnStatistics
     private final DoubleStatistics doubleStatistics;
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
+    private final TimestampStatistics timestampStatistics;
     private final DecimalStatistics decimalStatistics;
     private final BinaryStatistics binaryStatistics;
     private final BloomFilter bloomFilter;
@@ -53,6 +55,7 @@ public class ColumnStatistics
             DoubleStatistics doubleStatistics,
             StringStatistics stringStatistics,
             DateStatistics dateStatistics,
+            TimestampStatistics timestampStatistics,
             DecimalStatistics decimalStatistics,
             BinaryStatistics binaryStatistics,
             BloomFilter bloomFilter)
@@ -65,6 +68,7 @@ public class ColumnStatistics
         this.doubleStatistics = doubleStatistics;
         this.stringStatistics = stringStatistics;
         this.dateStatistics = dateStatistics;
+        this.timestampStatistics = timestampStatistics;
         this.decimalStatistics = decimalStatistics;
         this.binaryStatistics = binaryStatistics;
         this.bloomFilter = bloomFilter;
@@ -131,6 +135,11 @@ public class ColumnStatistics
         return binaryStatistics;
     }
 
+    public TimestampStatistics getTimestampStatistics()
+    {
+        return timestampStatistics;
+    }
+
     public BloomFilter getBloomFilter()
     {
         return bloomFilter;
@@ -146,6 +155,7 @@ public class ColumnStatistics
                 doubleStatistics,
                 stringStatistics,
                 dateStatistics,
+                timestampStatistics,
                 decimalStatistics,
                 binaryStatistics,
                 bloomFilter);
@@ -168,6 +178,9 @@ public class ColumnStatistics
         }
         if (dateStatistics != null) {
             retainedSizeInBytes += dateStatistics.getRetainedSizeInBytes();
+        }
+        if (timestampStatistics != null) {
+            retainedSizeInBytes += timestampStatistics.getRetainedSizeInBytes();
         }
         if (decimalStatistics != null) {
             retainedSizeInBytes += decimalStatistics.getRetainedSizeInBytes();
@@ -198,6 +211,7 @@ public class ColumnStatistics
                 Objects.equals(doubleStatistics, that.doubleStatistics) &&
                 Objects.equals(stringStatistics, that.stringStatistics) &&
                 Objects.equals(dateStatistics, that.dateStatistics) &&
+                Objects.equals(timestampStatistics, that.timestampStatistics) &&
                 Objects.equals(decimalStatistics, that.decimalStatistics) &&
                 Objects.equals(binaryStatistics, that.binaryStatistics) &&
                 Objects.equals(bloomFilter, that.bloomFilter);
@@ -214,6 +228,7 @@ public class ColumnStatistics
                 doubleStatistics,
                 stringStatistics,
                 dateStatistics,
+                timestampStatistics,
                 decimalStatistics,
                 binaryStatistics,
                 bloomFilter);
@@ -230,6 +245,7 @@ public class ColumnStatistics
                 .add("doubleStatistics", doubleStatistics)
                 .add("stringStatistics", stringStatistics)
                 .add("dateStatistics", dateStatistics)
+                .add("timestampStatistics", timestampStatistics)
                 .add("decimalStatistics", decimalStatistics)
                 .add("binaryStatistics", binaryStatistics)
                 .add("bloomFilter", bloomFilter)
@@ -245,6 +261,7 @@ public class ColumnStatistics
                 .putOptionalHashable(doubleStatistics)
                 .putOptionalHashable(stringStatistics)
                 .putOptionalHashable(dateStatistics)
+                .putOptionalHashable(timestampStatistics)
                 .putOptionalHashable(decimalStatistics)
                 .putOptionalHashable(binaryStatistics)
                 .putOptionalHashable(bloomFilter);
@@ -271,6 +288,7 @@ public class ColumnStatistics
                 mergeDoubleStatistics(stats).orElse(null),
                 mergeStringStatistics(stats).orElse(null),
                 mergeDateStatistics(stats).orElse(null),
+                mergeTimestampStatistics(stats).orElse(null),
                 mergeDecimalStatistics(stats).orElse(null),
                 mergeBinaryStatistics(stats).orElse(null),
                 null);

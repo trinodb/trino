@@ -26,9 +26,11 @@ import static java.lang.String.format;
 public class AccessDeniedException
         extends PrestoException
 {
+    public static final String PREFIX = "Access Denied: ";
+
     public AccessDeniedException(String message)
     {
-        super(PERMISSION_DENIED, "Access Denied: " + message);
+        super(PERMISSION_DENIED, PREFIX + message);
     }
 
     public static void denyImpersonateUser(String originalUser, String newUser)
@@ -49,6 +51,26 @@ public class AccessDeniedException
     public static void denySetUser(Optional<Principal> principal, String userName, String extraInfo)
     {
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyReadSystemInformationAccess()
+    {
+        denyReadSystemInformationAccess(null);
+    }
+
+    public static void denyReadSystemInformationAccess(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot read system information%s", formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyWriteSystemInformationAccess()
+    {
+        denyWriteSystemInformationAccess(null);
+    }
+
+    public static void denyWriteSystemInformationAccess(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot write system information%s", formatExtraInfo(extraInfo)));
     }
 
     public static void denyExecuteQuery()
@@ -191,6 +213,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot comment table to %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCommentColumn(String tableName)
+    {
+        denyCommentColumn(tableName, null);
+    }
+
+    public static void denyCommentColumn(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot comment column to %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyShowTables(String schemaName)
     {
         denyShowTables(schemaName, null);
@@ -224,6 +256,11 @@ public class AccessDeniedException
     public static void denyDropColumn(String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot drop a column from table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denySetTableAuthorization(String tableName, PrestoPrincipal principal)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for table %s to %s", tableName, principal));
     }
 
     public static void denyRenameColumn(String tableName)
@@ -311,6 +348,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetViewAuthorization(String tableName, PrestoPrincipal principal)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for view %s to %s", tableName, principal));
+    }
+
     public static void denyDropView(String viewName)
     {
         denyDropView(viewName, null);
@@ -329,6 +371,26 @@ public class AccessDeniedException
     public static void denySelectView(String viewName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot select from view %s%s", viewName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyGrantSchemaPrivilege(String privilege, String schemaName)
+    {
+        denyGrantSchemaPrivilege(privilege, schemaName, null);
+    }
+
+    public static void denyGrantSchemaPrivilege(String privilege, String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot grant privilege %s on schema %s%s", privilege, schemaName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRevokeSchemaPrivilege(String privilege, String schemaName)
+    {
+        denyRevokeSchemaPrivilege(privilege, schemaName, null);
+    }
+
+    public static void denyRevokeSchemaPrivilege(String privilege, String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot revoke privilege %s on schema %s%s", privilege, schemaName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyGrantTablePrivilege(String privilege, String tableName)

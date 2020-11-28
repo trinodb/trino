@@ -19,9 +19,11 @@ import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.memory.ClusterMemoryManager;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.NodeState;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -29,6 +31,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
+import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -49,6 +52,7 @@ public class ClusterStatsResource
         this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
     }
 
+    @ResourceSecurity(WEB_UI)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public ClusterStats getClusterStats()
@@ -61,7 +65,7 @@ public class ClusterStatsResource
                 .count();
 
         long activeCoordinators = nodeManager.getNodes(NodeState.ACTIVE).stream()
-                .filter(node -> node.isCoordinator())
+                .filter(InternalNode::isCoordinator)
                 .count();
         long totalAvailableProcessors = clusterMemoryManager.getTotalAvailableProcessors();
 

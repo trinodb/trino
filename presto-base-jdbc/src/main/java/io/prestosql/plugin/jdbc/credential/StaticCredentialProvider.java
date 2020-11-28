@@ -22,6 +22,11 @@ import static java.util.Objects.requireNonNull;
 public class StaticCredentialProvider
         implements CredentialProvider
 {
+    public static StaticCredentialProvider of(String user, String password)
+    {
+        return new StaticCredentialProvider(Optional.of(user), Optional.of(password));
+    }
+
     private final Optional<String> connectionUser;
     private final Optional<String> connectionPassword;
 

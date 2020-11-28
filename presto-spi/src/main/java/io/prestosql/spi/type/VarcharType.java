@@ -16,19 +16,34 @@ package io.prestosql.spi.type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.BlockIndex;
+import io.prestosql.spi.function.BlockPosition;
+import io.prestosql.spi.function.ScalarOperator;
 
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.Slices.sliceRepresentation;
+import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Character.MAX_CODE_POINT;
+import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Collections.singletonList;
 
 public final class VarcharType
         extends AbstractVariableWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(VarcharType.class, lookup(), Slice.class);
+
     public static final int UNBOUNDED_LENGTH = Integer.MAX_VALUE;
     public static final int MAX_LENGTH = Integer.MAX_VALUE - 1;
     public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
@@ -102,38 +117,36 @@ public final class VarcharType
     }
 
     @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
+    }
+
+    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
 
-        return block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        int leftLength = leftBlock.getSliceLength(leftPosition);
-        int rightLength = rightBlock.getSliceLength(rightPosition);
-        if (leftLength != rightLength) {
-            return false;
+        Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
+        if (!isUnbounded() && countCodePoints(slice) > length) {
+            throw new IllegalArgumentException(format("Character count exceeds length limit %s: %s", length, sliceRepresentation(slice)));
         }
-        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
+        return slice.toStringUtf8();
     }
 
     @Override
-    public long hash(Block block, int position)
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
-        return block.hash(position, 0, block.getSliceLength(position));
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        int leftLength = leftBlock.getSliceLength(leftPosition);
-        int rightLength = rightBlock.getSliceLength(rightPosition);
-        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
+        return createBlockBuilder(
+                blockBuilderStatus,
+                expectedEntries,
+                getLength()
+                        // If bound on length is smaller than EXPECTED_BYTES_PER_ENTRY, use that as expectedBytesPerEntry
+                        // The data can take up to 4 bytes per character due to UTF-8 encoding, but we assume it is ASCII and only needs one byte.
+                        .map(length -> Math.min(length, EXPECTED_BYTES_PER_ENTRY))
+                        .orElse(EXPECTED_BYTES_PER_ENTRY));
     }
 
     @Override
@@ -213,19 +226,46 @@ public final class VarcharType
         return Objects.hash(length);
     }
 
-    @Override
-    public String getDisplayName()
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(Slice left, Slice right)
     {
-        if (length == UNBOUNDED_LENGTH) {
-            return getBaseName();
-        }
-
-        return getTypeSignature().toString();
+        return left.equals(right);
     }
 
-    @Override
-    public String toString()
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
     {
-        return getDisplayName();
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
+        if (leftLength != rightLength) {
+            return false;
+        }
+        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(Slice value)
+    {
+        return XxHash64.hash(value);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    {
+        return block.hash(position, 0, block.getSliceLength(position));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(Slice left, Slice right)
+    {
+        return left.compareTo(right);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        int rightLength = rightBlock.getSliceLength(rightPosition);
+        return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
 }

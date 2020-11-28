@@ -14,6 +14,7 @@
 package io.prestosql.elasticsearch;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 
 import javax.validation.constraints.NotNull;
@@ -47,6 +48,7 @@ public class AwsSecurityConfig
     }
 
     @Config("elasticsearch.aws.secret-key")
+    @ConfigSecuritySensitive
     public AwsSecurityConfig setSecretKey(String key)
     {
         this.secretKey = key;

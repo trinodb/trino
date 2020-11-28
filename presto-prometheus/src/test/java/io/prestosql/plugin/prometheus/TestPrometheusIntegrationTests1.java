@@ -21,13 +21,13 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.TimestampType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 
+import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.prestosql.plugin.prometheus.PrometheusQueryRunner.createPrometheusClient;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -50,7 +50,6 @@ public class TestPrometheusIntegrationTests1
 
     @BeforeClass
     protected void createQueryRunner()
-            throws Exception
     {
         this.server = new PrometheusServer();
         this.client = createPrometheusClient(server);
@@ -66,24 +65,22 @@ public class TestPrometheusIntegrationTests1
     public void testRetrieveUpValue()
             throws Exception
     {
-        this.server.checkServerReady(this.client);
+        PrometheusServer.checkServerReady(this.client);
         assertTrue(client.getTableNames("default").contains("up"), "Prometheus' own `up` metric should be available in default");
     }
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testHandleErrorResponse()
-            throws Exception
     {
-        assertThatThrownBy(() -> client.getTableNames("undefault"))
+        assertThatThrownBy(() -> client.getTableNames("unknown"))
                 .isInstanceOf(PrestoException.class)
                 .hasMessageContaining("Prometheus did no return metrics list (table names)");
-        PrometheusTable table = client.getTable("undefault", "up");
+        PrometheusTable table = client.getTable("unknown", "up");
         assertNull(table);
     }
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testListSchemaNames()
-            throws Exception
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableSet.of("default"));
@@ -91,7 +88,6 @@ public class TestPrometheusIntegrationTests1
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testGetColumnMetadata()
-            throws Exception
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         assertEquals(metadata.getColumnMetadata(SESSION, RUNTIME_DETERMINED_TABLE_HANDLE, new PrometheusColumnHandle("text", createUnboundedVarcharType(), 0)),
@@ -106,7 +102,6 @@ public class TestPrometheusIntegrationTests1
 
     @Test(expectedExceptions = PrestoException.class, dependsOnMethods = "testRetrieveUpValue")
     public void testCreateTable()
-            throws Exception
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         metadata.createTable(
@@ -119,7 +114,6 @@ public class TestPrometheusIntegrationTests1
 
     @Test(expectedExceptions = PrestoException.class, dependsOnMethods = "testRetrieveUpValue")
     public void testDropTableTable()
-            throws Exception
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         metadata.dropTable(SESSION, RUNTIME_DETERMINED_TABLE_HANDLE);
@@ -127,27 +121,35 @@ public class TestPrometheusIntegrationTests1
 
     @Test(dependsOnMethods = "testRetrieveUpValue")
     public void testGetColumnTypes()
-            throws Exception
     {
-        URI dataUri = new URI("http://" + server.getAddress().getHost() + ":" + server.getAddress().getPort() + "/");
-        RecordSet recordSet = new PrometheusRecordSet(new PrometheusSplit(dataUri), ImmutableList.of(
-                new PrometheusColumnHandle("labels", createUnboundedVarcharType(), 0),
-                new PrometheusColumnHandle("value", DoubleType.DOUBLE, 1),
-                new PrometheusColumnHandle("timestamp", TimestampType.TIMESTAMP, 2)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(createUnboundedVarcharType(), DoubleType.DOUBLE, TimestampType.TIMESTAMP));
+        URI dataUri = server.getUri();
+        RecordSet recordSet = new PrometheusRecordSet(
+                client,
+                new PrometheusSplit(dataUri),
+                ImmutableList.of(
+                        new PrometheusColumnHandle("labels", createUnboundedVarcharType(), 0),
+                        new PrometheusColumnHandle("value", DoubleType.DOUBLE, 1),
+                        new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 2)));
+        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(createUnboundedVarcharType(), DoubleType.DOUBLE, TIMESTAMP_COLUMN_TYPE));
 
-        recordSet = new PrometheusRecordSet(new PrometheusSplit(dataUri), ImmutableList.of(
-                new PrometheusColumnHandle("value", BIGINT, 1),
-                new PrometheusColumnHandle("text", createUnboundedVarcharType(), 0)));
+        recordSet = new PrometheusRecordSet(
+                client,
+                new PrometheusSplit(dataUri),
+                ImmutableList.of(
+                        new PrometheusColumnHandle("value", BIGINT, 1),
+                        new PrometheusColumnHandle("text", createUnboundedVarcharType(), 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, createUnboundedVarcharType()));
 
-        recordSet = new PrometheusRecordSet(new PrometheusSplit(dataUri), ImmutableList.of(
-                new PrometheusColumnHandle("value", BIGINT, 1),
-                new PrometheusColumnHandle("value", BIGINT, 1),
-                new PrometheusColumnHandle("text", createUnboundedVarcharType(), 0)));
+        recordSet = new PrometheusRecordSet(
+                client,
+                new PrometheusSplit(dataUri),
+                ImmutableList.of(
+                        new PrometheusColumnHandle("value", BIGINT, 1),
+                        new PrometheusColumnHandle("value", BIGINT, 1),
+                        new PrometheusColumnHandle("text", createUnboundedVarcharType(), 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, createUnboundedVarcharType()));
 
-        recordSet = new PrometheusRecordSet(new PrometheusSplit(dataUri), ImmutableList.of());
+        recordSet = new PrometheusRecordSet(client, new PrometheusSplit(dataUri), ImmutableList.of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
     }
 }

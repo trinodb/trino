@@ -107,7 +107,7 @@ public class RemoteNodeMemory
             HttpResponseFuture<JsonResponse<MemoryInfo>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(memoryInfoCodec));
             future.compareAndSet(null, responseFuture);
 
-            Futures.addCallback(responseFuture, new FutureCallback<JsonResponse<MemoryInfo>>()
+            Futures.addCallback(responseFuture, new FutureCallback<>()
             {
                 @Override
                 public void onSuccess(@Nullable JsonResponse<MemoryInfo> result)

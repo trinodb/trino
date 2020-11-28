@@ -95,4 +95,14 @@ public class GroupBy
                 .add("groupingElements", groupingElements)
                 .toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return isDistinct == ((GroupBy) other).isDistinct;
+    }
 }

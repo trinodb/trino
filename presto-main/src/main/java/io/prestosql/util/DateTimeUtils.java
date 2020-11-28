@@ -111,12 +111,6 @@ public final class DateTimeUtils
                 .withOffsetParsed();
     }
 
-    public static long parseTimestampWithTimeZone(String value)
-    {
-        DateTime dateTime = TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withOffsetParsed().parseDateTime(value);
-        return packDateTimeWithZone(dateTime);
-    }
-
     /**
      * Parse a string (optionally containing a zone) as a value of TIMESTAMP WITH TIME ZONE type.
      * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
@@ -169,33 +163,6 @@ public final class DateTimeUtils
     }
 
     /**
-     * Parse a string containing a zone as a value of TIME WITH TIME ZONE type.
-     * <p>
-     * For example: {@code "01:23:00 +01:23"} is parsed to TIME WITH TIME ZONE
-     * {@code 01:23:00+01:23} and {@code "01:23:00"} is rejected.
-     *
-     * @return stack representation of TIME WITH TIME ZONE type
-     */
-    public static long parseTimeWithTimeZone(String timeWithTimeZone)
-    {
-        DateTime dateTime = TIME_WITH_TIME_ZONE_FORMATTER.parseDateTime(timeWithTimeZone);
-        return packDateTimeWithZone(dateTime);
-    }
-
-    /**
-     * Parse a string (without a zone) as a value of TIME type.
-     * <p>
-     * For example: {@code "01:23:00"} is parsed to TIME {@code 01:23:00}
-     * and {@code "01:23:00 +01:23"} is rejected.
-     *
-     * @return stack representation of TIME type
-     */
-    public static long parseTimeWithoutTimeZone(String value)
-    {
-        return TIME_FORMATTER.parseMillis(value);
-    }
-
-    /**
      * Parse a string (without a zone) as a value of TIME type, interpreted in {@code timeZoneKey} zone.
      *
      * @return stack representation of legacy TIME type
@@ -226,23 +193,6 @@ public final class DateTimeUtils
     public static String printTimeWithoutTimeZone(TimeZoneKey timeZoneKey, long value)
     {
         return TIME_FORMATTER.withZone(getDateTimeZone(timeZoneKey)).print(value);
-    }
-
-    public static boolean timeHasTimeZone(String value)
-    {
-        try {
-            try {
-                parseTimeWithTimeZone(value);
-                return true;
-            }
-            catch (RuntimeException e) {
-                parseTimeWithoutTimeZone(value);
-                return false;
-            }
-        }
-        catch (RuntimeException e) {
-            throw new IllegalArgumentException(format("Invalid time '%s'", value));
-        }
     }
 
     private static final int YEAR_FIELD = 0;

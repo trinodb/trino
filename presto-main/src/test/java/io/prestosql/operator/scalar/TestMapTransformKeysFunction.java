@@ -25,6 +25,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -76,7 +77,9 @@ public class TestMapTransformKeysFunction
 
         assertInvalidFunction("transform_keys(map(ARRAY[ARRAY [1], ARRAY [2]], ARRAY [2, 1]), (k, v) -> array_sort(k || v))", "Duplicate keys ([1, 2]) are not allowed");
         assertInvalidFunction("transform_keys(map(ARRAY[1, 2], ARRAY [null, null]), (k, v) -> DATE '2001-08-22')", "Duplicate keys (2001-08-22) are not allowed");
-        assertInvalidFunction("transform_keys(map(ARRAY[1, 2], ARRAY [null, null]), (k, v) -> TIMESTAMP '2001-08-22 03:04:05.321')", "Duplicate keys (2001-08-22 03:04:05.321) are not allowed");
+        assertInvalidFunction(
+                "transform_keys(map(ARRAY[1, 2], ARRAY [null, null]), (k, v) -> TIMESTAMP '2001-08-22 03:04:05.321')",
+                "Duplicate keys (2001-08-22 03:04:05.321) are not allowed");
     }
 
     @Test
@@ -101,6 +104,11 @@ public class TestMapTransformKeysFunction
                 "transform_keys(map(ARRAY[1, 2, 3], ARRAY [1.0E0, 1.4E0, 1.7E0]), (k, v) -> map(ARRAY[1, 2, 3], ARRAY['one', 'two', 'three'])[k])",
                 mapType(createVarcharType(5), DOUBLE),
                 ImmutableMap.of("one", 1.0, "two", 1.4, "three", 1.7));
+
+        assertFunction(
+                "transform_keys(map(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2010-05-10 12:34:56.123456789'], ARRAY[1, 2]), (k, v) -> date_add('year', 1, k))",
+                mapType(createTimestampType(9), INTEGER),
+                ImmutableMap.of(timestamp(9, "2021-05-10 12:34:56.123456789"), 1, timestamp(9, "2011-05-10 12:34:56.123456789"), 2));
 
         Map<String, Integer> expectedStringIntMap = new HashMap<>();
         expectedStringIntMap.put("a1", 1);

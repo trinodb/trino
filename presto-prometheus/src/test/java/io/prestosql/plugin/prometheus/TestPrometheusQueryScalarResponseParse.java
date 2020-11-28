@@ -20,14 +20,14 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.List;
 
+import static java.time.Instant.ofEpochMilli;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true) // see @BeforeMethod
 public class TestPrometheusQueryScalarResponseParse
 {
     private InputStream promVectorResponse;
@@ -52,7 +52,7 @@ public class TestPrometheusQueryScalarResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), Timestamp.from(Instant.ofEpochSecond(1566306405, 73 * 1000000)));
+        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), ofEpochMilli(1566306405073L));
     }
 
     @Test
@@ -67,7 +67,7 @@ public class TestPrometheusQueryScalarResponseParse
     public void setUp()
             throws Exception
     {
-        URL promMatrixResponse = Resources.getResource(TestPrometheusClient.class, "/prometheus-data/up_scalar_response.json");
+        URL promMatrixResponse = Resources.getResource(getClass(), "/prometheus-data/up_scalar_response.json");
         assertNotNull(promMatrixResponse, "metadataUrl is null");
         this.promVectorResponse = promMatrixResponse.openStream();
     }

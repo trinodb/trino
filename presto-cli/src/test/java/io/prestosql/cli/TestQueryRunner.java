@@ -121,7 +121,8 @@ public class TestQueryRunner
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 null,
-                new Duration(2, MINUTES));
+                new Duration(2, MINUTES),
+                true);
     }
 
     static String createResults(MockWebServer server)
@@ -147,6 +148,8 @@ public class TestQueryRunner
         return new QueryRunner(
                 clientSession,
                 false,
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

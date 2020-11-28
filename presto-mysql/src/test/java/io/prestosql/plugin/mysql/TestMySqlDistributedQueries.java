@@ -41,6 +41,7 @@ public class TestMySqlDistributedQueries
         this.mysqlServer = new TestingMySqlServer();
         return createMySqlQueryRunner(
                 mysqlServer,
+                ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
                         // caching here speeds up tests highly, caching is not used in smoke tests
                         .put("metadata.cache-ttl", "10m")
@@ -57,6 +58,12 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
     {
         return false;
@@ -64,6 +71,18 @@ public class TestMySqlDistributedQueries
 
     @Override
     protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
     {
         return false;
     }
@@ -108,19 +127,6 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
-    public void testCommentTable()
-    {
-        // MySQL connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // delete is not supported
-    }
-
-    @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
         return nullToEmpty(exception.getMessage()).matches(".*(Incorrect column name).*");
@@ -131,13 +137,19 @@ public class TestMySqlDistributedQueries
     {
         String typeName = dataMappingTestSetup.getPrestoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp with time zone")) {
+                || typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
         if (typeName.equals("real")
                 || typeName.equals("timestamp")) {
             // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        if (typeName.equals("boolean")) {
+            // MySql does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
+            // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
             return Optional.empty();
         }
 

@@ -186,7 +186,7 @@ public class StatisticsWriterOperator
                 .map(statistics -> statistics.getTableStatistics().get(ROW_COUNT))
                 .filter(Objects::nonNull)
                 .mapToLong(block -> BIGINT.getLong(block, 0))
-                .reduce((first, second) -> first + second)
+                .reduce(Long::sum)
                 .orElse(0L);
     }
 

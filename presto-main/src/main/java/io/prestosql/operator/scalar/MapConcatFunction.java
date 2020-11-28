@@ -15,10 +15,9 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.aggregation.TypedSet;
@@ -27,38 +26,49 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.min;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
 
 public final class MapConcatFunction
         extends SqlScalarFunction
 {
-    public static final MapConcatFunction MAP_CONCAT_FUNCTION = new MapConcatFunction();
-
     private static final String FUNCTION_NAME = "map_concat";
     private static final String DESCRIPTION = "Concatenates given maps";
 
     private static final MethodHandle USER_STATE_FACTORY = methodHandle(MapConcatFunction.class, "createMapState", MapType.class);
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapConcatFunction.class, "mapConcat", MapType.class, Object.class, Block[].class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(
+            MapConcatFunction.class,
+            "mapConcat",
+            MapType.class,
+            BlockPositionEqual.class,
+            BlockPositionHashCode.class,
+            Object.class,
+            Block[].class);
 
-    private MapConcatFunction()
+    private final BlockTypeOperators blockTypeOperators;
+
+    public MapConcatFunction(BlockTypeOperators blockTypeOperators)
     {
         super(new FunctionMetadata(
                 new Signature(
@@ -74,31 +84,32 @@ public final class MapConcatFunction
                 true,
                 DESCRIPTION,
                 SCALAR));
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        if (arity < 2) {
+        if (functionBinding.getArity() < 2) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments to " + FUNCTION_NAME);
         }
 
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
-        MapType mapType = (MapType) metadata.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+        MapType mapType = (MapType) functionBinding.getBoundSignature().getReturnType();
+        Type keyType = mapType.getKeyType();
+        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
+        BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
         MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                 Block.class,
                 Block.class,
-                arity,
-                METHOD_HANDLE.bindTo(mapType),
+                functionBinding.getArity(),
+                MethodHandles.insertArguments(METHOD_HANDLE, 0, mapType, keyEqual, keyHashCode),
                 USER_STATE_FACTORY.bindTo(mapType));
 
-        return new ScalarFunctionImplementation(
-                false,
-                nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
+                FAIL_ON_NULL,
+                nCopies(functionBinding.getArity(), NEVER_NULL),
                 methodHandleAndConstructor.getMethodHandle(),
                 Optional.of(methodHandleAndConstructor.getConstructor()));
     }
@@ -110,7 +121,7 @@ public final class MapConcatFunction
     }
 
     @UsedByGeneratedCode
-    public static Block mapConcat(MapType mapType, Object state, Block[] maps)
+    public static Block mapConcat(MapType mapType, BlockPositionEqual keyEqual, BlockPositionHashCode keyHashCode, Object state, Block[] maps)
     {
         int entries = 0;
         int lastMapIndex = maps.length - 1;
@@ -134,7 +145,7 @@ public final class MapConcatFunction
         // TODO: we should move TypedSet into user state as well
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        TypedSet typedSet = new TypedSet(keyType, entries / 2, FUNCTION_NAME);
+        TypedSet typedSet = createEqualityTypedSet(keyType, keyEqual, keyHashCode, entries / 2, FUNCTION_NAME);
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
 

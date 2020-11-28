@@ -14,9 +14,9 @@
 package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -30,38 +30,35 @@ public class TestKafkaConfig
     {
         assertRecordedDefaults(recordDefaults(KafkaConfig.class)
                 .setNodes("")
-                .setKafkaConnectTimeout("10s")
                 .setKafkaBufferSize("64kB")
                 .setDefaultSchema("default")
-                .setTableNames("")
-                .setTableDescriptionDir(new File("etc/kafka/"))
+                .setTableDescriptionSupplier(FileTableDescriptionSupplier.NAME)
                 .setHideInternalColumns(true)
-                .setMessagesPerSplit(100_000));
+                .setMessagesPerSplit(100_000)
+                .setTimestampUpperBoundPushDownEnabled(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("kafka.table-description-dir", "/var/lib/kafka")
-                .put("kafka.table-names", "table1, table2, table3")
                 .put("kafka.default-schema", "kafka")
+                .put("kafka.table-description-supplier", "test")
                 .put("kafka.nodes", "localhost:12345,localhost:23456")
-                .put("kafka.connect-timeout", "1h")
                 .put("kafka.buffer-size", "1MB")
                 .put("kafka.hide-internal-columns", "false")
                 .put("kafka.messages-per-split", "1")
+                .put("kafka.timestamp-upper-bound-force-push-down-enabled", "true")
                 .build();
 
         KafkaConfig expected = new KafkaConfig()
-                .setTableDescriptionDir(new File("/var/lib/kafka"))
-                .setTableNames("table1, table2, table3")
                 .setDefaultSchema("kafka")
+                .setTableDescriptionSupplier("test")
                 .setNodes("localhost:12345, localhost:23456")
-                .setKafkaConnectTimeout("1h")
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false)
-                .setMessagesPerSplit(1);
+                .setMessagesPerSplit(1)
+                .setTimestampUpperBoundPushDownEnabled(true);
 
         assertFullMapping(properties, expected);
     }

@@ -15,18 +15,16 @@ package io.prestosql.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.CreateView;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Statement;
 import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Inject;
@@ -47,12 +45,13 @@ public class CreateViewTask
         implements DataDefinitionTask<CreateView>
 {
     private final SqlParser sqlParser;
+    private final GroupProvider groupProvider;
 
     @Inject
-    public CreateViewTask(SqlParser sqlParser, FeaturesConfig featuresConfig)
+    public CreateViewTask(SqlParser sqlParser, GroupProvider groupProvider)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        requireNonNull(featuresConfig, "featuresConfig is null");
+        this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
     }
 
     @Override
@@ -77,7 +76,8 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzeStatement(statement, session, metadata, accessControl, parameters, stateMachine.getWarningCollector());
+        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector())
+                .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
@@ -102,11 +102,5 @@ public class CreateViewTask
         metadata.createView(session, name, definition, statement.isReplace());
 
         return immediateFuture(null);
-    }
-
-    private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters, WarningCollector warningCollector)
-    {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), warningCollector);
-        return analyzer.analyze(statement);
     }
 }

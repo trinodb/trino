@@ -29,7 +29,11 @@ import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenService;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClient;
 import com.google.common.base.VerifyException;
@@ -38,7 +42,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -50,6 +56,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -83,6 +93,7 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -566,7 +577,23 @@ public class TestPrestoS3FileSystem
             fs.initialize(new URI("s3n://test-bucket/"), config);
             fs.setS3Client(s3);
             FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test"));
-            assertEquals(statuses.length, skipGlacierObjects ? 2 : 3);
+            assertEquals(statuses.length, skipGlacierObjects ? 2 : 4);
+        }
+    }
+
+    @Test
+    public void testSkipHadoopFolderMarkerObjectsEnabled()
+            throws Exception
+    {
+        Configuration config = new Configuration(false);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setHasHadoopFolderMarkerObjects(true);
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            fs.setS3Client(s3);
+            FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test"));
+            assertEquals(statuses.length, 2);
         }
     }
 
@@ -702,5 +729,72 @@ public class TestPrestoS3FileSystem
             fileStatus = fs.getFileStatus(new Path("s3n://test-bucket/empty-dir"));
             assertTrue(fileStatus.isDirectory());
         }
+    }
+
+    @Test
+    public void testListPrefixModes()
+            throws Exception
+    {
+        S3ObjectSummary rootObject = new S3ObjectSummary();
+        rootObject.setStorageClass(StorageClass.Standard.toString());
+        rootObject.setKey("standard-object-at-root.txt");
+        rootObject.setLastModified(new Date());
+
+        S3ObjectSummary childObject = new S3ObjectSummary();
+        childObject.setStorageClass(StorageClass.Standard.toString());
+        childObject.setKey("prefix/child-object.txt");
+        childObject.setLastModified(new Date());
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3()
+            {
+                @Override
+                public ListObjectsV2Result listObjectsV2(ListObjectsV2Request listObjectsV2Request)
+                {
+                    ListObjectsV2Result listing = new ListObjectsV2Result();
+                    // Shallow listing
+                    if ("/".equals(listObjectsV2Request.getDelimiter())) {
+                        listing.getCommonPrefixes().add("prefix");
+                        listing.getObjectSummaries().add(rootObject);
+                        return listing;
+                    }
+                    // Recursive listing of object keys only
+                    listing.getObjectSummaries().addAll(Arrays.asList(childObject, rootObject));
+                    return listing;
+                }
+            };
+            Path rootPath = new Path("s3n://test-bucket/");
+            fs.initialize(rootPath.toUri(), new Configuration(false));
+            fs.setS3Client(s3);
+
+            List<LocatedFileStatus> shallowAll = remoteIteratorToList(fs.listLocatedStatus(rootPath));
+            assertEquals(shallowAll.size(), 2);
+            assertTrue(shallowAll.get(0).isDirectory());
+            assertFalse(shallowAll.get(1).isDirectory());
+            assertEquals(shallowAll.get(0).getPath(), new Path(rootPath, "prefix"));
+            assertEquals(shallowAll.get(1).getPath(), new Path(rootPath, rootObject.getKey()));
+
+            List<LocatedFileStatus> shallowFiles = remoteIteratorToList(fs.listFiles(rootPath, false));
+            assertEquals(shallowFiles.size(), 1);
+            assertFalse(shallowFiles.get(0).isDirectory());
+            assertEquals(shallowFiles.get(0).getPath(), new Path(rootPath, rootObject.getKey()));
+
+            List<LocatedFileStatus> recursiveFiles = remoteIteratorToList(fs.listFiles(rootPath, true));
+            assertEquals(recursiveFiles.size(), 2);
+            assertFalse(recursiveFiles.get(0).isDirectory());
+            assertFalse(recursiveFiles.get(1).isDirectory());
+            assertEquals(recursiveFiles.get(0).getPath(), new Path(rootPath, childObject.getKey()));
+            assertEquals(recursiveFiles.get(1).getPath(), new Path(rootPath, rootObject.getKey()));
+        }
+    }
+
+    private static List<LocatedFileStatus> remoteIteratorToList(RemoteIterator<LocatedFileStatus> statuses)
+            throws IOException
+    {
+        List<LocatedFileStatus> result = new ArrayList<>();
+        while (statuses.hasNext()) {
+            result.add(statuses.next());
+        }
+        return result;
     }
 }

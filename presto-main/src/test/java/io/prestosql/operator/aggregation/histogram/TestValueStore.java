@@ -16,8 +16,11 @@ package io.prestosql.operator.aggregation.histogram;
 import io.prestosql.block.BlockAssertions;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.VarcharType;
-import io.prestosql.type.TypeUtils;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -29,46 +32,49 @@ public class TestValueStore
 {
     private ValueStore valueStore;
     private Block block;
-    private VarcharType type;
+    private BlockPositionHashCode hashCodeOperator;
     private ValueStore valueStoreSmall;
 
     @BeforeMethod(alwaysRun = true)
     public void setUp()
     {
-        type = VarcharType.createVarcharType(100);
+        VarcharType type = VarcharType.createVarcharType(100);
+        BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+        BlockPositionEqual equalOperator = blockTypeOperators.getEqualOperator(type);
+        hashCodeOperator = blockTypeOperators.getHashCodeOperator(type);
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 100, 10);
-        valueStore = new ValueStore(100, blockBuilder);
-        valueStoreSmall = new ValueStore(1, blockBuilder);
+        valueStore = new ValueStore(type, equalOperator, 100, blockBuilder);
+        valueStoreSmall = new ValueStore(type, equalOperator, 1, blockBuilder);
         block = BlockAssertions.createStringsBlock("a", "b", "c", "d");
     }
 
     @Test
     public void testUniqueness()
     {
-        assertEquals(valueStore.addAndGetPosition(type, block, 0, TypeUtils.hashPosition(type, block, 0)), 0);
-        assertEquals(valueStore.addAndGetPosition(type, block, 1, TypeUtils.hashPosition(type, block, 1)), 1);
-        assertEquals(valueStore.addAndGetPosition(type, block, 2, TypeUtils.hashPosition(type, block, 2)), 2);
-        assertEquals(valueStore.addAndGetPosition(type, block, 1, TypeUtils.hashPosition(type, block, 1)), 1);
-        assertEquals(valueStore.addAndGetPosition(type, block, 3, TypeUtils.hashPosition(type, block, 1)), 3);
+        assertEquals(valueStore.addAndGetPosition(block, 0, hashCodeOperator.hashCode(block, 0)), 0);
+        assertEquals(valueStore.addAndGetPosition(block, 1, hashCodeOperator.hashCode(block, 1)), 1);
+        assertEquals(valueStore.addAndGetPosition(block, 2, hashCodeOperator.hashCode(block, 2)), 2);
+        assertEquals(valueStore.addAndGetPosition(block, 1, hashCodeOperator.hashCode(block, 1)), 1);
+        assertEquals(valueStore.addAndGetPosition(block, 3, hashCodeOperator.hashCode(block, 1)), 3);
     }
 
     @Test
     public void testTriggerRehash()
     {
-        long hash0 = TypeUtils.hashPosition(type, block, 0);
-        long hash1 = TypeUtils.hashPosition(type, block, 1);
-        long hash2 = TypeUtils.hashPosition(type, block, 2);
+        long hash0 = hashCodeOperator.hashCode(block, 0);
+        long hash1 = hashCodeOperator.hashCode(block, 1);
+        long hash2 = hashCodeOperator.hashCode(block, 2);
 
-        assertEquals(valueStoreSmall.addAndGetPosition(type, block, 0, hash0), 0);
-        assertEquals(valueStoreSmall.addAndGetPosition(type, block, 1, hash1), 1);
+        assertEquals(valueStoreSmall.addAndGetPosition(block, 0, hash0), 0);
+        assertEquals(valueStoreSmall.addAndGetPosition(block, 1, hash1), 1);
 
         // triggers rehash and hash1 will end up in position 3
-        assertEquals(valueStoreSmall.addAndGetPosition(type, block, 2, hash2), 2);
+        assertEquals(valueStoreSmall.addAndGetPosition(block, 2, hash2), 2);
 
         // this is just to make sure we trigger rehash code positions should be the same
         assertTrue(valueStoreSmall.getRehashCount() > 0);
-        assertEquals(valueStoreSmall.addAndGetPosition(type, block, 0, hash0), 0);
-        assertEquals(valueStoreSmall.addAndGetPosition(type, block, 1, hash1), 1);
-        assertEquals(valueStoreSmall.addAndGetPosition(type, block, 2, hash2), 2);
+        assertEquals(valueStoreSmall.addAndGetPosition(block, 0, hash0), 0);
+        assertEquals(valueStoreSmall.addAndGetPosition(block, 1, hash1), 1);
+        assertEquals(valueStoreSmall.addAndGetPosition(block, 2, hash2), 2);
     }
 }

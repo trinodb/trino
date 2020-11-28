@@ -46,6 +46,7 @@ public class MongoClientConfig
     private int maxWaitTime = 120_000;
     private int connectionTimeout = 10_000;
     private int socketTimeout;
+    private int maxConnectionIdleTime;
     private boolean socketKeepAlive;
     private boolean sslEnabled;
 
@@ -305,6 +306,19 @@ public class MongoClientConfig
     public MongoClientConfig setSslEnabled(boolean sslEnabled)
     {
         this.sslEnabled = sslEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxConnectionIdleTime()
+    {
+        return maxConnectionIdleTime;
+    }
+
+    @Config("mongodb.max-connection-idle-time")
+    public MongoClientConfig setMaxConnectionIdleTime(int maxConnectionIdleTime)
+    {
+        this.maxConnectionIdleTime = maxConnectionIdleTime;
         return this;
     }
 }

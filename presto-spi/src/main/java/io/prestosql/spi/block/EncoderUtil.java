@@ -16,6 +16,8 @@ package io.prestosql.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Optional;
 
 final class EncoderUtil
@@ -37,7 +39,10 @@ final class EncoderUtil
         }
 
         int positionCount = block.getPositionCount();
-        for (int position = 0; position < (positionCount & ~0b111); position += 8) {
+        byte[] packedIsNull = new byte[((positionCount & ~0b111) + 1) / 8];
+        int currentByte = 0;
+
+        for (int position = 0; position < (positionCount & ~0b111); position += 8, currentByte++) {
             byte value = 0;
             value |= block.isNull(position) ? 0b1000_0000 : 0;
             value |= block.isNull(position + 1) ? 0b0100_0000 : 0;
@@ -47,8 +52,10 @@ final class EncoderUtil
             value |= block.isNull(position + 5) ? 0b0000_0100 : 0;
             value |= block.isNull(position + 6) ? 0b0000_0010 : 0;
             value |= block.isNull(position + 7) ? 0b0000_0001 : 0;
-            sliceOutput.appendByte(value);
+            packedIsNull[currentByte] = value;
         }
+
+        sliceOutput.writeBytes(packedIsNull);
 
         // write last null bits
         if ((positionCount & 0b111) > 0) {
@@ -70,11 +77,19 @@ final class EncoderUtil
         if (!sliceInput.readBoolean()) {
             return Optional.empty();
         }
+        byte[] packedIsNull;
+        try {
+            packedIsNull = sliceInput.readNBytes(((positionCount & ~0b111) + 1) / 8);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
 
         // read null bits 8 at a time
         boolean[] valueIsNull = new boolean[positionCount];
-        for (int position = 0; position < (positionCount & ~0b111); position += 8) {
-            byte value = sliceInput.readByte();
+        int currentByte = 0;
+        for (int position = 0; position < (positionCount & ~0b111); position += 8, currentByte++) {
+            byte value = packedIsNull[currentByte];
             valueIsNull[position] = ((value & 0b1000_0000) != 0);
             valueIsNull[position + 1] = ((value & 0b0100_0000) != 0);
             valueIsNull[position + 2] = ((value & 0b0010_0000) != 0);

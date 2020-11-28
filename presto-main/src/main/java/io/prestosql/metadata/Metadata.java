@@ -24,18 +24,24 @@ import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
+import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.MaterializedViewFreshness;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
+import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
@@ -181,6 +187,11 @@ public interface Metadata
     void setTableComment(Session session, TableHandle tableHandle, Optional<String> comment);
 
     /**
+     * Comments to the specified column.
+     */
+    void setColumnComment(Session session, TableHandle tableHandle, ColumnHandle column, Optional<String> comment);
+
+    /**
      * Rename the specified column.
      */
     void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
@@ -189,6 +200,11 @@ public interface Metadata
      * Add the specified column to the table.
      */
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
+
+    /**
+     * Set the authorization (owner) of specified table's user/role
+     */
+    void setTableAuthorization(Session session, CatalogSchemaTableName table, PrestoPrincipal principal);
 
     /**
      * Drop the specified column.
@@ -256,6 +272,22 @@ public interface Metadata
      * Finish insert query
      */
     Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+
+    /**
+     * Begin refresh materialized view query
+     */
+    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles);
+
+    /**
+     * Finish refresh materialized view query
+     */
+    Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            Session session,
+            TableHandle tableHandle,
+            InsertTableHandle insertTableHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<TableHandle> sourceTableHandles);
 
     /**
      * Get the row ID column handle used with UpdatablePageSource.
@@ -335,6 +367,11 @@ public interface Metadata
     void renameView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
 
     /**
+     * Set the authorization (owner) of specified view's user/role
+     */
+    void setViewAuthorization(Session session, CatalogSchemaTableName view, PrestoPrincipal principal);
+
+    /**
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedObjectName viewName);
@@ -361,6 +398,13 @@ public interface Metadata
             List<AggregateFunction> aggregations,
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets);
+
+    Optional<TopNApplicationResult<TableHandle>> applyTopN(
+            Session session,
+            TableHandle handle,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments);
 
     default void validateScan(Session session, TableHandle table) {}
 
@@ -421,6 +465,16 @@ public interface Metadata
     Set<String> listEnabledRoles(Session session, String catalog);
 
     /**
+     * Grants the specified privilege to the specified user on the specified schema.
+     */
+    void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Revokes the specified privilege on the specified schema from the specified user.
+     */
+    void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption);
+
+    /**
      * Grants the specified privilege to the specified user on the specified table
      */
     void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption);
@@ -454,7 +508,7 @@ public interface Metadata
 
     Collection<ParametricType> getParametricTypes();
 
-    void verifyComparableOrderableContract();
+    void verifyTypes();
 
     //
     // Functions
@@ -463,6 +517,8 @@ public interface Metadata
     void addFunctions(List<? extends SqlFunction> functions);
 
     List<FunctionMetadata> listFunctions();
+
+    ResolvedFunction decodeFunction(QualifiedName name);
 
     ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
@@ -517,4 +573,32 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    /**
+     * Creates the specified materialized view with the specified view definition.
+     */
+    void createMaterializedView(Session session, QualifiedObjectName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
+
+    /**
+     * Drops the specified materialized view.
+     */
+    void dropMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Returns the materialized view definition for the specified view name.
+     */
+    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Method to get difference between the states of table at two different points in time/or as of given token-ids.
+     * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
+     */
+    MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName name);
+
+    /**
+     * Returns the result of redirecting the table scan on a given table to a different table.
+     * This method is used by the engine during the plan optimization phase to allow a connector to offload table scans to any other connector.
+     * This method is called after security checks against the original table.
+     */
+    Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle);
 }

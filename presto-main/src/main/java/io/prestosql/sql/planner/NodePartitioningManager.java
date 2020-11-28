@@ -32,6 +32,7 @@ import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.EmptySplit;
+import io.prestosql.type.BlockTypeOperators;
 
 import javax.inject.Inject;
 
@@ -53,12 +54,14 @@ import static java.util.Objects.requireNonNull;
 public class NodePartitioningManager
 {
     private final NodeScheduler nodeScheduler;
+    private final BlockTypeOperators blockTypeOperators;
     private final ConcurrentMap<CatalogName, ConnectorNodePartitioningProvider> partitioningProviders = new ConcurrentHashMap<>();
 
     @Inject
-    public NodePartitioningManager(NodeScheduler nodeScheduler)
+    public NodePartitioningManager(NodeScheduler nodeScheduler, BlockTypeOperators blockTypeOperators)
     {
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     public void addPartitioningProvider(CatalogName catalogName, ConnectorNodePartitioningProvider nodePartitioningProvider)
@@ -90,7 +93,8 @@ public class NodePartitioningManager
             return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
                     partitionChannelTypes,
                     partitioningScheme.getHashColumn().isPresent(),
-                    partitioningScheme.getBucketToPartition().get());
+                    partitioningScheme.getBucketToPartition().get(),
+                    blockTypeOperators);
         }
         CatalogName catalogName = partitioningHandle.getConnectorId().get();
         ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(catalogName);
@@ -203,7 +207,7 @@ public class NodePartitioningManager
 
         ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                 partitioningHandle.getConnectorHandle());
 
         checkArgument(connectorBucketNodeMap != null, "No partition map %s", partitioningHandle);
@@ -217,7 +221,7 @@ public class NodePartitioningManager
 
         ToIntFunction<ConnectorSplit> splitBucketFunction = partitioningProvider.getSplitBucketFunction(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(),
+                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
                 partitioningHandle.getConnectorHandle());
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 

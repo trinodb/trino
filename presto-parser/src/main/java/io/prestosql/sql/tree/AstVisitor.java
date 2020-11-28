@@ -237,6 +237,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitAllRows(AllRows node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitQuerySpecification(QuerySpecification node, C context)
     {
         return visitQueryBody(node, context);
@@ -577,6 +582,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitSetViewAuthorization(SetViewAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitComment(Comment node, C context)
     {
         return visitStatement(node, context);
@@ -597,6 +607,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitSetTableAuthorization(SetTableAuthorization node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitAnalyze(Analyze node, C context)
     {
         return visitStatement(node, context);
@@ -613,6 +628,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitInsert(Insert node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
     {
         return visitStatement(node, context);
     }
@@ -840,5 +860,15 @@ public abstract class AstVisitor<R, C>
     protected R visitDateTimeType(DateTimeDataType node, C context)
     {
         return visitDataType(node, context);
+    }
+
+    protected R visitCreateMaterializedView(CreateMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropMaterializedView(DropMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
     }
 }

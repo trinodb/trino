@@ -13,15 +13,22 @@
  */
 package io.prestosql.plugin.oracle;
 
+import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.RetryingConnectionFactory;
+import io.prestosql.plugin.jdbc.credential.StaticCredentialProvider;
+import oracle.jdbc.OracleDriver;
 import org.testcontainers.containers.OracleContainer;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 
 public class TestingOracleServer
@@ -38,9 +45,11 @@ public class TestingOracleServer
     {
         super("wnameless/oracle-xe-11g-r2");
 
+        withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/docker-entrypoint-initdb.d/init.sql");
+
         start();
 
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
+        try (Connection connection = getConnectionFactory().openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
             // this is added to allow more processes on database, otherwise the tests end up giving
             // ORA-12519, TNS:no appropriate service handler found
@@ -61,7 +70,7 @@ public class TestingOracleServer
         }
 
         waitUntilContainerStarted();
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
+        try (Connection connection = getConnectionFactory().openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
             statement.execute(format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE", TEST_TABLESPACE));
             statement.execute(format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s", TEST_USER, TEST_PASS, TEST_TABLESPACE));
@@ -73,6 +82,12 @@ public class TestingOracleServer
         }
     }
 
+    @Override
+    public String getJdbcUrl()
+    {
+        return "jdbc:oracle:thin:@" + getHost() + ":" + getOraclePort() + ":" + getSid();
+    }
+
     public void execute(String sql)
     {
         execute(sql, TEST_USER, TEST_PASS);
@@ -80,13 +95,27 @@ public class TestingOracleServer
 
     public void execute(String sql, String user, String password)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), user, password);
+        try (Connection connection = getConnectionFactory(user, password).openConnection(SESSION);
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private ConnectionFactory getConnectionFactory()
+    {
+        return getConnectionFactory(getUsername(), getPassword());
+    }
+
+    private ConnectionFactory getConnectionFactory(String username, String password)
+    {
+        DriverConnectionFactory connectionFactory = new DriverConnectionFactory(
+                new OracleDriver(),
+                new BaseJdbcConfig().setConnectionUrl(getJdbcUrl()),
+                StaticCredentialProvider.of(username, password));
+        return new RetryingConnectionFactory(connectionFactory);
     }
 
     @Override

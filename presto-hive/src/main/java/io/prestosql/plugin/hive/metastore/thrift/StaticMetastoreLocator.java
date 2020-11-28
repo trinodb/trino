@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
@@ -28,7 +29,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -40,12 +40,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
 
 public class StaticMetastoreLocator
         implements MetastoreLocator
 {
-    private final List<HostAndPort> addresses;
     private final List<Backoff> backoffs;
     private final ThriftMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
@@ -53,7 +51,13 @@ public class StaticMetastoreLocator
     @Inject
     public StaticMetastoreLocator(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, ThriftMetastoreClientFactory clientFactory)
     {
-        this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory);
+        this(config, authenticationConfig, clientFactory, Ticker.systemTicker());
+    }
+
+    @VisibleForTesting
+    StaticMetastoreLocator(StaticMetastoreConfig config, ThriftMetastoreAuthenticationConfig authenticationConfig, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
+    {
+        this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory, ticker);
 
         checkArgument(
                 isNullOrEmpty(metastoreUsername) || authenticationConfig.getAuthenticationType() == ThriftMetastoreAuthenticationType.NONE,
@@ -64,13 +68,19 @@ public class StaticMetastoreLocator
 
     public StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
     {
+        this(metastoreUris, metastoreUsername, clientFactory, Ticker.systemTicker());
+    }
+
+    private StaticMetastoreLocator(List<URI> metastoreUris, @Nullable String metastoreUsername, ThriftMetastoreClientFactory clientFactory, Ticker ticker)
+    {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
-        this.addresses = metastoreUris.stream()
+        this.backoffs = metastoreUris.stream()
                 .map(StaticMetastoreLocator::checkMetastoreUri)
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
-                .collect(toList());
-        this.backoffs = IntStream.range(0, addresses.size()).mapToObj(ignore -> new Backoff()).collect(toImmutableList());
+                .map(address -> new Backoff(address, ticker))
+                .collect(toImmutableList());
+
         this.metastoreUsername = metastoreUsername;
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
     }
@@ -87,20 +97,23 @@ public class StaticMetastoreLocator
     public ThriftMetastoreClient createMetastoreClient(Optional<String> delegationToken)
             throws TException
     {
-        List<Integer> indices = backoffs.stream()
-                .sorted(Comparator.comparingLong(backoff -> backoff.getBackoffDuration()))
-                .map(backoffs::indexOf)
+        Comparator<Backoff> comparator = Comparator.comparingLong(Backoff::getBackoffDuration)
+                .thenComparingLong(Backoff::getLastFailureTimestamp);
+        List<Backoff> backoffsSorted = backoffs.stream()
+                .sorted(comparator)
                 .collect(toImmutableList());
 
         TException lastException = null;
-        for (int index : indices) {
+        for (Backoff backoff : backoffsSorted) {
             try {
-                return getClient(addresses.get(index), backoffs.get(index), delegationToken);
+                return getClient(backoff.getAddress(), backoff, delegationToken);
             }
             catch (TException e) {
                 lastException = e;
             }
         }
+
+        List<HostAndPort> addresses = backoffsSorted.stream().map(Backoff::getAddress).collect(toImmutableList());
         throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
     }
 
@@ -138,34 +151,52 @@ public class StaticMetastoreLocator
         return uri;
     }
 
-    private static class Backoff
+    @VisibleForTesting
+    static class Backoff
     {
-        private static final long MIN_BACKOFF = new Duration(50, MILLISECONDS).roundTo(NANOSECONDS);
-        private static final long MAX_BACKOFF = new Duration(60, SECONDS).roundTo(NANOSECONDS);
+        static final long MIN_BACKOFF = new Duration(50, MILLISECONDS).roundTo(NANOSECONDS);
+        static final long MAX_BACKOFF = new Duration(60, SECONDS).roundTo(NANOSECONDS);
 
-        private final Ticker ticker = Ticker.systemTicker();
+        private final HostAndPort address;
+        private final Ticker ticker;
         private long backoffDuration = MIN_BACKOFF;
-        private OptionalLong lastFailureTimestamps = OptionalLong.empty();
+        private OptionalLong lastFailureTimestamp = OptionalLong.empty();
+
+        Backoff(HostAndPort address, Ticker ticker)
+        {
+            this.address = requireNonNull(address, "address is null");
+            this.ticker = requireNonNull(ticker, "ticker is null");
+        }
+
+        public HostAndPort getAddress()
+        {
+            return address;
+        }
 
         synchronized void fail()
         {
-            lastFailureTimestamps = OptionalLong.of(ticker.read());
+            lastFailureTimestamp = OptionalLong.of(ticker.read());
             backoffDuration = min(backoffDuration * 2, MAX_BACKOFF);
         }
 
         synchronized void success()
         {
-            lastFailureTimestamps = OptionalLong.empty();
+            lastFailureTimestamp = OptionalLong.empty();
             backoffDuration = MIN_BACKOFF;
+        }
+
+        synchronized long getLastFailureTimestamp()
+        {
+            return lastFailureTimestamp.orElse(Long.MIN_VALUE);
         }
 
         synchronized long getBackoffDuration()
         {
-            if (lastFailureTimestamps.isPresent()) {
-                long timeSinceLastFail = ticker.read() - lastFailureTimestamps.getAsLong();
-                return max(backoffDuration - timeSinceLastFail, 0);
+            if (lastFailureTimestamp.isEmpty()) {
+                return 0;
             }
-            return 0;
+            long timeSinceLastFail = ticker.read() - lastFailureTimestamp.getAsLong();
+            return max(backoffDuration - timeSinceLastFail, 0);
         }
     }
 }

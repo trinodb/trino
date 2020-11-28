@@ -17,6 +17,7 @@ import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.procedure.Procedure;
@@ -47,11 +48,8 @@ public class ProcedureRegistry
 {
     private final Map<CatalogName, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 
-    private final Metadata metadata;
-
-    public ProcedureRegistry(Metadata metadata)
+    public ProcedureRegistry()
     {
-        this.metadata = requireNonNull(metadata, "typeManager is null");
     }
 
     public void addProcedures(CatalogName catalogName, Collection<Procedure> procedures)
@@ -88,7 +86,8 @@ public class ProcedureRegistry
     private void validateProcedure(Procedure procedure)
     {
         List<Class<?>> parameters = procedure.getMethodHandle().type().parameterList().stream()
-                .filter(type -> !ConnectorSession.class.isAssignableFrom(type))
+                .filter(type -> !ConnectorSession.class.equals(type))
+                .filter(type -> !ConnectorAccessControl.class.equals(type))
                 .collect(toList());
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {

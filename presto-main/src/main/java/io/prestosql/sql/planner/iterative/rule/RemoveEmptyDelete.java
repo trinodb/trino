@@ -19,10 +19,10 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.GenericLiteral;
+import io.prestosql.sql.tree.Row;
 
-import static io.prestosql.matching.Pattern.empty;
-import static io.prestosql.sql.planner.plan.Patterns.Values.rows;
+import static io.prestosql.sql.planner.plan.Patterns.Values.rowCount;
 import static io.prestosql.sql.planner.plan.Patterns.delete;
 import static io.prestosql.sql.planner.plan.Patterns.exchange;
 import static io.prestosql.sql.planner.plan.Patterns.source;
@@ -58,7 +58,7 @@ public class RemoveEmptyDelete
 
     private static Pattern<ValuesNode> emptyValues()
     {
-        return values().with(empty(rows()));
+        return values().with(rowCount().equalTo(0));
     }
 
     @Override
@@ -74,6 +74,6 @@ public class RemoveEmptyDelete
                 new ValuesNode(
                         node.getId(),
                         node.getOutputSymbols(),
-                        ImmutableList.of(ImmutableList.of(new LongLiteral("0")))));
+                        ImmutableList.of(new Row(ImmutableList.of(new GenericLiteral("BIGINT", "0"))))));
     }
 }

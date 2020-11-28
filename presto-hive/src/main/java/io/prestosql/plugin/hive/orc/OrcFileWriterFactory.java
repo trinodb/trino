@@ -25,9 +25,10 @@ import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveFileWriterFactory;
 import io.prestosql.plugin.hive.NodeVersion;
+import io.prestosql.plugin.hive.acid.AcidSchema;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -38,7 +39,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.orc.OrcConf;
-import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -47,6 +47,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -63,9 +64,13 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWrit
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterMinStripeSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterValidate;
+import static io.prestosql.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
+import static io.prestosql.plugin.hive.acid.AcidSchema.createAcidColumnPrestoTypes;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
+import static io.prestosql.plugin.hive.util.HiveUtil.getOrcWriterOptions;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -73,7 +78,6 @@ import static java.util.stream.Collectors.toList;
 public class OrcFileWriterFactory
         implements HiveFileWriterFactory
 {
-    private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
@@ -87,7 +91,6 @@ public class OrcFileWriterFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            HiveConfig hiveConfig,
             OrcWriterConfig orcWriterConfig,
             FileFormatDataSourceStats readStats,
             OrcWriterConfig config)
@@ -96,7 +99,6 @@ public class OrcFileWriterFactory
                 hdfsEnvironment,
                 typeManager,
                 nodeVersion,
-                requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone(),
                 requireNonNull(orcWriterConfig, "orcWriterConfig is null").isUseLegacyVersion(),
                 readStats,
                 requireNonNull(config, "config is null").toOrcWriterOptions());
@@ -106,7 +108,6 @@ public class OrcFileWriterFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            DateTimeZone hiveStorageTimeZone,
             boolean writeLegacyVersion,
             FileFormatDataSourceStats readStats,
             OrcWriterOptions orcWriterOptions)
@@ -114,7 +115,6 @@ public class OrcFileWriterFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.writeLegacyVersion = writeLegacyVersion;
         this.readStats = requireNonNull(readStats, "stats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
@@ -134,7 +134,10 @@ public class OrcFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf configuration,
-            ConnectorSession session)
+            ConnectorSession session,
+            OptionalInt bucketNumber,
+            AcidTransaction transaction,
+            boolean useAcidSchema)
     {
         if (!OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
@@ -146,12 +149,16 @@ public class OrcFileWriterFactory
         // an index to rearrange columns in the proper order
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager))
+                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
                 .collect(toList());
 
         int[] fileInputColumnIndexes = fileColumnNames.stream()
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
+        if (transaction.isDelete()) {
+            // For delete, set the "row" column to -1
+            fileInputColumnIndexes[fileInputColumnIndexes.length - 1] = -1;
+        }
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
@@ -179,14 +186,27 @@ public class OrcFileWriterFactory
                 return null;
             };
 
+            if (transaction.isInsert() && useAcidSchema) {
+                // Only add the ACID columns if the request is for INSERT -- for DELETE, the columns are
+                // added by the caller.  This is because the ACID columns for DELETE depend on the rows
+                // being deleted, whereas the ACID columns for INSERT are completely determined by bucket
+                // and writeId.
+                Type rowType = AcidSchema.createRowType(fileColumnNames, fileColumnTypes);
+                fileColumnNames = ACID_COLUMN_NAMES;
+                fileColumnTypes = createAcidColumnPrestoTypes(rowType);
+            }
+
             return Optional.of(new OrcFileWriter(
                     orcDataSink,
+                    transaction,
+                    useAcidSchema,
+                    bucketNumber,
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
                     createRootOrcType(fileColumnNames, fileColumnTypes),
                     compression,
-                    orcWriterOptions
+                    getOrcWriterOptions(schema, orcWriterOptions)
                             .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
                             .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
                             .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
@@ -198,7 +218,6 @@ public class OrcFileWriterFactory
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
-                    hiveStorageTimeZone,
                     validationInputFactory,
                     getOrcOptimizedWriterValidateMode(session),
                     stats));

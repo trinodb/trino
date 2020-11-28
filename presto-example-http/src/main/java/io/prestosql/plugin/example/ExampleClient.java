@@ -80,7 +80,7 @@ public class ExampleClient
         return tables.get(tableName);
     }
 
-    private static Supplier<Map<String, Map<String, ExampleTable>>> schemasSupplier(final JsonCodec<Map<String, List<ExampleTable>>> catalogCodec, final URI metadataUri)
+    private static Supplier<Map<String, Map<String, ExampleTable>>> schemasSupplier(JsonCodec<Map<String, List<ExampleTable>>> catalogCodec, URI metadataUri)
     {
         return () -> {
             try {
@@ -102,7 +102,7 @@ public class ExampleClient
         return ImmutableMap.copyOf(transformValues(catalog, resolveAndIndexTables(metadataUri)));
     }
 
-    private static Function<List<ExampleTable>, Map<String, ExampleTable>> resolveAndIndexTables(final URI metadataUri)
+    private static Function<List<ExampleTable>, Map<String, ExampleTable>> resolveAndIndexTables(URI metadataUri)
     {
         return tables -> {
             Iterable<ExampleTable> resolvedTables = transform(tables, tableUriResolver(metadataUri));
@@ -110,7 +110,7 @@ public class ExampleClient
         };
     }
 
-    private static Function<ExampleTable, ExampleTable> tableUriResolver(final URI baseUri)
+    private static Function<ExampleTable, ExampleTable> tableUriResolver(URI baseUri)
     {
         return table -> {
             List<URI> sources = ImmutableList.copyOf(transform(table.getSources(), baseUri::resolve));

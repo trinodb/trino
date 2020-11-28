@@ -73,7 +73,6 @@ class EstimateAssertion
             return ((Number) object).doubleValue();
         }
         else {
-            String message = "Can't compare with tolerance objects of class %s. Use assertEquals.";
             throw new UnsupportedOperationException(format("Can't compare with tolerance objects of class %s. Use assertEquals.", object.getClass()));
         }
     }

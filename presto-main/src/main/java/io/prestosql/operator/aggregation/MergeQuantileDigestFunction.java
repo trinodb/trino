@@ -16,10 +16,9 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.state.QuantileDigestState;
@@ -31,10 +30,8 @@ import io.prestosql.spi.function.AggregationFunction;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.type.QuantileDigestType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -86,11 +83,17 @@ public final class MergeQuantileDigestFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        Type valueType = boundVariables.getTypeVariable("T");
-        QuantileDigestType outputType = (QuantileDigestType) metadata.getParameterizedType(StandardTypes.QDIGEST,
-                ImmutableList.of(TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+        Type valueType = functionBinding.getTypeVariable("T");
+        return ImmutableList.of(new QuantileDigestStateSerializer(valueType).getSerializedType().getTypeSignature());
+    }
+
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    {
+        Type valueType = functionBinding.getTypeVariable("T");
+        QuantileDigestType outputType = (QuantileDigestType) functionBinding.getBoundSignature().getReturnType();
         return generateAggregation(valueType, outputType);
     }
 
@@ -114,7 +117,7 @@ public final class MergeQuantileDigestFunction
                 type);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, ImmutableList.of(type), ImmutableList.of(intermediateType), type, true, true, factory);
+        return new InternalAggregationFunction(NAME, ImmutableList.of(type), ImmutableList.of(intermediateType), type, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type valueType)

@@ -110,7 +110,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(call.getResolvedFunction(), metadata.getType(call.getResolvedFunction().getSignature().getReturnType()), arguments);
+            return call(call.getResolvedFunction(), arguments);
         }
 
         @Override
@@ -135,7 +135,7 @@ public class ExpressionOptimizer
                     List<RowExpression> arguments = specialForm.getArguments().stream()
                             .map(argument -> argument.accept(this, null))
                             .collect(toImmutableList());
-                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments);
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments, specialForm.getFunctionDependencies());
                 }
                 case BIND: {
                     checkState(specialForm.getArguments().size() >= 1, BIND + " function should have at least 1 argument. Got " + specialForm.getArguments().size());
@@ -154,7 +154,7 @@ public class ExpressionOptimizer
                         // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
                         throw new UnsupportedOperationException();
                     }
-                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), optimizedArgumentsBuilder.build());
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), optimizedArgumentsBuilder.build(), specialForm.getFunctionDependencies());
                 }
                 case NULL_IF:
                 case SWITCH:
@@ -170,7 +170,7 @@ public class ExpressionOptimizer
                     List<RowExpression> arguments = specialForm.getArguments().stream()
                             .map(argument -> argument.accept(this, null))
                             .collect(toImmutableList());
-                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments);
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments, specialForm.getFunctionDependencies());
                 }
                 default:
                     throw new IllegalArgumentException("Unsupported special form " + specialForm.getForm());
@@ -201,19 +201,16 @@ public class ExpressionOptimizer
                     if (returnType instanceof ArrayType) {
                         return call(
                                 metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
-                                call.getType(),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof MapType) {
                         return call(
                                 metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
-                                call.getType(),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof RowType) {
                         return call(
                                 metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
-                                call.getType(),
                                 innerCall.getArguments());
                     }
                 }
@@ -221,7 +218,6 @@ public class ExpressionOptimizer
 
             return call(
                     metadata.getCoercion(call.getArguments().get(0).getType(), call.getType()),
-                    call.getType(),
                     call.getArguments());
         }
     }

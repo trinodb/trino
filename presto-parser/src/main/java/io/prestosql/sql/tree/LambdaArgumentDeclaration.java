@@ -65,4 +65,14 @@ public class LambdaArgumentDeclaration
     {
         return Objects.hash(name);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return name.equals(((LambdaArgumentDeclaration) other).getName());
+    }
 }

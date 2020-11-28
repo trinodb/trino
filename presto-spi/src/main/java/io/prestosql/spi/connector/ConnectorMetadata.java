@@ -302,11 +302,27 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Comments to the specified column
+     */
+    default void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+    }
+
+    /**
      * Add the specified column
      */
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns");
+    }
+
+    /**
+     * Sets the user/role on the specified table.
+     */
+    default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, PrestoPrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a table");
     }
 
     /**
@@ -444,6 +460,28 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Begin materialized view query
+     */
+    default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support materialized views");
+    }
+
+    /**
+     * Finish materialized view query
+     */
+    default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            ConnectorInsertTableHandle insertHandle,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics,
+            List<ConnectorTableHandle> sourceTableHandles)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
+    }
+
+    /**
      * Get the column handle that will generate row IDs for the delete operation.
      * These IDs will be passed to the {@code deleteRows()} method of the
      * {@link io.prestosql.spi.connector.UpdatablePageSource} that created them.
@@ -486,6 +524,14 @@ public interface ConnectorMetadata
     default void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming views");
+    }
+
+    /**
+     * Sets the user/role on the specified view.
+     */
+    default void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a view");
     }
 
     /**
@@ -664,11 +710,27 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Grants the specified privilege to the specified user on the specified schema
+     */
+    default void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
+    }
+
+    /**
+     * Revokes the specified privilege on the specified schema from the specified user
+     */
+    default void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
+    }
+
+    /**
      * Grants the specified privilege to the specified user on the specified table
      */
     default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants on tables");
     }
 
     /**
@@ -676,7 +738,7 @@ public interface ConnectorMetadata
      */
     default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes");
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes on tables");
     }
 
     /**
@@ -926,6 +988,30 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Attempt to push down the TopN into the table scan.
+     * <p>
+     * Connectors can indicate whether they don't support topN pushdown or that the action had no effect
+     * by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * </p>
+     * <b>Note</b>: it's critical for connectors to return {@link Optional#empty()} if calling this method has no effect for that
+     * invocation, even if the connector generally supports topN pushdown. Doing otherwise can cause the optimizer
+     * to loop indefinitely.
+     * <p>
+     * If the connector can handle TopN Pushdown and guarantee it will produce fewer rows than it should return a
+     * non-empty result with "topN guaranteed" flag set to true.
+     * @return
+     */
+    default Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Allows the connector to reject the table scan produced by the planner.
      * <p>
      * Connectors can choose to reject a query based on the table scan potentially being too expensive, for example
@@ -933,4 +1019,44 @@ public interface ConnectorMetadata
      * <p>
      */
     default void validateScan(ConnectorSession session, ConnectorTableHandle handle) {}
+
+    /**
+     * Create the specified materialized view. The view definition is intended to
+     * be serialized by the connector for permanent storage.
+     * @throws PrestoException with {@code ALREADY_EXISTS} if the object already exists and {@param ignoreExisting} is not set
+     *
+     */
+    default void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating materialized views");
+    }
+
+    /**
+     * Drop the specified materialized view.
+     */
+    default void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
+    }
+
+    /**
+     * Gets the materialized view data for the specified materialized view name.
+     */
+    default Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * The method is used by the engine to determine if a materialized view is current with respect to the tables it depends on.
+     */
+    default MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
+    {
+        return new MaterializedViewFreshness(false);
+    }
+
+    default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
 }

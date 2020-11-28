@@ -38,8 +38,8 @@ import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveVarcharObjectInspector;
@@ -47,9 +47,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -62,11 +59,13 @@ import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBuckets;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Arrays.asList;
 import static java.util.Map.Entry;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.timestampTypeInfo;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -138,15 +137,20 @@ public class TestHiveBucketing
         assertBucketEquals("date", Date.valueOf("2015-11-19"), 16758, 8542395);
         assertBucketEquals("date", Date.valueOf("1950-11-19"), -6983, -431619185);
 
-        assertBucketEquals("timestamp", null, 0, 0);
-        assertBucketEquals("timestamp", Timestamp.valueOf("1970-01-01 00:00:00.000"), BUCKETING_V1, 7200);
-        assertBucketEquals("timestamp", Timestamp.valueOf("1969-12-31 23:59:59.999"), BUCKETING_V1, -74736673);
-        assertBucketEquals("timestamp", Timestamp.valueOf("1950-11-19 12:34:56.789"), BUCKETING_V1, -670699780);
-        assertBucketEquals("timestamp", Timestamp.valueOf("2015-11-19 07:06:05.432"), BUCKETING_V1, 1278000719);
-        // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
-        assertThatThrownBy(() -> assertBucketEquals("timestamp", Timestamp.valueOf("1970-01-01 00:00:00.000"), BUCKETING_V2, 0xDEAD_C0D3))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Computation of Hive bucket hashCode is not supported for Hive primitive category: TIMESTAMP");
+        for (BucketingVersion version : BucketingVersion.values()) {
+            List<TypeInfo> typeInfos = ImmutableList.of(timestampTypeInfo);
+
+            assertThatThrownBy(() -> version.getBucketHashCode(typeInfos, new Object[]{0}))
+                    .hasMessage("Computation of Hive bucket hashCode is not supported for Hive primitive category: TIMESTAMP");
+
+            TimestampType timestampType = createTimestampType(3);
+            BlockBuilder builder = timestampType.createBlockBuilder(null, 1);
+            timestampType.writeLong(builder, 0);
+            Page page = new Page(builder.build());
+
+            assertThatThrownBy(() -> version.getBucketHashCode(typeInfos, page, 0))
+                    .hasMessage("Computation of Hive bucket hashCode is not supported for Hive primitive category: TIMESTAMP");
+        }
 
         assertBucketEquals("array<double>", null, 0, 0);
         assertBucketEquals("array<boolean>", ImmutableList.of(), 0, 0);
@@ -419,19 +423,10 @@ public class TestHiveBucketing
             return Slices.utf8Slice(hiveValue.toString());
         }
         if (type instanceof DateType) {
-            long daysSinceEpochInLocalZone = ((Date) hiveValue).toLocalDate().toEpochDay();
-            assertEquals(daysSinceEpochInLocalZone, DateWritable.dateToDays((Date) hiveValue));
-            return daysSinceEpochInLocalZone;
-        }
-        if (type instanceof TimestampType) {
-            Instant instant = ((Timestamp) hiveValue).toInstant();
-            long epochSecond = instant.getEpochSecond();
-            int nano = instant.getNano();
-            assertEquals(nano % 1_000_000, 0);
-            return epochSecond * 1000 + nano / 1_000_000;
+            return (long) ((Date) hiveValue).toEpochDay();
         }
 
-        throw new UnsupportedOperationException("unknown type");
+        throw new IllegalArgumentException("Unsupported bucketing type: " + type);
     }
 
     private static void appendToBlockBuilder(Type type, Object hiveValue, BlockBuilder blockBuilder)

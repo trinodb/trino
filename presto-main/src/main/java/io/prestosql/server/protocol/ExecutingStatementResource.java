@@ -27,6 +27,8 @@ import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.operator.ExchangeClient;
 import io.prestosql.operator.ExchangeClientSupplier;
 import io.prestosql.server.ForStatementResource;
+import io.prestosql.server.ServerConfig;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.BlockEncodingSerde;
 
@@ -72,6 +74,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -97,6 +100,7 @@ public class ExecutingStatementResource
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("execution-query-purger"));
+    private final boolean compressionEnabled;
 
     @Inject
     public ExecutingStatementResource(
@@ -104,13 +108,15 @@ public class ExecutingStatementResource
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
-            @ForStatementResource ScheduledExecutorService timeoutExecutor)
+            @ForStatementResource ScheduledExecutorService timeoutExecutor,
+            ServerConfig serverConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -141,6 +147,7 @@ public class ExecutingStatementResource
         queryPurger.shutdownNow();
     }
 
+    @ResourceSecurity(PUBLIC)
     @GET
     @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -212,12 +219,12 @@ public class ExecutingStatementResource
         }
         ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
 
-        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults, compressionEnabled), directExecutor());
 
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
-    private static Response toResponse(Query query, QueryResults queryResults)
+    private static Response toResponse(Query query, QueryResults queryResults, boolean compressionEnabled)
     {
         ResponseBuilder response = Response.ok(queryResults);
 
@@ -258,9 +265,14 @@ public class ExecutingStatementResource
             response.header(PRESTO_CLEAR_TRANSACTION_ID, true);
         }
 
+        if (!compressionEnabled) {
+            response.encoding("identity");
+        }
+
         return response.build();
     }
 
+    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -291,6 +303,7 @@ public class ExecutingStatementResource
         }
     }
 
+    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("partialCancel/{queryId}/{stage}/{slug}/{token}")
     public void partialCancel(

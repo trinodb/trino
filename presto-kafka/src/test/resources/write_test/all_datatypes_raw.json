@@ -1,0 +1,63 @@
+{
+    "tableName": "raw",
+    "schemaName": "write_test",
+    "topicName": "raw",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "kafka_key",
+                "dataFormat": "LONG",
+                "type": "BIGINT",
+                "mapping": "0"
+            }
+        ]
+    },
+    "message": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "f_varchar",
+                "dataFormat": "BYTE",
+                "type": "VARCHAR",
+                "mapping": "0:4"
+            },
+            {
+                "name": "f_bigint",
+                "dataFormat": "LONG",
+                "type": "BIGINT",
+                "mapping": "4"
+            },
+            {
+                "name": "f_int",
+                "dataFormat": "INT",
+                "type": "INTEGER",
+                "mapping": "12"
+            },
+            {
+                "name": "f_smallint",
+                "dataFormat": "SHORT",
+                "type": "SMALLINT",
+                "mapping": "16"
+            },
+            {
+                "name": "f_tinyint",
+                "dataFormat": "BYTE",
+                "type": "TINYINT",
+                "mapping": "18"
+            },
+            {
+                "name": "f_double",
+                "dataFormat": "DOUBLE",
+                "type": "DOUBLE",
+                "mapping": "19"
+            },
+            {
+                "name": "f_boolean",
+                "dataFormat": "BYTE",
+                "type": "BOOLEAN",
+                "mapping": "27"
+            }
+        ]
+    }
+}

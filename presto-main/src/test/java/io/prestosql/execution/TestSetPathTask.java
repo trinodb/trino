@@ -49,7 +49,7 @@ public class TestSetPathTask
     private final AccessControl accessControl;
     private final Metadata metadata;
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
+    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     public TestSetPathTask()
     {
@@ -64,6 +64,7 @@ public class TestSetPathTask
     public void tearDown()
     {
         executor.shutdownNow();
+        executor = null;
     }
 
     @Test
@@ -101,7 +102,8 @@ public class TestSetPathTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
     }
 
     private void executeSetPathTask(PathSpecification pathSpecification, QueryStateMachine stateMachine)

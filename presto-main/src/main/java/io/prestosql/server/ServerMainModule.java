@@ -38,6 +38,8 @@ import io.prestosql.connector.ConnectorManager;
 import io.prestosql.connector.system.SystemConnectorModule;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.event.SplitMonitor;
+import io.prestosql.execution.DynamicFilterConfig;
+import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.ExplainAnalyzeContext;
 import io.prestosql.execution.LocationFactory;
@@ -96,7 +98,9 @@ import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spiller.FileSingleStreamSpillerFactory;
 import io.prestosql.spiller.GenericPartitioningSpillerFactory;
@@ -120,15 +124,18 @@ import io.prestosql.sql.gen.JoinFilterFunctionCompiler;
 import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.planner.CompilerConfig;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.NodePartitioningManager;
+import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManagerConfig;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.TypeDeserializer;
+import io.prestosql.type.TypeOperatorsCache;
 import io.prestosql.type.TypeSignatureDeserializer;
+import io.prestosql.type.TypeSignatureKeyDeserializer;
 import io.prestosql.util.FinalizerService;
 import io.prestosql.version.EmbedVersion;
 
@@ -190,9 +197,6 @@ public class ServerMainModule
         configBinder(binder).bindConfig(FeaturesConfig.class);
 
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
-        SqlParserOptions sqlParserOptions = new SqlParserOptions();
-        sqlParserOptions.useEnhancedErrorHandler(serverConfig.isEnhancedErrorReporting());
-        binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 
@@ -204,6 +208,7 @@ public class ServerMainModule
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(GcMonitor.class).withGeneratedName();
 
         // session properties
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
@@ -299,6 +304,7 @@ public class ServerMainModule
         binder.bind(LookupJoinOperators.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
+        jsonCodecBinder(binder).bindJsonCodec(VersionedDynamicFilterDomains.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
@@ -346,11 +352,16 @@ public class ServerMainModule
         configBinder(binder).bindConfig(StaticCatalogStoreConfig.class);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(TypeOperatorsCache.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
+        binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TypeOperatorsCache.class).withGeneratedName();
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
+        jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
         newSetBinder(binder, Type.class);
 
         // split manager
@@ -406,6 +417,10 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
+        // range encoding
+        jsonBinder(binder).addSerializerBinding(Range.class).to(RangeJsonSerde.Serializer.class);
+        jsonBinder(binder).addDeserializerBinding(Range.class).to(RangeJsonSerde.Deserializer.class);
+
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
 
@@ -427,12 +442,26 @@ public class ServerMainModule
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
 
+        // Dynamic Filtering
+        configBinder(binder).bindConfig(DynamicFilterConfig.class);
+
         // dispatcher
         // TODO remove dispatcher fromm ServerMainModule, and bind dependent components only on coordinators
         OptionalBinder.newOptionalBinder(binder, DispatchManager.class);
 
+        // Added for RuleStatsSystemTable
+        // TODO: remove this when system tables are bound separately for coordinator and worker
+        OptionalBinder.newOptionalBinder(binder, RuleStatsRecorder.class);
+
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    public static TypeOperators createTypeOperators(TypeOperatorsCache typeOperatorsCache)
+    {
+        return new TypeOperators(typeOperatorsCache);
     }
 
     @Provides

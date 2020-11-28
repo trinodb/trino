@@ -135,7 +135,7 @@ public class ListColumnWriter
     {
         checkState(!closed);
 
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null);
         rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
 
@@ -189,6 +189,7 @@ public class ListColumnWriter
         ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
         indexStreams.add(new StreamDataOutput(slice, stream));
         indexStreams.addAll(elementWriter.getIndexStreams(metadataWriter));
+        indexStreams.addAll(elementWriter.getBloomFilters(metadataWriter));
         return indexStreams.build();
     }
 
@@ -201,6 +202,13 @@ public class ListColumnWriter
         presentCheckpoint.ifPresent(booleanStreamCheckpoint -> positionList.addAll(booleanStreamCheckpoint.toPositionList(compressed)));
         positionList.addAll(lengthCheckpoint.toPositionList(compressed));
         return positionList.build();
+    }
+
+    @Override
+    public List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
+            throws IOException
+    {
+        return ImmutableList.of();
     }
 
     @Override

@@ -20,10 +20,13 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.type.Type;
 
 import java.util.List;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.ParameterizedType.type;
@@ -35,15 +38,22 @@ public class InvokeFunctionBytecodeExpression
 {
     public static BytecodeExpression invokeFunction(Scope scope,
             CachedInstanceBinder cachedInstanceBinder,
-            ResolvedFunction resolvedFunction,
-            Metadata metadata,
+            Type type,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
             BytecodeExpression... parameters)
     {
         requireNonNull(scope, "scope is null");
-        requireNonNull(resolvedFunction, "function is null");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(functionMetadata, "functionMetadata is null");
+        requireNonNull(functionInvokerProvider, "functionInvokerProvider is null");
 
-        return new InvokeFunctionBytecodeExpression(scope, cachedInstanceBinder.getCallSiteBinder(), resolvedFunction, metadata, ImmutableList.copyOf(parameters));
+        return new InvokeFunctionBytecodeExpression(
+                scope,
+                cachedInstanceBinder.getCallSiteBinder(),
+                type,
+                functionMetadata,
+                functionInvokerProvider,
+                ImmutableList.copyOf(parameters));
     }
 
     private final BytecodeNode invocation;
@@ -52,14 +62,15 @@ public class InvokeFunctionBytecodeExpression
     private InvokeFunctionBytecodeExpression(
             Scope scope,
             CallSiteBinder binder,
-            ResolvedFunction resolvedFunction,
-            Metadata metadata,
+            Type type,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
             List<BytecodeExpression> parameters)
     {
-        super(type(Primitives.unwrap(metadata.getType(resolvedFunction.getSignature().getReturnType()).getJavaType())));
+        super(type(Primitives.unwrap(type.getJavaType())));
 
-        this.invocation = generateInvocation(scope, resolvedFunction, metadata, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binder);
-        this.oneLineDescription = resolvedFunction.getSignature().getName() + "(" + Joiner.on(", ").join(parameters) + ")";
+        this.invocation = generateInvocation(scope, functionMetadata, functionInvokerProvider, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binder);
+        this.oneLineDescription = functionMetadata.getSignature().getName() + "(" + Joiner.on(", ").join(parameters) + ")";
     }
 
     @Override

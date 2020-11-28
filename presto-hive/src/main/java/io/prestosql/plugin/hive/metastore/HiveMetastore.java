@@ -16,15 +16,21 @@ package io.prestosql.plugin.hive.metastore;
 import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.acid.AcidOperation;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
+import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -42,7 +48,7 @@ public interface HiveMetastore
 
     Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, Table table, List<Partition> partitions);
 
-    void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update);
+    void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction);
 
     void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
@@ -75,6 +81,10 @@ public interface HiveMetastore
 
     void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment);
 
+    void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal);
+
+    void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment);
+
     void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
 
     void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName, String newColumnName);
@@ -83,9 +93,17 @@ public interface HiveMetastore
 
     Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues);
 
-    Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName);
-
-    Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts);
+    /**
+     * return a list of partition names where partitionKeysFilter is used as a hint to each implementation.
+     *
+     * @param databaseName the name of the database
+     * @param tableName the name of the table
+     * @param columnNames the list of partition column names
+     * @param partitionKeysFilter map of filters (Domain) for each partition column
+     * @return optionally, a list of strings where each entry is in the form of {key}={value}
+     * @see TupleDomain
+     */
+    Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter);
 
     Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames);
 
@@ -148,5 +166,35 @@ public interface HiveMetastore
     default Optional<String> getConfigValue(String name)
     {
         return Optional.empty();
+    }
+
+    default long allocateWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation, boolean isDynamicPartitionWrite)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void updateTableWriteId(HiveIdentity identity, String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void alterPartitions(HiveIdentity identity, String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void addDynamicPartitions(HiveIdentity identity, String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, EnvironmentContext context, PrincipalPrivileges principalPrivileges)
+    {
+        throw new UnsupportedOperationException();
     }
 }

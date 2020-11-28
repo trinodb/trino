@@ -25,11 +25,11 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.InvocationConvention;
@@ -178,10 +178,25 @@ public final class BytecodeUtils
             List<BytecodeNode> arguments,
             CallSiteBinder binder)
     {
+        return generateInvocation(
+                scope,
+                metadata.getFunctionMetadata(resolvedFunction),
+                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)),
+                arguments,
+                binder);
+    }
+
+    public static BytecodeNode generateInvocation(
+            Scope scope,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
+            List<BytecodeNode> arguments,
+            CallSiteBinder binder)
+    {
         return generateFullInvocation(
                 scope,
-                resolvedFunction,
-                metadata,
+                functionMetadata,
+                functionInvokerProvider,
                 instanceFactory -> {
                     throw new IllegalArgumentException("Simple method invocation can not be used with functions that require an instance factory");
                 },
@@ -207,8 +222,23 @@ public final class BytecodeUtils
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
             CallSiteBinder binder)
     {
-        FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
+        return generateFullInvocation(
+                scope,
+                metadata.getFunctionMetadata(resolvedFunction),
+                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)),
+                instanceFactory,
+                argumentCompilers,
+                binder);
+    }
 
+    public static BytecodeNode generateFullInvocation(
+            Scope scope,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
+            Function<MethodHandle, BytecodeNode> instanceFactory,
+            List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
+            CallSiteBinder binder)
+    {
         List<InvocationArgumentConvention> argumentConventions = new ArrayList<>();
         List<BytecodeNode> arguments = new ArrayList<>();
         for (int i = 0; i < functionMetadata.getSignature().getArgumentTypes().size(); i++) {
@@ -237,13 +267,13 @@ public final class BytecodeUtils
                 functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
                 true,
                 true);
-        FunctionInvoker functionInvoker = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention));
+        FunctionInvoker functionInvoker = functionInvokerProvider.apply(invocationConvention);
 
         Binding binding = binder.bind(functionInvoker.getMethodHandle());
 
         LabelNode end = new LabelNode("end");
         BytecodeBlock block = new BytecodeBlock()
-                .setDescription("invoke " + resolvedFunction.getSignature().getName());
+                .setDescription("invoke " + functionMetadata.getSignature().getName());
 
         Optional<BytecodeNode> instance = functionInvoker.getInstanceFactory()
                 .map(instanceFactory);
@@ -253,6 +283,9 @@ public final class BytecodeUtils
 
         // Index of parameter (without @IsNull) in Presto function
         int realParameterIndex = 0;
+
+        // Index of function argument types
+        int lambdaArgumentIndex = 0;
 
         MethodType methodType = binding.getType();
         Class<?> returnType = methodType.returnType();
@@ -301,8 +334,9 @@ public final class BytecodeUtils
                         currentParameterIndex++;
                         break;
                     case FUNCTION:
-                        Optional<Class<?>> lambdaInterface = functionInvoker.getLambdaInterfaces().get(realParameterIndex);
-                        block.append(argumentCompilers.get(realParameterIndex).apply(lambdaInterface));
+                        Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);
+                        block.append(argumentCompilers.get(realParameterIndex).apply(Optional.of(lambdaInterface)));
+                        lambdaArgumentIndex++;
                         break;
                     default:
                         throw new UnsupportedOperationException(format("Unsupported argument conventsion type: %s", invocationConvention.getArgumentConvention(realParameterIndex)));
@@ -311,7 +345,7 @@ public final class BytecodeUtils
             }
             currentParameterIndex++;
         }
-        block.append(invoke(binding, resolvedFunction.getSignature().getName()));
+        block.append(invoke(binding, functionMetadata.getSignature().getName()));
 
         if (functionMetadata.isNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));
@@ -390,12 +424,20 @@ public final class BytecodeUtils
     public static BytecodeExpression invoke(Binding binding, String name)
     {
         // ensure that name doesn't have a special characters
-        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name.replaceAll("[^(A-Za-z0-9_$)]", "_"), binding.getType());
+        return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), sanitizeName(name), binding.getType());
     }
 
-    public static BytecodeExpression invoke(Binding binding, Signature signature)
+    public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
     {
         return invoke(binding, signature.getName());
+    }
+
+    /**
+     * Replace characters that are not safe to use in a JVM identifier.
+     */
+    public static String sanitizeName(String name)
+    {
+        return name.replaceAll("[^A-Za-z0-9_$]", "_");
     }
 
     public static BytecodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)

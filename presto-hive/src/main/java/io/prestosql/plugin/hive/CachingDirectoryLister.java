@@ -95,7 +95,7 @@ public class CachingDirectoryLister
 
     private RemoteIterator<LocatedFileStatus> cachingRemoteIterator(RemoteIterator<LocatedFileStatus> iterator, Path path)
     {
-        return new RemoteIterator<LocatedFileStatus>()
+        return new RemoteIterator<>()
         {
             private final List<LocatedFileStatus> files = new ArrayList<>();
 
@@ -123,7 +123,7 @@ public class CachingDirectoryLister
 
     private static RemoteIterator<LocatedFileStatus> simpleRemoteIterator(List<LocatedFileStatus> files)
     {
-        return new RemoteIterator<LocatedFileStatus>()
+        return new RemoteIterator<>()
         {
             private final Iterator<LocatedFileStatus> iterator = ImmutableList.copyOf(files).iterator();
 

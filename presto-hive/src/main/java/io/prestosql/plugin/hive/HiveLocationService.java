@@ -39,6 +39,7 @@ import static io.prestosql.plugin.hive.util.HiveWriteUtils.pathExists;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
 public class HiveLocationService
         implements LocationService
@@ -55,7 +56,7 @@ public class HiveLocationService
     public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
     {
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
-        Path targetPath = externalLocation.orElse(getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
+        Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
 
         // verify the target directory for the table
         if (pathExists(context, hdfsEnvironment, targetPath)) {
@@ -78,7 +79,7 @@ public class HiveLocationService
         HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
         Path targetPath = new Path(table.getStorage().getLocation());
 
-        if (shouldUseTemporaryDirectory(session, context, targetPath, Optional.empty())) {
+        if (shouldUseTemporaryDirectory(session, context, targetPath, Optional.empty()) && !isTransactionalTable(table.getParameters())) {
             Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
             return new LocationHandle(targetPath, writePath, true, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }

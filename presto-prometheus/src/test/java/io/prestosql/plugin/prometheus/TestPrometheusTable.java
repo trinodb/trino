@@ -14,27 +14,21 @@
 package io.prestosql.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.type.InternalTypeManager;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.prometheus.MetadataUtil.TABLE_CODEC;
 import static io.prestosql.plugin.prometheus.MetadataUtil.varcharMapType;
+import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static org.testng.Assert.assertEquals;
 
 public class TestPrometheusTable
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
     private final PrometheusTable prometheusTable = new PrometheusTable("tableName",
             ImmutableList.of(
                     new PrometheusColumn("labels", varcharMapType),
-                    new PrometheusColumn("timestamp", TimestampType.TIMESTAMP),
+                    new PrometheusColumn("timestamp", TIMESTAMP_COLUMN_TYPE),
                     new PrometheusColumn("value", DoubleType.DOUBLE)));
 
     @Test
@@ -42,7 +36,7 @@ public class TestPrometheusTable
     {
         assertEquals(prometheusTable.getColumnsMetadata(), ImmutableList.of(
                 new ColumnMetadata("labels", varcharMapType),
-                new ColumnMetadata("timestamp", TimestampType.TIMESTAMP),
+                new ColumnMetadata("timestamp", TIMESTAMP_COLUMN_TYPE),
                 new ColumnMetadata("value", DoubleType.DOUBLE)));
     }
 

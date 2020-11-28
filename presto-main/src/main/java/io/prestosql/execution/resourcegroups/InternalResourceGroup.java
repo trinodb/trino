@@ -135,6 +135,11 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private final CounterStat timeBetweenStartsSec = new CounterStat();
 
+    public InternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
+    {
+        this(Optional.empty(), name, jmxExportListener, executor);
+    }
+
     protected InternalResourceGroup(Optional<InternalResourceGroup> parent, String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
     {
         this.parent = requireNonNull(parent, "parent is null");
@@ -669,6 +674,32 @@ public class InternalResourceGroup
         }
     }
 
+    public void updateGroupsAndProcessQueuedQueries()
+    {
+        synchronized (root) {
+            updateResourceUsageAndGetDelta();
+
+            while (internalStartNext()) {
+                // start all the queries we can
+            }
+        }
+    }
+
+    public void generateCpuQuota(long elapsedSeconds)
+    {
+        synchronized (root) {
+            if (elapsedSeconds > 0) {
+                internalGenerateCpuQuota(elapsedSeconds);
+            }
+        }
+    }
+
+    @VisibleForTesting
+    public void triggerProcessQueuedQueries()
+    {
+        updateGroupsAndProcessQueuedQueries();
+    }
+
     private void queryFinished(ManagedQueryExecution query)
     {
         synchronized (root) {
@@ -716,6 +747,7 @@ public class InternalResourceGroup
             }
 
             updateEligibility();
+            root.triggerProcessQueuedQueries();
             return;
         }
     }
@@ -956,31 +988,5 @@ public class InternalResourceGroup
     public int hashCode()
     {
         return Objects.hash(id);
-    }
-
-    @ThreadSafe
-    public static final class RootInternalResourceGroup
-            extends InternalResourceGroup
-    {
-        public RootInternalResourceGroup(String name, BiConsumer<InternalResourceGroup, Boolean> jmxExportListener, Executor executor)
-        {
-            super(Optional.empty(), name, jmxExportListener, executor);
-        }
-
-        public synchronized void updateGroupsAndProcessQueuedQueries()
-        {
-            updateResourceUsageAndGetDelta();
-
-            while (internalStartNext()) {
-                // start all the queries we can
-            }
-        }
-
-        public synchronized void generateCpuQuota(long elapsedSeconds)
-        {
-            if (elapsedSeconds > 0) {
-                internalGenerateCpuQuota(elapsedSeconds);
-            }
-        }
     }
 }

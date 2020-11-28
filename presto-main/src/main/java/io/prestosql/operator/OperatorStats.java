@@ -27,6 +27,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -474,6 +475,7 @@ public class OperatorStats
         Mergeable<OperatorInfo> base = getMergeableInfoOrNull(info);
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
+            checkArgument(operator.getOperatorType().equals(operatorType), "Expected operatorType to be %s but was %s", operatorType, operator.getOperatorType());
 
             totalDrivers += operator.totalDrivers;
 
@@ -521,7 +523,8 @@ public class OperatorStats
             }
 
             OperatorInfo info = operator.getInfo();
-            if (base != null && info != null && base.getClass() == info.getClass()) {
+            if (base != null && info != null) {
+                verify(base.getClass() == info.getClass(), "Cannot merge operator infos: %s and %s", base, info);
                 base = mergeInfo(base, info);
             }
         }

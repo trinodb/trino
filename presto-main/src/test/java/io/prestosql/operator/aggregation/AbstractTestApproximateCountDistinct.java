@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
@@ -35,6 +34,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -208,7 +208,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     private List<Object> createRandomSample(int uniques, int total)
     {
-        Preconditions.checkArgument(uniques <= total, "uniques (%s) must be <= total (%s)", uniques, total);
+        checkArgument(uniques <= total, "uniques (%s) must be <= total (%s)", uniques, total);
 
         List<Object> result = new ArrayList<>(total);
         result.addAll(makeRandomSet(uniques));

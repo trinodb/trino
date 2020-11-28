@@ -33,9 +33,11 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -47,6 +49,7 @@ import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.ColumnDefinition;
+import io.prestosql.sql.tree.CreateMaterializedView;
 import io.prestosql.sql.tree.CreateSchema;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.CreateView;
@@ -80,6 +83,7 @@ import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.TableElement;
 import io.prestosql.sql.tree.Values;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -131,6 +135,7 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.LogicalBinaryExpression.and;
+import static io.prestosql.sql.tree.ShowCreate.Type.MATERIALIZED_VIEW;
 import static io.prestosql.sql.tree.ShowCreate.Type.SCHEMA;
 import static io.prestosql.sql.tree.ShowCreate.Type.TABLE;
 import static io.prestosql.sql.tree.ShowCreate.Type.VIEW;
@@ -151,6 +156,7 @@ final class ShowQueriesRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
@@ -373,7 +379,12 @@ final class ShowQueriesRewrite
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
-
+            if (metadata.getCatalogHandle(session, tableName.getCatalogName()).isEmpty()) {
+                throw semanticException(CATALOG_NOT_FOUND, showColumns, "Catalog '%s' does not exist", tableName.getCatalogName());
+            }
+            if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.getCatalogName(), tableName.getSchemaName()))) {
+                throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.getSchemaName());
+            }
             if (metadata.getView(session, tableName).isEmpty() &&
                     metadata.getTableHandle(session, tableName).isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
@@ -444,6 +455,11 @@ final class ShowQueriesRewrite
         {
             if (node.getType() == VIEW) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+
+                if (metadata.getMaterializedView(session, objectName).isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
+                }
+
                 Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
@@ -463,6 +479,30 @@ final class ShowQueriesRewrite
 
                 String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, viewDefinition.get().getComment(), Optional.empty())).trim();
                 return singleValueQuery("Create View", sql);
+            }
+
+            if (node.getType() == MATERIALIZED_VIEW) {
+                QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
+
+                if (viewDefinition.isEmpty()) {
+                    if (metadata.getTableHandle(session, objectName).isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a materialized view", objectName);
+                    }
+                    throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", objectName);
+                }
+
+                Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
+                List<Identifier> parts = Lists.reverse(node.getName().getOriginalParts());
+                Identifier tableName = parts.get(0);
+                Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
+                Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
+
+                accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+
+                String sql = formatSql(new CreateMaterializedView(Optional.empty(), QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                        query, false, false, new ArrayList<>(), viewDefinition.get().getComment())).trim();
+                return singleValueQuery("Create Materialized View", sql);
             }
 
             if (node.getType() == TABLE) {
@@ -518,7 +558,7 @@ final class ShowQueriesRewrite
                 QualifiedName qualifiedSchemaName = QualifiedName.of(schemaName.getCatalogName(), schemaName.getSchemaName());
                 List<Property> propertyNodes = buildProperties(qualifiedSchemaName, Optional.empty(), INVALID_SCHEMA_PROPERTY, properties, allTableProperties);
 
-                Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(principal -> MetadataUtil.createPrincipal(principal));
+                Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(MetadataUtil::createPrincipal);
 
                 CreateSchema createSchema = new CreateSchema(
                         qualifiedSchemaName,

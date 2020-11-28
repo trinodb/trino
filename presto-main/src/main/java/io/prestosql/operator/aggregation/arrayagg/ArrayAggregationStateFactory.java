@@ -13,23 +13,17 @@
  */
 package io.prestosql.operator.aggregation.arrayagg;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.AccumulatorStateFactory;
 import io.prestosql.spi.type.Type;
-
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static java.lang.String.format;
 
 public class ArrayAggregationStateFactory
         implements AccumulatorStateFactory<ArrayAggregationState>
 {
     private final Type type;
-    private final ArrayAggGroupImplementation mode;
 
-    public ArrayAggregationStateFactory(Type type, ArrayAggGroupImplementation mode)
+    public ArrayAggregationStateFactory(Type type)
     {
         this.type = type;
-        this.mode = mode;
     }
 
     @Override
@@ -47,26 +41,12 @@ public class ArrayAggregationStateFactory
     @Override
     public ArrayAggregationState createGroupedState()
     {
-        switch (mode) {
-            case NEW:
-                return new GroupArrayAggregationState(type);
-            case LEGACY:
-                return new LegacyArrayAggregationGroupState(type);
-            default:
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Unexpected group enum type %s", mode));
-        }
+        return new GroupArrayAggregationState(type);
     }
 
     @Override
     public Class<? extends ArrayAggregationState> getGroupedStateClass()
     {
-        switch (mode) {
-            case NEW:
-                return GroupArrayAggregationState.class;
-            case LEGACY:
-                return LegacyArrayAggregationGroupState.class;
-            default:
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Unexpected group enum type %s", mode));
-        }
+        return GroupArrayAggregationState.class;
     }
 }

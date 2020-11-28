@@ -20,6 +20,11 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public final class TypeUtils
 {
@@ -89,12 +94,18 @@ public final class TypeUtils
         }
     }
 
-    static long hashPosition(Type type, Block block, int position)
+    public static boolean isFloatingPointNaN(Type type, Object value)
     {
-        if (block.isNull(position)) {
-            return NULL_HASH_CODE;
+        requireNonNull(type, "type is null");
+        requireNonNull(value, "value is null");
+
+        if (type == DOUBLE) {
+            return Double.isNaN((double) value);
         }
-        return type.hash(block, position);
+        if (type == REAL) {
+            return Float.isNaN(intBitsToFloat(toIntExact((long) value)));
+        }
+        return false;
     }
 
     static void checkElementNotNull(boolean isNull, String errorMsg)

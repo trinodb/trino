@@ -14,7 +14,7 @@
 package io.prestosql.plugin.jdbc.jmx;
 
 import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.spi.connector.ConnectorSession;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -36,17 +36,17 @@ public class StatisticsAwareConnectionFactory
     }
 
     @Override
-    public Connection openConnection(JdbcIdentity identity)
+    public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        return openConnection.wrap(() -> delegate.openConnection(identity));
+        return openConnection.wrap(() -> delegate.openConnection(session));
     }
 
     @Override
     public void close()
             throws SQLException
     {
-        closeConnection.wrap(() -> delegate.close());
+        closeConnection.wrap(delegate::close);
     }
 
     @Managed

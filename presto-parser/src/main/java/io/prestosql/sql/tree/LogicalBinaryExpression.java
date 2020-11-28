@@ -125,4 +125,14 @@ public class LogicalBinaryExpression
     {
         return Objects.hash(operator, left, right);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return operator == ((LogicalBinaryExpression) other).operator;
+    }
 }

@@ -1,0 +1,31 @@
+{
+    "system_session_properties": [
+        {
+            "user": "admin",
+            "allow": true
+        },
+        {
+            "user": "banned_user",
+            "allow": false
+        },
+        {
+            "property": "resource_overcommit",
+            "allow": true
+        }
+    ],
+    "catalog_session_properties": [
+        {
+            "user": "admin",
+            "allow": true
+        },
+        {
+            "user": "banned_user",
+            "allow": false
+        },
+        {
+            "catalog": "hive",
+            "property": "bucket_execution_enabled",
+            "allow": true
+        }
+    ]
+}

@@ -98,6 +98,7 @@ public class BeginTableWrite
                     node.getFragmentSymbol(),
                     node.getColumns(),
                     node.getColumnNames(),
+                    node.getNotNullColumnSymbols(),
                     node.getPartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
@@ -186,6 +187,14 @@ public class BeginTableWrite
                 DeleteTarget delete = (DeleteTarget) target;
                 return new DeleteTarget(metadata.beginDelete(session, delete.getHandle()), delete.getSchemaTableName());
             }
+            if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
+                TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;
+                return new TableWriterNode.RefreshMaterializedViewTarget(
+                        refreshMV.getStorageTableHandle(),
+                        metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
+                        metadata.getTableMetadata(session, refreshMV.getStorageTableHandle()).getTable(),
+                        refreshMV.getSourceTableHandles());
+            }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
@@ -198,7 +207,8 @@ public class BeginTableWrite
                         handle,
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
-                        scan.getEnforcedConstraint());
+                        scan.getEnforcedConstraint(),
+                        scan.isForDelete());
             }
 
             if (node instanceof FilterNode) {

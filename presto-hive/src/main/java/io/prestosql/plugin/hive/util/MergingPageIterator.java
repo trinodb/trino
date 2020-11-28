@@ -17,19 +17,27 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.mergeSorted;
 import static com.google.common.collect.Iterators.transform;
 import static io.prestosql.plugin.hive.util.SortBuffer.appendPositionTo;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -37,9 +45,8 @@ import static java.util.stream.Collectors.toList;
 public class MergingPageIterator
         extends AbstractIterator<Page>
 {
-    private final List<Type> types;
     private final List<Integer> sortFields;
-    private final List<SortOrder> sortOrders;
+    private final List<MethodHandle> orderingOperators;
     private final PageBuilder pageBuilder;
     private final Iterator<PagePosition> pagePositions;
 
@@ -47,15 +54,23 @@ public class MergingPageIterator
             Collection<Iterator<Page>> iterators,
             List<Type> types,
             List<Integer> sortFields,
-            List<SortOrder> sortOrders)
+            List<SortOrder> sortOrders,
+            TypeOperators typeOperators)
     {
         requireNonNull(sortFields, "sortFields is null");
         requireNonNull(sortOrders, "sortOrders is null");
         checkArgument(sortFields.size() == sortOrders.size(), "sortFields and sortOrders size must match");
 
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.sortFields = ImmutableList.copyOf(sortFields);
-        this.sortOrders = ImmutableList.copyOf(sortOrders);
+
+        ImmutableList.Builder<MethodHandle> orderingOperators = ImmutableList.builder();
+        for (int index = 0; index < sortFields.size(); index++) {
+            Type type = types.get(sortFields.get(index));
+            SortOrder sortOrder = sortOrders.get(index);
+            orderingOperators.add(typeOperators.getOrderingOperator(type, sortOrder, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)));
+        }
+        this.orderingOperators = orderingOperators.build();
+
         this.pageBuilder = new PageBuilder(types);
         this.pagePositions = mergeSorted(
                 iterators.stream()
@@ -123,20 +138,25 @@ public class MergingPageIterator
         @Override
         public int compareTo(PagePosition other)
         {
-            for (int i = 0; i < sortFields.size(); i++) {
-                int channel = sortFields.get(i);
-                SortOrder order = sortOrders.get(i);
-                Type type = types.get(channel);
+            try {
+                for (int i = 0; i < sortFields.size(); i++) {
+                    int channel = sortFields.get(i);
+                    MethodHandle orderingOperator = orderingOperators.get(i);
 
-                Block block = page.getBlock(channel);
-                Block otherBlock = other.page.getBlock(channel);
+                    Block block = page.getBlock(channel);
+                    Block otherBlock = other.page.getBlock(channel);
 
-                int result = order.compareBlockValue(type, block, position, otherBlock, other.position);
-                if (result != 0) {
-                    return result;
+                    int result = (int) orderingOperator.invokeExact(block, position, otherBlock, other.position);
+                    if (result != 0) {
+                        return result;
+                    }
                 }
+                return 0;
             }
-            return 0;
+            catch (Throwable throwable) {
+                throwIfUnchecked(throwable);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+            }
         }
     }
 }

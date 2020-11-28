@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.phoenix;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
@@ -28,13 +29,19 @@ public class TestPhoenixDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPhoenixQueryRunner(TestingPhoenixServer.getInstance());
+        return createPhoenixQueryRunner(TestingPhoenixServer.getInstance(), ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
         TestingPhoenixServer.shutDown();
+    }
+
+    @Override
+    protected boolean supportsDelete()
+    {
+        return false;
     }
 
     @Override
@@ -45,6 +52,18 @@ public class TestPhoenixDistributedQueries
 
     @Override
     protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
     {
         return false;
     }
@@ -72,12 +91,6 @@ public class TestPhoenixDistributedQueries
     public void testRenameColumn()
     {
         // Phoenix does not support renaming columns
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // delete not currently supported
     }
 
     @Override
@@ -121,23 +134,16 @@ public class TestPhoenixDistributedQueries
     }
 
     @Override
-    public void testCommentTable()
-    {
-        // Phoenix connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
     public void testCreateSchema()
     {
         throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
     }
 
     @Override
-    public void testColumnName(String columnName)
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        // TODO (https://github.com/prestosql/presto/issues/3466) Phoenix generally lacks quoting in underlying queries
-        throw new SkipException("TODO");
+        // TODO This should produce a reasonable exception message like "Invalid column name". Then, we should verify the actual exception message
+        return columnName.equals("a\"quote");
     }
 
     @Override

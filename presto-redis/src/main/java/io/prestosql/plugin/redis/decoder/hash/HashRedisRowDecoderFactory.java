@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.redis.decoder.hash;
 
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.decoder.RowDecoderFactory;
@@ -23,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -40,7 +40,7 @@ public class HashRedisRowDecoderFactory
     private Map<DecoderColumnHandle, RedisFieldDecoder<String>> chooseFieldDecoders(Set<DecoderColumnHandle> columns)
     {
         return columns.stream()
-                .collect(ImmutableMap.toImmutableMap(identity(), this::chooseFieldDecoder));
+                .collect(toImmutableMap(identity(), this::chooseFieldDecoder));
     }
 
     private RedisFieldDecoder<String> chooseFieldDecoder(DecoderColumnHandle column)

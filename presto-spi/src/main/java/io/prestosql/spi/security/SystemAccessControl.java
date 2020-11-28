@@ -16,20 +16,18 @@ package io.prestosql.spi.security;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
-import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
@@ -44,6 +42,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyExecuteFunctio
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
@@ -51,11 +50,15 @@ import static io.prestosql.spi.security.AccessDeniedException.denyKillQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
+import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
+import static io.prestosql.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
+import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -117,7 +120,7 @@ public interface SystemAccessControl
      */
     default Set<String> filterViewQueryOwnedBy(SystemSecurityContext context, Set<String> queryOwners)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
@@ -132,11 +135,37 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to read system information such as statistics,
+     * service registry, thread stacks, etc.  This is typically allowed for administrators
+     * and management tools.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+        AccessDeniedException.denyReadSystemInformationAccess();
+    }
+
+    /**
+     * Check if identity is allowed to write system information such as marking nodes
+     * offline, or changing runtime flags.  This is typically allowed for administrators.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+        AccessDeniedException.denyReadSystemInformationAccess();
+    }
+
+    /**
      * Check if identity is allowed to set the specified system property.
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName);
+    default void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
+    {
+        denySetSystemSessionProperty(propertyName);
+    }
 
     /**
      * Check if identity is allowed to access the specified catalog
@@ -153,7 +182,7 @@ public interface SystemAccessControl
      */
     default Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
@@ -215,7 +244,7 @@ public interface SystemAccessControl
      */
     default Set<String> filterSchemas(SystemSecurityContext context, String catalogName, Set<String> schemaNames)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
@@ -229,7 +258,7 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     * Check if identity is allowed to execute SHOW CREATE TABLE, SHOW CREATE VIEW or SHOW CREATE MATERIALIZED VIEW
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
@@ -279,6 +308,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to set comment to column in the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        denyCommentColumn(table.toString());
+    }
+
+    /**
      * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
@@ -297,7 +336,7 @@ public interface SystemAccessControl
      */
     default Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
-        return Collections.emptySet();
+        return emptySet();
     }
 
     /**
@@ -317,9 +356,9 @@ public interface SystemAccessControl
     /**
      * Filter the list of columns to those visible to the identity.
      */
-    default List<ColumnMetadata> filterColumns(SystemSecurityContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
+    default Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        return Collections.emptyList();
+        return emptySet();
     }
 
     /**
@@ -340,6 +379,16 @@ public interface SystemAccessControl
     default void checkCanDropColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyDropColumn(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to change the specified table's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+        denySetTableAuthorization(table.toString(), principal);
     }
 
     /**
@@ -403,6 +452,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to change the specified view's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+        denySetViewAuthorization(view.toString(), principal);
+    }
+
+    /**
      * Check if identity is allowed to drop the specified view in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -441,6 +500,26 @@ public interface SystemAccessControl
     default void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
         denySetCatalogSessionProperty(propertyName);
+    }
+
+    /**
+     * Check if identity is allowed to grant the specified privilege to the grantee on the specified schema.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal grantee, boolean grantOption)
+    {
+        denyGrantSchemaPrivilege(privilege.toString(), schema.toString());
+    }
+
+    /**
+     * Check if identity is allowed to revoke the specified privilege on the specified schema from the revokee.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal revokee, boolean grantOption)
+    {
+        denyRevokeSchemaPrivilege(privilege.toString(), schema.toString());
     }
 
     /**

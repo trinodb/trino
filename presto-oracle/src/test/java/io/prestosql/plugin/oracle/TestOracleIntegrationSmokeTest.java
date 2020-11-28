@@ -13,23 +13,25 @@
  */
 package io.prestosql.plugin.oracle;
 
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.MaterializedResult;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.testing.Closeables;
 import io.prestosql.testing.QueryRunner;
-import org.testng.SkipException;
+import io.prestosql.testing.sql.SqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import java.io.IOException;
+
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
-import static org.assertj.core.api.Assertions.assertThat;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 
 public class TestOracleIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseOracleIntegrationSmokeTest
 {
     private TestingOracleServer oracleServer;
 
@@ -38,56 +40,40 @@ public class TestOracleIntegrationSmokeTest
             throws Exception
     {
         oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(oracleServer, CUSTOMER, NATION, ORDERS, REGION);
+        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION), false, false);
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
+            throws IOException
     {
-        oracleServer.close();
+        Closeables.closeAll(oracleServer);
+        oracleServer = null;
     }
 
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
     @Test
-    @Override
-    public void testDescribeTable()
+    public void testNativeMultipleInClauses()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "decimal(19,0)", "", "")
-                .row("custkey", "decimal(19,0)", "", "")
-                .row("orderstatus", "varchar(1)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "timestamp(3)", "", "")
-                .row("orderpriority", "varchar(15)", "", "")
-                .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "decimal(10,0)", "", "")
-                .row("comment", "varchar(79)", "", "")
-                .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
+        String longInClauses = range(0, 10)
+                .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
+                .collect(joining(" OR "));
+        oracleServer.execute("SELECT count(*) FROM presto_test.orders WHERE " + longInClauses);
     }
 
-    @Test
-    @Override
-    public void testShowCreateTable()
+    private String getLongInClause(int start, int length)
     {
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
-                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey decimal(19, 0),\n" +
-                        "   custkey decimal(19, 0),\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate timestamp(3),\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority decimal(10, 0),\n" +
-                        "   comment varchar(79)\n" +
-                        ")");
+        String longValues = range(start, start + length)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        return "orderkey IN (" + longValues + ")";
     }
 
     @Override
-    public void testSelectInformationSchemaColumns()
+    protected SqlExecutor onOracle()
     {
-        throw new SkipException("Test disabled until issue fixed"); // https://github.com/prestosql/presto/issues/3781
+        return oracleServer::execute;
     }
 }

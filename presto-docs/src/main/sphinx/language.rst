@@ -12,15 +12,13 @@ operations on the connected data source.
 This chapter provides a reference to the supported SQL data types and other
 general characteristics of the SQL support of Presto.
 
-A :doc:`full SQL statement and syntax reference</sql>` is
+A :doc:`full SQL statement and syntax reference<sql>` is
 available in a separate chapter.
 
-Advanced users can take it to the next level by :doc:`using numerous SQL
-functions and operators<functions>`.
+Presto also provides :doc:`numerous SQL functions and operators<functions>`.
 
 .. toctree::
     :maxdepth: 2
 
     language/types
     language/reserved
-    language/timestamp

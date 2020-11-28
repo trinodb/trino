@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -41,7 +40,6 @@ import io.prestosql.pinot.PinotConfig;
 import io.prestosql.pinot.PinotErrorCode;
 import io.prestosql.pinot.PinotException;
 import io.prestosql.pinot.PinotInsufficientServerResponseException;
-import io.prestosql.pinot.PinotMetrics;
 import io.prestosql.pinot.PinotSessionProperties;
 import io.prestosql.pinot.query.PinotQuery;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -62,20 +60,21 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
-import static io.prestosql.pinot.PinotMetrics.doWithRetries;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.pinot.common.config.TableNameBuilder.extractRawTableName;
+import static org.apache.pinot.spi.utils.builder.TableNameBuilder.extractRawTableName;
 
 public class PinotClient
 {
@@ -94,10 +93,8 @@ public class PinotClient
     private static final String QUERY_URL_TEMPLATE = "http://%s/query/sql";
 
     private final List<String> controllerUrls;
-    private final PinotMetrics metrics;
     private final HttpClient httpClient;
-
-    private final Ticker ticker = Ticker.systemTicker();
+    private final PinotHostMapper pinotHostMapper;
 
     private final LoadingCache<String, List<String>> brokersForTableCache;
 
@@ -110,7 +107,7 @@ public class PinotClient
     @Inject
     public PinotClient(
             PinotConfig config,
-            PinotMetrics metrics,
+            PinotHostMapper pinotHostMapper,
             @ForPinot HttpClient httpClient,
             JsonCodec<GetTables> tablesJsonCodec,
             JsonCodec<BrokersForTable> brokersForTableJsonCodec,
@@ -127,9 +124,9 @@ public class PinotClient
         if (config.getControllerUrls() == null || config.getControllerUrls().isEmpty()) {
             throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "No pinot controllers specified");
         }
+        this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
 
         this.controllerUrls = config.getControllerUrls();
-        this.metrics = requireNonNull(metrics, "metrics is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.brokersForTableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
@@ -155,8 +152,6 @@ public class PinotClient
         }
         Request request = requestBuilder.build();
         JsonResponseHandler<T> responseHandler = createJsonResponseHandler(codec);
-        long startTime = ticker.read();
-        long duration;
         T response = null;
         try {
             response = httpClient.execute(request, responseHandler);
@@ -173,10 +168,6 @@ public class PinotClient
                             request.getHeaders(),
                             response));
         }
-        finally {
-            duration = ticker.read() - startTime;
-        }
-        //metrics.monitorRequest(request, response, duration, TimeUnit.NANOSECONDS);
         return response;
     }
 
@@ -272,7 +263,7 @@ public class PinotClient
                 .map(brokerToParse -> {
                     Matcher matcher = BROKER_PATTERN.matcher(brokerToParse);
                     if (matcher.matches() && matcher.groupCount() == 2) {
-                        return matcher.group(1) + ":" + matcher.group(2);
+                        return pinotHostMapper.getBrokerHost(matcher.group(1), matcher.group(2));
                     }
                     else {
                         throw new PinotException(
@@ -281,7 +272,7 @@ public class PinotClient
                                 format("Cannot parse %s in the broker instance", brokerToParse));
                     }
                 })
-                .collect(Collectors.toCollection(() -> new ArrayList<>()));
+                .collect(Collectors.toCollection(ArrayList::new));
         Collections.shuffle(brokers);
         return ImmutableList.copyOf(brokers);
     }
@@ -308,9 +299,7 @@ public class PinotClient
 
     public Map<String, Map<String, List<String>>> getRoutingTableForTable(String tableName)
     {
-        LOG.info("Trying to get routingTable for %s from broker", tableName);
         Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName), ROUTING_TABLE_CODEC);
-        LOG.info("Got routingTable for %s from broker: %s", tableName, routingTable);
         ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
         for (Map.Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
             String tablenameWithType = entry.getKey();
@@ -428,11 +417,11 @@ public class PinotClient
         }
     }
 
-    private Map<String, Integer> getColumnIndices(List<PinotColumnHandle> columnHandles)
+    private static Map<String, Integer> getColumnIndices(String[] columnNames)
     {
         ImmutableMap.Builder<String, Integer> columnIndicesBuilder = ImmutableMap.builder();
-        for (int index = 0; index < columnHandles.size(); index++) {
-            columnIndicesBuilder.put(columnHandles.get(index).getColumnName(), index);
+        for (int index = 0; index < columnNames.length; index++) {
+            columnIndicesBuilder.put(columnNames[index], index);
         }
         return columnIndicesBuilder.build();
     }
@@ -479,13 +468,40 @@ public class PinotClient
     public Iterator<BrokerResultRow> createResultIterator(ConnectorSession session, PinotQuery query, List<PinotColumnHandle> columnHandles)
     {
         BrokerResponseNative response = submitBrokerQueryJson(session, query);
-        Map<String, Integer> columnIndices = getColumnIndices(columnHandles);
-        ResultTable resultTable = response.getResultTable();
+        return fromResultTable(response.getResultTable(), columnHandles);
+    }
+
+    @VisibleForTesting
+    public static ResultsIterator fromResultTable(ResultTable resultTable, List<PinotColumnHandle> columnHandles)
+    {
+        requireNonNull(resultTable, "resultTable is null");
+        requireNonNull(columnHandles, "columnHandles is null");
         String[] columnNames = resultTable.getDataSchema().getColumnNames();
+        Map<String, Integer> columnIndices = getColumnIndices(columnNames);
         int[] indices = new int[columnNames.length];
-        for (int i = 0; i < columnNames.length; i++) {
-            indices[i] = columnIndices.getOrDefault(columnNames[i], -1);
+        for (int i = 0; i < columnHandles.size(); i++) {
+            indices[i] = columnIndices.get(columnHandles.get(i).getColumnName());
         }
         return new ResultsIterator(resultTable, indices);
+    }
+
+    public static <T> T doWithRetries(int retries, Function<Integer, T> caller)
+    {
+        PinotException firstError = null;
+        checkState(retries > 0, "Invalid num of retries %d", retries);
+        for (int i = 0; i < retries; ++i) {
+            try {
+                return caller.apply(i);
+            }
+            catch (PinotException e) {
+                if (firstError == null) {
+                    firstError = e;
+                }
+                if (!e.isRetriable()) {
+                    throw e;
+                }
+            }
+        }
+        throw firstError;
     }
 }

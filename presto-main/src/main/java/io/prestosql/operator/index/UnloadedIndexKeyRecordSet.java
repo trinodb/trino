@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
@@ -55,7 +56,8 @@ public class UnloadedIndexKeyRecordSet
             Set<Integer> channelsForDistinct,
             List<Type> types,
             List<UpdateRequest> requests,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators)
     {
         requireNonNull(existingSnapshot, "existingSnapshot is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -70,17 +72,12 @@ public class UnloadedIndexKeyRecordSet
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler, blockTypeOperators);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
 
-            Block[] distinctBlocks = new Block[distinctChannels.length];
-            for (int i = 0; i < distinctBlocks.length; i++) {
-                distinctBlocks[i] = page.getBlock(distinctChannels[i]);
-            }
-
             // Move through the positions while advancing the cursors in lockstep
-            Work<GroupByIdBlock> work = groupByHash.getGroupIds(new Page(distinctBlocks));
+            Work<GroupByIdBlock> work = groupByHash.getGroupIds(page.getColumns(distinctChannels));
             boolean done = work.process();
             // TODO: this class does not yield wrt memory limit; enable it
             verify(done);

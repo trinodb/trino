@@ -16,7 +16,6 @@ package io.prestosql.plugin.base.security;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaRoutineName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -27,7 +26,6 @@ import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
 
 import java.security.Principal;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -62,6 +60,18 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         delegate().checkCanSetUser(principal, userName);
+    }
+
+    @Override
+    public void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+        delegate().checkCanReadSystemInformation(context);
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+        delegate().checkCanWriteSystemInformation(context);
     }
 
     @Override
@@ -179,6 +189,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanSetColumnComment(context, table);
+    }
+
+    @Override
     public void checkCanShowTables(SystemSecurityContext context, CatalogSchemaName schema)
     {
         delegate().checkCanShowTables(context, schema);
@@ -197,7 +213,7 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
     {
         return delegate().filterColumns(context, tableName, columns);
     }
@@ -218,6 +234,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanRenameColumn(context, table);
+    }
+
+    @Override
+    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetTableAuthorization(context, table, principal);
     }
 
     @Override
@@ -251,6 +273,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, PrestoPrincipal principal)
+    {
+        delegate().checkCanSetViewAuthorization(context, view, principal);
+    }
+
+    @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanDropView(context, view);
@@ -272,6 +300,18 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
         delegate().checkCanSetCatalogSessionProperty(context, catalogName, propertyName);
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal grantee, boolean grantOption)
+    {
+        delegate().checkCanGrantSchemaPrivilege(context, privilege, schema, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaName schema, PrestoPrincipal revokee, boolean grantOption)
+    {
+        delegate().checkCanRevokeSchemaPrivilege(context, privilege, schema, revokee, grantOption);
     }
 
     @Override

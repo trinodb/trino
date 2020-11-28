@@ -98,6 +98,8 @@ Property Name                                                 Description
                                                               connecting to Cassandra versions < 2.1.5, which lacks
                                                               the ``system.size_estimates`` table.
 
+``cassandra.batch-size``                                      Maximum number of statements to execute in one batch.
+
 ``cassandra.client.read-timeout``                             Maximum time the Cassandra driver waits for an
                                                               answer to a query from one Cassandra node. Note that the underlying
                                                               Cassandra driver may retry a query against more than one node in
@@ -137,9 +139,7 @@ Property Name                                                 Description
 ``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas,
                                                               defaults to ``false``.
 
-``cassandra.load-policy.use-white-list``                      Set to ``true`` to use ``WhiteListPolicy``, defaults to ``false``.
-
-``cassandra.load-policy.white-list.addresses``                Comma-separated list of hosts for ``WhiteListPolicy``.
+``cassandra.load-policy.allowed-addresses``                   Comma-separated list of hosts to allow.
 
 ``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``NoHostAvailableException``, defaults to ``1m``.
 
@@ -218,7 +218,7 @@ MAP<?, ?>         VARCHAR
 SET<?>            VARCHAR
 SMALLINT          SMALLINT
 TEXT              VARCHAR
-TIMESTAMP         TIMESTAMP
+TIMESTAMP         TIMESTAMP(3) WITH TIME ZONE
 TIMEUUID          VARCHAR
 TINYINT           TINYINT
 VARCHAR           VARCHAR

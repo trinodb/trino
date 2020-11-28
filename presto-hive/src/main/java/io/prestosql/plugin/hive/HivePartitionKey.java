@@ -20,6 +20,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class HivePartitionKey
@@ -55,9 +56,9 @@ public final class HivePartitionKey
         return value;
     }
 
-    public int getEstimatedSizeInBytes()
+    public long getEstimatedSizeInBytes()
     {
-        return INSTANCE_SIZE + name.length() * Character.BYTES + value.length() * Character.BYTES;
+        return INSTANCE_SIZE + estimatedSizeOf(name) + estimatedSizeOf(value);
     }
 
     @Override

@@ -22,11 +22,9 @@ import io.prestosql.spi.type.LongTimestamp;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.TimestampType.MAX_PRECISION;
 import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.roundToNearest;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.roundToNearest;
 
 @ScalarOperator(CAST)
 public final class TimestampToTimestampCast
@@ -41,39 +39,19 @@ public final class TimestampToTimestampCast
             @SqlType("timestamp(sourcePrecision)") long value)
     {
         long epochMicros = value;
-        if (sourcePrecision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(epochMicros);
-        }
 
         if (sourcePrecision <= targetPrecision) {
-            if (targetPrecision <= 3) {
-                return scaleEpochMicrosToMillis(epochMicros);
-            }
-
             return epochMicros;
         }
 
-        epochMicros = round(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
-
-        if (targetPrecision <= 3) {
-            return scaleEpochMicrosToMillis(epochMicros);
-        }
-
-        return epochMicros;
+        return round(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("timestamp(targetPrecision)")
-    public static LongTimestamp shortToLong(
-            @LiteralParameter("sourcePrecision") long sourcePrecision,
-            @SqlType("timestamp(sourcePrecision)") long value)
+    public static LongTimestamp shortToLong(@SqlType("timestamp(sourcePrecision)") long value)
     {
-        long micros = value;
-        if (sourcePrecision <= 3) {
-            micros = scaleEpochMillisToMicros(value);
-        }
-
-        return new LongTimestamp(micros, 0);
+        return new LongTimestamp(value, 0);
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -83,10 +61,7 @@ public final class TimestampToTimestampCast
             @SqlType("timestamp(sourcePrecision)") LongTimestamp value)
     {
         long epochMicros = value.getEpochMicros();
-        if (targetPrecision <= 3) {
-            return scaleEpochMicrosToMillis(round(epochMicros, (int) (6 - targetPrecision)));
-        }
-        else if (targetPrecision < MAX_SHORT_PRECISION) {
+        if (targetPrecision < MAX_SHORT_PRECISION) {
             return round(epochMicros, (int) (MAX_SHORT_PRECISION - targetPrecision));
         }
 
@@ -103,6 +78,12 @@ public final class TimestampToTimestampCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("timestamp(sourcePrecision)") LongTimestamp value)
     {
-        return new LongTimestamp(value.getEpochMicros(), (int) round(value.getPicosOfMicro(), (int) (MAX_PRECISION - targetPrecision)));
+        long epochMicros = value.getEpochMicros();
+        int picosOfMicro = (int) round(value.getPicosOfMicro(), (int) (MAX_PRECISION - targetPrecision));
+        if (picosOfMicro == PICOSECONDS_PER_MICROSECOND) {
+            epochMicros++;
+            picosOfMicro = 0;
+        }
+        return new LongTimestamp(epochMicros, picosOfMicro);
     }
 }

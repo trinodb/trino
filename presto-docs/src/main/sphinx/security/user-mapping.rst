@@ -26,6 +26,7 @@ Username and Password (file or LDAP)  ``http-server.authentication.password.user
 Kerberos                              ``http-server.authentication.krb5.user-mapping.pattern``
 Certificate                           ``http-server.authentication.certificate.user-mapping.pattern``
 Json Web Token                        ``http-server.authentication.jwt.user-mapping.pattern``
+Insecure                              ``http-server.authentication.insecure.user-mapping.pattern``
 ===================================== ===============================================================
 
 File Mapping Rules
@@ -40,6 +41,11 @@ following fields:
 * ``user`` (optional): replacement string to substitute against pattern.
   The default value is ``$1``.
 * ``allow`` (optional): boolean indicating if the authentication should be allowed.
+* ``case`` (optional): one of:
+
+  * ``keep`` - keep matched user name as is (default behavior)
+  * ``lower`` - lowercase matched user name, e.g., ``Admin`` or ``ADMIN`` will become ``admin``
+  * ``upper`` - uppercase matched user name, e.g., ``admin`` or ``Admin`` will become ``ADMIN``
 
 The following example maps all users like ``alice@example.com`` to just ``alice``, except for the ``test``
 user which is denied authentication, and it maps users like ``bob@uk.example.com`` to ``bob_uk``:
@@ -57,5 +63,6 @@ Username and password (file or LDAP)  ``http-server.authentication.password.user
 Kerberos                              ``http-server.authentication.krb5.user-mapping.file``
 Certificate                           ``http-server.authentication.certificate.user-mapping.file``
 Json Web Token                        ``http-server.authentication.jwt.user-mapping.file``
+Insecure                              ``http-server.authentication.insecure.user-mapping.file``
 ===================================== ===============================================================
 

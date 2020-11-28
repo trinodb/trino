@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
@@ -56,9 +55,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -79,7 +79,7 @@ public class BenchmarkArrayTransform
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
 
     static {
-        Verify.verify(NUM_TYPES == TYPES.size());
+        verify(NUM_TYPES == TYPES.size());
     }
 
     @Benchmark
@@ -109,7 +109,6 @@ public class BenchmarkArrayTransform
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
-            Type returnType = new ArrayType(BOOLEAN);
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
@@ -117,16 +116,14 @@ public class BenchmarkArrayTransform
                         metadata.resolveFunction(
                                 QualifiedName.of("transform"),
                                 fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN))),
-                        returnType,
                         ImmutableList.of(
                                 new InputReferenceExpression(0, arrayType),
                                 new LambdaDefinitionExpression(
                                         ImmutableList.of(BIGINT),
                                         ImmutableList.of("x"),
                                         new CallExpression(
-                                                metadata.resolveOperator(GREATER_THAN, ImmutableList.of(BIGINT, BIGINT)),
-                                                BOOLEAN,
-                                                ImmutableList.of(new VariableReferenceExpression("x", BIGINT), new ConstantExpression(0L, BIGINT)))))));
+                                                metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT)),
+                                                ImmutableList.of(new ConstantExpression(0L, BIGINT), new VariableReferenceExpression("x", BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 

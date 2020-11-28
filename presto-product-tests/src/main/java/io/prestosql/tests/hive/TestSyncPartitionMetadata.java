@@ -14,12 +14,14 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert;
 import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import io.prestosql.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.prestosql.tempto.query.QueryResult;
+import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -35,7 +37,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestSyncPartitionMetadata
         extends ProductTest
 {
-    private static final String WAREHOUSE_DIRECTORY_PATH = "/user/hive/warehouse/";
+    @Inject
+    @Named("databases.hive.warehouse_directory_path")
+    private String warehouseDirectory;
 
     @Inject
     private HdfsClient hdfsClient;
@@ -44,6 +48,7 @@ public class TestSyncPartitionMetadata
     private HdfsDataSourceWriter hdfsDataSourceWriter;
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE, PRESTO_JDBC})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testAddPartition()
     {
         String tableName = "test_sync_partition_metadata_add_partition";
@@ -52,11 +57,12 @@ public class TestSyncPartitionMetadata
         query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD')");
         assertPartitions(tableName, row("a", "1"), row("b", "2"), row("f", "9"));
         assertThat(() -> query("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC"))
-                .failsWithMessage("Partition location does not exist: hdfs://hadoop-master:9000/user/hive/warehouse/" + tableName + "/col_x=b/col_y=2");
+                .failsWithMessage(format("Partition location does not exist: hdfs://hadoop-master:9000%s/%s/col_x=b/col_y=2", warehouseDirectory, tableName));
         cleanup(tableName);
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testDropPartition()
     {
         String tableName = "test_sync_partition_metadata_drop_partition";
@@ -70,6 +76,7 @@ public class TestSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testFullSyncPartition()
     {
         String tableName = "test_sync_partition_metadata_add_drop_partition";
@@ -83,6 +90,7 @@ public class TestSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE, PRESTO_JDBC})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testInvalidSyncMode()
     {
         String tableName = "test_repair_invalid_mode";
@@ -95,11 +103,12 @@ public class TestSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testMixedCasePartitionNames()
     {
         String tableName = "test_sync_partition_mixed_case";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
-        String tableLocation = WAREHOUSE_DIRECTORY_PATH + tableName;
+        String tableLocation = tableLocation(tableName);
         HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=h/col_Y=11", dataSource);
         hdfsClient.createDirectory(tableLocation + "/COL_X=UPPER/COL_Y=12");
@@ -111,28 +120,33 @@ public class TestSyncPartitionMetadata
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4936", match = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication")
     public void testConflictingMixedCasePartitionNames()
     {
         String tableName = "test_sync_partition_mixed_case";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
-        String tableLocation = WAREHOUSE_DIRECTORY_PATH + tableName;
         HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
         // this conflicts with a partition that already exits in the metastore
-        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=a/cOl_y=1", dataSource);
+        hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation(tableName) + "/COL_X=a/cOl_y=1", dataSource);
 
         assertThatThrownBy(() -> query("CALL system.sync_partition_metadata('default', '" + tableName + "', 'ADD', false)"))
                 .hasMessageContaining(format("One or more partitions already exist for table 'default.%s'", tableName));
         assertPartitions(tableName, row("a", "1"), row("b", "2"));
     }
 
-    private static void prepare(HdfsClient hdfsClient, HdfsDataSourceWriter hdfsDataSourceWriter, String tableName)
+    private String tableLocation(String tableName)
+    {
+        return warehouseDirectory + '/' + tableName;
+    }
+
+    private void prepare(HdfsClient hdfsClient, HdfsDataSourceWriter hdfsDataSourceWriter, String tableName)
     {
         query("DROP TABLE IF EXISTS " + tableName);
 
         query("CREATE TABLE " + tableName + " (payload bigint, col_x varchar, col_y varchar) WITH (format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])");
         query("INSERT INTO " + tableName + " VALUES (1, 'a', '1'), (2, 'b', '2')");
 
-        String tableLocation = WAREHOUSE_DIRECTORY_PATH + tableName;
+        String tableLocation = tableLocation(tableName);
         // remove partition col_x=b/col_y=2
         hdfsClient.delete(tableLocation + "/col_x=b/col_y=2");
         // add partition directory col_x=f/col_y=9 with single_int_column/data.orc file

@@ -16,6 +16,7 @@ package io.prestosql.plugin.kudu;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
@@ -25,6 +26,8 @@ import javax.validation.constraints.Size;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 /**
  * Configuration read from etc/catalog/kudu.properties
@@ -40,6 +43,8 @@ public class KuduClientConfig
     private boolean disableStatistics;
     private boolean schemaEmulationEnabled;
     private String schemaEmulationPrefix = "presto::";
+    private boolean groupedExecutionEnabled;
+    private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
 
     @NotNull
     @Size(min = 1)
@@ -136,6 +141,33 @@ public class KuduClientConfig
     public KuduClientConfig setSchemaEmulationEnabled(boolean enabled)
     {
         this.schemaEmulationEnabled = enabled;
+        return this;
+    }
+
+    @Config("kudu.grouped-execution.enabled")
+    public KuduClientConfig setGroupedExecutionEnabled(boolean enabled)
+    {
+        this.groupedExecutionEnabled = enabled;
+        return this;
+    }
+
+    public boolean isGroupedExecutionEnabled()
+    {
+        return groupedExecutionEnabled;
+    }
+
+    @MinDuration("0ms")
+    @NotNull
+    public Duration getDynamicFilteringWaitTimeout()
+    {
+        return dynamicFilteringWaitTimeout;
+    }
+
+    @Config("kudu.dynamic-filtering.wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters")
+    public KuduClientConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
         return this;
     }
 }

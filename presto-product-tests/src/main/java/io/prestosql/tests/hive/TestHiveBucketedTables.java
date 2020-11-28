@@ -21,14 +21,13 @@ import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.fulfillment.table.MutableTableRequirement;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.anyOf;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.PREPARED;
@@ -265,10 +264,30 @@ public class TestHiveBucketedTables
         assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(5));
     }
 
-    @Test(dataProvider = "testBucketingVersionDataProvider")
-    public void testBucketingVersion(BucketingType bucketingType, String value, boolean insertWithPresto, String expectedFileName)
+    @Test
+    public void testBucketingVersion()
     {
-        log.info("Testing with bucketingType=%s, value='%s', insertWithPresto=%s, expectedFileName=%s", bucketingType, value, insertWithPresto, expectedFileName);
+        String value = "prestosql rocks";
+        String bucketV1 = "000001_0";
+        String bucketV2Standard = "000003_0";
+        String bucketV2DirectInsert = "bucket_00003";
+
+        List<String> bucketV1NameOptions = ImmutableList.of(bucketV1);
+        List<String> bucketV2NameOptions = ImmutableList.of(bucketV2Standard, bucketV2DirectInsert);
+
+        testBucketingVersion(BucketingType.BUCKETED_DEFAULT, value, false, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
+        testBucketingVersion(BucketingType.BUCKETED_DEFAULT, value, true, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
+        testBucketingVersion(BucketingType.BUCKETED_V1, value, false, bucketV1NameOptions);
+        testBucketingVersion(BucketingType.BUCKETED_V1, value, true, bucketV1NameOptions);
+        if (getHiveVersionMajor() >= 3) {
+            testBucketingVersion(BucketingType.BUCKETED_V2, value, false, bucketV2NameOptions);
+            testBucketingVersion(BucketingType.BUCKETED_V2, value, true, bucketV2NameOptions);
+        }
+    }
+
+    private void testBucketingVersion(BucketingType bucketingType, String value, boolean insertWithPresto, List<String> expectedFileNameOptions)
+    {
+        log.info("Testing with bucketingType=%s, value='%s', insertWithPresto=%s, expectedFileNamePossibilites=%s", bucketingType, value, insertWithPresto, expectedFileNameOptions);
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_bucketing_version");
         onHive().executeQuery("" +
@@ -286,42 +305,22 @@ public class TestHiveBucketedTables
         }
 
         assertThat(onPresto().executeQuery("SELECT a, regexp_extract(\"$path\", '^.*/([^_/]+_[^_/]+)(_[^/]+)?$', 1) FROM test_bucketing_version"))
-                .containsOnly(row(value, expectedFileName));
-    }
-
-    @DataProvider
-    public Object[][] testBucketingVersionDataProvider()
-    {
-        String value = "prestosql rocks";
-        String bucketV1 = "000001_0";
-        String bucketV2 = "000003_0";
-
-        List<Object[]> options = new ArrayList<>();
-        options.add(new Object[] {BucketingType.BUCKETED_DEFAULT, value, false, (getHiveVersionMajor() < 3) ? bucketV1 : bucketV2});
-        options.add(new Object[] {BucketingType.BUCKETED_DEFAULT, value, true, (getHiveVersionMajor() < 3) ? bucketV1 : bucketV2});
-        options.add(new Object[] {BucketingType.BUCKETED_V1, value, false, bucketV1});
-        options.add(new Object[] {BucketingType.BUCKETED_V1, value, true, bucketV1});
-        if (getHiveVersionMajor() >= 3) {
-            options.add(new Object[] {BucketingType.BUCKETED_V2, value, false, bucketV2});
-            options.add(new Object[] {BucketingType.BUCKETED_V2, value, true, bucketV2});
-        }
-        return options.toArray(new Object[0][0]);
+                .containsOnly(row(value, anyOf(expectedFileNameOptions.toArray())));
     }
 
     private String hiveTableProperties(BucketingType bucketingType)
     {
-        if (bucketingType.getHiveTableProperties().isEmpty()) {
-            return "";
-        }
-        return "TBLPROPERTIES(" + join(",", bucketingType.getHiveTableProperties()) + ")";
+        ImmutableList.Builder<String> tableProperties = ImmutableList.builder();
+        tableProperties.add("'transactional'='false'");
+        tableProperties.addAll(bucketingType.getHiveTableProperties());
+        return "TBLPROPERTIES(" + join(",", tableProperties.build()) + ")";
     }
 
     private static void populateRowToHiveTable(String destination, List<String> values, Optional<String> partition)
     {
-        String queryStatement = format("INSERT INTO TABLE %s" +
-                        (partition.isPresent() ? format(" PARTITION (%s) ", partition.get()) : " ") +
-                        "SELECT %s from (select 'foo') x",
-                destination, join(",", values));
+        String queryStatement = "INSERT INTO TABLE " + destination +
+                (partition.isPresent() ? format(" PARTITION (%s) ", partition.get()) : " ") +
+                "SELECT " + join(",", values) + " FROM (SELECT 'foo') x";
 
         onHive().executeQuery("set hive.enforce.bucketing = true");
         onHive().executeQuery("set hive.enforce.sorting = true");

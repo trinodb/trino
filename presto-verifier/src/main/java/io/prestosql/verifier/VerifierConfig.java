@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import static io.prestosql.verifier.QueryType.CREATE;
 import static io.prestosql.verifier.QueryType.MODIFY;
 import static io.prestosql.verifier.QueryType.READ;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class VerifierConfig
@@ -58,8 +59,8 @@ public class VerifierConfig
     private String testGateway;
     private Duration controlTimeout = new Duration(10, TimeUnit.MINUTES);
     private Duration testTimeout = new Duration(1, TimeUnit.HOURS);
-    private Set<String> blacklist = ImmutableSet.of();
-    private Set<String> whitelist = ImmutableSet.of();
+    private Set<String> bannedQueries = ImmutableSet.of();
+    private Set<String> allowedQueries = ImmutableSet.of();
     private int maxRowCount = 10_000;
     private int maxQueries = 1_000_000;
     private boolean alwaysReport;
@@ -189,7 +190,7 @@ public class VerifierConfig
 
         ImmutableSet.Builder<QueryType> builder = ImmutableSet.builder();
         for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(types)) {
-            builder.add(QueryType.valueOf(value.toUpperCase()));
+            builder.add(QueryType.valueOf(value.toUpperCase(ENGLISH)));
         }
 
         this.controlQueryTypes = builder.build();
@@ -212,7 +213,7 @@ public class VerifierConfig
 
         ImmutableSet.Builder<QueryType> builder = ImmutableSet.builder();
         for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(types)) {
-            builder.add(QueryType.valueOf(value.toUpperCase()));
+            builder.add(QueryType.valueOf(value.toUpperCase(ENGLISH)));
         }
 
         this.testQueryTypes = builder.build();
@@ -271,40 +272,42 @@ public class VerifierConfig
     }
 
     @NotNull
-    public Set<String> getBlacklist()
+    public Set<String> getBannedQueries()
     {
-        return blacklist;
+        return bannedQueries;
     }
 
-    @ConfigDescription("Names of queries which are blacklisted")
-    @Config("blacklist")
-    public VerifierConfig setBlacklist(String blacklist)
+    @ConfigDescription("Names of queries which are banned")
+    @Config("banned-queries")
+    @LegacyConfig("blacklist")
+    public VerifierConfig setBannedQueries(String bannedQueries)
     {
-        ImmutableSet.Builder<String> blacklistBuilder = ImmutableSet.builder();
-        for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(blacklist)) {
-            blacklistBuilder.add(value);
+        ImmutableSet.Builder<String> bannedBuilder = ImmutableSet.builder();
+        for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(bannedQueries)) {
+            bannedBuilder.add(value);
         }
 
-        this.blacklist = blacklistBuilder.build();
+        this.bannedQueries = bannedBuilder.build();
         return this;
     }
 
     @NotNull
-    public Set<String> getWhitelist()
+    public Set<String> getAllowedQueries()
     {
-        return whitelist;
+        return allowedQueries;
     }
 
-    @ConfigDescription("Names of queries which are whitelisted. Whitelist is applied before the blacklist")
-    @Config("whitelist")
-    public VerifierConfig setWhitelist(String whitelist)
+    @ConfigDescription("Names of queries which are allowed. If non-empty, only allowed queries are used.")
+    @Config("allowed-queries")
+    @LegacyConfig("whitelist")
+    public VerifierConfig setAllowedQueries(String allowedQueries)
     {
-        ImmutableSet.Builder<String> whitelistBuilder = ImmutableSet.builder();
-        for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(whitelist)) {
-            whitelistBuilder.add(value);
+        ImmutableSet.Builder<String> allowedBuilder = ImmutableSet.builder();
+        for (String value : Splitter.on(',').trimResults().omitEmptyStrings().split(allowedQueries)) {
+            allowedBuilder.add(value);
         }
 
-        this.whitelist = whitelistBuilder.build();
+        this.allowedQueries = allowedBuilder.build();
         return this;
     }
 

@@ -13,18 +13,25 @@
  */
 package io.prestosql.plugin.kudu;
 
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
+import static io.prestosql.plugin.kudu.KuduSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.prestosql.spi.connector.DynamicFilter.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class KuduSplitManager
         implements ConnectorSplitManager
@@ -42,12 +49,90 @@ public class KuduSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
+    {
+        long timeoutMillis = getDynamicFilteringWaitTimeout(session).toMillis();
+        if (timeoutMillis == 0 || !dynamicFilter.isAwaitable()) {
+            return getSplitSource(table, splitSchedulingStrategy, dynamicFilter);
+        }
+        CompletableFuture<?> dynamicFilterFuture = whenCompleted(dynamicFilter)
+                .completeOnTimeout(null, timeoutMillis, MILLISECONDS);
+        CompletableFuture<ConnectorSplitSource> splitSourceFuture = dynamicFilterFuture.thenApply(
+                ignored -> getSplitSource(table, splitSchedulingStrategy, dynamicFilter));
+        return new KuduDynamicFilteringSplitSource(dynamicFilterFuture, splitSourceFuture);
+    }
+
+    private ConnectorSplitSource getSplitSource(
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         KuduTableHandle handle = (KuduTableHandle) table;
 
-        List<KuduSplit> splits = clientSession.buildKuduSplits(handle);
+        List<KuduSplit> splits = clientSession.buildKuduSplits(handle, dynamicFilter);
 
-        return new FixedSplitSource(splits);
+        switch (splitSchedulingStrategy) {
+            case UNGROUPED_SCHEDULING:
+                return new FixedSplitSource(splits);
+            case GROUPED_SCHEDULING:
+                return new KuduBucketedSplitSource(splits);
+            default:
+                throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
+        }
+    }
+
+    private static CompletableFuture<?> whenCompleted(DynamicFilter dynamicFilter)
+    {
+        if (dynamicFilter.isAwaitable()) {
+            return dynamicFilter.isBlocked().thenCompose(ignored -> whenCompleted(dynamicFilter));
+        }
+        return NOT_BLOCKED;
+    }
+
+    private static class KuduDynamicFilteringSplitSource
+            implements ConnectorSplitSource
+    {
+        private final CompletableFuture<?> dynamicFilterFuture;
+        private final CompletableFuture<ConnectorSplitSource> splitSourceFuture;
+
+        private KuduDynamicFilteringSplitSource(
+                CompletableFuture<?> dynamicFilterFuture,
+                CompletableFuture<ConnectorSplitSource> splitSourceFuture)
+        {
+            this.dynamicFilterFuture = requireNonNull(dynamicFilterFuture, "dynamicFilterFuture is null");
+            this.splitSourceFuture = requireNonNull(splitSourceFuture, "splitSourceFuture is null");
+        }
+
+        @Override
+        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+        {
+            return splitSourceFuture.thenCompose(splitSource -> splitSource.getNextBatch(partitionHandle, maxSize));
+        }
+
+        @Override
+        public void close()
+        {
+            if (!dynamicFilterFuture.cancel(true)) {
+                splitSourceFuture.thenAccept(ConnectorSplitSource::close);
+            }
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            if (!splitSourceFuture.isDone()) {
+                return false;
+            }
+            if (splitSourceFuture.isCompletedExceptionally()) {
+                return false;
+            }
+            try {
+                return splitSourceFuture.get().isFinished();
+            }
+            catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 }

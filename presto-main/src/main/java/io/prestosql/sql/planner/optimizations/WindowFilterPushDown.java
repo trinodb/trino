@@ -22,6 +22,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -43,7 +44,6 @@ import io.prestosql.sql.tree.QualifiedName;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.isOptimizeTopNRowNumber;
@@ -60,11 +60,13 @@ public class WindowFilterPushDown
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
     private final DomainTranslator domainTranslator;
 
-    public WindowFilterPushDown(Metadata metadata)
+    public WindowFilterPushDown(Metadata metadata, TypeOperators typeOperators)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.domainTranslator = new DomainTranslator(metadata);
     }
 
@@ -77,7 +79,7 @@ public class WindowFilterPushDown
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, domainTranslator, session, types), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, typeOperators, domainTranslator, session, types), plan, null);
     }
 
     private static class Rewriter
@@ -85,15 +87,23 @@ public class WindowFilterPushDown
     {
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
+        private final TypeOperators typeOperators;
         private final DomainTranslator domainTranslator;
         private final Session session;
         private final TypeProvider types;
         private final FunctionId rowNumberFunctionId;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, DomainTranslator domainTranslator, Session session, TypeProvider types)
+        private Rewriter(
+                PlanNodeIdAllocator idAllocator,
+                Metadata metadata,
+                TypeOperators typeOperators,
+                DomainTranslator domainTranslator,
+                Session session,
+                TypeProvider types)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
@@ -103,7 +113,6 @@ public class WindowFilterPushDown
         @Override
         public PlanNode visitWindow(WindowNode node, RewriteContext<Void> context)
         {
-            checkState(node.getWindowFunctions().size() == 1, "WindowFilterPushdown requires that WindowNodes contain exactly one window function");
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             if (canReplaceWithRowNumber(node)) {
@@ -162,7 +171,7 @@ public class WindowFilterPushDown
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            TupleDomain<Symbol> tupleDomain = fromPredicate(metadata, session, node.getPredicate(), types).getTupleDomain();
+            TupleDomain<Symbol> tupleDomain = fromPredicate(metadata, typeOperators, session, node.getPredicate(), types).getTupleDomain();
 
             if (source instanceof RowNumberNode) {
                 Symbol rowNumberSymbol = ((RowNumberNode) source).getRowNumberSymbol();
@@ -194,7 +203,7 @@ public class WindowFilterPushDown
 
         private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rowNumberSymbol, int upperBound)
         {
-            ExtractionResult extractionResult = fromPredicate(metadata, session, filterNode.getPredicate(), types);
+            ExtractionResult extractionResult = fromPredicate(metadata, typeOperators, session, filterNode.getPredicate(), types);
             TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
             if (!allRowNumberValuesInDomain(tupleDomain, rowNumberSymbol, upperBound)) {

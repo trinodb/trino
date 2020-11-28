@@ -39,6 +39,7 @@ public class HdfsConfig
 
     private List<File> resourceConfigFiles = ImmutableList.of();
     private String newDirectoryPermissions = "0777";
+    private boolean newFileInheritOwnership;
     private boolean verifyChecksum = true;
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
@@ -49,6 +50,7 @@ public class HdfsConfig
     private HostAndPort socksProxy;
     private boolean wireEncryptionEnabled;
     private int fileSystemMaxCacheSize = 1000;
+    private Integer dfsReplication;
 
     @NotNull
     public List<@FileExists File> getResourceConfigFiles()
@@ -83,6 +85,19 @@ public class HdfsConfig
     public HdfsConfig setNewDirectoryPermissions(String newDirectoryPermissions)
     {
         this.newDirectoryPermissions = requireNonNull(newDirectoryPermissions, "newDirectoryPermissions is null");
+        return this;
+    }
+
+    public boolean isNewFileInheritOwnership()
+    {
+        return newFileInheritOwnership;
+    }
+
+    @Config("hive.fs.new-file-inherit-ownership")
+    @ConfigDescription("File system permissions for new directories")
+    public HdfsConfig setNewFileInheritOwnership(boolean newFileInheritOwnership)
+    {
+        this.newFileInheritOwnership = newFileInheritOwnership;
         return this;
     }
 
@@ -214,6 +229,20 @@ public class HdfsConfig
     public HdfsConfig setFileSystemMaxCacheSize(int fileSystemMaxCacheSize)
     {
         this.fileSystemMaxCacheSize = fileSystemMaxCacheSize;
+        return this;
+    }
+
+    @Min(1)
+    public Integer getDfsReplication()
+    {
+        return dfsReplication;
+    }
+
+    @Config("hive.dfs.replication")
+    @ConfigDescription("Hadoop FileSystem replication factor")
+    public HdfsConfig setDfsReplication(Integer dfsReplication)
+    {
+        this.dfsReplication = dfsReplication;
         return this;
     }
 }

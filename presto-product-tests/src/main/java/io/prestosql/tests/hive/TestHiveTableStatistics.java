@@ -523,7 +523,7 @@ public class TestHiveTableStatistics
                 row("c_double", null, 2.0, 0.0, null, "234.561", "235.567"),
                 row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
                 row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
-                row("c_timestamp", null, 2.0, 0.0, null, null, null), // timestamp is shifted by hive.time-zone on read
+                row("c_timestamp", null, 2.0, 0.0, null, null, null),
                 isHiveVersionBefore12()
                         ? row("c_date", null, null, null, null, null, null)
                         : row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),
@@ -1389,7 +1389,7 @@ public class TestHiveTableStatistics
                             : row("c_minmax", null, 2., 0.33333333333, null, "-1234567.9", "576234.56"),
                     row("c_inf", null, 2., 0.33333333333, null, null, null), // -15, +inf
                     row("c_ninf", null, 2., 0.33333333333, null, null, null), // -inf, 45
-                    row("c_nan", null, 2., 0.33333333333, null, null, null), // 12345., NaN
+                    row("c_nan", null, 2., 0.33333333333, null, "12345.0", "12345.0"), // NaN is ignored by min/max
                     row("c_nzero", null, 2., 0.33333333333, null, "-47.0", "0.0"),
                     row(null, null, null, null, 3., null, null));
 
@@ -1410,6 +1410,64 @@ public class TestHiveTableStatistics
                 {"real"},
                 {"double"},
         };
+    }
+
+    @Test
+    public void testMixedHiveAndPrestoStatistics()
+    {
+        String tableName = "test_mixed_hive_and_presto_statistics";
+        onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onHive().executeQuery(format("CREATE TABLE %s (a INT) PARTITIONED BY (p INT) STORED AS ORC TBLPROPERTIES ('transactional' = 'false')", tableName));
+
+        try {
+            onHive().executeQuery(format("INSERT OVERWRITE TABLE %s PARTITION (p=1) VALUES (1),(2),(3),(4)", tableName));
+            onHive().executeQuery(format("INSERT OVERWRITE TABLE %s PARTITION (p=2) VALUES (10),(11),(12)", tableName));
+
+            String showStatsPartitionOne = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 1)", tableName);
+            String showStatsPartitionTwo = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 2)", tableName);
+            String showStatsWholeTable = format("SHOW STATS FOR %s", tableName);
+
+            // drop all stats; which could have been created on insert
+            query(format("CALL system.drop_stats('default', '%s')", tableName));
+
+            // sanity check that there are no statistics
+            assertThat(query(showStatsPartitionOne)).containsOnly(
+                    row("p", null, null, null, null, null, null),
+                    row("a", null, null, null, null, null, null),
+                    row(null, null, null, null, null, null, null));
+            assertThat(query(showStatsPartitionTwo)).containsOnly(
+                    row("p", null, null, null, null, null, null),
+                    row("a", null, null, null, null, null, null),
+                    row(null, null, null, null, null, null, null));
+            assertThat(query(showStatsWholeTable)).containsOnly(
+                    row("p", null, null, null, null, null, null),
+                    row("a", null, null, null, null, null, null),
+                    row(null, null, null, null, null, null, null));
+
+            // analyze first partition with Presto and second with Hive
+            query(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['1']])", tableName));
+            onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS", tableName));
+            onHive().executeQuery(format("ANALYZE TABLE %s PARTITION (p = \"2\") COMPUTE STATISTICS FOR COLUMNS", tableName));
+
+            // we can get stats for individual partitions
+            assertThat(query(showStatsPartitionOne)).containsOnly(
+                    row("p", null, 1.0, 0.0, null, "1", "1"),
+                    row("a", null, 4.0, 0.0, null, "1", "4"),
+                    row(null, null, null, null, 4.0, null, null));
+            assertThat(query(showStatsPartitionTwo)).containsOnly(
+                    row("p", null, 1.0, 0.0, null, "2", "2"),
+                    row("a", null, 3.0, 0.0, null, "10", "12"),
+                    row(null, null, null, null, 3.0, null, null));
+
+            // as well as for whole table
+            assertThat(query(showStatsWholeTable)).containsOnly(
+                    row("p", null, 2.0, 0.0, null, "1", "2"),
+                    row("a", null, 4.0, 0.0, null, "1", "12"),
+                    row(null, null, null, null, 7.0, null, null));
+        }
+        finally {
+            onHive().executeQuery("DROP TABLE " + tableName);
+        }
     }
 
     private static void assertComputeTableStatisticsOnCreateTable(String sourceTableName, List<Row> expectedStatistics)

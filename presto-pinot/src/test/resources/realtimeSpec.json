@@ -1,0 +1,43 @@
+{
+  "tableName": "my_table",
+  "tableType": "REALTIME",
+  "segmentsConfig": {
+    "timeColumnName": "updatedAtHours",
+    "timeType": "HOURS",
+    "retentionTimeUnit": "DAYS",
+    "retentionTimeValue": "365",
+    "segmentPushType": "APPEND",
+    "segmentPushFrequency": "daily",
+    "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
+    "schemaName": "my_table",
+    "replicasPerPartition": "1"
+  },
+  "tenants": {
+    "broker": "DefaultTenant",
+    "server": "DefaultTenant"
+  },
+  "tableIndexConfig": {
+    "loadMode": "MMAP",
+    "invertedIndexColumns": ["vendor","city"],
+    "noDictionaryColumns": [],
+    "aggregateMetrics": "false",
+    "streamConfigs": {
+      "streamType": "kafka",
+      "stream.kafka.consumer.type": "LowLevel",
+      "stream.kafka.topic.name": "my_table",
+      "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.stream.kafka.KafkaJSONMessageDecoder",
+      "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+      "stream.kafka.zk.broker.url": "zookeeper:2181/",
+      "stream.kafka.broker.list": "kafka:9092",
+      "realtime.segment.flush.threshold.time": "1h",
+      "realtime.segment.flush.threshold.size": "0",
+      "realtime.segment.flush.desired.size": "1M",
+      "stream.kafka.consumer.prop.auto.isolation.level": "read_committed",
+      "stream.kafka.consumer.prop.auto.offset.reset": "smallest",
+      "stream.kafka.consumer.prop.group.id": "pinot_my_table"
+    }
+  },
+  "metadata": {
+    "customConfigs": {}
+  }
+}

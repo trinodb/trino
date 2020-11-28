@@ -13,16 +13,14 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
-import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
 
-import static io.prestosql.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.prestosql.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
 
 @ScalarFunction("to_unixtime")
 public final class ToUnixTime
@@ -31,12 +29,8 @@ public final class ToUnixTime
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DOUBLE)
-    public static double toUnixTime(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long timestamp)
+    public static double toUnixTime(@SqlType("timestamp(p)") long timestamp)
     {
-        if (precision <= 3) {
-            return timestamp * 1.0 / MILLISECONDS_PER_SECOND;
-        }
-
         return timestamp * 1.0 / MICROSECONDS_PER_SECOND;
     }
 

@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.HiveBucketHandle;
 import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveTableHandle;
+import io.prestosql.plugin.hive.HiveTimestampPrecision;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Table;
@@ -28,6 +30,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -51,6 +54,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.prestosql.plugin.hive.util.HiveUtil.getRegularColumnHandles;
@@ -174,14 +178,15 @@ public final class HiveBucketing
         return (hashCode & Integer.MAX_VALUE) % bucketCount;
     }
 
-    public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table, TypeManager typeManager)
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(ConnectorSession session, Table table, TypeManager typeManager)
     {
         Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (hiveBucketProperty.isEmpty()) {
             return Optional.empty();
         }
 
-        Map<String, HiveColumnHandle> map = getRegularColumnHandles(table, typeManager).stream()
+        HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
+        Map<String, HiveColumnHandle> map = getRegularColumnHandles(table, typeManager, timestampPrecision).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();
@@ -200,14 +205,17 @@ public final class HiveBucketing
         return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketingVersion, bucketCount, bucketCount));
     }
 
-    public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
+    public static Optional<HiveBucketFilter> getHiveBucketFilter(HiveTableHandle hiveTable, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        if (table.getStorage().getBucketProperty().isEmpty()) {
+        if (hiveTable.getBucketHandle().isEmpty()) {
             return Optional.empty();
         }
 
-        // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
-        if (containsTimestampBucketedV2(table.getStorage().getBucketProperty().get(), table)) {
+        HiveBucketProperty hiveBucketProperty = hiveTable.getBucketHandle().get().toTableBucketProperty();
+        List<Column> dataColumns = hiveTable.getDataColumns().stream()
+                .map(HiveColumnHandle::toMetastoreColumn)
+                .collect(toImmutableList());
+        if (bucketedOnTimestamp(hiveBucketProperty, dataColumns, hiveTable.getTableName())) {
             return Optional.empty();
         }
 
@@ -215,7 +223,7 @@ public final class HiveBucketing
         if (bindings.isEmpty()) {
             return Optional.empty();
         }
-        Optional<Set<Integer>> buckets = getHiveBuckets(table, bindings.get());
+        Optional<Set<Integer>> buckets = getHiveBuckets(hiveBucketProperty, dataColumns, bindings.get());
         if (buckets.isPresent()) {
             return Optional.of(new HiveBucketFilter(buckets.get()));
         }
@@ -230,7 +238,7 @@ public final class HiveBucketing
         }
         ValueSet values = domain.get().getValues();
         ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
-        int bucketCount = table.getStorage().getBucketProperty().get().getBucketCount();
+        int bucketCount = hiveBucketProperty.getBucketCount();
         for (int i = 0; i < bucketCount; i++) {
             if (values.containsValue((long) i)) {
                 builder.add(i);
@@ -239,18 +247,18 @@ public final class HiveBucketing
         return Optional.of(new HiveBucketFilter(builder.build()));
     }
 
-    private static Optional<Set<Integer>> getHiveBuckets(Table table, Map<ColumnHandle, List<NullableValue>> bindings)
+    private static Optional<Set<Integer>> getHiveBuckets(HiveBucketProperty hiveBucketProperty, List<Column> dataColumns, Map<ColumnHandle, List<NullableValue>> bindings)
     {
         if (bindings.isEmpty()) {
             return Optional.empty();
         }
 
         // Get bucket columns names
-        List<String> bucketColumns = table.getStorage().getBucketProperty().get().getBucketedBy();
+        List<String> bucketColumns = hiveBucketProperty.getBucketedBy();
 
         // Verify the bucket column types are supported
         Map<String, HiveType> hiveTypes = new HashMap<>();
-        for (Column column : table.getDataColumns()) {
+        for (Column column : dataColumns) {
             hiveTypes.put(column.getName(), column.getType());
         }
         for (String column : bucketColumns) {
@@ -284,8 +292,8 @@ public final class HiveBucketing
                 .collect(toImmutableList());
 
         return getHiveBuckets(
-                getBucketingVersion(table.getParameters()),
-                table.getStorage().getBucketProperty().get().getBucketCount(),
+                hiveBucketProperty.getBucketingVersion(),
+                hiveBucketProperty.getBucketCount(),
                 typeInfos,
                 orderedBindings);
     }
@@ -304,36 +312,32 @@ public final class HiveBucketing
         }
     }
 
-    // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp and remove this method
-    public static boolean containsTimestampBucketedV2(HiveBucketProperty bucketProperty, Table table)
+    public static boolean bucketedOnTimestamp(HiveBucketProperty bucketProperty, Table table)
     {
-        switch (bucketProperty.getBucketingVersion()) {
-            case BUCKETING_V1:
-                return false;
-            case BUCKETING_V2:
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported bucketing version: " + bucketProperty.getBucketingVersion());
-        }
-        return bucketProperty.getBucketedBy().stream()
-                .map(columnName -> table.getColumn(columnName)
-                        .orElseThrow(() -> new IllegalArgumentException(format("Cannot find column '%s' in %s", columnName, table))))
-                .map(Column::getType)
-                .map(HiveType::getTypeInfo)
-                .anyMatch(HiveBucketing::containsTimestampBucketedV2);
+        return bucketedOnTimestamp(bucketProperty, table.getDataColumns(), table.getTableName());
     }
 
-    private static boolean containsTimestampBucketedV2(TypeInfo type)
+    public static boolean bucketedOnTimestamp(HiveBucketProperty bucketProperty, List<Column> dataColumns, String tableName)
+    {
+        return bucketProperty.getBucketedBy().stream()
+                .map(columnName -> dataColumns.stream().filter(column -> column.getName().equals(columnName)).findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException(format("Cannot find column '%s' in %s", columnName, tableName))))
+                .map(Column::getType)
+                .map(HiveType::getTypeInfo)
+                .anyMatch(HiveBucketing::bucketedOnTimestamp);
+    }
+
+    private static boolean bucketedOnTimestamp(TypeInfo type)
     {
         switch (type.getCategory()) {
             case PRIMITIVE:
                 return ((PrimitiveTypeInfo) type).getPrimitiveCategory() == TIMESTAMP;
             case LIST:
-                return containsTimestampBucketedV2(((ListTypeInfo) type).getListElementTypeInfo());
+                return bucketedOnTimestamp(((ListTypeInfo) type).getListElementTypeInfo());
             case MAP:
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) type;
-                // Note: we do not check map value type because HiveBucketingV2#hashOfMap hashes map values with v1
-                return containsTimestampBucketedV2(mapTypeInfo.getMapKeyTypeInfo());
+                return bucketedOnTimestamp(mapTypeInfo.getMapKeyTypeInfo()) ||
+                        bucketedOnTimestamp(mapTypeInfo.getMapValueTypeInfo());
             default:
                 // TODO: support more types, e.g. ROW
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());

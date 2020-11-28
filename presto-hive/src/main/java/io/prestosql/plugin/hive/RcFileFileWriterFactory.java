@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.rcfile.HdfsRcFileDataSource;
 import io.prestosql.rcfile.RcFileDataSource;
@@ -38,6 +39,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -46,6 +48,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isRcfileOptimizedWriterValidate;
 import static io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
 import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
@@ -56,7 +59,7 @@ import static java.util.stream.Collectors.toList;
 public class RcFileFileWriterFactory
         implements HiveFileWriterFactory
 {
-    private final DateTimeZone hiveStorageTimeZone;
+    private final DateTimeZone timeZone;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
@@ -70,20 +73,20 @@ public class RcFileFileWriterFactory
             HiveConfig hiveConfig,
             FileFormatDataSourceStats stats)
     {
-        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone(), stats);
+        this(hdfsEnvironment, typeManager, nodeVersion, requireNonNull(hiveConfig, "hiveConfig is null").getRcfileDateTimeZone(), stats);
     }
 
     public RcFileFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone timeZone,
             FileFormatDataSourceStats stats)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.stats = requireNonNull(stats, "stats is null");
     }
 
@@ -94,7 +97,10 @@ public class RcFileFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf configuration,
-            ConnectorSession session)
+            ConnectorSession session,
+            OptionalInt bucketNumber,
+            AcidTransaction transaction,
+            boolean useAcidSchema)
     {
         if (!RCFileOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
@@ -102,10 +108,10 @@ public class RcFileFileWriterFactory
 
         RcFileEncoding rcFileEncoding;
         if (LazyBinaryColumnarSerDe.class.getName().equals(storageFormat.getSerDe())) {
-            rcFileEncoding = new BinaryRcFileEncoding();
+            rcFileEncoding = new BinaryRcFileEncoding(timeZone);
         }
         else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerDe())) {
-            rcFileEncoding = createTextVectorEncoding(schema, hiveStorageTimeZone);
+            rcFileEncoding = createTextVectorEncoding(schema);
         }
         else {
             return Optional.empty();
@@ -117,7 +123,7 @@ public class RcFileFileWriterFactory
         // an index to rearrange columns in the proper order
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager))
+                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
                 .collect(toList());
 
         int[] fileInputColumnIndexes = fileColumnNames.stream()

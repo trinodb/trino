@@ -15,6 +15,7 @@ package io.prestosql.plugin.kafka;
 
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -35,6 +36,12 @@ public class KafkaHandleResolver
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return KafkaColumnHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        return KafkaTableHandle.class;
     }
 
     @Override

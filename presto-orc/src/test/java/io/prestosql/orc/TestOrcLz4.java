@@ -14,7 +14,7 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
+import io.airlift.slice.Slices;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import org.joda.time.DateTimeZone;
@@ -22,19 +22,15 @@ import org.testng.annotations.Test;
 
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.metadata.CompressionKind.LZ4;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcLz4
 {
-    private static final DataSize SIZE = DataSize.of(1, MEGABYTE);
-
     @Test
     public void testReadLz4()
             throws Exception
@@ -43,7 +39,8 @@ public class TestOrcLz4
         // TODO: use Apache ORC library in OrcTester
         byte[] data = toByteArray(getResource("apache-lz4.orc"));
 
-        OrcReader orcReader = new OrcReader(new InMemoryOrcDataSource(data), new OrcReaderOptions());
+        OrcReader orcReader = OrcReader.createOrcReader(new MemoryOrcDataSource(new OrcDataSourceId("memory"), Slices.wrappedBuffer(data)), new OrcReaderOptions())
+                .orElseThrow(() -> new RuntimeException("File is empty"));
 
         assertEquals(orcReader.getCompressionKind(), LZ4);
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);
@@ -78,23 +75,5 @@ public class TestOrcLz4
         }
 
         assertEquals(rows, reader.getFileRowCount());
-    }
-
-    private static class InMemoryOrcDataSource
-            extends AbstractOrcDataSource
-    {
-        private final byte[] data;
-
-        public InMemoryOrcDataSource(byte[] data)
-        {
-            super(new OrcDataSourceId("memory"), data.length, new OrcReaderOptions());
-            this.data = data;
-        }
-
-        @Override
-        protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
-        {
-            System.arraycopy(data, toIntExact(position), buffer, bufferOffset, bufferLength);
-        }
     }
 }

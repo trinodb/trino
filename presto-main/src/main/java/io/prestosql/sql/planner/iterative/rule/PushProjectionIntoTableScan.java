@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
@@ -44,6 +45,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.PartialTranslator.extractPartialTranslations;
 import static io.prestosql.sql.planner.ReferenceAwareExpressionNodeInliner.replaceExpression;
@@ -71,6 +73,12 @@ public class PushProjectionIntoTableScan
     public Pattern<ProjectNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
     }
 
     @Override
@@ -153,7 +161,8 @@ public class PushProjectionIntoTableScan
                                 tableScan.getId(),
                                 result.get().getHandle(),
                                 newScanOutputs,
-                                newScanAssignments),
+                                newScanAssignments,
+                                tableScan.isForDelete()),
                         newProjectionAssignments.build()));
     }
 }

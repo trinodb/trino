@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -50,15 +51,21 @@ public final class RedisQueryRunner
     public static DistributedQueryRunner createRedisQueryRunner(RedisServer redisServer, String dataFormat, TpchTable<?>... tables)
             throws Exception
     {
-        return createRedisQueryRunner(redisServer, dataFormat, ImmutableList.copyOf(tables));
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), dataFormat, ImmutableList.copyOf(tables));
     }
 
-    public static DistributedQueryRunner createRedisQueryRunner(RedisServer redisServer, String dataFormat, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createRedisQueryRunner(
+            RedisServer redisServer,
+            Map<String, String> extraProperties,
+            String dataFormat,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession()).build();
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setExtraProperties(extraProperties)
+                    .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -123,5 +130,21 @@ public final class RedisQueryRunner
                 .setCatalog("redis")
                 .setSchema(TPCH_SCHEMA)
                 .build();
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        DistributedQueryRunner queryRunner = createRedisQueryRunner(
+                new RedisServer(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                "string",
+                TpchTable.getTables());
+
+        Logger log = Logger.get(RedisQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

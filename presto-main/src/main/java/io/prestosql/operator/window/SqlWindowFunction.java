@@ -13,10 +13,10 @@
  */
 package io.prestosql.operator.window;
 
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlFunction;
 
@@ -52,7 +52,12 @@ public class SqlWindowFunction
         return functionMetadata;
     }
 
-    public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public WindowFunctionSupplier specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        return specialize(functionBinding);
+    }
+
+    public WindowFunctionSupplier specialize(FunctionBinding functionBinding)
     {
         return supplier;
     }

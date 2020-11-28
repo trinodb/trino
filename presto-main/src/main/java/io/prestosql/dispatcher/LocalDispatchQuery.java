@@ -42,7 +42,8 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.prestosql.SystemSessionProperties.getRequiredWorkers;
 import static io.prestosql.SystemSessionProperties.getRequiredWorkersMaxWait;
-import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.dispatcher.DispatchQuery.DispatchStatus.DISPATCHED;
+import static io.prestosql.dispatcher.DispatchQuery.DispatchStatus.FAILED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -60,7 +61,7 @@ public class LocalDispatchQuery
     private final Executor queryExecutor;
 
     private final Consumer<QueryExecution> querySubmitter;
-    private final SettableFuture<?> submitted = SettableFuture.create();
+    private final SettableFuture<DispatchStatus> submitted = SettableFuture.create();
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
@@ -86,9 +87,15 @@ public class LocalDispatchQuery
         });
 
         stateMachine.addStateChangeListener(state -> {
-            if (state.isDone()) {
-                submitted.set(null);
+            if (state == QueryState.FAILED) {
+                // if query is failed and dispatching was not finished yet, marking dispatching as failed
+                submitted.set(FAILED);
                 queryExecutionFuture.cancel(true);
+            }
+
+            if (state.ordinal() > QueryState.DISPATCHING.ordinal()) {
+                // we went past dispatching phase; warking submitted as successful
+                submitted.set(DISPATCHED);
             }
         });
     }
@@ -130,6 +137,10 @@ public class LocalDispatchQuery
             if (stateMachine.transitionToDispatching()) {
                 try {
                     querySubmitter.accept(queryExecution);
+                    // query should be already marked as dispatched by now as querySubmitter should push queryState past DISPATCHING and
+                    // trigger callback registered in LocalDispatchQuery(). Leaving submitted.set(DISPATCHED) here for extra safety in case querySubmitter
+                    // became asynchronous.
+                    submitted.set(DISPATCHED);
                 }
                 catch (Throwable t) {
                     // this should never happen but be safe
@@ -138,7 +149,7 @@ public class LocalDispatchQuery
                     throw t;
                 }
                 finally {
-                    submitted.set(null);
+                    submitted.set(FAILED);
                 }
             }
         });
@@ -157,7 +168,7 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public ListenableFuture<?> getDispatchedFuture()
+    public ListenableFuture<DispatchStatus> getDispatchedFuture()
     {
         return nonCancellationPropagating(submitted);
     }
@@ -169,7 +180,7 @@ public class LocalDispatchQuery
         boolean dispatched = submitted.isDone();
         BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
 
-        if (queryInfo.getState() == FAILED) {
+        if (queryInfo.getState() == QueryState.FAILED) {
             ExecutionFailureInfo failureInfo = stateMachine.getFailureInfo()
                     .orElseGet(() -> toFailure(new PrestoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
             return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
@@ -248,6 +259,12 @@ public class LocalDispatchQuery
         return tryGetQueryExecution()
                 .map(QueryExecution::getQueryInfo)
                 .orElseGet(() -> stateMachine.updateQueryInfo(Optional.empty()));
+    }
+
+    @Override
+    public QueryState getState()
+    {
+        return stateMachine.getQueryState();
     }
 
     @Override

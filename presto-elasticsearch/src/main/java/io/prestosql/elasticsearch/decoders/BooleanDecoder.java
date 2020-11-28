@@ -44,6 +44,17 @@ public class BooleanDecoder
         else if (value instanceof Boolean) {
             BOOLEAN.writeBoolean(output, (Boolean) value);
         }
+        else if (value instanceof String) {
+            if (value.equals("true")) {
+                BOOLEAN.writeBoolean(output, true);
+            }
+            else if (value.equals("false") || value.equals("")) {
+                BOOLEAN.writeBoolean(output, false);
+            }
+            else {
+                throw new PrestoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BOOLEAN: %s", path, value));
+            }
+        }
         else {
             throw new PrestoException(TYPE_MISMATCH, format("Expected a boolean value for field %s of type BOOLEAN: %s [%s]", path, value, value.getClass().getSimpleName()));
         }

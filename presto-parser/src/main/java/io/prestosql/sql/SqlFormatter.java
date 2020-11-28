@@ -25,6 +25,7 @@ import io.prestosql.sql.tree.CallArgument;
 import io.prestosql.sql.tree.ColumnDefinition;
 import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
+import io.prestosql.sql.tree.CreateMaterializedView;
 import io.prestosql.sql.tree.CreateRole;
 import io.prestosql.sql.tree.CreateSchema;
 import io.prestosql.sql.tree.CreateTable;
@@ -35,6 +36,7 @@ import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.DescribeInput;
 import io.prestosql.sql.tree.DescribeOutput;
 import io.prestosql.sql.tree.DropColumn;
+import io.prestosql.sql.tree.DropMaterializedView;
 import io.prestosql.sql.tree.DropRole;
 import io.prestosql.sql.tree.DropSchema;
 import io.prestosql.sql.tree.DropTable;
@@ -71,6 +73,7 @@ import io.prestosql.sql.tree.Property;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
+import io.prestosql.sql.tree.RefreshMaterializedView;
 import io.prestosql.sql.tree.Relation;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameSchema;
@@ -88,6 +91,8 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
+import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
@@ -334,15 +339,16 @@ public final class SqlFormatter
         @Override
         protected Void visitOffset(Offset node, Integer indent)
         {
-            append(indent, "OFFSET " + node.getRowCount() + " ROWS")
-                    .append('\n');
+            append(indent, "OFFSET ")
+                    .append(formatExpression(node.getRowCount()))
+                    .append(" ROWS\n");
             return null;
         }
 
         @Override
         protected Void visitFetchFirst(FetchFirst node, Integer indent)
         {
-            append(indent, "FETCH FIRST " + node.getRowCount().map(c -> c + " ROWS ").orElse("ROW "))
+            append(indent, "FETCH FIRST " + node.getRowCount().map(count -> formatExpression(count) + " ROWS ").orElse("ROW "))
                     .append(node.isWithTies() ? "WITH TIES" : "ONLY")
                     .append('\n');
             return null;
@@ -351,7 +357,8 @@ public final class SqlFormatter
         @Override
         protected Void visitLimit(Limit node, Integer indent)
         {
-            append(indent, "LIMIT " + node.getLimit())
+            append(indent, "LIMIT ")
+                    .append(formatExpression(node.getRowCount()))
                     .append('\n');
             return null;
         }
@@ -632,6 +639,62 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitSetViewAuthorization(SetViewAuthorization node, Integer context)
+        {
+            builder.append("ALTER VIEW ")
+                    .append(formatName(node.getSource()))
+                    .append(" SET AUTHORIZATION ")
+                    .append(formatPrincipal(node.getPrincipal()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateMaterializedView(CreateMaterializedView node, Integer indent)
+        {
+            builder.append("CREATE ");
+            if (node.isReplace()) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("MATERIALIZED VIEW ");
+
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+
+            builder.append(formatName(node.getName()));
+            if (node.getComment().isPresent()) {
+                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+            }
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+            builder.append(" AS\n");
+
+            process(node.getQuery(), indent);
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRefreshMaterializedView(RefreshMaterializedView node, Integer context)
+        {
+            builder.append("REFRESH MATERIALIZED VIEW ");
+            builder.append(formatName(node.getName()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropMaterializedView(DropMaterializedView node, Integer context)
+        {
+            builder.append("DROP MATERIALIZED VIEW ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getName()));
+            return null;
+        }
+
+        @Override
         protected Void visitDropView(DropView node, Integer context)
         {
             builder.append("DROP VIEW ");
@@ -746,7 +809,10 @@ public final class SqlFormatter
                 builder.append("SHOW CREATE VIEW ")
                         .append(formatName(node.getName()));
             }
-
+            else if (node.getType() == ShowCreate.Type.MATERIALIZED_VIEW) {
+                builder.append("SHOW CREATE MATERIALIZED VIEW ")
+                        .append(formatName(node.getName()));
+            }
             return null;
         }
 
@@ -1039,8 +1105,11 @@ public final class SqlFormatter
         @Override
         protected Void visitRenameTable(RenameTable node, Integer context)
         {
-            builder.append("ALTER TABLE ")
-                    .append(node.getSource())
+            builder.append("ALTER TABLE ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getSource())
                     .append(" RENAME TO ")
                     .append(node.getTarget());
 
@@ -1052,11 +1121,19 @@ public final class SqlFormatter
         {
             String comment = node.getComment().isPresent() ? formatStringLiteral(node.getComment().get()) : "NULL";
 
-            if (node.getType() == Comment.Type.TABLE) {
-                builder.append("COMMENT ON TABLE ")
-                        .append(node.getName())
-                        .append(" IS ")
-                        .append(comment);
+            switch (node.getType()) {
+                case TABLE:
+                    builder.append("COMMENT ON TABLE ")
+                            .append(node.getName())
+                            .append(" IS ")
+                            .append(comment);
+                    break;
+                case COLUMN:
+                    builder.append("COMMENT ON COLUMN ")
+                            .append(node.getName())
+                            .append(" IS ")
+                            .append(comment);
+                    break;
             }
 
             return null;
@@ -1065,10 +1142,16 @@ public final class SqlFormatter
         @Override
         protected Void visitRenameColumn(RenameColumn node, Integer context)
         {
-            builder.append("ALTER TABLE ")
-                    .append(node.getTable())
-                    .append(" RENAME COLUMN ")
-                    .append(node.getSource())
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getTable())
+                    .append(" RENAME COLUMN ");
+            if (node.isColumnExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getSource())
                     .append(" TO ")
                     .append(node.getTarget());
 
@@ -1078,10 +1161,16 @@ public final class SqlFormatter
         @Override
         protected Void visitDropColumn(DropColumn node, Integer context)
         {
-            builder.append("ALTER TABLE ")
-                    .append(formatName(node.getTable()))
-                    .append(" DROP COLUMN ")
-                    .append(formatExpression(node.getColumn()));
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTable()))
+                    .append(" DROP COLUMN ");
+            if (node.isColumnExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatExpression(node.getColumn()));
 
             return null;
         }
@@ -1098,10 +1187,27 @@ public final class SqlFormatter
         @Override
         protected Void visitAddColumn(AddColumn node, Integer indent)
         {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getName())
+                    .append(" ADD COLUMN ");
+            if (node.isColumnNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatColumnDefinition(node.getColumn()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitSetTableAuthorization(SetTableAuthorization node, Integer context)
+        {
             builder.append("ALTER TABLE ")
-                    .append(node.getName())
-                    .append(" ADD COLUMN ")
-                    .append(formatColumnDefinition(node.getColumn()));
+                    .append(formatName(node.getSource()))
+                    .append(" SET AUTHORIZATION ")
+                    .append(formatPrincipal(node.getPrincipal()));
 
             return null;
         }
@@ -1327,10 +1433,11 @@ public final class SqlFormatter
             }
 
             builder.append(" ON ");
-            if (node.isTable()) {
-                builder.append("TABLE ");
+            if (node.getType().isPresent()) {
+                builder.append(node.getType().get());
+                builder.append(" ");
             }
-            builder.append(node.getTableName())
+            builder.append(node.getName())
                     .append(" TO ")
                     .append(formatPrincipal(node.getGrantee()));
             if (node.isWithGrantOption()) {
@@ -1358,10 +1465,11 @@ public final class SqlFormatter
             }
 
             builder.append(" ON ");
-            if (node.isTable()) {
-                builder.append("TABLE ");
+            if (node.getType().isPresent()) {
+                builder.append(node.getType().get());
+                builder.append(" ");
             }
-            builder.append(node.getTableName())
+            builder.append(node.getName())
                     .append(" FROM ")
                     .append(formatPrincipal(node.getGrantee()));
 

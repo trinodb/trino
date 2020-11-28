@@ -13,29 +13,37 @@
  */
 package io.prestosql.plugin.postgresql;
 
+import io.prestosql.Session;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public class TestPostgreSqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
@@ -45,15 +53,19 @@ public class TestPostgreSqlIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.postgreSqlServer = new TestingPostgreSqlServer();
-        execute("CREATE EXTENSION file_fdw");
-        return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(postgreSqlServer, CUSTOMER, NATION, ORDERS, REGION);
+        postgreSqlServer = new TestingPostgreSqlServer();
+        closeAfterClass(() -> {
+            postgreSqlServer.close();
+            postgreSqlServer = null;
+        });
+        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of(), List.of(CUSTOMER, NATION, ORDERS, REGION));
     }
 
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
+    @BeforeClass
+    public void setExtensions()
+            throws SQLException
     {
-        postgreSqlServer.close();
+        execute("CREATE EXTENSION file_fdw");
     }
 
     @Test
@@ -191,26 +203,79 @@ public class TestPostgreSqlIntegrationSmokeTest
     }
 
     @Test
+    public void testPredicatePushdown()
+    {
+        // varchar equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar range
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar different case
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        // bigint equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // bigint equality with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("postgresql", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE nationkey IN (19, 21)"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // bigint range, with decimal to bigint simplification
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // date equality
+        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
+                .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
+                .isFullyPushedDown();
+    }
+
+    @Test
     public void testDecimalPredicatePushdown()
             throws Exception
     {
-        // TODO test that that predicate is actually pushed down (here we test only correctness)
-        try (AutoCloseable ignoreTable = withTable("tpch.test_decimal_pushdown",
+        try (AutoCloseable ignore = withTable("tpch.test_decimal_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             execute("INSERT INTO tpch.test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
 
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 124",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456790",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 123.321",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456789.987654321",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal = 123.321",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal = 123456789.987654321",
-                    "VALUES (123.321, 123456789.987654321)");
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456790"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal = 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isFullyPushedDown();
         }
     }
 
@@ -218,19 +283,21 @@ public class TestPostgreSqlIntegrationSmokeTest
     public void testCharPredicatePushdown()
             throws Exception
     {
-        // TODO test that that predicate is actually pushed down (here we test only correctness)
-        try (AutoCloseable ignoreTable = withTable("tpch.test_char_pushdown",
+        try (AutoCloseable ignore = withTable("tpch.test_char_pushdown",
                 "(char_1 char(1), char_5 char(5), char_10 char(10))")) {
             execute("INSERT INTO tpch.test_char_pushdown VALUES" +
                     "('0', '0'    , '0'         )," +
                     "('1', '12345', '1234567890')");
 
-            assertQuery("SELECT * FROM tpch.test_char_pushdown WHERE char_1 = '0' AND char_5 = '0'",
-                    "VALUES ('0', '0    ', '0         ')");
-            assertQuery("SELECT * FROM tpch.test_char_pushdown WHERE char_5 = CHAR'12345' AND char_10 = '1234567890'",
-                    "VALUES ('1', '12345', '1234567890')");
-            assertQuery("SELECT * FROM tpch.test_char_pushdown WHERE char_10 = CHAR'0'",
-                    "VALUES ('0', '0    ', '0         ')");
+            assertThat(query("SELECT * FROM tpch.test_char_pushdown WHERE char_1 = '0' AND char_5 = '0'"))
+                    .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM tpch.test_char_pushdown WHERE char_5 = CHAR'12345' AND char_10 = '1234567890'"))
+                    .matches("VALUES (CHAR'1', CHAR'12345', CHAR'1234567890')")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT * FROM tpch.test_char_pushdown WHERE char_10 = CHAR'0'"))
+                    .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
+                    .isFullyPushedDown();
         }
     }
 
@@ -263,7 +330,7 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
 
         assertQueryFails("INSERT INTO test_insert_not_null (column_a) VALUES (date '2012-12-31')", "(?s).*null value in column \"column_b\" violates not-null constraint.*");
-        assertQueryFails("INSERT INTO test_insert_not_null (column_a, column_b) VALUES (date '2012-12-31', null)", "(?s).*null value in column \"column_b\" violates not-null constraint.*");
+        assertQueryFails("INSERT INTO test_insert_not_null (column_a, column_b) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_b");
 
         assertUpdate("ALTER TABLE test_insert_not_null ADD COLUMN column_c BIGINT NOT NULL");
 
@@ -277,7 +344,7 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
 
         assertQueryFails("INSERT INTO test_insert_not_null (column_b) VALUES (date '2012-12-31')", "(?s).*null value in column \"column_c\" violates not-null constraint.*");
-        assertQueryFails("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', null)", "(?s).*null value in column \"column_c\" violates not-null constraint.*");
+        assertQueryFails("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', null)", "NULL value not allowed for NOT NULL column: column_c");
 
         assertUpdate("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', 1)", 1);
         assertUpdate("INSERT INTO test_insert_not_null (column_a, column_b, column_c) VALUES (date '2013-01-01', date '2013-01-02', 2)", 1);
@@ -289,18 +356,121 @@ public class TestPostgreSqlIntegrationSmokeTest
     }
 
     @Test
-    public void testColumnComment()
+    public void testAggregationPushdown()
             throws Exception
     {
-        try (AutoCloseable ignore = withTable("tpch.test_column_comment",
-                "(col1 bigint, col2 bigint, col3 bigint)")) {
-            execute("COMMENT ON COLUMN tpch.test_column_comment.col1 IS 'test comment'");
-            execute("COMMENT ON COLUMN tpch.test_column_comment.col2 IS ''"); // it will be NULL, PostgreSQL doesn't store empty comment
+        // TODO support aggregation pushdown with GROUPING SETS
+        // TODO support aggregation over expressions
 
-            assertQuery(
-                    "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
-                    "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
+        // SELECT DISTINCT
+        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
+
+        // count()
+        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+
+        // GROUP BY
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY and WHERE on bigint column
+        // GROUP BY and WHERE on aggregation key
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY and WHERE on varchar column
+        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
+
+        // decimals
+        try (AutoCloseable ignore = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
+            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
+
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testLimitPushdown()
+    {
+        assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
+
+        // with filter over numeric column
+        assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
+
+        // with filter over varchar column
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
+
+        // with aggregation
+        assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
+        assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5")).isFullyPushedDown();
+        assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isFullyPushedDown();
+
+        // with filter and aggregation
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeLargeIn()
+            throws SQLException
+    {
+        execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 500_000));
+    }
+
+    /**
+     * This test helps to tune TupleDomain simplification threshold.
+     */
+    @Test
+    public void testNativeMultipleInClauses()
+            throws SQLException
+    {
+        String longInClauses = range(0, 20)
+                .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
+                .collect(joining(" OR "));
+        execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+    }
+
+    /**
+     * Regression test for https://github.com/prestosql/presto/issues/5543
+     */
+    @Test
+    public void testTimestampColumnAndTimestampWithTimeZoneConstant()
+            throws Exception
+    {
+        String tableName = "tpch.test_timestamptz_unwrap_cast" + randomTableSuffix();
+        try (AutoCloseable ignored = withTable(tableName, "(id integer, ts_col timestamp(6))")) {
+            execute("INSERT INTO " + tableName + " (id, ts_col) VALUES " +
+                    "(1, timestamp '2020-01-01 01:01:01.000')," +
+                    "(2, timestamp '2019-01-01 01:01:01.000')");
+
+            assertThat(query(format("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'", tableName, getSession().getTimeZoneKey().getId())))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+
+            assertThat(query(format("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'", tableName, "UTC")))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+        }
+    }
+
+    private String getLongInClause(int start, int length)
+    {
+        String longValues = range(start, start + length)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+        return "orderkey IN (" + longValues + ")";
     }
 
     private AutoCloseable withSchema(String schema)

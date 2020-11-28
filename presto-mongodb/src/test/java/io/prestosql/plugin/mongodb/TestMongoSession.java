@@ -100,7 +100,7 @@ public class TestMongoSession
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document("$or", asList(
                 new Document(COL1.getName(), new Document("$gt", 200L)),
-                new Document(COL1.getName(), new Document("$exists", true).append("$eq", null))));
+                new Document(COL1.getName(), new Document("$eq", null))));
         assertEquals(query, expected);
     }
 }

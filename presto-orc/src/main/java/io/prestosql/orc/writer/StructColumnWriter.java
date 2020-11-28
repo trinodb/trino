@@ -135,7 +135,7 @@ public class StructColumnWriter
     public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null);
         rowGroupColumnStatistics.add(statistics);
         nonNullValueCount = 0;
 
@@ -191,8 +191,15 @@ public class StructColumnWriter
         indexStreams.add(new StreamDataOutput(slice, stream));
         for (ColumnWriter structField : structFields) {
             indexStreams.addAll(structField.getIndexStreams(metadataWriter));
+            indexStreams.addAll(structField.getBloomFilters(metadataWriter));
         }
         return indexStreams.build();
+    }
+
+    @Override
+    public List<StreamDataOutput> getBloomFilters(CompressedMetadataWriter metadataWriter)
+    {
+        return ImmutableList.of();
     }
 
     private static List<Integer> createStructColumnPositionList(

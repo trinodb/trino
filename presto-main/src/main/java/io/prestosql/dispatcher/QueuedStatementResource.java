@@ -26,8 +26,10 @@ import io.prestosql.client.StatementStats;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.server.HttpRequestSessionContext;
+import io.prestosql.server.ServerConfig;
 import io.prestosql.server.SessionContext;
 import io.prestosql.server.protocol.Slug;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.GroupProvider;
@@ -75,6 +77,8 @@ import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.prestosql.server.protocol.Slug.Context.QUEUED_QUERY;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -101,12 +105,14 @@ public class QueuedStatementResource
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
+    private final boolean compressionEnabled;
 
     @Inject
     public QueuedStatementResource(
             GroupProvider groupProvider,
             DispatchManager dispatchManager,
-            DispatchExecutor executor)
+            DispatchExecutor executor,
+            ServerConfig serverConfig)
     {
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
@@ -114,6 +120,7 @@ public class QueuedStatementResource
         requireNonNull(dispatchManager, "dispatchManager is null");
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
+        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -154,6 +161,7 @@ public class QueuedStatementResource
         queryPurger.shutdownNow();
     }
 
+    @ResourceSecurity(AUTHENTICATED_USER)
     @POST
     @Produces(APPLICATION_JSON)
     public Response postStatement(
@@ -177,9 +185,10 @@ public class QueuedStatementResource
         // let authentication filter know that identity lifecycle has been handed off
         servletRequest.setAttribute(AUTHENTICATED_IDENTITY, null);
 
-        return Response.ok(query.getQueryResults(query.getLastToken(), uriInfo)).build();
+        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), uriInfo), compressionEnabled);
     }
 
+    @ResourceSecurity(PUBLIC)
     @GET
     @Path("queued/{queryId}/{slug}/{token}")
     @Produces(APPLICATION_JSON)
@@ -209,11 +218,12 @@ public class QueuedStatementResource
         // transform to Response
         ListenableFuture<Response> response = Futures.transform(
                 queryResultsFuture,
-                queryResults -> Response.ok(queryResults).build(),
+                queryResults -> createQueryResultsResponse(queryResults, compressionEnabled),
                 directExecutor());
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
+    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("queued/{queryId}/{slug}/{token}")
     @Produces(APPLICATION_JSON)
@@ -234,6 +244,15 @@ public class QueuedStatementResource
             throw badRequest(NOT_FOUND, "Query not found");
         }
         return query;
+    }
+
+    private static Response createQueryResultsResponse(QueryResults results, boolean compressionEnabled)
+    {
+        Response.ResponseBuilder builder = Response.ok(results);
+        if (!compressionEnabled) {
+            builder.encoding("identity");
+        }
+        return builder.build();
     }
 
     private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo)

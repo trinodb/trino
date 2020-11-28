@@ -24,6 +24,7 @@ import io.prestosql.execution.QueryStats;
 import io.prestosql.execution.resourcegroups.InternalResourceGroup;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.resourcegroups.QueryType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -36,6 +37,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static org.testng.Assert.assertEquals;
@@ -45,7 +47,7 @@ public class TestQueryStateInfo
     @Test
     public void testQueryStateInfo()
     {
-        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(0);
@@ -130,6 +132,7 @@ public class TestQueryStateInfo
                         DataSize.valueOf("23GB"),
                         DataSize.valueOf("24GB"),
                         DataSize.valueOf("25GB"),
+                        DataSize.valueOf("30GB"),
                         DataSize.valueOf("26GB"),
                         DataSize.valueOf("27GB"),
                         DataSize.valueOf("28GB"),
@@ -153,6 +156,7 @@ public class TestQueryStateInfo
                         32,
                         DataSize.valueOf("33GB"),
                         ImmutableList.of(),
+                        DynamicFiltersStats.EMPTY,
                         ImmutableList.of()),
                 Optional.empty(),
                 Optional.empty(),
@@ -174,6 +178,7 @@ public class TestQueryStateInfo
                 ImmutableList.of(),
                 ImmutableList.of(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                Optional.of(QueryType.SELECT));
     }
 }

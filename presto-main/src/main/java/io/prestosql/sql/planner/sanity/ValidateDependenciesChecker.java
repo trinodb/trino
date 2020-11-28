@@ -15,9 +15,11 @@ package io.prestosql.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.TypeAnalyzer;
@@ -78,6 +80,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.optimizations.IndexJoinOptimizer.IndexKeyTracer;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
@@ -86,7 +89,13 @@ public final class ValidateDependenciesChecker
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan,
+            Session session,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
     {
         validate(plan);
     }
@@ -180,6 +189,17 @@ public final class ValidateDependenciesChecker
                 }
             }
             checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputSymbols());
+
+            ImmutableList.Builder<Symbol> symbolsForFrameBoundsComparison = ImmutableList.builder();
+            for (WindowNode.Frame frame : node.getFrames()) {
+                if (frame.getSortKeyCoercedForFrameStartComparison().isPresent()) {
+                    symbolsForFrameBoundsComparison.add(frame.getSortKeyCoercedForFrameStartComparison().get());
+                }
+                if (frame.getSortKeyCoercedForFrameEndComparison().isPresent()) {
+                    symbolsForFrameBoundsComparison.add(frame.getSortKeyCoercedForFrameEndComparison().get());
+                }
+            }
+            checkDependencies(inputs, symbolsForFrameBoundsComparison.build(), "Invalid node. Symbols for frame bound comparison (%s) not in source plan output (%s)", symbolsForFrameBoundsComparison.build(), node.getSource().getOutputSymbols());
 
             for (WindowNode.Function function : node.getWindowFunctions().values()) {
                 Set<Symbol> dependencies = SymbolsExtractor.extractUnique(function);
@@ -501,6 +521,13 @@ public final class ValidateDependenciesChecker
                     .map(UnnestNode.Mapping::getInput)
                     .forEach(required::add);
 
+            Set<Symbol> unnestedSymbols = node.getMappings().stream()
+                    .map(UnnestNode.Mapping::getOutputs)
+                    .flatMap(Collection::stream)
+                    .collect(toImmutableSet());
+
+            Set<Symbol> expectedFilterSymbols = Sets.difference(SymbolsExtractor.extractUnique(node.getFilter().orElse(TRUE_LITERAL)), unnestedSymbols);
+            required.addAll(expectedFilterSymbols);
             checkDependencies(source.getOutputSymbols(), required.build(), "Invalid node. Dependencies (%s) not in source plan output (%s)", required, source.getOutputSymbols());
 
             return null;
@@ -633,7 +660,6 @@ public final class ValidateDependenciesChecker
             node.getSubquery().accept(this, subqueryCorrelation); // visit child
 
             checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
-            checkDependencies(SymbolsExtractor.extractUnique(node.getSubquery()), node.getCorrelation(), "not all APPLY correlation symbols are used in subquery");
 
             ImmutableSet<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getSubquery(), boundSymbols))
@@ -663,10 +689,6 @@ public final class ValidateDependenciesChecker
                     node.getInput().getOutputSymbols(),
                     node.getCorrelation(),
                     "Correlated JOIN input must provide all the necessary correlation symbols for subquery");
-            checkDependencies(
-                    SymbolsExtractor.extractUnique(node.getSubquery()),
-                    node.getCorrelation(),
-                    "not all correlated JOIN correlation symbols are used in subquery");
 
             Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getInput(), boundSymbols))

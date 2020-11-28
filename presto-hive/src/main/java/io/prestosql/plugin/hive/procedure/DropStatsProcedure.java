@@ -25,8 +25,10 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import io.prestosql.spi.type.ArrayType;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -58,6 +61,7 @@ public class DropStatsProcedure
             DropStatsProcedure.class,
             "dropStats",
             ConnectorSession.class,
+            ConnectorAccessControl.class,
             String.class,
             String.class,
             List.class);
@@ -85,20 +89,23 @@ public class DropStatsProcedure
                 DROP_STATS.bindTo(this));
     }
 
-    public void dropStats(ConnectorSession session, String schema, String table, List<?> partitionValues)
+    public void dropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<?> partitionValues)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doDropStats(session, schema, table, partitionValues);
+            doDropStats(session, accessControl, schema, table, partitionValues);
         }
     }
 
-    private void doDropStats(ConnectorSession session, String schema, String table, List<?> partitionValues)
+    private void doDropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<?> partitionValues)
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
         if (handle == null) {
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schema, table)));
         }
+
+        accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schema, table));
+
         Map<String, ColumnHandle> columns = hiveMetadata.getColumnHandles(session, handle);
         List<String> partitionColumns = columns.values().stream()
                 .map(HiveColumnHandle.class::cast)
@@ -128,11 +135,12 @@ public class DropStatsProcedure
                         new HiveIdentity(session.getIdentity()),
                         schema,
                         table,
-                        stats -> PartitionStatistics.empty());
+                        stats -> PartitionStatistics.empty(),
+                        NO_ACID_TRANSACTION);
             }
             else {
                 // the table is partitioned; remove stats for every partition
-                metastore.getPartitionNames(new HiveIdentity(session.getIdentity()), handle.getSchemaName(), handle.getTableName())
+                metastore.getPartitionNamesByFilter(new HiveIdentity(session.getIdentity()), handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
                         .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionStatistics(
                                 new HiveIdentity(session.getIdentity()),
                                 schema,

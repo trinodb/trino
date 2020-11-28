@@ -14,6 +14,7 @@
 package io.prestosql.plugin.phoenix;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -29,8 +30,10 @@ import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForwardingJdbcClient;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
+import io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
+import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.prestosql.plugin.jdbc.credential.EmptyCredentialProvider;
@@ -53,8 +56,10 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -78,9 +83,11 @@ public class PhoenixClientModule
         binder.bind(ConnectorRecordSetProvider.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(ClassLoaderSafeConnectorPageSinkProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
+        bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
 
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAllowDropTable(true));
@@ -89,7 +96,7 @@ public class PhoenixClientModule
         binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
 
-        binder.bind(PhoenixTableProperties.class).in(Scopes.SINGLETON);
+        bindTablePropertiesProvider(binder, PhoenixTableProperties.class);
         binder.bind(PhoenixColumnProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(PhoenixConnector.class).in(Scopes.SINGLETON);
@@ -153,11 +160,11 @@ public class PhoenixClientModule
         Configuration resourcesConfig = readConfig(config);
         Properties connectionProperties = new Properties();
         for (Map.Entry<String, String> entry : resourcesConfig) {
-            connectionProperties.put(entry.getKey(), entry.getValue());
+            connectionProperties.setProperty(entry.getKey(), entry.getValue());
         }
 
         PhoenixEmbeddedDriver.ConnectionInfo connectionInfo = PhoenixEmbeddedDriver.ConnectionInfo.create(config.getConnectionUrl());
-        connectionProperties.putAll(connectionInfo.asProps().asMap());
+        connectionInfo.asProps().asMap().forEach(connectionProperties::setProperty);
         return connectionProperties;
     }
 

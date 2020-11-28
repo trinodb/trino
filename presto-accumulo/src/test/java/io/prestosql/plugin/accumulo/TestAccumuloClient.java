@@ -23,6 +23,7 @@ import io.prestosql.plugin.accumulo.metadata.ZooKeeperMetadataManager;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.type.InternalTypeManager;
 import org.apache.accumulo.core.client.Connector;
 import org.testng.annotations.Test;
@@ -47,9 +48,9 @@ public class TestAccumuloClient
                 .setUsername("root")
                 .setPassword("secret");
 
-        Connector connector = AccumuloQueryRunner.getAccumuloConnector();
+        Connector connector = TestingAccumuloServer.getInstance().getConnector();
         config.setZooKeepers(connector.getInstance().getZooKeepers());
-        zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, new InternalTypeManager(createTestMetadataManager()));
+        zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, new InternalTypeManager(createTestMetadataManager(), new TypeOperators()));
         client = new AccumuloClient(connector, config, zooKeeperMetadataManager, new AccumuloTableManager(connector), new IndexLookup(connector, new ColumnCardinalityCache(connector, config)));
     }
 

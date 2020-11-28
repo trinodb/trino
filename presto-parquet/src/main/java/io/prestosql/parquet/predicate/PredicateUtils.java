@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
 import io.prestosql.parquet.DictionaryPage;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSource;
@@ -39,8 +40,8 @@ import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -49,9 +50,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.parquet.ParquetCompressionUtils.decompress;
 import static io.prestosql.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -99,15 +98,19 @@ public final class PredicateUtils
 
     private static BigDecimal minimalValue(DecimalType decimalType)
     {
-        return new BigDecimal(format("-%s.%s", repeat("9", decimalType.getPrecision() - decimalType.getScale()), repeat("9", decimalType.getScale())));
+        return new BigDecimal(format("-%s.%s", "9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
     }
 
     private static BigDecimal maximalValue(DecimalType decimalType)
     {
-        return new BigDecimal(format("+%s.%s", repeat("9", decimalType.getPrecision() - decimalType.getScale()), repeat("9", decimalType.getScale())));
+        return new BigDecimal(format("+%s.%s", "9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
     }
 
-    public static Predicate buildPredicate(MessageType requestedSchema, TupleDomain<ColumnDescriptor> parquetTupleDomain, Map<List<String>, RichColumnDescriptor> descriptorsByPath)
+    public static Predicate buildPredicate(
+            MessageType requestedSchema,
+            TupleDomain<ColumnDescriptor> parquetTupleDomain,
+            Map<List<String>, RichColumnDescriptor> descriptorsByPath,
+            DateTimeZone timeZone)
     {
         ImmutableList.Builder<RichColumnDescriptor> columnReferences = ImmutableList.builder();
         for (String[] paths : requestedSchema.getPaths()) {
@@ -116,14 +119,14 @@ public final class PredicateUtils
                 columnReferences.add(descriptor);
             }
         }
-        return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build());
+        return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build(), timeZone);
     }
 
-    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, boolean failOnCorruptedParquetStatistics)
+    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
             throws ParquetCorruptionException
     {
         Map<ColumnDescriptor, Statistics<?>> columnStatistics = getStatistics(block, descriptorsByPath);
-        if (!parquetPredicate.matches(block.getRowCount(), columnStatistics, dataSource.getId(), failOnCorruptedParquetStatistics)) {
+        if (!parquetPredicate.matches(block.getRowCount(), columnStatistics, dataSource.getId())) {
             return false;
         }
 
@@ -151,8 +154,7 @@ public final class PredicateUtils
             RichColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
             if (descriptor != null) {
                 if (isOnlyDictionaryEncodingPages(columnMetaData) && isColumnPredicate(descriptor, parquetTupleDomain)) {
-                    byte[] buffer = new byte[toIntExact(columnMetaData.getTotalSize())];
-                    dataSource.readFully(columnMetaData.getStartingPos(), buffer);
+                    Slice buffer = dataSource.readFully(columnMetaData.getStartingPos(), toIntExact(columnMetaData.getTotalSize()));
                     //  Early abort, predicate already filters block so no more dictionaries need be read
                     if (!parquetPredicate.matches(new DictionaryDescriptor(descriptor, readDictionaryPage(buffer, columnMetaData.getCodec())))) {
                         return false;
@@ -163,17 +165,17 @@ public final class PredicateUtils
         return true;
     }
 
-    private static Optional<DictionaryPage> readDictionaryPage(byte[] data, CompressionCodecName codecName)
+    private static Optional<DictionaryPage> readDictionaryPage(Slice data, CompressionCodecName codecName)
     {
         try {
-            ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
+            SliceInput inputStream = data.getInput();
             PageHeader pageHeader = Util.readPageHeader(inputStream);
 
             if (pageHeader.type != PageType.DICTIONARY_PAGE) {
                 return Optional.empty();
             }
 
-            Slice compressedData = wrappedBuffer(data, data.length - inputStream.available(), pageHeader.getCompressed_page_size());
+            Slice compressedData = inputStream.readSlice(pageHeader.getCompressed_page_size());
             DictionaryPageHeader dicHeader = pageHeader.getDictionary_page_header();
             ParquetEncoding encoding = getParquetEncoding(Encoding.valueOf(dicHeader.getEncoding().name()));
             int dictionarySize = dicHeader.getNum_values();

@@ -43,9 +43,11 @@ import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -59,6 +61,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.DoubleStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -74,7 +77,6 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getPartitionStatist
 import static io.prestosql.plugin.hive.HiveSessionProperties.isIgnoreCorruptedStatistics;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
@@ -83,7 +85,6 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.Double.parseDouble;
@@ -521,7 +522,7 @@ public class MetastoreHiveStatisticsProvider
 
     private static boolean hasDataSize(Type type)
     {
-        return isVarcharType(type) || isCharType(type);
+        return type instanceof VarcharType || type instanceof CharType;
     }
 
     private static int getSize(NullableValue nullableValue)
@@ -562,25 +563,18 @@ public class MetastoreHiveStatisticsProvider
         if (convertedValues.stream().noneMatch(OptionalDouble::isPresent)) {
             return Optional.empty();
         }
-        List<Double> values = convertedValues.stream()
+        double[] values = convertedValues.stream()
                 .peek(convertedValue -> checkState(convertedValue.isPresent(), "convertedValue is missing"))
-                .map(OptionalDouble::getAsDouble)
-                .collect(toImmutableList());
+                .mapToDouble(OptionalDouble::getAsDouble)
+                .toArray();
+        verify(values.length != 0, "No values");
 
-        verify(!values.isEmpty());
-
-        double min = values.get(0);
-        double max = values.get(0);
-
-        for (Double value : values) {
-            if (value > max) {
-                max = value;
-            }
-            if (value < min) {
-                min = value;
-            }
+        if (DoubleStream.of(values).anyMatch(Double::isNaN)) {
+            return Optional.empty();
         }
 
+        double min = DoubleStream.of(values).min().orElseThrow();
+        double max = DoubleStream.of(values).max().orElseThrow();
         return Optional.of(new DoubleRange(min, max));
     }
 

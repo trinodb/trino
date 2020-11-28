@@ -63,7 +63,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
@@ -85,7 +84,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
@@ -441,11 +440,11 @@ public class TestDatabaseShardManager
     public void testTemporalColumnTableCreation()
     {
         long tableId = createTable("test");
-        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, TIMESTAMP));
+        List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, TIMESTAMP_MILLIS));
         shardManager.createTable(tableId, columns, false, OptionalLong.of(1));
 
         long tableId2 = createTable("test2");
-        List<ColumnInfo> columns2 = ImmutableList.of(new ColumnInfo(1, TIMESTAMP));
+        List<ColumnInfo> columns2 = ImmutableList.of(new ColumnInfo(1, TIMESTAMP_MILLIS));
         shardManager.createTable(tableId2, columns2, true, OptionalLong.of(1));
     }
 
@@ -498,7 +497,7 @@ public class TestDatabaseShardManager
                 .add(new ColumnInfo(1, BIGINT))
                 .add(new ColumnInfo(2, DOUBLE))
                 .add(new ColumnInfo(3, DATE))
-                .add(new ColumnInfo(4, TIMESTAMP))
+                .add(new ColumnInfo(4, TIMESTAMP_MILLIS))
                 .add(new ColumnInfo(5, createVarcharType(10)))
                 .add(new ColumnInfo(6, BOOLEAN))
                 .add(new ColumnInfo(7, VARBINARY))
@@ -507,7 +506,7 @@ public class TestDatabaseShardManager
         RaptorColumnHandle c1 = new RaptorColumnHandle("c1", 1, BIGINT);
         RaptorColumnHandle c2 = new RaptorColumnHandle("c2", 2, DOUBLE);
         RaptorColumnHandle c3 = new RaptorColumnHandle("c3", 3, DATE);
-        RaptorColumnHandle c4 = new RaptorColumnHandle("c4", 4, TIMESTAMP);
+        RaptorColumnHandle c4 = new RaptorColumnHandle("c4", 4, TIMESTAMP_MILLIS);
         RaptorColumnHandle c5 = new RaptorColumnHandle("c5", 5, createVarcharType(10));
         RaptorColumnHandle c6 = new RaptorColumnHandle("c6", 6, BOOLEAN);
 
@@ -543,7 +542,7 @@ public class TestDatabaseShardManager
                 .between(c1, BIGINT, -25L, 25L)
                 .between(c2, DOUBLE, -1000.0, 1000.0)
                 .between(c3, BIGINT, 0L, 50000L)
-                .between(c4, TIMESTAMP, 0L, timestamp(2015, 1, 2, 3, 4, 5))
+                .between(c4, TIMESTAMP_MILLIS, 0L, timestamp(2015, 1, 2, 3, 4, 5))
                 .between(c5, createVarcharType(10), utf8Slice("a"), utf8Slice("zzzzz"))
                 .between(c6, BOOLEAN, false, true)
                 .expected(shards);
@@ -558,7 +557,7 @@ public class TestDatabaseShardManager
 
         shardAssertion(tableId).equal(c3, DATE, date(2013, 5, 12)).expected(shard1, shard3);
 
-        shardAssertion(tableId).range(c4, greaterThan(TIMESTAMP, timestamp(2013, 1, 1, 0, 0, 0))).expected(shard1, shard3);
+        shardAssertion(tableId).range(c4, greaterThan(TIMESTAMP_MILLIS, timestamp(2013, 1, 1, 0, 0, 0))).expected(shard1, shard3);
 
         shardAssertion(tableId).between(c5, createVarcharType(10), utf8Slice("cow"), utf8Slice("milk")).expected(shards);
         shardAssertion(tableId).equal(c5, createVarcharType(10), utf8Slice("fruit")).expected();
@@ -599,7 +598,7 @@ public class TestDatabaseShardManager
     @Test
     public void testShardPruningTruncatedValues()
     {
-        String prefix = repeat("x", MAX_BINARY_INDEX_SIZE);
+        String prefix = "x".repeat(MAX_BINARY_INDEX_SIZE);
 
         ColumnStats stats = new ColumnStats(1, prefix + "a", prefix + "z");
         ShardInfo shard = shardInfo(UUID.randomUUID(), "node", ImmutableList.of(stats));

@@ -37,6 +37,7 @@ public class TestHdfsConfig
         assertRecordedDefaults(recordDefaults(HdfsConfig.class)
                 .setResourceConfigFiles("")
                 .setNewDirectoryPermissions("0777")
+                .setNewFileInheritOwnership(false)
                 .setVerifyChecksum(true)
                 .setIpcPingInterval(new Duration(10, TimeUnit.SECONDS))
                 .setDfsTimeout(new Duration(60, TimeUnit.SECONDS))
@@ -46,7 +47,8 @@ public class TestHdfsConfig
                 .setDomainSocketPath(null)
                 .setSocksProxy(null)
                 .setWireEncryptionEnabled(false)
-                .setFileSystemMaxCacheSize(1000));
+                .setFileSystemMaxCacheSize(1000)
+                .setDfsReplication(null));
     }
 
     @Test
@@ -59,6 +61,7 @@ public class TestHdfsConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.config.resources", resource1.toString() + "," + resource2.toString())
                 .put("hive.fs.new-directory-permissions", "0700")
+                .put("hive.fs.new-file-inherit-ownership", "true")
                 .put("hive.dfs.verify-checksum", "false")
                 .put("hive.dfs.ipc-ping-interval", "34s")
                 .put("hive.dfs-timeout", "33s")
@@ -69,11 +72,13 @@ public class TestHdfsConfig
                 .put("hive.hdfs.socks-proxy", "localhost:4567")
                 .put("hive.hdfs.wire-encryption.enabled", "true")
                 .put("hive.fs.cache.max-size", "1010")
+                .put("hive.dfs.replication", "1")
                 .build();
 
         HdfsConfig expected = new HdfsConfig()
                 .setResourceConfigFiles(ImmutableList.of(resource1.toFile(), resource2.toFile()))
                 .setNewDirectoryPermissions("0700")
+                .setNewFileInheritOwnership(true)
                 .setVerifyChecksum(false)
                 .setIpcPingInterval(new Duration(34, TimeUnit.SECONDS))
                 .setDfsTimeout(new Duration(33, TimeUnit.SECONDS))
@@ -83,7 +88,8 @@ public class TestHdfsConfig
                 .setDomainSocketPath("/foo")
                 .setSocksProxy(HostAndPort.fromParts("localhost", 4567))
                 .setWireEncryptionEnabled(true)
-                .setFileSystemMaxCacheSize(1010);
+                .setFileSystemMaxCacheSize(1010)
+                .setDfsReplication(1);
 
         assertFullMapping(properties, expected);
     }

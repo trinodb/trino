@@ -25,6 +25,12 @@
     </violation>
 
     <violation>
+        <name>java/lang/String.toUpperCase:()Ljava/lang/String;</name>
+        <version>1.1</version>
+        <comment>Prefer String.toUpperCase(java.util.Locale)</comment>
+    </violation>
+
+    <violation>
         <!-- File.getPath() is the canonical way to convert File to its String representation suitable for passing to new File() -->
         <name>java/io/File.toString:()Ljava/lang/String;</name>
         <version>1.1</version>
@@ -50,9 +56,33 @@
     </violation>
 
     <violation>
+        <name>org/testng/Assert.assertThrows:(Lorg/testng/Assert$ThrowingRunnable;)V</name>
+        <version>1.8</version>
+        <comment>Use AssertJ's assertThatThrownBy, see https://github.com/prestosql/presto/issues/5320 for rationale</comment>
+    </violation>
+
+    <violation>
+        <name>org/testng/Assert.assertThrows:(Ljava/lang/Class;Lorg/testng/Assert$ThrowingRunnable;)V</name>
+        <version>1.8</version>
+        <comment>Use AssertJ's assertThatThrownBy, see https://github.com/prestosql/presto/issues/5320 for rationale</comment>
+    </violation>
+
+    <violation>
         <name>org/apache/hadoop/conf/Configuration."&lt;init&gt;":()V</name>
         <version>1.1</version>
         <comment>Prefer new Configuration(false)</comment>
+    </violation>
+
+    <violation>
+        <name>java/util/TimeZone.getTimeZone:(Ljava/lang/String;)Ljava/util/TimeZone;</name>
+        <version>1.8</version>
+        <comment>Avoid TimeZone.getTimeZone as it returns GMT for a zone not supported by the JVM. Use TimeZone.getTimeZone(ZoneId.of(..)) instead, or TimeZone.getTimeZone(..., false).</comment>
+    </violation>
+
+    <violation>
+        <name>org/joda/time/DateTimeZone.toTimeZone:()Ljava/util/TimeZone;</name>
+        <version>1.8</version>
+        <comment>Avoid DateTimeZone.toTimeZone as it returns GMT for a zone not supported by the JVM. Use TimeZone.getTimeZone(ZoneId.of(dtz.getId())) instead.</comment>
     </violation>
 
     <violation>
@@ -107,5 +137,23 @@
         <name>io/airlift/units/DataSize.convertToMostSuccinctDataSize:()Lio/airlift/units/DataSize;</name>
         <version>1.8</version>
         <comment>Use io.airlift.units.DataSize.succinct()</comment>
+    </violation>
+
+    <violation>
+        <name>io/airlift/testing/Closeables.closeQuietly:([Ljava/io/Closeable;)V</name>
+        <version>1.0</version>
+        <comment>Use Closeables.closeAll() or Closer.</comment>
+    </violation>
+
+    <violation>
+        <name>com/google/inject/util/Modules.combine:(Ljava/lang/Iterable;)Lcom/google/inject/Module;</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.configuration.ConfigurationAwareModule.combine</comment>
+    </violation>
+
+    <violation>
+        <name>com/google/inject/util/Modules.combine:([Lcom/google/inject/Module;)Lcom/google/inject/Module;</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.configuration.ConfigurationAwareModule.combine</comment>
     </violation>
 </modernizer>

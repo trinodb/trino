@@ -46,7 +46,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -89,8 +88,9 @@ public class TestJdbcConnection
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
+            throws Exception
     {
-        closeQuietly(server);
+        server.close();
     }
 
     @Test
@@ -286,6 +286,33 @@ public class TestJdbcConnection
         try (Connection connection = createConnection("applicationNamePrefix=fruit:")) {
             connection.setClientInfo("ApplicationName", "testing");
             assertConnectionSource(connection, "fruit:testing");
+        }
+    }
+
+    @Test
+    public void testSource()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("source=testing")) {
+            assertConnectionSource(connection, "testing");
+        }
+
+        try (Connection connection = createConnection("source=testing&applicationNamePrefix=fruit:")) {
+            assertConnectionSource(connection, "testing");
+        }
+
+        try (Connection connection = createConnection("source=testing")) {
+            connection.setClientInfo("ApplicationName", "testingApplicationName");
+            assertConnectionSource(connection, "testing");
+        }
+
+        try (Connection connection = createConnection("source=testing&applicationNamePrefix=fruit:")) {
+            connection.setClientInfo("ApplicationName", "testingApplicationName");
+            assertConnectionSource(connection, "testing");
+        }
+
+        try (Connection connection = createConnection()) {
+            assertConnectionSource(connection, "presto-jdbc");
         }
     }
 

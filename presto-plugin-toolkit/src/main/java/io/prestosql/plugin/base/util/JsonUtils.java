@@ -14,7 +14,9 @@
 package io.prestosql.plugin.base.util;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.json.ObjectMapperProvider;
 
 import java.io.IOException;
@@ -41,12 +43,20 @@ public final class JsonUtils
 
         try {
             byte[] json = Files.readAllBytes(path);
-            ObjectMapper mapper = new ObjectMapperProvider().get()
-                    .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-            return mapper.readValue(json, javaType);
+            return parseJson(json, javaType);
         }
         catch (IOException e) {
             throw new IllegalArgumentException(format("Invalid JSON file '%s' for '%s'", path, javaType), e);
         }
+    }
+
+    @VisibleForTesting
+    static <T> T parseJson(byte[] jsonBytes, Class<T> javaType)
+            throws IOException
+    {
+        ObjectMapper mapper = new ObjectMapperProvider().get()
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
+        return mapper.readValue(jsonBytes, javaType);
     }
 }

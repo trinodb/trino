@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slices;
@@ -27,11 +26,14 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -54,6 +56,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -77,7 +80,7 @@ public class BenchmarkArraySort
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
 
     static {
-        Verify.verify(NUM_TYPES == TYPES.size());
+        verify(NUM_TYPES == TYPES.size());
     }
 
     @Benchmark
@@ -115,7 +118,6 @@ public class BenchmarkArraySort
                 ArrayType arrayType = new ArrayType(elementType);
                 projectionsBuilder.add(new CallExpression(
                         metadata.resolveFunction(QualifiedName.of(name), fromTypes(arrayType)),
-                        arrayType,
                         ImmutableList.of(field(i, arrayType))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
@@ -172,6 +174,8 @@ public class BenchmarkArraySort
         new Runner(options).run();
     }
 
+    private static final BlockPositionComparison VARCHAR_COMPARISON = new BlockTypeOperators(new TypeOperators()).getComparisonOperator(VARCHAR);
+
     @ScalarFunction
     @SqlType("array(varchar)")
     public static Block oldArraySort(@SqlType("array(varchar)") Block block)
@@ -183,7 +187,7 @@ public class BenchmarkArraySort
 
         positions.sort((p1, p2) -> {
             //TODO: This could be quite slow, it should use parametric equals
-            return VARCHAR.compareTo(block, p1, block, p2);
+            return (int) VARCHAR_COMPARISON.compare(block, p1, block, p2);
         });
 
         BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, block.getPositionCount());

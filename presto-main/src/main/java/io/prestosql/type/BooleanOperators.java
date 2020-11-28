@@ -15,30 +15,13 @@ package io.prestosql.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.BlockIndex;
-import io.prestosql.spi.function.BlockPosition;
-import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
-import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
@@ -47,55 +30,8 @@ public final class BooleanOperators
     private static final Slice TRUE = Slices.copiedBuffer("true", US_ASCII);
     private static final Slice FALSE = Slices.copiedBuffer("false", US_ASCII);
 
-    private static final long TRUE_XX_HASH = XxHash64.hash(1);
-    private static final long FALSE_XX_HASH = XxHash64.hash(0);
-
     private BooleanOperators()
     {
-    }
-
-    @ScalarOperator(EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean equal(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
-    {
-        return left == right;
-    }
-
-    @ScalarOperator(NOT_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean notEqual(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
-    {
-        return left != right;
-    }
-
-    @ScalarOperator(LESS_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThan(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
-    {
-        return !left && right;
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThanOrEqual(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
-    {
-        return !left || right;
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThan(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
-    {
-        return left && !right;
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThanOrEqual(@SqlType(StandardTypes.BOOLEAN) boolean left, @SqlType(StandardTypes.BOOLEAN) boolean right)
-    {
-        return left || !right;
     }
 
     @ScalarOperator(CAST)
@@ -148,67 +84,10 @@ public final class BooleanOperators
         return value ? TRUE : FALSE;
     }
 
-    @ScalarOperator(HASH_CODE)
-    @SqlType(StandardTypes.BIGINT)
-    public static long hashCode(@SqlType(StandardTypes.BOOLEAN) boolean value)
-    {
-        return value ? 1231 : 1237;
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    @SqlType(StandardTypes.BIGINT)
-    public static long xxHash64(@SqlType(StandardTypes.BOOLEAN) boolean value)
-    {
-        return value ? TRUE_XX_HASH : FALSE_XX_HASH;
-    }
-
-    @ScalarOperator(INDETERMINATE)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean indeterminate(@SqlType(StandardTypes.BOOLEAN) boolean value, @IsNull boolean isNull)
-    {
-        return isNull;
-    }
-
     @SqlType(StandardTypes.BOOLEAN)
     @ScalarFunction(hidden = true) // TODO: this should not be callable from SQL
     public static boolean not(@SqlType(StandardTypes.BOOLEAN) boolean value)
     {
         return !value;
-    }
-
-    @ScalarOperator(IS_DISTINCT_FROM)
-    public static final class BooleanDistinctFromOperator
-    {
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isDistinctFrom(
-                @SqlType(StandardTypes.BOOLEAN) boolean left,
-                @IsNull boolean leftNull,
-                @SqlType(StandardTypes.BOOLEAN) boolean right,
-                @IsNull boolean rightNull)
-        {
-            if (leftNull != rightNull) {
-                return true;
-            }
-            if (leftNull) {
-                return false;
-            }
-            return notEqual(left, right);
-        }
-
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isDistinctFrom(
-                @BlockPosition @SqlType(value = StandardTypes.BOOLEAN, nativeContainerType = boolean.class) Block left,
-                @BlockIndex int leftPosition,
-                @BlockPosition @SqlType(value = StandardTypes.BOOLEAN, nativeContainerType = boolean.class) Block right,
-                @BlockIndex int rightPosition)
-        {
-            if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
-                return true;
-            }
-            if (left.isNull(leftPosition)) {
-                return false;
-            }
-            return notEqual(BOOLEAN.getBoolean(left, leftPosition), BOOLEAN.getBoolean(right, rightPosition));
-        }
     }
 }

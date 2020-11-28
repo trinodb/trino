@@ -76,7 +76,9 @@ public final class Session
     private final ResourceEstimates resourceEstimates;
     private final Instant start;
     private final Map<String, String> systemProperties;
+    // TODO use Table
     private final Map<CatalogName, Map<String, String>> connectorProperties;
+    // TODO use Table
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
@@ -574,7 +576,8 @@ public final class Session
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.start = session.start;
             this.systemProperties.putAll(session.systemProperties);
-            this.catalogSessionProperties.putAll(session.unprocessedCatalogProperties);
+            session.unprocessedCatalogProperties
+                    .forEach((catalog, properties) -> catalogSessionProperties.put(catalog, new HashMap<>(properties)));
             this.preparedStatements.putAll(session.preparedStatements);
         }
 
@@ -694,6 +697,17 @@ public final class Session
         public SessionBuilder setSystemProperty(String propertyName, String propertyValue)
         {
             systemProperties.put(propertyName, propertyValue);
+            return this;
+        }
+
+        /**
+         * Sets system properties, discarding any system properties previously set.
+         */
+        public SessionBuilder setSystemProperties(Map<String, String> systemProperties)
+        {
+            requireNonNull(systemProperties, "systemProperties is null");
+            this.systemProperties.clear();
+            this.systemProperties.putAll(systemProperties);
             return this;
         }
 

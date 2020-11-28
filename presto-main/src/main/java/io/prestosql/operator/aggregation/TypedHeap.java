@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -28,7 +29,7 @@ public class TypedHeap
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in heapBlockBuilder is unreferenced, do compact
 
-    private final BlockComparator comparator;
+    private final BlockPositionComparison comparison;
     private final Type type;
     private final int capacity;
 
@@ -36,9 +37,9 @@ public class TypedHeap
     private final int[] heapIndex;
     private BlockBuilder heapBlockBuilder;
 
-    public TypedHeap(BlockComparator comparator, Type type, int capacity)
+    public TypedHeap(BlockPositionComparison comparison, Type type, int capacity)
     {
-        this.comparator = comparator;
+        this.comparison = comparison;
         this.type = type;
         this.capacity = capacity;
         this.heapIndex = new int[capacity];
@@ -91,7 +92,7 @@ public class TypedHeap
     {
         checkArgument(!block.isNull(position));
         if (positionCount == capacity) {
-            if (comparator.compareTo(heapBlockBuilder, heapIndex[0], block, position) >= 0) {
+            if (comparison.compare(heapBlockBuilder, heapIndex[0], block, position) >= 0) {
                 return; // and new element is not larger than heap top: do not add
             }
             heapIndex[0] = heapBlockBuilder.getPositionCount();
@@ -135,9 +136,9 @@ public class TypedHeap
                 smallerChildPosition = leftPosition;
             }
             else {
-                smallerChildPosition = comparator.compareTo(heapBlockBuilder, heapIndex[leftPosition], heapBlockBuilder, heapIndex[rightPosition]) >= 0 ? rightPosition : leftPosition;
+                smallerChildPosition = comparison.compare(heapBlockBuilder, heapIndex[leftPosition], heapBlockBuilder, heapIndex[rightPosition]) >= 0 ? rightPosition : leftPosition;
             }
-            if (comparator.compareTo(heapBlockBuilder, heapIndex[smallerChildPosition], heapBlockBuilder, heapIndex[position]) >= 0) {
+            if (comparison.compare(heapBlockBuilder, heapIndex[smallerChildPosition], heapBlockBuilder, heapIndex[position]) >= 0) {
                 break; // child is larger or equal
             }
             int swapTemp = heapIndex[position];
@@ -152,7 +153,7 @@ public class TypedHeap
         int position = positionCount - 1;
         while (position != 0) {
             int parentPosition = (position - 1) / 2;
-            if (comparator.compareTo(heapBlockBuilder, heapIndex[position], heapBlockBuilder, heapIndex[parentPosition]) >= 0) {
+            if (comparison.compare(heapBlockBuilder, heapIndex[position], heapBlockBuilder, heapIndex[parentPosition]) >= 0) {
                 break; // child is larger or equal
             }
             int swapTemp = heapIndex[position];

@@ -45,9 +45,11 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.time.ZoneOffset.systemDefault;
 import static java.util.stream.Collectors.toList;
 
@@ -56,7 +58,7 @@ public enum BigQueryType
     BOOLEAN(BooleanType.BOOLEAN, BigQueryType::simpleToStringConverter),
     BYTES(VarbinaryType.VARBINARY, BigQueryType::bytesToStringConverter),
     DATE(DateType.DATE, BigQueryType::dateToStringConverter),
-    DATETIME(TimestampType.TIMESTAMP, BigQueryType::datetimeToStringConverter),
+    DATETIME(TimestampType.TIMESTAMP_MILLIS, BigQueryType::datetimeToStringConverter),
     FLOAT(DoubleType.DOUBLE, BigQueryType::simpleToStringConverter),
     GEOGRAPHY(VarcharType.VARCHAR, BigQueryType::stringToStringConverter),
     INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),
@@ -64,7 +66,7 @@ public enum BigQueryType
     RECORD(null, BigQueryType::simpleToStringConverter),
     STRING(createUnboundedVarcharType(), BigQueryType::stringToStringConverter),
     TIME(TimeWithTimeZoneType.TIME_WITH_TIME_ZONE, BigQueryType::timeToStringConverter),
-    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE, BigQueryType::timestampToStringConverter);
+    TIMESTAMP(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS, BigQueryType::timestampToStringConverter);
 
     private static final int[] NANO_FACTOR = {
             -1, // 0, no need to multiply
@@ -116,7 +118,7 @@ public enum BigQueryType
 
     static long toPrestoTimestamp(String datetime)
     {
-        return toLocalDateTime(datetime).atZone(systemDefault()).toInstant().toEpochMilli();
+        return toLocalDateTime(datetime).toInstant(UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
     }
 
     static String simpleToStringConverter(Object value)

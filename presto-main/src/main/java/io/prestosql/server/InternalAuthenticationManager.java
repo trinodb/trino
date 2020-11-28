@@ -22,17 +22,21 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.server.security.InternalPrincipal;
+import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Response;
 
-import java.security.Principal;
 import java.time.ZonedDateTime;
 import java.util.Date;
 
 import static io.airlift.http.client.Request.Builder.fromRequest;
+import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
+import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 public class InternalAuthenticationManager
         implements HttpRequestFilter
@@ -72,25 +76,32 @@ public class InternalAuthenticationManager
         this.nodeId = nodeId;
     }
 
-    public boolean isInternalRequest(HttpServletRequest request)
+    public static boolean isInternalRequest(ContainerRequestContext request)
     {
-        return request.getHeader(PRESTO_INTERNAL_BEARER) != null;
+        return request.getHeaders().getFirst(PRESTO_INTERNAL_BEARER) != null;
     }
 
-    public Principal authenticateInternalRequest(HttpServletRequest request)
+    public void handleInternalRequest(ContainerRequestContext request)
     {
-        String internalBarer = request.getHeader(PRESTO_INTERNAL_BEARER);
+        String subject;
         try {
-            String subject = parseJwt(internalBarer);
-            return new InternalPrincipal(subject);
+            subject = parseJwt(request.getHeaders().getFirst(PRESTO_INTERNAL_BEARER));
         }
         catch (JwtException e) {
             log.error(e, "Internal authentication failed");
-            return null;
+            request.abortWith(Response.status(UNAUTHORIZED)
+                    .type(TEXT_PLAIN_TYPE.toString())
+                    .build());
+            return;
         }
         catch (RuntimeException e) {
             throw new RuntimeException("Authentication error", e);
         }
+
+        Identity identity = Identity.forUser("<internal>")
+                .withPrincipal(new InternalPrincipal(subject))
+                .build();
+        setAuthenticatedIdentity(request, identity);
     }
 
     @Override

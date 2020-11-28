@@ -17,12 +17,13 @@ package io.prestosql.tests.product.launcher.env.common;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 
 public class Kafka
         implements EnvironmentExtender
@@ -40,18 +41,18 @@ public class Kafka
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer("zookeeper", createZookeeper());
-        builder.addContainer("kafka", createKafka());
+        builder.addContainers(createZookeeper(), createKafka())
+                .containerDependsOn("kafka", "zookeeper");
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createZookeeper()
     {
-        DockerContainer container = new DockerContainer("confluentinc/cp-zookeeper:" + CONFLUENT_VERSION)
+        DockerContainer container = new DockerContainer("confluentinc/cp-zookeeper:" + CONFLUENT_VERSION, "zookeeper")
                 .withEnv("ZOOKEEPER_CLIENT_PORT", "2181")
                 .withEnv("ZOOKEEPER_TICK_TIME", "2000")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(2181));
+                .waitingFor(forSelectedPorts(2181));
 
         portBinder.exposePort(container, 2181);
 
@@ -61,14 +62,14 @@ public class Kafka
     @SuppressWarnings("resource")
     private DockerContainer createKafka()
     {
-        DockerContainer container = new DockerContainer("confluentinc/cp-kafka:" + CONFLUENT_VERSION)
+        DockerContainer container = new DockerContainer("confluentinc/cp-kafka:" + CONFLUENT_VERSION, "kafka")
                 .withEnv("KAFKA_BROKER_ID", "1")
                 .withEnv("KAFKA_ZOOKEEPER_CONNECT", "zookeeper:2181")
                 .withEnv("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://kafka:9092")
                 .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1")
                 .withEnv("KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS", "0")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(new SelectedPortWaitStrategy(9092));
+                .waitingForAll(forSelectedPorts(9092), forLogMessage(".*started \\(kafka.server.KafkaServer\\).*", 1));
 
         portBinder.exposePort(container, 9092);
 

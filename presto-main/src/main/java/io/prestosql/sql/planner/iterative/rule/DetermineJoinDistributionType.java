@@ -14,6 +14,7 @@
 
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 import io.prestosql.cost.CostComparator;
@@ -25,9 +26,14 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.Unnest;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +50,7 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.planner.plan.Patterns.join;
+import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
 public class DetermineJoinDistributionType
@@ -88,7 +95,32 @@ public class DetermineJoinDistributionType
         PlanNode buildSide = joinNode.getRight();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols(), context.getSymbolAllocator().getTypes());
-        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes();
+        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes()
+                || getSourceTablesSizeInBytes(buildSide, context) <= joinMaxBroadcastTableSize.toBytes();
+    }
+
+    public static double getSourceTablesSizeInBytes(PlanNode node, Context context)
+    {
+        return getSourceTablesSizeInBytes(node, context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes());
+    }
+
+    @VisibleForTesting
+    static double getSourceTablesSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider, TypeProvider typeProvider)
+    {
+        boolean hasExpandingNodes = PlanNodeSearcher.searchFrom(node, lookup)
+                .where(isInstanceOfAny(JoinNode.class, Unnest.class))
+                .matches();
+        if (hasExpandingNodes) {
+            return Double.NaN;
+        }
+
+        List<PlanNode> sourceNodes = PlanNodeSearcher.searchFrom(node, lookup)
+                .where(isInstanceOfAny(TableScanNode.class, ValuesNode.class))
+                .findAll();
+
+        return sourceNodes.stream()
+                .mapToDouble(sourceNode -> statsProvider.getStats(sourceNode).getOutputSizeInBytes(sourceNode.getOutputSymbols(), typeProvider))
+                .sum();
     }
 
     private PlanNode getCostBasedJoin(JoinNode joinNode, Context context)
@@ -99,12 +131,42 @@ public class DetermineJoinDistributionType
         addJoinsWithDifferentDistributions(joinNode.flipChildren(), possibleJoinNodes, context);
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents()) || possibleJoinNodes.isEmpty()) {
-            return getSyntacticOrderJoin(joinNode, context, AUTOMATIC);
+            return getSizeBasedJoin(joinNode, context);
         }
 
         // Using Ordering to facilitate rule determinism
         Ordering<PlanNodeWithCost> planNodeOrderings = costComparator.forSession(context.getSession()).onResultOf(PlanNodeWithCost::getCost);
         return planNodeOrderings.min(possibleJoinNodes).getPlanNode();
+    }
+
+    private JoinNode getSizeBasedJoin(JoinNode joinNode, Context context)
+    {
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
+
+        boolean isRightSideSmall = getSourceTablesSizeInBytes(joinNode.getRight(), context) <= joinMaxBroadcastTableSize.toBytes();
+        if (isRightSideSmall && !mustPartition(joinNode)) {
+            // choose right join side with small source tables as replicated build side
+            return joinNode.withDistributionType(REPLICATED);
+        }
+
+        boolean isLeftSideSmall = getSourceTablesSizeInBytes(joinNode.getLeft(), context) <= joinMaxBroadcastTableSize.toBytes();
+        if (isLeftSideSmall && !mustPartition(joinNode.flipChildren())) {
+            // choose join left side with small source tables as replicated build side
+            return joinNode.flipChildren().withDistributionType(REPLICATED);
+        }
+
+        if (isRightSideSmall) {
+            // right side is small enough, but must be partitioned
+            return joinNode.withDistributionType(PARTITIONED);
+        }
+
+        if (isLeftSideSmall) {
+            // left side is small enough, but must be partitioned
+            return joinNode.flipChildren().withDistributionType(PARTITIONED);
+        }
+
+        // neither side is small enough, choose syntactic join order
+        return getSyntacticOrderJoin(joinNode, context, AUTOMATIC);
     }
 
     private void addJoinsWithDifferentDistributions(JoinNode joinNode, List<PlanNodeWithCost> possibleJoinNodes, Context context)
@@ -117,7 +179,7 @@ public class DetermineJoinDistributionType
         }
     }
 
-    private PlanNode getSyntacticOrderJoin(JoinNode joinNode, Context context, JoinDistributionType joinDistributionType)
+    private JoinNode getSyntacticOrderJoin(JoinNode joinNode, Context context, JoinDistributionType joinDistributionType)
     {
         if (mustPartition(joinNode)) {
             return joinNode.withDistributionType(PARTITIONED);

@@ -36,8 +36,9 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.dispatcher.DispatchQuery.DispatchStatus.FAILED;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -91,15 +92,21 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public QueryState getState()
+    {
+        return fullQueryInfo.getState();
+    }
+
+    @Override
     public Session getSession()
     {
         return session;
     }
 
     @Override
-    public ListenableFuture<?> getDispatchedFuture()
+    public ListenableFuture<DispatchStatus> getDispatchedFuture()
     {
-        return immediateFuture(null);
+        return immediateFuture(FAILED);
     }
 
     @Override
@@ -111,7 +118,7 @@ public class FailedDispatchQuery
     @Override
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        executor.execute(() -> stateChangeListener.stateChanged(FAILED));
+        executor.execute(() -> stateChangeListener.stateChanged(QueryState.FAILED));
     }
 
     @Override
@@ -201,7 +208,7 @@ public class FailedDispatchQuery
         QueryInfo queryInfo = new QueryInfo(
                 session.getQueryId(),
                 session.toSessionRepresentation(),
-                FAILED,
+                QueryState.FAILED,
                 GENERAL_POOL,
                 false,
                 self,
@@ -229,7 +236,8 @@ public class FailedDispatchQuery
                 ImmutableList.of(),
                 ImmutableList.of(),
                 true,
-                resourceGroupId);
+                resourceGroupId,
+                Optional.empty());
 
         return queryInfo;
     }
@@ -268,6 +276,7 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 false,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -287,6 +296,7 @@ public class FailedDispatchQuery
                 0,
                 DataSize.ofBytes(0),
                 ImmutableList.of(),
+                DynamicFiltersStats.EMPTY,
                 ImmutableList.of());
     }
 }

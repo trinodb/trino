@@ -26,6 +26,8 @@ import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
 import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -54,6 +56,7 @@ public class TestLocalExchange
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final DataSize RETAINED_PAGE_SIZE = DataSize.ofBytes(createPage(42).getRetainedSizeInBytes());
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, DataSize.Unit.MEGABYTE);
+    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
 
     @DataProvider
     public static Object[][] executionStrategy()
@@ -71,7 +74,8 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                DataSize.ofBytes(retainedSizeOfPages(99)));
+                DataSize.ofBytes(retainedSizeOfPages(99)),
+                TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
@@ -143,7 +147,8 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES);
+                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
+                TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
@@ -230,7 +235,8 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES);
+                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
+                TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
@@ -278,7 +284,8 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                DataSize.ofBytes(retainedSizeOfPages(1)));
+                DataSize.ofBytes(retainedSizeOfPages(1)),
+                TYPE_OPERATOR_FACTORY);
 
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
@@ -345,7 +352,8 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 Optional.empty(),
                 executionStrategy,
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES);
+                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
+                TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
@@ -413,7 +421,8 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES);
+                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
+                TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
@@ -459,7 +468,8 @@ public class TestLocalExchange
                 ImmutableList.of(),
                 Optional.empty(),
                 executionStrategy,
-                DataSize.ofBytes(1));
+                DataSize.ofBytes(1),
+                TYPE_OPERATOR_FACTORY);
         LocalExchangeSinkFactoryId localExchangeSinkFactoryId = localExchangeFactory.newSinkFactoryId();
         localExchangeFactory.noMoreSinkFactories();
 
@@ -527,7 +537,8 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 Optional.empty(),
                 UNGROUPED_EXECUTION,
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES);
+                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
+                TYPE_OPERATOR_FACTORY);
         try {
             ungroupedLocalExchangeFactory.getLocalExchange(Lifespan.driverGroup(3));
             fail("expected failure");
@@ -543,7 +554,8 @@ public class TestLocalExchange
                 ImmutableList.of(0),
                 Optional.empty(),
                 GROUPED_EXECUTION,
-                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES);
+                LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
+                TYPE_OPERATOR_FACTORY);
         try {
             groupedLocalExchangeFactory.getLocalExchange(Lifespan.taskWide());
             fail("expected failure");
@@ -617,7 +629,7 @@ public class TestLocalExchange
         Page page = source.removePage();
         assertNotNull(page);
 
-        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(new InterpretedHashGenerator(TYPES, new int[] {0}), partitionCount);
+        LocalPartitionGenerator partitionGenerator = new LocalPartitionGenerator(new InterpretedHashGenerator(TYPES, new int[] {0}, TYPE_OPERATOR_FACTORY), partitionCount);
         for (int position = 0; position < page.getPositionCount(); position++) {
             assertEquals(partitionGenerator.getPartition(page, position), partition);
         }

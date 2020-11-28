@@ -78,7 +78,7 @@ public class RuleTester
         queryRunner.createCatalog(session.getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
-        plugins.stream().forEach(queryRunner::installPlugin);
+        plugins.forEach(queryRunner::installPlugin);
 
         return new RuleTester(queryRunner);
     }

@@ -22,13 +22,10 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTypeRegistry
@@ -49,15 +46,12 @@ public class TestTypeRegistry
         for (Type type : metadata.getTypes()) {
             if (type.isComparable()) {
                 metadata.resolveOperator(EQUAL, ImmutableList.of(type, type));
-                metadata.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
                 metadata.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
                 metadata.resolveOperator(HASH_CODE, ImmutableList.of(type));
             }
             if (type.isOrderable()) {
                 metadata.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
                 metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                metadata.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                metadata.resolveOperator(GREATER_THAN, ImmutableList.of(type, type));
             }
         }
     }

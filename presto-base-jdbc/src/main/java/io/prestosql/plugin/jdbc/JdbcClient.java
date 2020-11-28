@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -20,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
@@ -28,31 +31,49 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+
 public interface JdbcClient
 {
-    default boolean schemaExists(JdbcIdentity identity, String schema)
+    default boolean schemaExists(ConnectorSession session, String schema)
     {
-        return getSchemaNames(identity).contains(schema);
+        return getSchemaNames(session).contains(schema);
     }
 
-    Set<String> getSchemaNames(JdbcIdentity identity);
+    Set<String> getSchemaNames(ConnectorSession session);
 
-    List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema);
+    List<SchemaTableName> getTableNames(ConnectorSession session, Optional<String> schema);
 
-    Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName);
+    Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName);
 
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
     Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle);
 
+    /**
+     * Bulk variant of {@link #toPrestoType(ConnectorSession, Connection, JdbcTypeHandle)}.
+     */
+    List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles);
+
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
+
+    default boolean supportsGroupingSets()
+    {
+        return true;
+    }
+
+    default Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
 
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);
 
-    Connection getConnection(JdbcIdentity identity, JdbcSplit split)
+    Connection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException;
 
     default void abortReadConnection(Connection connection)
@@ -68,31 +89,36 @@ public interface JdbcClient
 
     boolean isLimitGuaranteed(ConnectorSession session);
 
+    default void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+    }
+
     void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column);
 
-    void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column);
+    void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column);
 
-    void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName);
+    void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName);
 
-    void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName);
+    void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName);
 
     void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
-    void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
+    void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle);
 
     JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns);
 
-    void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
+    void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle);
 
-    void dropTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle);
+    void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle);
 
-    void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
+    void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle);
 
     String buildInsertSql(JdbcOutputTableHandle handle);
 
-    Connection getConnection(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException;
 
     PreparedStatement getPreparedStatement(Connection connection, String sql)
@@ -100,11 +126,22 @@ public interface JdbcClient
 
     TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain);
 
-    void createSchema(JdbcIdentity identity, String schemaName);
+    void createSchema(ConnectorSession session, String schemaName);
 
-    void dropSchema(JdbcIdentity identity, String schemaName);
+    void dropSchema(ConnectorSession session, String schemaName);
 
     default Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
+    String quoted(String name);
+
+    String quoted(RemoteTableName remoteTableName);
+
+    Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle);
+
+    default Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return Optional.empty();
     }

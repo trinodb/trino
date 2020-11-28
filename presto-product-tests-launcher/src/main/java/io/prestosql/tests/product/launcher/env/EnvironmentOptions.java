@@ -13,51 +13,38 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-import com.google.inject.Module;
-import io.airlift.airline.Option;
-
 import java.io.File;
-import java.util.Locale;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.util.Objects.requireNonNull;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions
 {
-    @Option(name = "--hadoop-base-image", title = "image", description = "Hadoop base image")
-    public String hadoopBaseImage = System.getenv().getOrDefault("HADOOP_BASE_IMAGE", "prestodev/hdp2.6-hive");
+    private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
 
-    @Option(name = "--image-version", title = "version", description = "docker images version")
-    public String imagesVersion = System.getenv().getOrDefault("DOCKER_IMAGES_VERSION", "28");
+    @Option(names = "--config", paramLabel = "<config>", description = "Environment config to use")
+    public String config = "config-default";
 
-    @Option(name = "--server-package", title = "server-package", description = "path to Presto server package")
-    public File serverPackage = new File("presto-server/target/presto-server-${project.version}.tar.gz");
+    @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Presto server package " + DEFAULT_VALUE, defaultValue = "${server.module}/target/${server.name}-${project.version}.tar.gz")
+    public File serverPackage;
 
-    @Option(name = "--without-presto", title = "without Presto", description = "do not start presto-master")
+    @Option(names = "--without-presto", description = "Do not start " + COORDINATOR)
     public boolean withoutPrestoMaster;
 
-    @Option(name = "--bind", description = "bind ports on localhost")
-    public boolean bindPorts = toBoolean(firstNonNull(System.getenv("PTL_BIND_PORTS"), "true"));
+    @Option(names = "--no-bind", description = "Bind ports on localhost", negatable = true)
+    public boolean bindPorts = true;
 
-    @Option(name = "--debug", description = "open Java debug ports")
+    @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
 
-    public Module toModule()
-    {
-        return binder -> {
-            binder.bind(EnvironmentOptions.class).toInstance(this);
-        };
-    }
+    @Option(names = "--output", description = "Container output handling mode: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "PRINT")
+    public DockerContainer.OutputMode output;
 
-    private static boolean toBoolean(String value)
+    @Option(names = "--launcher-bin", paramLabel = "<launcher bin>", description = "Launcher bin path (used to display run commands)", defaultValue = "${launcher.bin}", hidden = true)
+    public String launcherBin;
+
+    public static EnvironmentOptions empty()
     {
-        requireNonNull(value, "value is null");
-        switch (value.toLowerCase(Locale.ENGLISH)) {
-            case "true":
-                return true;
-            case "false":
-                return false;
-        }
-        throw new IllegalArgumentException("Cannot convert to boolean: " + value);
+        return new EnvironmentOptions();
     }
 }

@@ -16,6 +16,8 @@ package io.prestosql.plugin.redis.decoder.hash;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.type.Type;
+import org.joda.time.DateTime;
+import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -25,14 +27,20 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class ISO8601HashRedisFieldDecoder
         extends HashRedisFieldDecoder
 {
-    private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTimeParser().withLocale(Locale.ENGLISH).withZoneUTC();
+    private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTimeParser()
+            .withLocale(Locale.ENGLISH)
+            .withChronology(ISOChronology.getInstanceUTC())
+            .withOffsetParsed();
 
     @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)
@@ -51,17 +59,21 @@ class ISO8601HashRedisFieldDecoder
         @Override
         public long getLong()
         {
-            long millis = FORMATTER.parseMillis(getSlice().toStringAscii());
+            DateTime dateTime = FORMATTER.parseDateTime(getSlice().toStringAscii());
+            long millis = dateTime.getMillis();
 
             Type type = columnHandle.getType();
             if (type.equals(DATE)) {
                 return MILLISECONDS.toDays(millis);
             }
-            if (type.equals(TIMESTAMP) || type.equals(TIME)) {
-                return millis;
+            if (type.equals(TIMESTAMP_MILLIS)) {
+                return millis * MICROSECONDS_PER_MILLISECOND;
+            }
+            if (type.equals(TIME)) {
+                return millis * PICOSECONDS_PER_MILLISECOND;
             }
             if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {
-                return packDateTimeWithZone(millis, 0);
+                return packDateTimeWithZone(millis, getTimeZoneKey(dateTime.getZone().getID()));
             }
 
             return millis;

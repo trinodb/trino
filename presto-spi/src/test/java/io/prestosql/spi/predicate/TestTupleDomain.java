@@ -51,7 +51,6 @@ public class TestTupleDomain
     private static final ColumnHandle C = new TestingColumnHandle("c");
     private static final ColumnHandle D = new TestingColumnHandle("d");
     private static final ColumnHandle E = new TestingColumnHandle("e");
-    private static final ColumnHandle F = new TestingColumnHandle("f");
 
     @Test
     public void testNone()
@@ -593,7 +592,7 @@ public class TestTupleDomain
 
         ObjectMapper mapper = new ObjectMapperProvider().get()
                 .registerModule(new SimpleModule()
-                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<ColumnHandle>()
+                        .addDeserializer(ColumnHandle.class, new JsonDeserializer<>()
                         {
                             @Override
                             public ColumnHandle deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)

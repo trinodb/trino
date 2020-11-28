@@ -18,7 +18,14 @@ import io.airlift.log.Logger;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
+import io.prestosql.plugin.hive.acid.AcidOperation;
 import org.apache.hadoop.hive.common.ValidTxnList;
+import org.apache.hadoop.hive.metastore.api.AbortTxnRequest;
+import org.apache.hadoop.hive.metastore.api.AddDynamicPartitions;
+import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsRequest;
+import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsResponse;
+import org.apache.hadoop.hive.metastore.api.AlterPartitionsRequest;
+import org.apache.hadoop.hive.metastore.api.AlterTableRequest;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ClientCapabilities;
 import org.apache.hadoop.hive.metastore.api.ClientCapability;
@@ -54,6 +61,7 @@ import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
+import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.hadoop.hive.metastore.txn.TxnUtils;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -62,9 +70,14 @@ import org.apache.thrift.transport.TTransport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.metastore.txn.TxnUtils.createValidTxnWriteIdList;
 
 public class ThriftHiveMetastoreClient
         implements ThriftMetastoreClient
@@ -462,6 +475,13 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public void abortTransaction(long transactionId)
+            throws TException
+    {
+        client.abort_txn(new AbortTxnRequest(transactionId));
+    }
+
+    @Override
     public void sendTransactionHeartbeat(long transactionId)
             throws TException
     {
@@ -492,7 +512,7 @@ public class ThriftHiveMetastoreClient
         // deletes deleta directories for valid transactions that existed at the time transaction is opened
         ValidTxnList validTransactions = TxnUtils.createValidReadTxnList(client.get_open_txns(), 0L);
         GetValidWriteIdsRequest request = new GetValidWriteIdsRequest(tableList, validTransactions.toString());
-        return TxnUtils.createValidTxnWriteIdList(
+        return createValidTxnWriteIdList(
                 currentTransactionId,
                 client.get_valid_write_ids(request).getTblValidWriteIds())
                 .toString();
@@ -510,5 +530,56 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_delegation_token(userName, userName);
+    }
+
+    @Override
+    public List<TxnToWriteId> allocateTableWriteIds(String dbName, String tableName, List<Long> transactionIds)
+            throws TException
+    {
+        AllocateTableWriteIdsRequest request = new AllocateTableWriteIdsRequest(dbName, tableName);
+        request.setTxnIds(transactionIds);
+        AllocateTableWriteIdsResponse response = client.allocate_table_write_ids(request);
+        return response.getTxnToWriteIds();
+    }
+
+    @Override
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+            throws TException
+    {
+        Table table = getTableWithCapabilities(dbName, tableName);
+        rowCountChange.ifPresent(rowCount ->
+                table.setParameters(adjustRowCount(table.getParameters(), tableName, rowCount)));
+        alterTransactionalTable(table, transactionId, writeId, new EnvironmentContext());
+    }
+
+    @Override
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException
+    {
+        AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
+        request.setWriteId(writeId);
+        client.alter_partitions_req(request);
+    }
+
+    @Override
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+            throws TException
+    {
+        AddDynamicPartitions request = new AddDynamicPartitions(transactionId, writeId, dbName, tableName, partitionNames);
+        request.setOperationType(operation.getMetastoreOperationType());
+        client.add_dynamic_partitions(request);
+    }
+
+    @Override
+    public void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext environmentContext)
+            throws TException
+    {
+        table.setWriteId(writeId);
+        checkArgument(writeId >= table.getWriteId(), "The writeId supplied %s should be greater than or equal to the table writeId %s", writeId, table.getWriteId());
+        AlterTableRequest request = new AlterTableRequest(table.getDbName(), table.getTableName(), table);
+        request.setValidWriteIdList(getValidWriteIds(ImmutableList.of(format("%s.%s", table.getDbName(), table.getTableName())), transactionId));
+        request.setWriteId(writeId);
+        request.setEnvironmentContext(environmentContext);
+        client.alter_table_req(request);
     }
 }

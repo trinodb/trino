@@ -15,6 +15,8 @@ package io.prestosql.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.hive.acid.AcidSchema;
+import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
@@ -28,9 +30,10 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -59,11 +62,16 @@ public class HiveColumnHandle
 
     public static final int FILE_MODIFIED_TIME_COLUMN_INDEX = -14;
     public static final String FILE_MODIFIED_TIME_COLUMN_NAME = "$file_modified_time";
-    // TODO introduce HiveType.HIVE_TIMESTAMP_WITH_TIME_ZONE
     public static final HiveType FILE_MODIFIED_TIME_TYPE = HiveType.HIVE_TIMESTAMP;
-    public static final Type FILE_MODIFIED_TIME_TYPE_SIGNATURE = TIMESTAMP_WITH_TIME_ZONE;
+    public static final Type FILE_MODIFIED_TIME_TYPE_SIGNATURE = TIMESTAMP_TZ_MILLIS;
 
-    private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
+    public static final int PARTITION_COLUMN_INDEX = -15;
+    public static final String PARTITION_COLUMN_NAME = "$partition";
+    public static final HiveType PARTITION_HIVE_TYPE = HIVE_STRING;
+    public static final Type PARTITION_TYPE_SIGNATURE = VARCHAR;
+
+    public static final int UPDATE_ROW_ID_COLUMN_INDEX = -16;
+    public static final String UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
 
     public enum ColumnType
     {
@@ -238,15 +246,14 @@ public class HiveColumnHandle
         return name + ":" + getHiveType() + ":" + columnType;
     }
 
-    public static HiveColumnHandle updateRowIdHandle()
+    public Column toMetastoreColumn()
     {
-        // Hive connector only supports metadata delete. It does not support generic row-by-row deletion.
-        // Metadata delete is implemented in Presto by generating a plan for row-by-row delete first,
-        // and then optimize it into metadata delete. As a result, Hive connector must provide partial
-        // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
-        // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
+        return new Column(name, getHiveType(), comment);
+    }
 
-        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, -1, HIVE_LONG, BIGINT, SYNTHESIZED, Optional.empty());
+    public static HiveColumnHandle updateRowIdColumnHandle()
+    {
+        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, UPDATE_ROW_ID_COLUMN_INDEX, toHiveType(AcidSchema.ACID_ROW_ID_ROW_TYPE), AcidSchema.ACID_ROW_ID_ROW_TYPE, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
@@ -274,6 +281,11 @@ public class HiveColumnHandle
         return createBaseColumn(FILE_MODIFIED_TIME_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_INDEX, FILE_MODIFIED_TIME_TYPE, FILE_MODIFIED_TIME_TYPE_SIGNATURE, SYNTHESIZED, Optional.empty());
     }
 
+    public static HiveColumnHandle partitionColumnHandle()
+    {
+        return createBaseColumn(PARTITION_COLUMN_NAME, PARTITION_COLUMN_INDEX, PARTITION_HIVE_TYPE, PARTITION_TYPE_SIGNATURE, SYNTHESIZED, Optional.empty());
+    }
+
     public static boolean isPathColumnHandle(HiveColumnHandle column)
     {
         return column.getBaseHiveColumnIndex() == PATH_COLUMN_INDEX;
@@ -292,5 +304,15 @@ public class HiveColumnHandle
     public static boolean isFileModifiedTimeColumnHandle(HiveColumnHandle column)
     {
         return column.getBaseHiveColumnIndex() == FILE_MODIFIED_TIME_COLUMN_INDEX;
+    }
+
+    public static boolean isPartitionColumnHandle(HiveColumnHandle column)
+    {
+        return column.getBaseHiveColumnIndex() == PARTITION_COLUMN_INDEX;
+    }
+
+    public static boolean isRowIdColumnHandle(HiveColumnHandle column)
+    {
+        return column.getBaseHiveColumnIndex() == UPDATE_ROW_ID_COLUMN_INDEX;
     }
 }

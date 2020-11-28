@@ -13,7 +13,52 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-public interface EnvironmentProvider
+import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
+
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Set;
+
+import static java.util.Collections.newSetFromMap;
+import static java.util.Objects.requireNonNull;
+
+public abstract class EnvironmentProvider
+        implements EnvironmentExtender
 {
-    Environment.Builder createEnvironment(String name);
+    private static final Logger log = Logger.get(EnvironmentProvider.class);
+    private final List<EnvironmentExtender> bases;
+
+    protected EnvironmentProvider(List<EnvironmentExtender> bases)
+    {
+        this.bases = requireNonNull(bases, "bases is null");
+    }
+
+    public final Environment.Builder createEnvironment(String name, EnvironmentConfig environmentConfig)
+    {
+        requireNonNull(environmentConfig, "environmentConfig is null");
+        Environment.Builder builder = Environment.builder(name);
+
+        // Environment is created by applying bases, environment definition and environment config to builder
+        ImmutableList<EnvironmentExtender> extenders = ImmutableList.<EnvironmentExtender>builder()
+                .addAll(bases)
+                .add(this)
+                .add(environmentConfig)
+                .build();
+
+        Set<EnvironmentExtender> seen = newSetFromMap(new IdentityHashMap<>());
+        extenders.forEach(extender -> extend(extender, builder, seen));
+        return builder;
+    }
+
+    private void extend(EnvironmentExtender extender, Environment.Builder builder, Set<EnvironmentExtender> seen)
+    {
+        extender.getDependencies()
+                .forEach(dependencyExtender -> extend(dependencyExtender, builder, seen));
+        if (seen.add(extender)) {
+            log.info("Building environment %s with extender: %s", builder.getEnvironmentName(), extender.getClass().getSimpleName());
+            extender.extendEnvironment(builder);
+        }
+    }
 }

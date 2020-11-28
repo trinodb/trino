@@ -19,6 +19,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
@@ -43,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.QueryUtil.aliased;
 import static io.prestosql.sql.QueryUtil.identifier;
@@ -50,6 +52,7 @@ import static io.prestosql.sql.QueryUtil.row;
 import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.QueryUtil.values;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
 final class DescribeOutputRewrite
@@ -64,10 +67,11 @@ final class DescribeOutputRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
+            GroupProvider groupProvider,
             AccessControl accessControl,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, accessControl, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, groupProvider, accessControl, warningCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -79,6 +83,7 @@ final class DescribeOutputRewrite
         private final Optional<QueryExplainer> queryExplainer;
         private final List<Expression> parameters;
         private final Map<NodeRef<Parameter>, Expression> parameterLookup;
+        private final GroupProvider groupProvider;
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
 
@@ -89,6 +94,7 @@ final class DescribeOutputRewrite
                 Optional<QueryExplainer> queryExplainer,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
+                GroupProvider groupProvider,
                 AccessControl accessControl,
                 WarningCollector warningCollector)
         {
@@ -98,6 +104,7 @@ final class DescribeOutputRewrite
             this.queryExplainer = queryExplainer;
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
+            this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
             this.accessControl = accessControl;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
@@ -108,7 +115,7 @@ final class DescribeOutputRewrite
             String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
             Analysis analysis = analyzer.analyze(statement, true);
 
             Optional<Node> limit = Optional.empty();
@@ -116,7 +123,7 @@ final class DescribeOutputRewrite
             if (rows.length == 0) {
                 NullLiteral nullLiteral = new NullLiteral();
                 rows = new Row[] {row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral)};
-                limit = Optional.of(new Limit("0"));
+                limit = Optional.of(new Limit(new LongLiteral("0")));
             }
             return simpleQuery(
                     selectList(
@@ -139,7 +146,7 @@ final class DescribeOutputRewrite
                     limit);
         }
 
-        private static Row createDescribeOutputRow(Field field, Analysis analysis)
+        private Row createDescribeOutputRow(Field field, Analysis analysis)
         {
             LongLiteral typeSize = new LongLiteral("0");
             if (field.getType() instanceof FixedWidthType) {
@@ -162,7 +169,7 @@ final class DescribeOutputRewrite
                     new StringLiteral(originTable.map(QualifiedObjectName::getCatalogName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::getSchemaName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::getObjectName).orElse("")),
-                    new StringLiteral(field.getType().getDisplayName()),
+                    new StringLiteral(getDisplayLabel(field.getType(), isOmitDateTimeTypePrecision(session))),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));
         }

@@ -29,5 +29,5 @@ local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan household_demographics
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["ca_address_sk_32"])
+                remote exchange (REPARTITION, HASH, ["ca_address_sk_2"])
                     scan customer_address

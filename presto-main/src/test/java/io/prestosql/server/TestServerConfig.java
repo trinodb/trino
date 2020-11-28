@@ -33,7 +33,7 @@ public class TestServerConfig
                 .setCoordinator(true)
                 .setIncludeExceptionInResponse(true)
                 .setGracePeriod(new Duration(2, MINUTES))
-                .setEnhancedErrorReporting(true));
+                .setQueryResultsCompressionEnabled(true));
     }
 
     @Test
@@ -43,14 +43,14 @@ public class TestServerConfig
                 .put("coordinator", "false")
                 .put("http.include-exception-in-response", "false")
                 .put("shutdown.grace-period", "5m")
-                .put("sql.parser.enhanced-error-reporting", "false")
+                .put("query-results.compression-enabled", "false")
                 .build();
 
         ServerConfig expected = new ServerConfig()
                 .setCoordinator(false)
                 .setIncludeExceptionInResponse(false)
                 .setGracePeriod(new Duration(5, MINUTES))
-                .setEnhancedErrorReporting(false);
+                .setQueryResultsCompressionEnabled(false);
 
         assertFullMapping(properties, expected);
     }

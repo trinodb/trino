@@ -31,6 +31,7 @@ import io.prestosql.spi.connector.LocalProperty;
 import io.prestosql.spi.connector.SortingProperty;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.NoOpSymbolResolver;
@@ -109,17 +110,30 @@ public final class PropertyDerivations
 {
     private PropertyDerivations() {}
 
-    public static ActualProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+    public static ActualProperties derivePropertiesRecursively(
+            PlanNode node,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            Session session,
+            TypeProvider types,
+            TypeAnalyzer typeAnalyzer)
     {
         List<ActualProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, session, types, typeAnalyzer))
+                .map(source -> derivePropertiesRecursively(source, metadata, typeOperators, session, types, typeAnalyzer))
                 .collect(toImmutableList());
-        return deriveProperties(node, inputProperties, metadata, session, types, typeAnalyzer);
+        return deriveProperties(node, inputProperties, metadata, typeOperators, session, types, typeAnalyzer);
     }
 
-    public static ActualProperties deriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+    public static ActualProperties deriveProperties(
+            PlanNode node,
+            List<ActualProperties> inputProperties,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            Session session,
+            TypeProvider types,
+            TypeAnalyzer typeAnalyzer)
     {
-        ActualProperties output = node.accept(new Visitor(metadata, session, types, typeAnalyzer), inputProperties);
+        ActualProperties output = node.accept(new Visitor(metadata, typeOperators, session, types, typeAnalyzer), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
                 verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
@@ -134,22 +148,31 @@ public final class PropertyDerivations
         return output;
     }
 
-    public static ActualProperties streamBackdoorDeriveProperties(PlanNode node, List<ActualProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+    public static ActualProperties streamBackdoorDeriveProperties(
+            PlanNode node,
+            List<ActualProperties> inputProperties,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            Session session,
+            TypeProvider types,
+            TypeAnalyzer typeAnalyzer)
     {
-        return node.accept(new Visitor(metadata, session, types, typeAnalyzer), inputProperties);
+        return node.accept(new Visitor(metadata, typeOperators, session, types, typeAnalyzer), inputProperties);
     }
 
     private static class Visitor
             extends PlanVisitor<ActualProperties, List<ActualProperties>>
     {
         private final Metadata metadata;
+        private final TypeOperators typeOperators;
         private final Session session;
         private final TypeProvider types;
         private final TypeAnalyzer typeAnalyzer;
 
-        public Visitor(Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+        public Visitor(Metadata metadata, TypeOperators typeOperators, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
             this.metadata = metadata;
+            this.typeOperators = typeOperators;
             this.session = session;
             this.types = types;
             this.typeAnalyzer = typeAnalyzer;
@@ -602,6 +625,7 @@ public final class PropertyDerivations
 
             DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                     metadata,
+                    typeOperators,
                     session,
                     node.getPredicate(),
                     types);

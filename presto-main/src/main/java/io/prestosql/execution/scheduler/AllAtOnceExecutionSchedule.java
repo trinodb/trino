@@ -43,6 +43,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.execution.StageState.FLUSHING;
 import static io.prestosql.execution.StageState.RUNNING;
 import static io.prestosql.execution.StageState.SCHEDULED;
 import static java.util.Objects.requireNonNull;
@@ -71,7 +72,7 @@ public class AllAtOnceExecutionSchedule
     {
         for (Iterator<SqlStageExecution> iterator = schedulingStages.iterator(); iterator.hasNext(); ) {
             StageState state = iterator.next().getState();
-            if (state == SCHEDULED || state == RUNNING || state.isDone()) {
+            if (state == SCHEDULED || state == RUNNING || state == FLUSHING || state.isDone()) {
                 iterator.remove();
             }
         }
@@ -98,7 +99,7 @@ public class AllAtOnceExecutionSchedule
         Set<PlanFragment> rootFragments = fragments.stream()
                 .filter(fragment -> !remoteSources.contains(fragment.getId()))
                 .collect(toImmutableSet());
-        checkArgument(rootFragments.size() == 1, "Expected one root fragment, but found: " + rootFragments);
+        checkArgument(rootFragments.size() == 1, "Expected one root fragment, but found: %s", rootFragments);
 
         Visitor visitor = new Visitor(fragments);
         visitor.processFragment(getOnlyElement(rootFragments).getId());

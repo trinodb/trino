@@ -305,49 +305,49 @@ public class TestGeometryUnionGeoAggregation
     public void testPoint(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
     }
 
     @Test(dataProvider = "linestring")
     public void testLineString(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
     }
 
     @Test(dataProvider = "polygon")
     public void testPolygon(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
     }
 
     @Test(dataProvider = "multipoint")
     public void testMultiPoint(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
     }
 
     @Test(dataProvider = "multilinestring")
     public void testMultiLineString(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
     }
 
     @Test(dataProvider = "multipolygon")
     public void testMultiPolygon(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
     }
 
     @Test(dataProvider = "geometrycollection")
     public void testGeometryCollection(String testDescription, String expectedWkt, String... wkts)
     {
         assertAggregatedGeometries(testDescription, expectedWkt, wkts);
-        assertArrayAggAndGeometryUnion(testDescription, expectedWkt, wkts);
+        assertArrayAggAndGeometryUnion(expectedWkt, wkts);
     }
 
     @Override
@@ -356,7 +356,7 @@ public class TestGeometryUnionGeoAggregation
         return "geometry_union_agg";
     }
 
-    private void assertArrayAggAndGeometryUnion(String testDescription, String expectedWkt, String[] wkts)
+    private void assertArrayAggAndGeometryUnion(String expectedWkt, String[] wkts)
     {
         List<String> wktList = Arrays.stream(wkts).map(wkt -> format("ST_GeometryFromText('%s')", wkt)).collect(toList());
         String wktArray = format("ARRAY[%s]", COMMA_JOINER.join(wktList));

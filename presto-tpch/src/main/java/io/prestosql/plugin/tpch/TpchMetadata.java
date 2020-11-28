@@ -16,6 +16,7 @@ package io.prestosql.plugin.tpch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,7 +26,7 @@ import io.prestosql.plugin.tpch.statistics.ColumnStatisticsData;
 import io.prestosql.plugin.tpch.statistics.StatisticsEstimator;
 import io.prestosql.plugin.tpch.statistics.TableStatisticsData;
 import io.prestosql.plugin.tpch.statistics.TableStatisticsDataRepository;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -39,7 +40,9 @@ import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LocalProperty;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.connector.SortingProperty;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -125,13 +128,20 @@ public class TpchMetadata
     private final StatisticsEstimator statisticsEstimator;
     private final boolean predicatePushdownEnabled;
     private final boolean partitioningEnabled;
+    private final Optional<String> destinationCatalog;
+    private final Optional<String> destinationSchema;
 
     public TpchMetadata()
     {
-        this(ColumnNaming.SIMPLIFIED, true, true);
+        this(ColumnNaming.SIMPLIFIED, true, true, Optional.empty(), Optional.empty());
     }
 
-    public TpchMetadata(ColumnNaming columnNaming, boolean predicatePushdownEnabled, boolean partitioningEnabled)
+    public TpchMetadata(
+            ColumnNaming columnNaming,
+            boolean predicatePushdownEnabled,
+            boolean partitioningEnabled,
+            Optional<String> destinationCatalog,
+            Optional<String> destinationSchema)
     {
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
@@ -142,6 +152,8 @@ public class TpchMetadata
         this.predicatePushdownEnabled = predicatePushdownEnabled;
         this.partitioningEnabled = partitioningEnabled;
         this.statisticsEstimator = createStatisticsEstimator();
+        this.destinationCatalog = destinationCatalog;
+        this.destinationSchema = destinationSchema;
     }
 
     private static StatisticsEstimator createStatisticsEstimator()
@@ -501,6 +513,27 @@ public class TpchMetadata
                         handle.getScaleFactor(),
                         oldDomain.intersect(predicate)),
                 unenforcedConstraint));
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle table)
+    {
+        TpchTableHandle handle = (TpchTableHandle) table;
+        if (destinationCatalog.isEmpty()) {
+            return Optional.empty();
+        }
+
+        CatalogSchemaTableName destinationTable = new CatalogSchemaTableName(
+                destinationCatalog.get(),
+                destinationSchema.orElse(scaleFactorSchemaName(handle.getScaleFactor())),
+                handle.getTableName());
+        return Optional.of(
+                new TableScanRedirectApplicationResult(
+                        destinationTable,
+                        ImmutableBiMap.copyOf(getColumnHandles(session, table)).inverse(),
+                        handle.getConstraint()
+                                .transform(TpchColumnHandle.class::cast)
+                                .transform(TpchColumnHandle::getColumnName)));
     }
 
     private TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<NullableValue>> predicate)

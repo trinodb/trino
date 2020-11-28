@@ -16,21 +16,36 @@ package io.prestosql.operator.window;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.operator.PagesHashStrategy;
 import io.prestosql.operator.PagesIndex;
+import io.prestosql.operator.PagesIndexComparator;
+import io.prestosql.operator.WindowOperator.FrameBoundKey;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.function.WindowIndex;
 import io.prestosql.sql.tree.FrameBound;
+import io.prestosql.sql.tree.FrameBound.Type;
+import io.prestosql.sql.tree.SortItem.Ordering;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.operator.WindowOperator.FrameBoundKey.Type.END;
+import static io.prestosql.operator.WindowOperator.FrameBoundKey.Type.START;
 import static io.prestosql.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.prestosql.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.prestosql.sql.tree.WindowFrame.Type.GROUPS;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public final class WindowPartition
 {
@@ -40,10 +55,33 @@ public final class WindowPartition
 
     private final int[] outputChannels;
     private final List<FramedWindowFunction> windowFunctions;
+
+    // Recently computed frame bounds for functions with frame type RANGE.
+    // When computing frame start and frame end for a row, frame bounds for the previous row
+    // are used as the starting point. Then they are moved backward or forward based on the sort order
+    // until the matching position for a current row is found.
+    // This approach is efficient in case when frame offset values are constant. It was chosen
+    // based on the assumption that in most use cases frame offset is constant rather than
+    // row-dependent.
+    private final Map<Integer, Range> recentRanges;
     private final PagesHashStrategy peerGroupHashStrategy;
+    private final Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators;
+
+    // Recently computed frames for functions with frame type GROUPS.
+    // Along frame start and frame end, they also capture indexes of peer groups
+    // where frame bounds fall.
+    // This information is used as the starting point when processing the next row.
+    // This approach is efficient in case when group offset values are constant,
+    // which is assumed to be the most common use case.
+    private final Map<Integer, GroupsFrame> recentGroupsFrames;
 
     private int peerGroupStart;
     private int peerGroupEnd;
+
+    private int currentGroupIndex = -1;
+    private int lastPeerGroup = Integer.MAX_VALUE;
+    private final Function<Integer, Integer> seekGroupStart;
+    private final Function<Integer, Integer> seekGroupEnd;
 
     private int currentPosition;
 
@@ -53,7 +91,8 @@ public final class WindowPartition
             int partitionEnd,
             int[] outputChannels,
             List<FramedWindowFunction> windowFunctions,
-            PagesHashStrategy peerGroupHashStrategy)
+            PagesHashStrategy peerGroupHashStrategy,
+            Map<FrameBoundKey, PagesIndexComparator> frameBoundComparators)
     {
         this.pagesIndex = pagesIndex;
         this.partitionStart = partitionStart;
@@ -61,6 +100,7 @@ public final class WindowPartition
         this.outputChannels = outputChannels;
         this.windowFunctions = ImmutableList.copyOf(windowFunctions);
         this.peerGroupHashStrategy = peerGroupHashStrategy;
+        this.frameBoundComparators = frameBoundComparators;
 
         // reset functions for new partition
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, partitionStart, partitionEnd);
@@ -70,6 +110,60 @@ public final class WindowPartition
 
         currentPosition = partitionStart;
         updatePeerGroup();
+
+        recentRanges = initializeRangeCache(partitionStart, partitionEnd, peerGroupEnd, windowFunctions);
+
+        recentGroupsFrames = initializeGroupsFrameCache(partitionStart, peerGroupEnd, windowFunctions);
+
+        seekGroupStart = position -> {
+            requireNonNull(position, "position is null");
+            while (position > 0 && pagesIndex.positionEqualsPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position - 1)) {
+                position--;
+            }
+            return position;
+        };
+
+        seekGroupEnd = position -> {
+            requireNonNull(position, "position is null");
+            while (position < partitionEnd - 1 - partitionStart && pagesIndex.positionEqualsPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position + 1)) {
+                position++;
+            }
+            return position;
+        };
+    }
+
+    private static Map<Integer, Range> initializeRangeCache(int partitionStart, int partitionEnd, int peerGroupEnd, List<FramedWindowFunction> windowFunctions)
+    {
+        Map<Integer, Range> ranges = new HashMap<>();
+        Range initialPeerRange = new Range(0, peerGroupEnd - partitionStart - 1);
+        Range initialUnboundedRange = new Range(0, partitionEnd - partitionStart - 1);
+        for (int i = 0; i < windowFunctions.size(); i++) {
+            FrameInfo frame = windowFunctions.get(i).getFrame();
+            if (frame.getType() == RANGE) {
+                if (frame.getEndType() == UNBOUNDED_FOLLOWING) {
+                    ranges.put(i, initialUnboundedRange);
+                }
+                else {
+                    ranges.put(i, initialPeerRange);
+                }
+            }
+        }
+
+        return ranges;
+    }
+
+    private static Map<Integer, GroupsFrame> initializeGroupsFrameCache(int partitionStart, int peerGroupEnd, List<FramedWindowFunction> windowFunctions)
+    {
+        Map<Integer, GroupsFrame> frames = new HashMap<>();
+        GroupsFrame initialPeerFrame = new GroupsFrame(0, 0, peerGroupEnd - partitionStart - 1, 0);
+        for (int i = 0; i < windowFunctions.size(); i++) {
+            FrameInfo frame = windowFunctions.get(i).getFrame();
+            if (frame.getType() == GROUPS) {
+                frames.put(i, initialPeerFrame);
+            }
+        }
+
+        return frames;
     }
 
     public int getPartitionStart()
@@ -104,8 +198,9 @@ public final class WindowPartition
             updatePeerGroup();
         }
 
-        for (FramedWindowFunction framedFunction : windowFunctions) {
-            Range range = getFrameRange(framedFunction.getFrame());
+        for (int i = 0; i < windowFunctions.size(); i++) {
+            FramedWindowFunction framedFunction = windowFunctions.get(i);
+            Range range = getFrameRange(framedFunction.getFrame(), i);
             framedFunction.getFunction().processRow(
                     pageBuilder.getBlockBuilder(channel),
                     peerGroupStart - partitionStart,
@@ -142,11 +237,44 @@ public final class WindowPartition
 
     private void updatePeerGroup()
     {
+        currentGroupIndex++;
         peerGroupStart = currentPosition;
         // find end of peer group
         peerGroupEnd = peerGroupStart + 1;
         while ((peerGroupEnd < partitionEnd) && pagesIndex.positionEqualsPosition(peerGroupHashStrategy, peerGroupStart, peerGroupEnd)) {
             peerGroupEnd++;
+        }
+    }
+
+    private Range getFrameRange(FrameInfo frameInfo, int functionIndex)
+    {
+        switch (frameInfo.getType()) {
+            case RANGE:
+                Range range = getFrameRange(
+                        frameInfo,
+                        recentRanges.get(functionIndex),
+                        frameBoundComparators.get(new FrameBoundKey(functionIndex, START)),
+                        frameBoundComparators.get(new FrameBoundKey(functionIndex, END)));
+                // handle empty frame. If the frame is out of partition bounds, record the nearest valid frame as the 'recentRange' for the next row.
+                if (emptyFrame(range)) {
+                    recentRanges.put(functionIndex, nearestValidFrame(range));
+                    return new Range(-1, -1);
+                }
+                recentRanges.put(functionIndex, range);
+                return range;
+            case ROWS:
+                return getFrameRange(frameInfo);
+            case GROUPS:
+                GroupsFrame frame = getFrameRange(frameInfo, recentGroupsFrames.get(functionIndex));
+                // handle empty frame. If the frame is out of partition bounds, record the nearest valid frame as the 'recentFrame' for the next row.
+                if (emptyFrame(frame.getRange())) {
+                    recentGroupsFrames.put(functionIndex, nearestValidFrame(frame));
+                    return new Range(-1, -1);
+                }
+                recentGroupsFrames.put(functionIndex, frame);
+                return frame.getRange();
+            default:
+                throw new IllegalArgumentException("Unsupported frame type: " + frameInfo.getType());
         }
     }
 
@@ -173,9 +301,6 @@ public final class WindowPartition
         else if (frameInfo.getStartType() == FOLLOWING) {
             frameStart = following(rowPosition, endPosition, getStartValue(frameInfo));
         }
-        else if (frameInfo.getType() == RANGE) {
-            frameStart = peerGroupStart - partitionStart;
-        }
         else {
             frameStart = rowPosition;
         }
@@ -190,14 +315,227 @@ public final class WindowPartition
         else if (frameInfo.getEndType() == FOLLOWING) {
             frameEnd = following(rowPosition, endPosition, getEndValue(frameInfo));
         }
-        else if (frameInfo.getType() == RANGE) {
-            frameEnd = peerGroupEnd - partitionStart - 1;
-        }
         else {
             frameEnd = rowPosition;
         }
 
         return new Range(frameStart, frameEnd);
+    }
+
+    private Range getFrameRange(FrameInfo frameInfo, Range recentRange, PagesIndexComparator startComparator, PagesIndexComparator endComparator)
+    {
+        // full partition
+        if ((frameInfo.getStartType() == UNBOUNDED_PRECEDING && frameInfo.getEndType() == UNBOUNDED_FOLLOWING)) {
+            return new Range(0, partitionEnd - partitionStart - 1);
+        }
+
+        // frame defined by peer group
+        if (frameInfo.getStartType() == CURRENT_ROW && frameInfo.getEndType() == CURRENT_ROW ||
+                frameInfo.getStartType() == CURRENT_ROW && frameInfo.getEndType() == UNBOUNDED_FOLLOWING ||
+                frameInfo.getStartType() == UNBOUNDED_PRECEDING && frameInfo.getEndType() == CURRENT_ROW) {
+            // same peer group as recent row
+            if (currentPosition == partitionStart || pagesIndex.positionEqualsPosition(peerGroupHashStrategy, currentPosition - 1, currentPosition)) {
+                return recentRange;
+            }
+            // next peer group
+            return new Range(
+                    frameInfo.getStartType() == UNBOUNDED_PRECEDING ? 0 : peerGroupStart - partitionStart,
+                    frameInfo.getEndType() == UNBOUNDED_FOLLOWING ? partitionEnd - partitionStart - 1 : peerGroupEnd - partitionStart - 1);
+        }
+
+        // at this point, frame definition has at least one of: X PRECEDING, Y FOLLOWING
+        // 1. leading or trailing nulls: frame consists of nulls peer group, possibly extended to partition start / end.
+        // according to Spec, behavior of "X PRECEDING", "X FOLLOWING" frame boundaries is similar to "CURRENT ROW" for null values.
+        if (pagesIndex.isNull(frameInfo.getSortKeyChannel(), currentPosition)) {
+            return new Range(
+                    frameInfo.getStartType() == UNBOUNDED_PRECEDING ? 0 : peerGroupStart - partitionStart,
+                    frameInfo.getEndType() == UNBOUNDED_FOLLOWING ? partitionEnd - partitionStart - 1 : peerGroupEnd - partitionStart - 1);
+        }
+
+        // 2. non-null value in current row. Find frame boundaries starting from recentRange
+        int frameStart;
+        if (frameInfo.getStartType() == UNBOUNDED_PRECEDING) {
+            frameStart = 0;
+        }
+        else if (frameInfo.getStartType() == CURRENT_ROW) {
+            frameStart = peerGroupStart - partitionStart;
+        }
+        else if (frameInfo.getStartType() == PRECEDING) {
+            frameStart = getFrameStartPreceding(recentRange.getStart(), frameInfo, startComparator);
+        }
+        else {
+            // frameInfo.getStartType() == FOLLOWING
+            // note: this is the only case where frameStart might get out of partition bound
+            frameStart = getFrameStartFollowing(recentRange.getStart(), frameInfo, startComparator);
+        }
+
+        int frameEnd;
+        if (frameInfo.getEndType() == UNBOUNDED_FOLLOWING) {
+            frameEnd = partitionEnd - partitionStart - 1;
+        }
+        else if (frameInfo.getEndType() == CURRENT_ROW) {
+            frameEnd = peerGroupEnd - partitionStart - 1;
+        }
+        else if (frameInfo.getEndType() == PRECEDING) {
+            // note: this is the only case where frameEnd might get out of partition bound
+            frameEnd = getFrameEndPreceding(recentRange.getEnd(), frameInfo, endComparator);
+        }
+        else {
+            // frameInfo.getEndType() == FOLLOWING
+            frameEnd = getFrameEndFollowing(recentRange.getEnd(), frameInfo, endComparator);
+        }
+
+        return new Range(frameStart, frameEnd);
+    }
+
+    private int getFrameStartPreceding(int recent, FrameInfo frameInfo, PagesIndexComparator comparator)
+    {
+        int sortKeyChannel = frameInfo.getSortKeyChannelForStartComparison();
+        Ordering ordering = frameInfo.getOrdering().get();
+
+        // If the recent frame start points at a null, it means that we are now processing first non-null position.
+        // For frame start "X PRECEDING", the frame starts at the first null for all null values, and it never includes nulls for non-null values.
+        if (pagesIndex.isNull(frameInfo.getSortKeyChannel(), partitionStart + recent)) {
+            return currentPosition - partitionStart;
+        }
+
+        return seek(
+                comparator,
+                sortKeyChannel,
+                recent,
+                -1,
+                ordering == DESCENDING,
+                0,
+                p -> false);
+    }
+
+    private int getFrameStartFollowing(int recent, FrameInfo frameInfo, PagesIndexComparator comparator)
+    {
+        int sortKeyChannel = frameInfo.getSortKeyChannelForStartComparison();
+        Ordering ordering = frameInfo.getOrdering().get();
+
+        int position = recent;
+
+        // If the recent frame start points at the beginning of partition and it is null, it means that we are now processing first non-null position.
+        // frame start for first non-null position - leave section of leading nulls
+        if (recent == 0 && pagesIndex.isNull(frameInfo.getSortKeyChannel(), partitionStart)) {
+            position = currentPosition - partitionStart;
+        }
+        // leave section of trailing nulls
+        while (pagesIndex.isNull(frameInfo.getSortKeyChannel(), partitionStart + position)) {
+            position--;
+        }
+
+        return seek(
+                comparator,
+                sortKeyChannel,
+                position,
+                -1,
+                ordering == DESCENDING,
+                0,
+                p -> p >= partitionEnd - partitionStart || pagesIndex.isNull(sortKeyChannel, partitionStart + p));
+    }
+
+    private int getFrameEndPreceding(int recent, FrameInfo frameInfo, PagesIndexComparator comparator)
+    {
+        int sortKeyChannel = frameInfo.getSortKeyChannelForEndComparison();
+        Ordering ordering = frameInfo.getOrdering().get();
+
+        int position = recent;
+
+        // leave section of leading nulls
+        while (pagesIndex.isNull(frameInfo.getSortKeyChannel(), partitionStart + position)) {
+            position++;
+        }
+
+        return seek(
+                comparator,
+                sortKeyChannel,
+                position,
+                1,
+                ordering == ASCENDING,
+                partitionEnd - 1 - partitionStart,
+                p -> p < 0 || pagesIndex.isNull(sortKeyChannel, partitionStart + p));
+    }
+
+    private int getFrameEndFollowing(int recent, FrameInfo frameInfo, PagesIndexComparator comparator)
+    {
+        Ordering ordering = frameInfo.getOrdering().get();
+        int sortKeyChannel = frameInfo.getSortKeyChannelForEndComparison();
+
+        int position = recent;
+
+        // frame end for first non-null position - leave section of leading nulls
+        if (pagesIndex.isNull(frameInfo.getSortKeyChannel(), partitionStart + recent)) {
+            position = currentPosition - partitionStart;
+        }
+
+        return seek(
+                comparator,
+                sortKeyChannel,
+                position,
+                1,
+                ordering == ASCENDING,
+                partitionEnd - 1 - partitionStart,
+                p -> false);
+    }
+
+    private int compare(PagesIndexComparator comparator, int left, int right, boolean reverse)
+    {
+        int result = comparator.compareTo(pagesIndex, left, right);
+
+        if (reverse) {
+            return -result;
+        }
+
+        return result;
+    }
+
+    // This method assumes that `sortKeyChannel` is not null at `position`
+    private int seek(PagesIndexComparator comparator, int sortKeyChannel, int position, int step, boolean reverse, int limit, Predicate<Integer> bound)
+    {
+        int comparison = compare(comparator, partitionStart + position, currentPosition, reverse);
+        while (comparison < 0) {
+            position -= step;
+
+            if (bound.test(position)) {
+                return position;
+            }
+
+            comparison = compare(comparator, partitionStart + position, currentPosition, reverse);
+        }
+        while (true) {
+            if (position == limit || pagesIndex.isNull(sortKeyChannel, partitionStart + position + step)) {
+                break;
+            }
+            int newComparison = compare(comparator, partitionStart + position + step, currentPosition, reverse);
+            if (newComparison >= 0) {
+                position += step;
+            }
+            else {
+                break;
+            }
+        }
+
+        return position;
+    }
+
+    private boolean emptyFrame(Range range)
+    {
+        return range.getStart() > range.getEnd() ||
+                range.getStart() >= partitionEnd - partitionStart ||
+                range.getEnd() < 0;
+    }
+
+    /**
+     * Return the nearest valid frame. A frame is valid if its start and end are within partition.
+     * Note: A valid frame might be empty i.e. its end might be before its start.
+     */
+    private Range nearestValidFrame(Range range)
+    {
+        return new Range(
+                Math.min(partitionEnd - partitionStart - 1, range.getStart()),
+                Math.max(0, range.getEnd()));
     }
 
     private boolean emptyFrame(FrameInfo frameInfo, int rowPosition, int endPosition)
@@ -266,5 +604,202 @@ public final class WindowPartition
         long value = pagesIndex.getLong(channel, currentPosition);
         checkCondition(value >= 0, INVALID_WINDOW_FRAME, "Window frame %s offset must not be negative", value);
         return value;
+    }
+
+    private GroupsFrame getFrameRange(FrameInfo frameInfo, GroupsFrame recentFrame)
+    {
+        Type startType = frameInfo.getStartType();
+        Type endType = frameInfo.getEndType();
+
+        int start;
+        int end;
+        int startGroupIndex = GroupsFrame.ignoreIndex();
+        int endGroupIndex = GroupsFrame.ignoreIndex();
+
+        switch (startType) {
+            case UNBOUNDED_PRECEDING:
+                start = 0;
+                break;
+            case CURRENT_ROW:
+                start = peerGroupStart - partitionStart;
+                break;
+            case PRECEDING: {
+                PositionAndGroup frameStart = seek(toIntExact(currentGroupIndex - getStartValue(frameInfo)), recentFrame.getStart(), recentFrame.getStartGroupIndex(), seekGroupStart, lastGroup -> new PositionAndGroup(0, 0));
+                start = frameStart.getPosition();
+                startGroupIndex = frameStart.getGroup();
+                break;
+            }
+            case FOLLOWING: {
+                PositionAndGroup frameStart = seek(toIntExact(currentGroupIndex + getStartValue(frameInfo)), recentFrame.getStart(), recentFrame.getStartGroupIndex(), seekGroupStart, lastGroup -> new PositionAndGroup(partitionEnd - partitionStart, GroupsFrame.ignoreIndex()));
+                start = frameStart.getPosition();
+                startGroupIndex = frameStart.getGroup();
+                break;
+            }
+            default:
+                throw new UnsupportedOperationException("Unsupported frame start type: " + startType);
+        }
+
+        switch (endType) {
+            case UNBOUNDED_FOLLOWING:
+                end = partitionEnd - partitionStart - 1;
+                break;
+            case CURRENT_ROW:
+                end = peerGroupEnd - partitionStart - 1;
+                break;
+            case PRECEDING: {
+                PositionAndGroup frameEnd = seek(toIntExact(currentGroupIndex - getEndValue(frameInfo)), recentFrame.getEnd(), recentFrame.getEndGroupIndex(), seekGroupEnd, lastGroup -> new PositionAndGroup(-1, GroupsFrame.ignoreIndex()));
+                end = frameEnd.getPosition();
+                endGroupIndex = frameEnd.getGroup();
+                break;
+            }
+            case FOLLOWING: {
+                PositionAndGroup frameEnd = seek(toIntExact(currentGroupIndex + getEndValue(frameInfo)), recentFrame.getEnd(), recentFrame.getEndGroupIndex(), seekGroupEnd, lastGroup -> new PositionAndGroup(partitionEnd - partitionStart - 1, lastPeerGroup));
+                end = frameEnd.getPosition();
+                endGroupIndex = frameEnd.getGroup();
+                break;
+            }
+            default:
+                throw new UnsupportedOperationException("Unsupported frame end type: " + endType);
+        }
+
+        return new GroupsFrame(start, startGroupIndex, end, endGroupIndex);
+    }
+
+    private PositionAndGroup seek(int groupIndex, int recentPosition, int recentGroupIndex, Function<Integer, Integer> seekPositionWithinGroup, EdgeResultProvider edgeResult)
+    {
+        if (groupIndex < 0 || groupIndex > lastPeerGroup) {
+            return edgeResult.get(lastPeerGroup);
+        }
+        while (recentGroupIndex > groupIndex) {
+            recentPosition = seekGroupStart.apply(recentPosition);
+            recentPosition--;
+            recentGroupIndex--;
+        }
+
+        while (recentGroupIndex < groupIndex) {
+            recentPosition = seekGroupEnd.apply(recentPosition);
+            if (recentPosition == partitionEnd - partitionStart - 1) {
+                lastPeerGroup = recentGroupIndex;
+                return edgeResult.get(lastPeerGroup);
+            }
+            recentPosition++;
+            recentGroupIndex++;
+        }
+
+        recentPosition = seekPositionWithinGroup.apply(recentPosition);
+        if (recentPosition == partitionEnd - partitionStart - 1) {
+            lastPeerGroup = recentGroupIndex;
+        }
+        return new PositionAndGroup(recentPosition, recentGroupIndex);
+    }
+
+    /**
+     * Return a valid frame. A frame is valid if its start and end are within partition.
+     * If frame start or frame end is out of partition bounds, it is set to the nearest position
+     * for which peer group index can be determined.
+     */
+    private GroupsFrame nearestValidFrame(GroupsFrame frame)
+    {
+        if (frame.getStart() > partitionEnd - partitionStart - 1) {
+            return frame.withStart(partitionEnd - partitionStart - 1, lastPeerGroup);
+        }
+        if (frame.getEnd() < 0) {
+            return frame.withEnd(0, 0);
+        }
+        return frame;
+    }
+
+    /**
+     * Window frame representation for frame of type GROUPS.
+     * start, end - first and last row of the frame within window partition
+     * startGroupIndex, endGroupIndex - indexes of respective peer groups within partition
+     * start points at the first row of startGroupIndex-th peer group
+     * end points at the last row of endGroupIndex-th peer group
+     */
+    private static class GroupsFrame
+    {
+        private static final int IGNORE_GROUP_INDEX = -1;
+
+        private final int start;
+        private final int startGroupIndex;
+        private final int end;
+        private final int endGroupIndex;
+
+        public GroupsFrame(int start, int startGroupIndex, int end, int endGroupIndex)
+        {
+            this.start = start;
+            this.startGroupIndex = startGroupIndex;
+            this.end = end;
+            this.endGroupIndex = endGroupIndex;
+        }
+
+        public static int ignoreIndex()
+        {
+            return IGNORE_GROUP_INDEX;
+        }
+
+        public GroupsFrame withStart(int start, int startGroupIndex)
+        {
+            return new GroupsFrame(start, startGroupIndex, this.end, this.endGroupIndex);
+        }
+
+        public GroupsFrame withEnd(int end, int endGroupIndex)
+        {
+            return new GroupsFrame(this.start, this.startGroupIndex, end, endGroupIndex);
+        }
+
+        public int getStart()
+        {
+            return start;
+        }
+
+        public int getStartGroupIndex()
+        {
+            checkState(startGroupIndex != IGNORE_GROUP_INDEX, "accessing ignored group index");
+            return startGroupIndex;
+        }
+
+        public int getEnd()
+        {
+            return end;
+        }
+
+        public int getEndGroupIndex()
+        {
+            checkState(endGroupIndex != IGNORE_GROUP_INDEX, "accessing ignored group index");
+            return endGroupIndex;
+        }
+
+        public Range getRange()
+        {
+            return new Range(start, end);
+        }
+    }
+
+    private static class PositionAndGroup
+    {
+        private final int position;
+        private final int group;
+
+        public PositionAndGroup(int position, int group)
+        {
+            this.position = position;
+            this.group = group;
+        }
+
+        public int getPosition()
+        {
+            return position;
+        }
+
+        public int getGroup()
+        {
+            return group;
+        }
+    }
+
+    private interface EdgeResultProvider
+    {
+        PositionAndGroup get(int lastPeerGroup);
     }
 }

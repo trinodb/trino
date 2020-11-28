@@ -14,8 +14,12 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.BoundSignature;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -23,8 +27,8 @@ import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.annotations.ImplementationDependency;
 import io.prestosql.operator.annotations.LiteralImplementationDependency;
 import io.prestosql.operator.annotations.TypeImplementationDependency;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ParametricScalar;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.prestosql.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.prestosql.spi.block.Block;
@@ -48,10 +52,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -94,13 +94,19 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.isDeterministic());
         assertFalse(functionMetadata.isHidden());
         assertEquals(functionMetadata.getDescription(), "Simple scalar with single implementation based on class");
+        assertFalse(functionMetadata.getArgumentDefinitions().get(0).isNullable());
 
         assertImplementationCount(scalar, 1, 0, 0);
 
-        ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 1, METADATA);
-        assertFalse(specialized.getInstanceFactory().isPresent());
-
-        assertEquals(specialized.getArgumentProperty(0).getNullConvention(), RETURN_NULL_ON_NULL);
+        FunctionBinding functionBinding = new FunctionBinding(
+                functionMetadata.getFunctionId(),
+                new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+                functionBinding,
+                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+        assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
     @ScalarFunction(value = "hidden_scalar_function", hidden = true)
@@ -180,12 +186,18 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.isDeterministic());
         assertFalse(functionMetadata.isHidden());
         assertEquals(functionMetadata.getDescription(), "Simple scalar with nullable primitive");
+        assertFalse(functionMetadata.getArgumentDefinitions().get(0).isNullable());
+        assertTrue(functionMetadata.getArgumentDefinitions().get(1).isNullable());
 
-        ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, METADATA);
-        assertFalse(specialized.getInstanceFactory().isPresent());
-
-        assertEquals(specialized.getArgumentProperty(0), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
-        assertEquals(specialized.getArgumentProperty(1), valueTypeArgumentProperty(USE_NULL_FLAG));
+        FunctionBinding functionBinding = new FunctionBinding(
+                functionMetadata.getFunctionId(),
+                new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+                functionBinding,
+                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+        assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
     @ScalarFunction("scalar_with_nullable_complex")
@@ -218,12 +230,18 @@ public class TestAnnotationEngineForScalars
         assertTrue(functionMetadata.isDeterministic());
         assertFalse(functionMetadata.isHidden());
         assertEquals(functionMetadata.getDescription(), "Simple scalar with nullable complex type");
+        assertFalse(functionMetadata.getArgumentDefinitions().get(0).isNullable());
+        assertTrue(functionMetadata.getArgumentDefinitions().get(1).isNullable());
 
-        ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, METADATA);
-        assertFalse(specialized.getInstanceFactory().isPresent());
-
-        assertEquals(specialized.getArgumentProperty(0), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
-        assertEquals(specialized.getArgumentProperty(1), valueTypeArgumentProperty(USE_BOXED_TYPE));
+        FunctionBinding functionBinding = new FunctionBinding(
+                functionMetadata.getFunctionId(),
+                new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+                functionBinding,
+                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+        assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
     public static final class StaticMethodScalarFunction
@@ -447,13 +465,8 @@ public class TestAnnotationEngineForScalars
     @Description("Parametric scalar with type injected though constructor")
     public static class ConstructorInjectionScalarFunction
     {
-        private final Type type;
-
         @TypeParameter("T")
-        public ConstructorInjectionScalarFunction(@TypeParameter("T") Type type)
-        {
-            this.type = type;
-        }
+        public ConstructorInjectionScalarFunction(@TypeParameter("T") Type type) {}
 
         @SqlType(StandardTypes.BIGINT)
         @TypeParameter("T")

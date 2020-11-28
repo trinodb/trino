@@ -28,6 +28,7 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.LookupSymbolResolver;
@@ -51,6 +52,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -75,12 +77,14 @@ public class PushPredicateIntoTableScan
             tableScan().capturedAs(TABLE_SCAN)));
 
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
     private final TypeAnalyzer typeAnalyzer;
     private final DomainTranslator domainTranslator;
 
-    public PushPredicateIntoTableScan(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public PushPredicateIntoTableScan(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.domainTranslator = new DomainTranslator(metadata);
     }
@@ -89,6 +93,12 @@ public class PushPredicateIntoTableScan
     public Pattern<FilterNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
     }
 
     @Override
@@ -104,6 +114,7 @@ public class PushPredicateIntoTableScan
                 context.getSymbolAllocator().getTypes(),
                 context.getIdAllocator(),
                 metadata,
+                typeOperators,
                 typeAnalyzer,
                 domainTranslator);
 
@@ -143,6 +154,7 @@ public class PushPredicateIntoTableScan
             TypeProvider types,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
+            TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             DomainTranslator domainTranslator)
     {
@@ -152,6 +164,7 @@ public class PushPredicateIntoTableScan
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
+                typeOperators,
                 session,
                 deterministicPredicate,
                 types);
@@ -246,7 +259,8 @@ public class PushPredicateIntoTableScan
                 newTable,
                 node.getOutputSymbols(),
                 node.getAssignments(),
-                computeEnforced(newDomain, remainingFilter));
+                computeEnforced(newDomain, remainingFilter),
+                node.isForDelete());
 
         Expression resultingPredicate = createResultingPredicate(
                 metadata,
@@ -311,11 +325,7 @@ public class PushPredicateIntoTableScan
             Object optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), true);
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
-                return false;
-            }
-
-            return true;
+            return !(Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral);
         }
     }
 }

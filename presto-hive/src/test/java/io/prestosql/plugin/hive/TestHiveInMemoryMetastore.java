@@ -16,6 +16,8 @@ package io.prestosql.plugin.hive;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
+import org.testng.SkipException;
 
 import java.io.File;
 
@@ -26,7 +28,8 @@ public class TestHiveInMemoryMetastore
     protected HiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
-        InMemoryThriftMetastore hiveMetastore = new InMemoryThriftMetastore(baseDir);
+        ThriftMetastoreConfig metastoreConfig = new ThriftMetastoreConfig();
+        InMemoryThriftMetastore hiveMetastore = new InMemoryThriftMetastore(baseDir, metastoreConfig);
         return new BridgingHiveMetastore(hiveMetastore);
     }
 
@@ -40,5 +43,11 @@ public class TestHiveInMemoryMetastore
     public void testTransactionDeleteInsert()
     {
         // InMemoryHiveMetastore does not check whether partition exist in createPartition and dropPartition
+    }
+
+    @Override
+    public void testHideDeltaLakeTables()
+    {
+        throw new SkipException("not supported");
     }
 }

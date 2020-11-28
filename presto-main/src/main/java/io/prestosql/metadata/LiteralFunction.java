@@ -14,26 +14,27 @@
 package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.block.BlockSerdeUtil.READ_BLOCK;
 import static io.prestosql.block.BlockSerdeUtil.READ_BLOCK_VALUE;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -43,9 +44,10 @@ public class LiteralFunction
         extends SqlScalarFunction
 {
     public static final String LITERAL_FUNCTION_NAME = "$literal$";
-    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
 
-    public LiteralFunction()
+    private final Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier;
+
+    public LiteralFunction(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier)
     {
         super(new FunctionMetadata(
                 new Signature(
@@ -61,13 +63,14 @@ public class LiteralFunction
                 true,
                 "literal",
                 SCALAR));
+        this.blockEncodingSerdeSupplier = blockEncodingSerdeSupplier;
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        Type parameterType = boundVariables.getTypeVariable("F");
-        Type type = boundVariables.getTypeVariable("T");
+        Type parameterType = functionBinding.getTypeVariable("F");
+        Type type = functionBinding.getTypeVariable("T");
 
         MethodHandle methodHandle = null;
         if (parameterType.getJavaType() == type.getJavaType()) {
@@ -76,10 +79,10 @@ public class LiteralFunction
 
         if (parameterType.getJavaType() == Slice.class) {
             if (type.getJavaType() == Block.class) {
-                methodHandle = READ_BLOCK.bindTo(metadata.getBlockEncodingSerde());
+                methodHandle = READ_BLOCK.bindTo(blockEncodingSerdeSupplier.get());
             }
             else if (type.getJavaType() != Slice.class) {
-                methodHandle = READ_BLOCK_VALUE.bindTo(metadata.getBlockEncodingSerde()).bindTo(type);
+                methodHandle = READ_BLOCK_VALUE.bindTo(blockEncodingSerdeSupplier.get()).bindTo(type);
             }
         }
 
@@ -89,15 +92,11 @@ public class LiteralFunction
                 parameterType.getJavaType(),
                 type.getJavaType());
 
-        return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+        return new ChoicesScalarFunctionImplementation(
+                functionBinding,
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
                 methodHandle);
-    }
-
-    public static boolean isSupportedLiteralType(Type type)
-    {
-        return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
     }
 
     public static Type typeForMagicLiteral(Type type)

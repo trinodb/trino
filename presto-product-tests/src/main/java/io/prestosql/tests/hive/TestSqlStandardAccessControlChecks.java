@@ -162,7 +162,7 @@ public class TestSqlStandardAccessControlChecks
 
         // Charlie still cannot access view because Bob does not have SELECT WITH GRANT OPTION
         assertThat(() -> charlieExecutor.executeQuery(format("SELECT * FROM %s", viewName)))
-                .failsWithMessage(format("Access Denied: View owner 'bob' cannot create view that selects from default.%s", tableName));
+                .failsWithMessage(format("Access Denied: View owner does not have sufficient privileges: View owner 'bob' cannot create view that selects from default.%s", tableName));
 
         // Give Bob SELECT WITH GRANT OPTION on the underlying table
         aliceExecutor.executeQuery(format("REVOKE SELECT ON %s FROM bob", tableName));
@@ -210,6 +210,46 @@ public class TestSqlStandardAccessControlChecks
                 .failsWithMessage(format("Access Denied: Cannot select from table default.%s", viewName));
         onHive().executeQuery(format("GRANT SELECT ON TABLE %s TO USER CaseSensitiveUserName", viewName));
         assertThat(caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlSetTableAuthorization()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("ALTER TABLE %s SET AUTHORIZATION bob", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot set authorization for table default.%s to USER bob", tableName));
+        aliceExecutor.executeQuery(format("ALTER TABLE %s SET AUTHORIZATION bob", tableName));
+        bobExecutor.executeQuery(format("ALTER TABLE %s SET AUTHORIZATION alice", tableName));
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlSetViewAuthorization()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("ALTER VIEW %s SET AUTHORIZATION bob", viewName)))
+                .failsWithMessage(format("Access Denied: Cannot set authorization for view default.%s to USER bob", viewName));
+        assertThat(() -> bobExecutor.executeQuery(format("DROP VIEW %s", viewName)))
+                .failsWithMessage(format("Access Denied: Cannot drop view default.%s", viewName));
+
+        aliceExecutor.executeQuery(format("ALTER VIEW %s SET AUTHORIZATION bob", viewName));
+        bobExecutor.executeQuery(format("DROP VIEW %s", viewName));
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlSetHiveViewAuthorization()
+    {
+        onHive().executeQuery("CREATE TABLE test_hive_table (col1 int)");
+        onHive().executeQuery("CREATE VIEW test_hive_view AS SELECT * FROM test_hive_table");
+
+        QueryExecutor hdfsExecutor = connectToPresto("hdfs@presto");
+
+        assertThat(() -> bobExecutor.executeQuery("ALTER VIEW test_hive_view SET AUTHORIZATION bob"))
+                .failsWithMessage("Access Denied: Cannot set authorization for view default.test_hive_view to USER bob");
+        assertThat(() -> bobExecutor.executeQuery("DROP VIEW test_hive_view"))
+                .failsWithMessage("Access Denied: Cannot drop view default.test_hive_view");
+
+        hdfsExecutor.executeQuery("ALTER VIEW test_hive_view SET AUTHORIZATION bob");
+        bobExecutor.executeQuery("DROP VIEW test_hive_view");
+
+        onHive().executeQuery("DROP TABLE test_hive_table");
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})

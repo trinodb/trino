@@ -16,8 +16,6 @@ package io.prestosql.pinot.query;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.pinot.PinotColumnHandle;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnNotFoundException;
-import io.prestosql.spi.connector.SchemaTableName;
 import org.apache.pinot.common.request.FilterOperator;
 import org.apache.pinot.common.request.FilterQuery;
 import org.apache.pinot.common.request.FilterQueryMap;
@@ -35,7 +33,6 @@ public final class FilterToPqlConverter
 {
     private final FilterQueryMap filterQueryMap;
     private final Map<String, ColumnHandle> columnHandles;
-    private final SchemaTableName schemaTableName;
 
     private static final char LOWER_OPEN = '(';
     private static final char LOWER_CLOSED = '[';
@@ -49,13 +46,11 @@ public final class FilterToPqlConverter
     private static final String GE = " >= ";
     private static final String BETWEEN = " between ";
     private static final String AND = " and ";
-    private static final String OR = " or ";
 
-    public FilterToPqlConverter(SchemaTableName schemaTableName, FilterQueryMap filterQueryMap, Map<String, ColumnHandle> columnHandles)
+    public FilterToPqlConverter(FilterQueryMap filterQueryMap, Map<String, ColumnHandle> columnHandles)
     {
         this.filterQueryMap = requireNonNull(filterQueryMap, "filterQueryMap is null");
         this.columnHandles = ImmutableMap.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
     }
 
     public String convert(FilterQuery filterQuery)
@@ -215,11 +210,11 @@ public final class FilterToPqlConverter
 
     private String getPinotColumnName(String columnName)
     {
-        String pinotColumnName = ((PinotColumnHandle) columnHandles.get(columnName)).getColumnName();
-        if (pinotColumnName == null) {
-            throw new ColumnNotFoundException(schemaTableName, columnName);
+        PinotColumnHandle columnHandle = ((PinotColumnHandle) columnHandles.get(columnName));
+        if (columnHandle != null) {
+            return columnHandle.getColumnName();
         }
-        return pinotColumnName;
+        return columnName;
     }
 
     private String getValuesList(List<String> values)
@@ -227,7 +222,7 @@ public final class FilterToPqlConverter
         StringBuilder builder = new StringBuilder();
         builder.append("(")
                 .append(values.stream()
-                        .map(value -> toSingleQuotedValue(value))
+                        .map(this::toSingleQuotedValue)
                         .collect(joining(", ")))
                 .append(")");
         return builder.toString();

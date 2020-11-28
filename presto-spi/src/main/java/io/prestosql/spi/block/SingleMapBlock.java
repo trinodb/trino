@@ -14,11 +14,11 @@
 
 package io.prestosql.spi.block;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
@@ -169,7 +169,51 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invoke(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invoke(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+            }
+            catch (Throwable throwable) {
+                throw handleThrowable(throwable);
+            }
+            checkNotIndeterminate(match);
+            if (match) {
+                return keyPosition * 2 + 1;
+            }
+            position++;
+            if (position == hashTableSize) {
+                position = 0;
+            }
+        }
+    }
+
+    public int seekKey(MethodHandle keyEqualOperator, MethodHandle keyHashOperator, Block targetKeyBlock, int targetKeyPosition)
+    {
+        if (positionCount == 0) {
+            return -1;
+        }
+
+        mapBlock.ensureHashTableLoaded();
+        int[] hashTable = mapBlock.getHashTables().get();
+
+        long hashCode;
+        try {
+            hashCode = (long) keyHashOperator.invoke(targetKeyBlock, targetKeyPosition);
+        }
+        catch (Throwable throwable) {
+            throw handleThrowable(throwable);
+        }
+
+        int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
+        int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
+        int position = computePosition(hashCode, hashTableSize);
+        while (true) {
+            int keyPosition = hashTable[hashTableOffset + position];
+            if (keyPosition == -1) {
+                return -1;
+            }
+            Boolean match;
+            try {
+                // assuming maps with indeterminate keys are not supported
+                match = (Boolean) keyEqualOperator.invoke(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, targetKeyBlock, targetKeyPosition);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -216,7 +260,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -260,7 +304,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -304,7 +348,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -320,7 +364,7 @@ public class SingleMapBlock
         }
     }
 
-    public int seekKeyExact(Slice nativeValue)
+    public int seekKeyExact(Object nativeValue)
     {
         if (positionCount == 0) {
             return -1;
@@ -348,51 +392,7 @@ public class SingleMapBlock
             Boolean match;
             try {
                 // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
-            }
-            catch (Throwable throwable) {
-                throw handleThrowable(throwable);
-            }
-            checkNotIndeterminate(match);
-            if (match) {
-                return keyPosition * 2 + 1;
-            }
-            position++;
-            if (position == hashTableSize) {
-                position = 0;
-            }
-        }
-    }
-
-    public int seekKeyExact(Block nativeValue)
-    {
-        if (positionCount == 0) {
-            return -1;
-        }
-
-        mapBlock.ensureHashTableLoaded();
-        int[] hashTable = mapBlock.getHashTables().get();
-
-        long hashCode;
-        try {
-            hashCode = (long) mapBlock.getMapType().getKeyNativeHashCode().invokeExact(nativeValue);
-        }
-        catch (Throwable throwable) {
-            throw handleThrowable(throwable);
-        }
-
-        int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
-        int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
-        int position = computePosition(hashCode, hashTableSize);
-        while (true) {
-            int keyPosition = hashTable[hashTableOffset + position];
-            if (keyPosition == -1) {
-                return -1;
-            }
-            Boolean match;
-            try {
-                // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
+                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEqual().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
@@ -419,9 +419,9 @@ public class SingleMapBlock
         throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
     }
 
-    private static void checkNotIndeterminate(Boolean equalsResult)
+    private static void checkNotIndeterminate(Boolean equalResult)
     {
-        if (equalsResult == null) {
+        if (equalResult == null) {
             throw new PrestoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
         }
     }

@@ -22,26 +22,26 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
-import io.airlift.airline.Arguments;
-import io.airlift.airline.Command;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.Comment;
+import io.prestosql.sql.tree.CreateMaterializedView;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.CreateView;
 import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.DropColumn;
+import io.prestosql.sql.tree.DropMaterializedView;
 import io.prestosql.sql.tree.DropTable;
 import io.prestosql.sql.tree.DropView;
 import io.prestosql.sql.tree.Explain;
 import io.prestosql.sql.tree.Insert;
+import io.prestosql.sql.tree.RefreshMaterializedView;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameTable;
 import io.prestosql.sql.tree.RenameView;
@@ -56,6 +56,11 @@ import io.prestosql.verifier.QueryRewriter.QueryRewriteException;
 import org.jdbi.v3.core.ConnectionFactory;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Spec;
 
 import java.io.File;
 import java.io.IOException;
@@ -77,6 +82,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -84,16 +90,27 @@ import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_
 import static io.prestosql.verifier.QueryType.CREATE;
 import static io.prestosql.verifier.QueryType.MODIFY;
 import static io.prestosql.verifier.QueryType.READ;
+import static io.prestosql.verifier.VerifyCommand.VersionProvider;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static picocli.CommandLine.IVersionProvider;
 
-@Command(name = "verify", description = "verify")
+@Command(
+        name = "verifier",
+        usageHelpAutoWidth = true,
+        versionProvider = VersionProvider.class)
 public class VerifyCommand
         implements Runnable
 {
     private static final Logger LOG = Logger.get(VerifyCommand.class);
 
-    @Arguments(description = "Config filename")
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
+
+    @Option(names = "--version", versionHelp = true, description = "Print version information and exit")
+    public boolean versionInfoRequested;
+
+    @Parameters(index = "0", paramLabel = "<file>", description = "Configuration file")
     public String configFilename;
 
     @Override
@@ -138,12 +155,12 @@ public class VerifyCommand
 
             List<QueryPair> queries = queriesBuilder.build();
             queries = applyOverrides(config, queries);
-            queries = filterQueryTypes(new SqlParser(getParserOptions()), config, queries);
+            queries = filterQueryTypes(new SqlParser(), config, queries);
             queries = filterQueries(queries);
             if (config.getShadowWrites()) {
                 Sets.SetView<QueryType> allowedTypes = Sets.union(config.getTestQueryTypes(), config.getControlQueryTypes());
                 checkArgument(!Sets.intersection(allowedTypes, ImmutableSet.of(CREATE, MODIFY)).isEmpty(), "CREATE or MODIFY queries must be allowed in test or control to use write shadowing");
-                queries = rewriteQueries(new SqlParser(getParserOptions()), config, queries);
+                queries = rewriteQueries(new SqlParser(), config, queries);
             }
 
             // Load jdbc drivers if needed
@@ -221,14 +238,6 @@ public class VerifyCommand
     {
         VerifierConfig config = injector.getInstance(VerifierConfig.class);
         return () -> DriverManager.getConnection(config.getQueryDatabase());
-    }
-
-    /**
-     * Override this method to change the parser options used when parsing queries to decide if they match the allowed query types
-     */
-    protected SqlParserOptions getParserOptions()
-    {
-        return new SqlParserOptions();
     }
 
     /**
@@ -367,6 +376,18 @@ public class VerifyCommand
             }
             return CREATE;
         }
+        if (statement instanceof CreateMaterializedView) {
+            if (((CreateMaterializedView) statement).isReplace()) {
+                return MODIFY;
+            }
+            return CREATE;
+        }
+        if (statement instanceof RefreshMaterializedView) {
+            return MODIFY;
+        }
+        if (statement instanceof DropMaterializedView) {
+            return MODIFY;
+        }
         if (statement instanceof Delete) {
             return MODIFY;
         }
@@ -456,5 +477,19 @@ public class VerifyCommand
                     return new QueryPair(input.getSuite(), input.getName(), test, control);
                 })
                 .collect(toImmutableList());
+    }
+
+    public static class VersionProvider
+            implements IVersionProvider
+    {
+        @Spec
+        public CommandSpec spec;
+
+        @Override
+        public String[] getVersion()
+        {
+            String version = getClass().getPackage().getImplementationVersion();
+            return new String[] {spec.name() + " " + firstNonNull(version, "(version unknown)")};
+        }
     }
 }

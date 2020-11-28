@@ -13,66 +13,31 @@
  */
 package io.prestosql.plugin.hive;
 
-import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.TupleDomain;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
-
-import static java.util.Objects.requireNonNull;
 
 public interface HivePageSourceFactory
 {
-    Optional<ReaderPageSourceWithProjections> createPageSource(
+    Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations);
-
-    /**
-     * A wrapper class for
-     * - delegate reader page source and
-     * - projection information for columns to be returned by the delegate
-     * <p>
-     * Empty {@param projectedReaderColumns} indicates that the delegate page source reads the exact same columns provided to
-     * it in {@link HivePageSourceFactory#createPageSource}
-     */
-    class ReaderPageSourceWithProjections
-    {
-        private final ConnectorPageSource connectorPageSource;
-        private final Optional<ReaderProjections> projectedReaderColumns;
-
-        public ReaderPageSourceWithProjections(ConnectorPageSource connectorPageSource, Optional<ReaderProjections> projectedReaderColumns)
-        {
-            this.connectorPageSource = requireNonNull(connectorPageSource, "connectorPageSource is null");
-            this.projectedReaderColumns = requireNonNull(projectedReaderColumns, "projectedReaderColumns is null");
-        }
-
-        public ConnectorPageSource getConnectorPageSource()
-        {
-            return connectorPageSource;
-        }
-
-        public Optional<ReaderProjections> getProjectedReaderColumns()
-        {
-            return projectedReaderColumns;
-        }
-
-        public static ReaderPageSourceWithProjections noProjectionAdaptation(ConnectorPageSource connectorPageSource)
-        {
-            return new ReaderPageSourceWithProjections(connectorPageSource, Optional.empty());
-        }
-    }
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction);
 }

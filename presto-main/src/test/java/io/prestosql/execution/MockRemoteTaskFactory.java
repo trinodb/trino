@@ -73,6 +73,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.prestosql.execution.StateMachine.StateChangeListener;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -109,7 +110,8 @@ public class MockRemoteTaskFactory
                         sourceId,
                         TEST_TABLE_HANDLE,
                         ImmutableList.of(symbol),
-                        ImmutableMap.of(symbol, new TestingColumnHandle("column"))),
+                        ImmutableMap.of(symbol, new TestingColumnHandle("column")),
+                        false),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
@@ -167,6 +169,8 @@ public class MockRemoteTaskFactory
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
+        private boolean isOutputBufferOverUtilized;
+
         public MockRemoteTask(
                 TaskId taskId,
                 PlanFragment fragment,
@@ -190,7 +194,7 @@ public class MockRemoteTaskFactory
                     scheduledExecutor,
                     DataSize.of(1, MEGABYTE),
                     spillSpaceTracker);
-            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, true, true, totalPartitions);
+            this.taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, true, true, totalPartitions);
 
             this.location = URI.create("fake://task/" + taskId);
 
@@ -199,7 +203,9 @@ public class MockRemoteTaskFactory
                     TASK_INSTANCE_ID,
                     executor,
                     DataSize.ofBytes(1),
-                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"));
+                    DataSize.ofBytes(1),
+                    () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                    () -> {});
 
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
@@ -242,14 +248,14 @@ public class MockRemoteTaskFactory
                             failures,
                             0,
                             0,
-                            false,
+                            isOutputBufferOverUtilized,
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             0,
                             new Duration(0, MILLISECONDS),
-                            ImmutableMap.of()),
+                            INITIAL_DYNAMIC_FILTERS_VERSION),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -271,14 +277,14 @@ public class MockRemoteTaskFactory
                     ImmutableList.of(),
                     stats.getQueuedPartitionedDrivers(),
                     stats.getRunningPartitionedDrivers(),
-                    false,
+                    isOutputBufferOverUtilized,
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
                     stats.getSystemMemoryReservation(),
                     stats.getRevocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),
-                    ImmutableMap.of());
+                    INITIAL_DYNAMIC_FILTERS_VERSION);
         }
 
         private synchronized void updateSplitQueueSpace()
@@ -321,6 +327,11 @@ public class MockRemoteTaskFactory
             runningDrivers = splits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
             updateSplitQueueSpace();
+        }
+
+        public synchronized void setOutputBufferOverUtilized(boolean isOutputBufferOverUtilized)
+        {
+            this.isOutputBufferOverUtilized = isOutputBufferOverUtilized;
         }
 
         @Override

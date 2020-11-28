@@ -37,6 +37,7 @@ import static io.prestosql.client.KerberosUtil.defaultCredentialCachePath;
 import static io.prestosql.client.OkHttpUtil.basicAuth;
 import static io.prestosql.client.OkHttpUtil.setupCookieJar;
 import static io.prestosql.client.OkHttpUtil.setupHttpProxy;
+import static io.prestosql.client.OkHttpUtil.setupInsecureSsl;
 import static io.prestosql.client.OkHttpUtil.setupKerberos;
 import static io.prestosql.client.OkHttpUtil.setupSocksProxy;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
@@ -45,6 +46,7 @@ import static io.prestosql.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_INFO;
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
+import static io.prestosql.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static io.prestosql.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -58,11 +60,19 @@ import static io.prestosql.jdbc.ConnectionProperties.PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.ROLES;
 import static io.prestosql.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
+import static io.prestosql.jdbc.ConnectionProperties.SOURCE;
 import static io.prestosql.jdbc.ConnectionProperties.SSL;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
+import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_TYPE;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static io.prestosql.jdbc.ConnectionProperties.SSL_TRUST_STORE_TYPE;
+import static io.prestosql.jdbc.ConnectionProperties.SSL_VERIFICATION;
+import static io.prestosql.jdbc.ConnectionProperties.SslVerificationMode;
+import static io.prestosql.jdbc.ConnectionProperties.SslVerificationMode.CA;
+import static io.prestosql.jdbc.ConnectionProperties.SslVerificationMode.FULL;
+import static io.prestosql.jdbc.ConnectionProperties.SslVerificationMode.NONE;
 import static io.prestosql.jdbc.ConnectionProperties.TRACE_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.USER;
 import static java.lang.String.format;
@@ -182,6 +192,18 @@ final class PrestoDriverUri
         return SESSION_PROPERTIES.getValue(properties).orElse(ImmutableMap.of());
     }
 
+    public Optional<String> getSource()
+            throws SQLException
+    {
+        return SOURCE.getValue(properties);
+    }
+
+    public boolean isCompressionDisabled()
+            throws SQLException
+    {
+        return DISABLE_COMPRESSION.getValue(properties).orElse(false);
+    }
+
     public void setupClient(OkHttpClient.Builder builder)
             throws SQLException
     {
@@ -200,12 +222,25 @@ final class PrestoDriverUri
             }
 
             if (useSecureConnection) {
-                setupSsl(
-                        builder,
-                        SSL_KEY_STORE_PATH.getValue(properties),
-                        SSL_KEY_STORE_PASSWORD.getValue(properties),
-                        SSL_TRUST_STORE_PATH.getValue(properties),
-                        SSL_TRUST_STORE_PASSWORD.getValue(properties));
+                SslVerificationMode sslVerificationMode = SSL_VERIFICATION.getValue(properties).orElse(FULL);
+                if (sslVerificationMode.equals(FULL) || sslVerificationMode.equals(CA)) {
+                    setupSsl(
+                            builder,
+                            SSL_KEY_STORE_PATH.getValue(properties),
+                            SSL_KEY_STORE_PASSWORD.getValue(properties),
+                            SSL_KEY_STORE_TYPE.getValue(properties),
+                            SSL_TRUST_STORE_PATH.getValue(properties),
+                            SSL_TRUST_STORE_PASSWORD.getValue(properties),
+                            SSL_TRUST_STORE_TYPE.getValue(properties));
+                }
+
+                if (sslVerificationMode.equals(CA)) {
+                    builder.hostnameVerifier((hostname, session) -> true);
+                }
+
+                if (sslVerificationMode.equals(NONE)) {
+                    setupInsecureSsl(builder);
+                }
             }
 
             if (KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent()) {

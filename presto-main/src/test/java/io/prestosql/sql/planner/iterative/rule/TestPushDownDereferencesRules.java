@@ -19,7 +19,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
@@ -42,7 +42,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Predicates.equalTo;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.RowType.field;
@@ -563,7 +563,9 @@ public class TestPushDownDereferencesRules
                                                                 WindowFrame.Type.RANGE,
                                                                 FrameBound.Type.UNBOUNDED_PRECEDING,
                                                                 Optional.empty(),
+                                                                Optional.empty(),
                                                                 FrameBound.Type.UNBOUNDED_FOLLOWING,
+                                                                Optional.empty(),
                                                                 Optional.empty(),
                                                                 Optional.empty(),
                                                                 Optional.empty()),

@@ -70,4 +70,14 @@ public class FieldReference
     {
         return fieldIndex;
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return fieldIndex == ((FieldReference) other).fieldIndex;
+    }
 }

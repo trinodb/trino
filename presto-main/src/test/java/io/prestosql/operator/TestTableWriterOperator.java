@@ -84,8 +84,8 @@ public class TestTableWriterOperator
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -292,6 +292,8 @@ public class TestTableWriterOperator
             Session session,
             DriverContext driverContext)
     {
+        List<String> notNullColumnNames = new ArrayList<>(1);
+        notNullColumnNames.add(null);
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -302,6 +304,7 @@ public class TestTableWriterOperator
                         new ConnectorOutputTableHandle() {}),
                         new SchemaTableName("testSchema", "testTable")),
                 ImmutableList.of(0),
+                notNullColumnNames,
                 session,
                 statisticsAggregation,
                 outputTypes);

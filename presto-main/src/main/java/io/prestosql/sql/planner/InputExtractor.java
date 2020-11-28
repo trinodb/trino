@@ -24,12 +24,15 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
+import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableScanNode;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -44,10 +47,11 @@ public class InputExtractor
         this.session = session;
     }
 
-    public List<Input> extractInputs(PlanNode root)
+    public List<Input> extractInputs(SubPlan root)
     {
         Visitor visitor = new Visitor();
-        root.accept(visitor, null);
+        root.getAllFragments()
+                .forEach(fragment -> fragment.getRoot().accept(visitor, fragment.getId()));
 
         return ImmutableList.copyOf(visitor.getInputs());
     }
@@ -57,15 +61,15 @@ public class InputExtractor
         return new Column(columnMetadata.getName(), columnMetadata.getType().toString());
     }
 
-    private Input createInput(Session session, TableHandle table, Set<Column> columns)
+    private Input createInput(Session session, TableHandle table, Set<Column> columns, PlanFragmentId fragmentId, PlanNodeId planNodeId)
     {
         SchemaTableName schemaTable = metadata.getTableMetadata(session, table).getTable();
         Optional<Object> inputMetadata = metadata.getInfo(session, table);
-        return new Input(table.getCatalogName().getCatalogName(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns));
+        return new Input(table.getCatalogName().getCatalogName(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns), fragmentId, planNodeId);
     }
 
     private class Visitor
-            extends PlanVisitor<Void, Void>
+            extends PlanVisitor<Void, PlanFragmentId>
     {
         private final ImmutableSet.Builder<Input> inputs = ImmutableSet.builder();
 
@@ -75,40 +79,34 @@ public class InputExtractor
         }
 
         @Override
-        public Void visitTableScan(TableScanNode node, Void context)
+        public Void visitTableScan(TableScanNode node, PlanFragmentId fragmentId)
         {
-            TableHandle tableHandle = node.getTable();
-
-            Set<Column> columns = new HashSet<>();
-            for (ColumnHandle columnHandle : node.getAssignments().values()) {
-                columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
-            }
-
-            inputs.add(createInput(session, tableHandle, columns));
-
+            processScan(fragmentId, node.getId(), node.getTable(), node.getAssignments());
             return null;
         }
 
         @Override
-        public Void visitIndexSource(IndexSourceNode node, Void context)
+        public Void visitIndexSource(IndexSourceNode node, PlanFragmentId fragmentId)
         {
-            TableHandle tableHandle = node.getTableHandle();
-
-            Set<Column> columns = new HashSet<>();
-            for (ColumnHandle columnHandle : node.getAssignments().values()) {
-                columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
-            }
-
-            inputs.add(createInput(session, tableHandle, columns));
-
+            processScan(fragmentId, node.getId(), node.getTableHandle(), node.getAssignments());
             return null;
         }
 
+        private void processScan(PlanFragmentId fragmentId, PlanNodeId planNodeId, TableHandle tableHandle, Map<Symbol, ColumnHandle> assignments)
+        {
+            Set<Column> columns = new HashSet<>();
+            for (ColumnHandle columnHandle : assignments.values()) {
+                columns.add(createColumn(metadata.getColumnMetadata(session, tableHandle, columnHandle)));
+            }
+
+            inputs.add(createInput(session, tableHandle, columns, fragmentId, planNodeId));
+        }
+
         @Override
-        protected Void visitPlan(PlanNode node, Void context)
+        protected Void visitPlan(PlanNode node, PlanFragmentId fragmentId)
         {
             for (PlanNode child : node.getSources()) {
-                child.accept(this, context);
+                child.accept(this, fragmentId);
             }
             return null;
         }

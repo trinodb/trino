@@ -16,6 +16,8 @@ package io.prestosql.tests.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.assertions.QueryAssert;
@@ -29,6 +31,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.anyOf;
 import static io.prestosql.tests.TestGroups.AUTHORIZATION;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TestGroups.ROLES;
@@ -45,6 +48,10 @@ public class TestRoles
     private static final String ROLE2 = "role2";
     private static final String ROLE3 = "role3";
     private static final Set<String> TEST_ROLES = ImmutableSet.of(ROLE1, ROLE2, ROLE3);
+
+    @Inject
+    @Named("databases.presto.jdbc_user")
+    private String userName;
 
     @BeforeTestWithContext
     public void setUp()
@@ -117,17 +124,17 @@ public class TestRoles
 
         QueryAssert.assertThat(onPresto().executeQuery("SHOW GRANTS"))
                 .contains(
-                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
-                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
-                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
-                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
+                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
+                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
+                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
+                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
 
         QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM information_schema.table_privileges"))
                 .contains(
-                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
-                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
-                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
-                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
+                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
+                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
+                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
+                        row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
 
         onPresto().executeQuery("DROP TABLE test_list_grants");
     }
@@ -173,7 +180,7 @@ public class TestRoles
     public void testAdminRoleIsGrantedToHdfs()
     {
         QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
-                .contains(row("hdfs", "USER", "admin", "YES"));
+                .contains(row(userName, "USER", "admin", anyOf("YES", "NO")));
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})

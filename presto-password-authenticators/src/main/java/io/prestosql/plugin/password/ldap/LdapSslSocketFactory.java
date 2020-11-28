@@ -23,7 +23,6 @@ import java.net.Socket;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-// this class must implement SocketFactory for Java 8
 public final class LdapSslSocketFactory
         extends SocketFactory
 {
@@ -77,7 +76,6 @@ public final class LdapSslSocketFactory
     {
         SSLContext sslContext = SSL_CONTEXT.get();
         checkState(sslContext != null, "SSLContext was not set");
-        // TODO: simplify on Java 11 by returning the socket factory directly
         return new LdapSslSocketFactory(sslContext.getSocketFactory());
     }
 

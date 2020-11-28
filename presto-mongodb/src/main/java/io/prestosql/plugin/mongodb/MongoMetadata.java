@@ -31,6 +31,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.LocalProperty;
 import io.prestosql.spi.connector.NotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -44,10 +45,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -171,6 +174,12 @@ public class MongoMetadata
     }
 
     @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        mongoSession.addColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), column);
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         List<MongoColumnHandle> columns = buildColumnHandles(tableMetadata);
@@ -245,6 +254,30 @@ public class MongoMetadata
     }
 
     @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
+    {
+        MongoTableHandle handle = (MongoTableHandle) table;
+
+        // MongoDB cursor.limit(0) is equivalent to setting no limit
+        if (limit == 0) {
+            return Optional.empty();
+        }
+
+        // MongoDB doesn't support limit number greater than integer max
+        if (limit > Integer.MAX_VALUE) {
+            return Optional.empty();
+        }
+
+        if (handle.getLimit().isPresent() && handle.getLimit().getAsInt() <= limit) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new LimitApplicationResult<>(
+                new MongoTableHandle(handle.getSchemaTableName(), handle.getConstraint(), OptionalInt.of(toIntExact(limit))),
+                true));
+    }
+
+    @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         MongoTableHandle handle = (MongoTableHandle) table;
@@ -257,7 +290,8 @@ public class MongoMetadata
 
         handle = new MongoTableHandle(
                 handle.getSchemaTableName(),
-                newDomain);
+                newDomain,
+                handle.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }

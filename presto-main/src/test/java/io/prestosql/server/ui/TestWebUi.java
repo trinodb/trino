@@ -16,8 +16,12 @@ package io.prestosql.server.ui;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
+import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
+import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.node.NodeInfo;
+import io.airlift.security.pem.PemReader;
+import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
@@ -28,18 +32,25 @@ import okhttp3.FormBody;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.Principal;
+import java.security.PrivateKey;
 import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.Optional;
@@ -51,8 +62,11 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
@@ -60,6 +74,7 @@ import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -71,74 +86,101 @@ public class TestWebUi
             .put("http-server.https.keystore.path", LOCALHOST_KEYSTORE)
             .put("http-server.https.keystore.key", "")
             .put("http-server.process-forwarded", "true")
+            .put("http-server.authentication.allow-insecure-over-http", "true")
             .build();
     private static final String TEST_USER = "test-user";
     private static final String TEST_PASSWORD = "test-password";
     private static final String HMAC_KEY = Resources.getResource("hmac_key.txt").getPath();
+    private static final PrivateKey JWK_PRIVATE_KEY;
 
-    private TestingPrestoServer server;
+    static {
+        try {
+            JWK_PRIVATE_KEY = PemReader.loadPrivateKey(new File(Resources.getResource("jwk/jwk-rsa-private.pem").getPath()), Optional.empty());
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private OkHttpClient client;
-    private URI insecureUrl;
-    private URI secureUrl;
 
     @BeforeClass
     public void setup()
     {
-        server = TestingPrestoServer.builder()
-                .setProperties(SECURE_PROPERTIES)
-                .build();
-        server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestWebUi::authenticate);
-
-        HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
-        insecureUrl = httpServerInfo.getHttpUri();
-        secureUrl = httpServerInfo.getHttpsUri();
-
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
                 .followRedirects(false);
         setupSsl(
                 clientBuilder,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(LOCALHOST_KEYSTORE),
+                Optional.empty(),
                 Optional.empty());
         client = clientBuilder.build();
     }
 
-    @AfterClass(alwaysRun = true)
-    public void teardown()
+    @Test
+    public void testInsecureAuthenticator()
+            throws Exception
     {
-        closeQuietly(server);
-        server = null;
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(SECURE_PROPERTIES)
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            // insecure authenticator takes any username, but does not allow any password
+            testFormAuthentication(server, httpServerInfo, false);
+        }
     }
 
     @Test
-    public void testRootRedirect()
+    public void testPasswordAuthenticator()
             throws Exception
     {
-        testRootRedirect(insecureUrl);
-        testRootRedirect(secureUrl);
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("http-server.authentication.type", "password")
+                        .build())
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestWebUi::authenticate);
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            testFormAuthentication(server, httpServerInfo, true);
+        }
     }
 
-    private void testRootRedirect(URI baseUri)
+    private void testFormAuthentication(TestingPrestoServer server, HttpServerInfo httpServerInfo, boolean sendPasswordForHttps)
             throws Exception
+    {
+        testRootRedirect(httpServerInfo.getHttpUri(), client);
+        testRootRedirect(httpServerInfo.getHttpsUri(), client);
+
+        String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
+        testWorkerResource(nodeId, httpServerInfo.getHttpUri(), false);
+        testWorkerResource(nodeId, httpServerInfo.getHttpsUri(), sendPasswordForHttps);
+
+        testLoggedOut(httpServerInfo.getHttpUri());
+        testLoggedOut(httpServerInfo.getHttpsUri());
+
+        testLogIn(httpServerInfo.getHttpUri(), false);
+        testLogIn(httpServerInfo.getHttpsUri(), sendPasswordForHttps);
+
+        testFailedLogin(httpServerInfo.getHttpUri(), false);
+        testFailedLogin(httpServerInfo.getHttpsUri(), sendPasswordForHttps);
+    }
+
+    private static void testRootRedirect(URI baseUri, OkHttpClient client)
+            throws IOException
     {
         assertRedirect(client, uriBuilderFrom(baseUri).toString(), getUiLocation(baseUri));
     }
 
-    @Test
-    public void testLoggedOut()
-            throws Exception
-    {
-        testLoggedOut(insecureUrl);
-        testLoggedOut(secureUrl);
-    }
-
     private void testLoggedOut(URI baseUri)
-            throws Exception
+            throws IOException
     {
         assertRedirect(client, getUiLocation(baseUri), getLoginHtmlLocation(baseUri));
 
-        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(baseUri, "/ui/login.html", "/ui/query.html?abc123"), false);
+        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(baseUri, LOGIN_FORM, "/ui/query.html?abc123"), false);
 
         assertResponseCode(client, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
 
@@ -147,15 +189,7 @@ public class TestWebUi
         assertOk(client, getValidVendorLocation(baseUri));
     }
 
-    @Test
-    public void testLogIn()
-            throws Exception
-    {
-        testLogIn(insecureUrl);
-        testLogIn(secureUrl);
-    }
-
-    private void testLogIn(URI baseUri)
+    private void testLogIn(URI baseUri, boolean sendPassword)
             throws Exception
     {
         CookieManager cookieManager = new CookieManager();
@@ -163,12 +197,20 @@ public class TestWebUi
                 .cookieJar(new JavaNetCookieJar(cookieManager))
                 .build();
 
-        Response response = assertOk(client, getLoginHtmlLocation(baseUri));
-        String body = response.body().string();
+        String body = assertOk(client, getLoginHtmlLocation(baseUri))
+                .orElseThrow(() -> new AssertionError("No response body"));
         assertThat(body).contains("action=\"/ui/login\"");
         assertThat(body).contains("method=\"post\"");
 
-        logIn(baseUri, client);
+        assertThat(body).doesNotContain("// This value will be replaced");
+        if (sendPassword) {
+            assertThat(body).contains("var hidePassword = false;");
+        }
+        else {
+            assertThat(body).contains("var hidePassword = true;");
+        }
+
+        logIn(baseUri, client, sendPassword);
         HttpCookie cookie = getOnlyElement(cookieManager.getCookieStore().getCookies());
         assertEquals(cookie.getPath(), "/ui");
         assertEquals(cookie.getDomain(), baseUri.getHost());
@@ -186,22 +228,19 @@ public class TestWebUi
         assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
     }
 
-    @Test
-    public void testFailedLogin()
-            throws Exception
+    private void testFailedLogin(URI uri, boolean passwordAllowed)
+            throws IOException
     {
-        testFailedLogin(insecureUrl, Optional.empty(), Optional.empty());
-        testFailedLogin(insecureUrl, Optional.empty(), Optional.of(TEST_PASSWORD));
-        testFailedLogin(insecureUrl, Optional.empty(), Optional.of("unknown"));
+        testFailedLogin(uri, Optional.empty(), Optional.empty());
+        testFailedLogin(uri, Optional.empty(), Optional.of(TEST_PASSWORD));
+        testFailedLogin(uri, Optional.empty(), Optional.of("unknown"));
 
-        testFailedLogin(secureUrl, Optional.empty(), Optional.empty());
-        testFailedLogin(secureUrl, Optional.empty(), Optional.of(TEST_PASSWORD));
-        testFailedLogin(secureUrl, Optional.empty(), Optional.of("unknown"));
-
-        testFailedLogin(secureUrl, Optional.of(TEST_USER), Optional.of("unknown"));
-        testFailedLogin(secureUrl, Optional.of("unknown"), Optional.of(TEST_PASSWORD));
-        testFailedLogin(secureUrl, Optional.of(TEST_USER), Optional.empty());
-        testFailedLogin(secureUrl, Optional.empty(), Optional.of(TEST_PASSWORD));
+        if (passwordAllowed) {
+            testFailedLogin(uri, Optional.of(TEST_USER), Optional.of("unknown"));
+            testFailedLogin(uri, Optional.of("unknown"), Optional.of(TEST_PASSWORD));
+            testFailedLogin(uri, Optional.of(TEST_USER), Optional.empty());
+            testFailedLogin(uri, Optional.of("unknown"), Optional.empty());
+        }
     }
 
     private void testFailedLogin(URI httpsUrl, Optional<String> username, Optional<String> password)
@@ -219,40 +258,37 @@ public class TestWebUi
                 .url(getLoginLocation(httpsUrl))
                 .post(formData.build())
                 .build();
-        Response response = client.newCall(request).execute();
-        assertEquals(response.code(), SC_SEE_OTHER);
-        assertEquals(response.header(LOCATION), getLoginHtmlLocation(httpsUrl));
-        assertTrue(cookieManager.getCookieStore().getCookies().isEmpty());
+        try (Response response = client.newCall(request).execute()) {
+            assertEquals(response.code(), SC_SEE_OTHER);
+            assertEquals(response.header(LOCATION), getLoginHtmlLocation(httpsUrl));
+            assertTrue(cookieManager.getCookieStore().getCookies().isEmpty());
+        }
     }
 
-    @Test
-    public void testWorkerResource()
-            throws Exception
-    {
-        testWorkerResource(insecureUrl);
-        testWorkerResource(secureUrl);
-    }
-
-    private void testWorkerResource(URI baseUri)
+    private void testWorkerResource(String nodeId, URI baseUri, boolean sendPassword)
             throws Exception
     {
         OkHttpClient client = this.client.newBuilder()
                 .cookieJar(new JavaNetCookieJar(new CookieManager()))
                 .build();
-        logIn(baseUri, client);
+        logIn(baseUri, client, sendPassword);
 
-        String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
-        assertOk(client, getLocation(baseUri, "/ui/api/worker/" + nodeId + "/status"));
-
-        assertOk(client, getLocation(baseUri, "/ui/api/worker/" + nodeId + "/thread"));
+        testWorkerResource(nodeId, baseUri, client);
     }
 
-    private static void logIn(URI baseUri, OkHttpClient client)
+    private static void testWorkerResource(String nodeId, URI baseUri, OkHttpClient authorizedClient)
+            throws IOException
+    {
+        assertOk(authorizedClient, getLocation(baseUri, "/ui/api/worker/" + nodeId + "/status"));
+        assertOk(authorizedClient, getLocation(baseUri, "/ui/api/worker/" + nodeId + "/thread"));
+    }
+
+    private static void logIn(URI baseUri, OkHttpClient client, boolean sendPassword)
             throws IOException
     {
         FormBody.Builder formData = new FormBody.Builder()
                 .add("username", TEST_USER);
-        if (baseUri.getScheme().equals("https")) {
+        if (sendPassword) {
             formData.add("password", TEST_PASSWORD);
         }
 
@@ -306,30 +342,20 @@ public class TestWebUi
             throws Exception
     {
         try (TestingPrestoServer server = TestingPrestoServer.builder()
-                .setProperties(SECURE_PROPERTIES)
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("http-server.authentication.type", "password")
+                        .build())
                 .build()) {
-            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
-            testLogIn(httpServerInfo.getHttpUri());
-            testNoPasswordAuthenticator(httpServerInfo.getHttpsUri());
+            // a password manager is required, so a secure request will fail
+            // a real server will fail to start, but verify that we get an exception here to be safe
+            FormAuthenticator formAuthenticator = server.getInstance(Key.get(FormAuthenticator.class));
+            assertThatThrownBy(() -> formAuthenticator
+                    .isValidCredential(TEST_USER, TEST_USER, true))
+                    .hasMessage("authenticator was not loaded")
+                    .isInstanceOf(IllegalStateException.class);
+            assertTrue(formAuthenticator.isLoginEnabled(true));
         }
-    }
-
-    private void testNoPasswordAuthenticator(URI baseUri)
-            throws Exception
-    {
-        assertRedirect(client, getUiLocation(baseUri), getDisabledLocation(baseUri), false);
-
-        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getDisabledLocation(baseUri), false);
-
-        assertResponseCode(client, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
-
-        assertRedirect(client, getLoginLocation(baseUri), getDisabledLocation(baseUri), false);
-
-        assertRedirect(client, getLogoutLocation(baseUri), getDisabledLocation(baseUri), false);
-
-        assertOk(client, getValidAssetsLocation(baseUri));
-
-        assertOk(client, getValidVendorLocation(baseUri));
     }
 
     @Test
@@ -344,8 +370,10 @@ public class TestWebUi
                         .build())
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
-            testAlwaysAuthorized(httpServerInfo.getHttpUri(), client);
-            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), client);
+            String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
+
+            testAlwaysAuthorized(httpServerInfo.getHttpUri(), client, nodeId);
+            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), client, nodeId);
 
             testFixedAuthenticator(httpServerInfo.getHttpUri());
             testFixedAuthenticator(httpServerInfo.getHttpsUri());
@@ -371,14 +399,15 @@ public class TestWebUi
         try (TestingPrestoServer server = TestingPrestoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
-                        .put("web-ui.authentication.type", "certificate")
+                        .put("http-server.authentication.type", "certificate")
                         .put("http-server.https.truststore.path", LOCALHOST_KEYSTORE)
                         .put("http-server.https.truststore.key", "")
                         .build())
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
 
-            testLogIn(httpServerInfo.getHttpUri());
+            testLogIn(httpServerInfo.getHttpUri(), false);
 
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
@@ -387,10 +416,12 @@ public class TestWebUi
                     clientBuilder,
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.of(LOCALHOST_KEYSTORE),
+                    Optional.empty(),
                     Optional.empty());
             OkHttpClient clientWithCert = clientBuilder.build();
-            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithCert);
+            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithCert, nodeId);
         }
     }
 
@@ -401,17 +432,18 @@ public class TestWebUi
         try (TestingPrestoServer server = TestingPrestoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
-                        .put("web-ui.authentication.type", "jwt")
+                        .put("http-server.authentication.type", "jwt")
                         .put("http-server.authentication.jwt.key-file", HMAC_KEY)
                         .build())
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
 
-            testLogIn(httpServerInfo.getHttpUri());
+            testLogIn(httpServerInfo.getHttpUri(), false);
 
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
-            String hmac = new String(Files.readAllBytes(Paths.get(HMAC_KEY)), UTF_8);
+            String hmac = Files.readString(Paths.get(HMAC_KEY));
             String token = Jwts.builder()
                     .signWith(SignatureAlgorithm.HS256, hmac)
                     .setSubject("test-user")
@@ -423,13 +455,55 @@ public class TestWebUi
                             .header(AUTHORIZATION, "Bearer " + token)
                             .build())
                     .build();
-            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithJwt);
+            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithJwt, nodeId);
         }
     }
 
-    private static void testAlwaysAuthorized(URI baseUri, OkHttpClient authorizedClient)
+    @Test
+    public void testJwtWithJwkAuthenticator()
+            throws Exception
+    {
+        TestingHttpServer jwkServer = createTestingJwkServer();
+        jwkServer.start();
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("http-server.authentication.type", "jwt")
+                        .put("http-server.authentication.jwt.key-file", jwkServer.getBaseUrl().toString())
+                        .build())
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
+
+            testLogIn(httpServerInfo.getHttpUri(), false);
+
+            testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
+
+            String token = Jwts.builder()
+                    .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
+                    .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
+                    .setSubject("test-user")
+                    .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                    .compact();
+
+            OkHttpClient clientWithJwt = client.newBuilder()
+                    .authenticator((route, response) -> response.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer " + token)
+                            .build())
+                    .build();
+            testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithJwt, nodeId);
+        }
+        finally {
+            jwkServer.stop();
+        }
+    }
+
+    private static void testAlwaysAuthorized(URI baseUri, OkHttpClient authorizedClient, String nodeId)
             throws IOException
     {
+        testRootRedirect(baseUri, authorizedClient);
+        testWorkerResource(nodeId, baseUri, authorizedClient);
+
         assertOk(authorizedClient, getUiLocation(baseUri));
 
         assertOk(authorizedClient, getValidApiLocation(baseUri));
@@ -448,15 +522,17 @@ public class TestWebUi
     private static void testNeverAuthorized(URI baseUri, OkHttpClient notAuthorizedClient)
             throws IOException
     {
+        testRootRedirect(baseUri, notAuthorizedClient);
+
         assertResponseCode(notAuthorizedClient, getUiLocation(baseUri), SC_UNAUTHORIZED);
         assertResponseCode(notAuthorizedClient, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
-        assertResponseCode(notAuthorizedClient, getLoginLocation(baseUri), SC_UNAUTHORIZED);
+        assertResponseCode(notAuthorizedClient, getLoginLocation(baseUri), SC_UNAUTHORIZED, true);
         assertResponseCode(notAuthorizedClient, getLogoutLocation(baseUri), SC_UNAUTHORIZED);
         assertResponseCode(notAuthorizedClient, getLocation(baseUri, "/ui/unknown"), SC_UNAUTHORIZED);
         assertResponseCode(notAuthorizedClient, getLocation(baseUri, "/ui/api/unknown"), SC_UNAUTHORIZED);
     }
 
-    private static Response assertOk(OkHttpClient client, String url)
+    private static Optional<String> assertOk(OkHttpClient client, String url)
             throws IOException
     {
         return assertResponseCode(client, url, SC_OK);
@@ -474,6 +550,13 @@ public class TestWebUi
         Request request = new Request.Builder()
                 .url(url)
                 .build();
+        if (url.endsWith(UI_LOGIN)) {
+            RequestBody formBody = new FormBody.Builder()
+                    .add("username", "test")
+                    .add("password", "test")
+                    .build();
+            request = request.newBuilder().post(formBody).build();
+        }
         try (Response response = client.newCall(request).execute()) {
             assertEquals(response.code(), SC_SEE_OTHER);
             assertEquals(response.header(LOCATION), redirectLocation);
@@ -585,15 +668,40 @@ public class TestWebUi
         }
     }
 
-    private static Response assertResponseCode(OkHttpClient client, String url, int expectedCode)
+    private static Optional<String> assertResponseCode(OkHttpClient client, String url, int expectedCode)
+            throws IOException
+    {
+        return assertResponseCode(client, url, expectedCode, false);
+    }
+
+    private static Optional<String> assertResponseCode(OkHttpClient client,
+            String url,
+            int expectedCode,
+            boolean postLogin)
             throws IOException
     {
         Request request = new Request.Builder()
                 .url(url)
                 .build();
-        Response response = client.newCall(request).execute();
-        assertEquals(response.code(), expectedCode);
-        return response;
+        if (postLogin) {
+            RequestBody formBody = new FormBody.Builder()
+                    .add("username", "fake")
+                    .add("password", "bad")
+                    .build();
+            request = request.newBuilder().post(formBody).build();
+        }
+        try (Response response = client.newCall(request).execute()) {
+            assertEquals(response.code(), expectedCode, url);
+            return Optional.ofNullable(response.body())
+                    .map(responseBody -> {
+                        try {
+                            return responseBody.string();
+                        }
+                        catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    });
+        }
     }
 
     private static Principal authenticate(String user, String password)
@@ -611,22 +719,22 @@ public class TestWebUi
 
     private static String getLoginHtmlLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/ui/login.html");
+        return getLocation(baseUri, LOGIN_FORM);
     }
 
     private static String getLoginLocation(URI httpsUrl)
     {
-        return getLocation(httpsUrl, "/ui/login");
+        return getLocation(httpsUrl, UI_LOGIN);
     }
 
     private static String getLogoutLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/ui/logout");
+        return getLocation(baseUri, UI_LOGOUT);
     }
 
     private static String getDisabledLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/ui/disabled.html");
+        return getLocation(baseUri, DISABLED_LOCATION);
     }
 
     private static String getValidApiLocation(URI baseUri)
@@ -652,5 +760,27 @@ public class TestWebUi
     private static String getLocation(URI baseUri, String path, String query)
     {
         return uriBuilderFrom(baseUri).replacePath(path).replaceParameter(query).toString();
+    }
+
+    private static TestingHttpServer createTestingJwkServer()
+            throws IOException
+    {
+        NodeInfo nodeInfo = new NodeInfo("test");
+        HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
+        HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
+
+        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new JwkServlet(), ImmutableMap.of());
+    }
+
+    private static class JwkServlet
+            extends HttpServlet
+    {
+        @Override
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws IOException
+        {
+            String jwkKeys = Resources.toString(Resources.getResource("jwk/jwk-public.json"), UTF_8);
+            response.getWriter().println(jwkKeys);
+        }
     }
 }

@@ -17,10 +17,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.plugin.hive.util.HiveTypeTranslator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -53,7 +55,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -119,9 +121,20 @@ public final class HiveType
         return getTypeSignature(typeInfo);
     }
 
+    @Deprecated
     public Type getType(TypeManager typeManager)
     {
         return typeManager.getType(getTypeSignature());
+    }
+
+    public Type getType(TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
+    {
+        Type tentativeType = typeManager.getType(getTypeSignature());
+        // TODO: handle timestamps in structural types (https://github.com/prestosql/presto/issues/5195)
+        if (tentativeType instanceof TimestampType) {
+            return TimestampType.createTimestampType(timestampPrecision.getPrecision());
+        }
+        return tentativeType;
     }
 
     @Override
@@ -209,11 +222,9 @@ public final class HiveType
         return new HiveType(typeInfo);
     }
 
-    public static HiveType toHiveType(TypeTranslator typeTranslator, Type type)
+    public static HiveType toHiveType(Type type)
     {
-        requireNonNull(typeTranslator, "typeTranslator is null");
-        requireNonNull(type, "type is null");
-        return new HiveType(typeTranslator.translate(type));
+        return new HiveType(HiveTypeTranslator.translate(type));
     }
 
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)
@@ -297,7 +308,7 @@ public final class HiveType
             case DATE:
                 return DATE;
             case TIMESTAMP:
-                return TIMESTAMP;
+                return TIMESTAMP_MILLIS;
             case BINARY:
                 return VARBINARY;
             case DECIMAL:

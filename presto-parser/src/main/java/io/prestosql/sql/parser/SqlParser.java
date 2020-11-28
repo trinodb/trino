@@ -34,8 +34,6 @@ import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import javax.inject.Inject;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -50,7 +48,7 @@ public class SqlParser
         @Override
         public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, int line, int charPositionInLine, String message, RecognitionException e)
         {
-            throw new ParsingException(message, e, line, charPositionInLine);
+            throw new ParsingException(message, e, line, charPositionInLine + 1);
         }
     };
     private static final BiConsumer<SqlBaseLexer, SqlBaseParser> DEFAULT_PARSER_INITIALIZER = (SqlBaseLexer lexer, SqlBaseParser parser) -> {};
@@ -70,24 +68,15 @@ public class SqlParser
             .build();
 
     private final BiConsumer<SqlBaseLexer, SqlBaseParser> initializer;
-    private boolean enhancedErrorHandlerEnabled;
 
     public SqlParser()
     {
-        this(new SqlParserOptions());
+        this(DEFAULT_PARSER_INITIALIZER);
     }
 
-    @Inject
-    public SqlParser(SqlParserOptions options)
-    {
-        this(options, DEFAULT_PARSER_INITIALIZER);
-    }
-
-    public SqlParser(SqlParserOptions options, BiConsumer<SqlBaseLexer, SqlBaseParser> initializer)
+    public SqlParser(BiConsumer<SqlBaseLexer, SqlBaseParser> initializer)
     {
         this.initializer = requireNonNull(initializer, "initializer is null");
-        requireNonNull(options, "options is null");
-        enhancedErrorHandlerEnabled = options.isEnhancedErrorHandlerEnabled();
     }
 
     public Statement createStatement(String sql, ParsingOptions parsingOptions)
@@ -141,13 +130,7 @@ public class SqlParser
             lexer.addErrorListener(LEXER_ERROR_LISTENER);
 
             parser.removeErrorListeners();
-
-            if (enhancedErrorHandlerEnabled) {
-                parser.addErrorListener(PARSER_ERROR_HANDLER);
-            }
-            else {
-                parser.addErrorListener(LEXER_ERROR_LISTENER);
-            }
+            parser.addErrorListener(PARSER_ERROR_HANDLER);
 
             ParserRuleContext tree;
             try {
@@ -188,7 +171,7 @@ public class SqlParser
         {
             Token token = context.QUOTED_IDENTIFIER().getSymbol();
             if (token.getText().length() == 2) { // empty identifier
-                throw new ParsingException("Zero-length delimited identifier not allowed", null, token.getLine(), token.getCharPositionInLine());
+                throw new ParsingException("Zero-length delimited identifier not allowed", null, token.getLine(), token.getCharPositionInLine() + 1);
             }
         }
 
@@ -200,7 +183,7 @@ public class SqlParser
                     "backquoted identifiers are not supported; use double quotes to quote identifiers",
                     null,
                     token.getLine(),
-                    token.getCharPositionInLine());
+                    token.getCharPositionInLine() + 1);
         }
 
         @Override
@@ -211,7 +194,7 @@ public class SqlParser
                     "identifiers must not start with a digit; surround the identifier with double quotes",
                     null,
                     token.getLine(),
-                    token.getCharPositionInLine());
+                    token.getCharPositionInLine() + 1);
         }
 
         @Override

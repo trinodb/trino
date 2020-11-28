@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.block.SingleRowBlock;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -46,6 +47,7 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
@@ -57,9 +59,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
+import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.expressionOrNullSymbols;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
@@ -178,10 +184,27 @@ public class EffectivePredicateExtractor
         {
             // TODO: add simple algebraic solver for projection translation (right now only considers identity projections)
 
+            // Clear predicates involving symbols which are keys to non-identity assignments.
+            // Assignment such as `s -> x + 1` establishes new semantics for symbol `s`.
+            // If symbol `s` was present is the source plan and was included in underlying predicate, the predicate is no more valid.
+            // Also, if symbol `s` is present in a project assignment's value, e.g. `s1 -> s + 1`, this assignment should't be used to derive equality.
+
             Expression underlyingPredicate = node.getSource().accept(this, context);
 
-            List<Expression> projectionEqualities = node.getAssignments().entrySet().stream()
+            List<Map.Entry<Symbol, Expression>> nonIdentityAssignments = node.getAssignments().entrySet().stream()
                     .filter(SYMBOL_MATCHES_EXPRESSION.negate())
+                    .collect(toImmutableList());
+
+            Set<Symbol> newlyAssignedSymbols = nonIdentityAssignments.stream()
+                    .map(Map.Entry::getKey)
+                    .collect(toImmutableSet());
+
+            List<Expression> validUnderlyingEqualities = extractConjuncts(underlyingPredicate).stream()
+                    .filter(expression -> Sets.intersection(SymbolsExtractor.extractUnique(expression), newlyAssignedSymbols).isEmpty())
+                    .collect(toImmutableList());
+
+            List<Expression> projectionEqualities = nonIdentityAssignments.stream()
+                    .filter(assignment -> Sets.intersection(SymbolsExtractor.extractUnique(assignment.getValue()), newlyAssignedSymbols).isEmpty())
                     .map(ENTRY_TO_EQUALITY)
                     .collect(toImmutableList());
 
@@ -189,7 +212,7 @@ public class EffectivePredicateExtractor
                     metadata,
                     ImmutableList.<Expression>builder()
                             .addAll(projectionEqualities)
-                            .add(underlyingPredicate)
+                            .addAll(validUnderlyingEqualities)
                             .build()),
                     node.getOutputSymbols());
         }
@@ -224,8 +247,7 @@ public class EffectivePredicateExtractor
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             TupleDomain<ColumnHandle> predicate = node.getEnforcedConstraint();
-            if (useTableProperties && !node.getEnforcedConstraint().isAll()) {
-                // extract table properties only when predicate has been pushed to table scan at least once
+            if (useTableProperties) {
                 predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
             }
 
@@ -318,60 +340,106 @@ public class EffectivePredicateExtractor
                 return TRUE_LITERAL;
             }
 
-            // get all types in one shot -- needed for the expression optimizer below
-            List<Expression> allExpressions = node.getRows().stream()
-                    .flatMap(List::stream)
-                    .collect(Collectors.toList());
+            // for each row of Values, get all expressions that will be evaluated:
+            // - if the row is of type Row, evaluate fields of the row
+            // - otherwise evaluate the whole expression and then analyze fields of the resulting row
+            checkState(node.getRows().isPresent(), "rows is empty");
+            List<Expression> processedExpressions = node.getRows().get().stream()
+                    .flatMap(row -> {
+                        if (row instanceof Row) {
+                            return ((Row) row).getItems().stream();
+                        }
+                        return Stream.of(row);
+                    })
+                    .collect(toImmutableList());
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, allExpressions);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, processedExpressions);
 
-            ImmutableMap.Builder<Symbol, Domain> domains = ImmutableMap.builder();
+            boolean[] hasNull = new boolean[node.getOutputSymbols().size()];
+            boolean[] hasNaN = new boolean[node.getOutputSymbols().size()];
+            boolean[] nonDeterministic = new boolean[node.getOutputSymbols().size()];
+            ImmutableList.Builder<ImmutableList.Builder<Object>> builders = ImmutableList.builder();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                builders.add(ImmutableList.builder());
+            }
+            List<ImmutableList.Builder<Object>> valuesBuilders = builders.build();
 
-            for (int column = 0; column < node.getOutputSymbols().size(); column++) {
-                Symbol symbol = node.getOutputSymbols().get(column);
-                Type type = types.get(symbol);
-
-                ImmutableList.Builder<Object> builder = ImmutableList.builder();
-                boolean hasNull = false;
-                boolean nonDeterministic = false;
-                for (int row = 0; row < node.getRows().size(); row++) {
-                    Expression value = node.getRows().get(row).get(column);
-
-                    if (!DeterminismEvaluator.isDeterministic(value, metadata)) {
-                        nonDeterministic = true;
-                        break;
+            for (Expression row : node.getRows().get()) {
+                if (row instanceof Row) {
+                    for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                        Expression value = ((Row) row).getItems().get(i);
+                        if (!DeterminismEvaluator.isDeterministic(value, metadata)) {
+                            nonDeterministic[i] = true;
+                        }
+                        else {
+                            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(value, metadata, session, expressionTypes);
+                            Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+                            if (item instanceof Expression) {
+                                return TRUE_LITERAL;
+                            }
+                            if (item == null) {
+                                hasNull[i] = true;
+                            }
+                            else {
+                                Type type = types.get(node.getOutputSymbols().get(i));
+                                if (isFloatingPointNaN(type, item)) {
+                                    hasNaN[i] = true;
+                                }
+                                valuesBuilders.get(i).add(item);
+                            }
+                        }
                     }
-
-                    ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(value, metadata, session, expressionTypes);
+                }
+                else {
+                    if (!DeterminismEvaluator.isDeterministic(row, metadata)) {
+                        return TRUE_LITERAL;
+                    }
+                    ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(row, metadata, session, expressionTypes);
                     Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
-
                     if (evaluated instanceof Expression) {
                         return TRUE_LITERAL;
                     }
-
-                    if (evaluated == null) {
-                        hasNull = true;
-                    }
-                    else {
-                        builder.add(evaluated);
+                    for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                        Type type = types.get(node.getOutputSymbols().get(i));
+                        Object item = readNativeValue(type, (SingleRowBlock) evaluated, i);
+                        if (item == null) {
+                            hasNull[i] = true;
+                        }
+                        else {
+                            if (isFloatingPointNaN(type, item)) {
+                                hasNaN[i] = true;
+                            }
+                            valuesBuilders.get(i).add(item);
+                        }
                     }
                 }
+            }
 
-                if (nonDeterministic) {
+            // use aggregated information about columns to build domains
+            ImmutableMap.Builder<Symbol, Domain> domains = ImmutableMap.builder();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                Symbol symbol = node.getOutputSymbols().get(i);
+                Type type = types.get(symbol);
+                if (nonDeterministic[i]) {
                     // We can't describe a predicate for this column because at least
                     // one cell is non-deterministic, so skip it.
                     continue;
                 }
 
-                List<Object> values = builder.build();
+                List<Object> values = valuesBuilders.get(i).build();
 
-                Domain domain = Domain.none(type);
-
-                if (!values.isEmpty()) {
-                    domain = domain.union(Domain.multipleValues(type, values));
+                Domain domain;
+                if (values.isEmpty()) {
+                    domain = Domain.none(type);
+                }
+                else if (hasNaN[i]) {
+                    domain = Domain.notNull(type);
+                }
+                else {
+                    domain = Domain.multipleValues(type, values);
                 }
 
-                if (hasNull) {
+                if (hasNull[i]) {
                     domain = domain.union(Domain.onlyNull(type));
                 }
 

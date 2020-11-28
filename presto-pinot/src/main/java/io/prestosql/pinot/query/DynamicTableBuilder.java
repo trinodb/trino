@@ -41,8 +41,7 @@ public final class DynamicTableBuilder
     private static final CalciteSqlCompiler REQUEST_COMPILER = new CalciteSqlCompiler();
     private static final String COLUMN_KEY = "column";
     private static final String WILDCARD = "*";
-    public static final String STAR = "star";
-    public static final Set<String> DOUBLE_AGGREGATIONS = ImmutableSet.of("distinctcounthll");
+    public static final Set<String> DOUBLE_AGGREGATIONS = ImmutableSet.of("distinctcounthll", "avg");
     public static final Set<String> BIGINT_AGGREGATIONS = ImmutableSet.of("count", "distinctcount");
     public static final String OFFLINE_SUFFIX = "_OFFLINE";
     public static final String REALTIME_SUFFIX = "_REALTIME";
@@ -88,7 +87,7 @@ public final class DynamicTableBuilder
 
         Optional<String> filter;
         if (request.getFilterQuery() != null) {
-            FilterToPqlConverter filterToPqlConverter = new FilterToPqlConverter(schemaTableName, request.getFilterSubQueryMap(), columnHandles);
+            FilterToPqlConverter filterToPqlConverter = new FilterToPqlConverter(request.getFilterSubQueryMap(), columnHandles);
             filter = Optional.of(filterToPqlConverter.convert(request.getFilterQuery()));
         }
         else {

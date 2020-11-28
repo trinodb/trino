@@ -35,7 +35,6 @@ import static io.prestosql.execution.buffer.BufferState.OPEN;
 import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static io.prestosql.execution.buffer.BufferTestUtils.MAX_WAIT;
 import static io.prestosql.execution.buffer.BufferTestUtils.NO_WAIT;
-import static io.prestosql.execution.buffer.BufferTestUtils.PAGES_SERDE;
 import static io.prestosql.execution.buffer.BufferTestUtils.acknowledgeBufferResult;
 import static io.prestosql.execution.buffer.BufferTestUtils.addPage;
 import static io.prestosql.execution.buffer.BufferTestUtils.assertBufferResultEquals;
@@ -48,6 +47,7 @@ import static io.prestosql.execution.buffer.BufferTestUtils.createPage;
 import static io.prestosql.execution.buffer.BufferTestUtils.enqueuePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.getBufferResult;
 import static io.prestosql.execution.buffer.BufferTestUtils.getFuture;
+import static io.prestosql.execution.buffer.BufferTestUtils.serializePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.sizeOfPages;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -72,7 +72,7 @@ public class TestPartitionedOutputBuffer
     @BeforeClass
     public void setUp()
     {
-        stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
+        stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -808,7 +808,7 @@ public class TestPartitionedOutputBuffer
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
         Page page = createPage(1);
-        long serializePageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long serializePageSize = serializePage(page).getRetainedSizeInBytes();
         for (int i = 0; i < 5; i++) {
             addPage(buffer, page, 0);
             assertEquals(buffer.getPeakMemoryUsage(), (i + 1) * serializePageSize);

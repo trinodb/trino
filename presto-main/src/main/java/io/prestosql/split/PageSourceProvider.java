@@ -18,10 +18,9 @@ import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.connector.DynamicFilter;
 
 import java.util.List;
-import java.util.function.Supplier;
 
 public interface PageSourceProvider
 {
@@ -30,5 +29,5 @@ public interface PageSourceProvider
             Split split,
             TableHandle table,
             List<ColumnHandle> columns,
-            Supplier<TupleDomain<ColumnHandle>> dynamicFilter);
+            DynamicFilter dynamicFilter);
 }

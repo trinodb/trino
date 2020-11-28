@@ -49,7 +49,7 @@ public class TestOperatorMemoryRevocation
         OperatorContext operatorContext = TestingOperatorContext.create(scheduledExecutor);
         LocalMemoryContext revocableMemoryContext = operatorContext.localRevocableMemoryContext();
         revocableMemoryContext.setBytes(1000);
-        operatorContext.setMemoryRevocationRequestListener(() -> counter.incrementAndGet());
+        operatorContext.setMemoryRevocationRequestListener(counter::incrementAndGet);
         operatorContext.requestMemoryRevoking();
         assertTrue(operatorContext.isMemoryRevokingRequested());
         assertEquals(counter.get(), 1);
@@ -73,7 +73,7 @@ public class TestOperatorMemoryRevocation
 
         // when memory revocation is already requested setting a listener should immediately execute it
         operatorContext.requestMemoryRevoking();
-        operatorContext.setMemoryRevocationRequestListener(() -> counter.incrementAndGet());
+        operatorContext.setMemoryRevocationRequestListener(counter::incrementAndGet);
         assertTrue(operatorContext.isMemoryRevokingRequested());
         assertEquals(counter.get(), 1);
     }

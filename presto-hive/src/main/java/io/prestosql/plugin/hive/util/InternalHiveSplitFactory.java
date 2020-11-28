@@ -14,13 +14,15 @@
 package io.prestosql.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.DeleteDeltaLocations;
+import io.airlift.units.DataSize;
+import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
 import io.prestosql.plugin.hive.InternalHiveSplit;
 import io.prestosql.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.prestosql.plugin.hive.TableToPartitionMapping;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.s3select.S3SelectPushdown;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.predicate.Domain;
@@ -42,6 +44,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -62,8 +66,11 @@ public class InternalHiveSplitFactory
     private final TableToPartitionMapping tableToPartitionMapping;
     private final BooleanSupplier partitionMatchSupplier;
     private final Optional<BucketConversion> bucketConversion;
+    private final long minimumTargetSplitSizeInBytes;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
+    private final AcidTransaction transaction;
+    private final Map<Integer, AtomicInteger> bucketStatementCounters = new ConcurrentHashMap<>();
 
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
@@ -75,8 +82,10 @@ public class InternalHiveSplitFactory
             BooleanSupplier partitionMatchSupplier,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
+            DataSize minimumTargetSplitSize,
             boolean forceLocalScheduling,
-            boolean s3SelectPushdownEnabled)
+            boolean s3SelectPushdownEnabled,
+            AcidTransaction transaction)
     {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -89,6 +98,9 @@ public class InternalHiveSplitFactory
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.forceLocalScheduling = forceLocalScheduling;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.transaction = requireNonNull(transaction, "transaction is null");
+        this.minimumTargetSplitSizeInBytes = requireNonNull(minimumTargetSplitSize, "minimumTargetSplitSize is null").toBytes();
+        checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
 
     public String getPartitionName()
@@ -96,9 +108,11 @@ public class InternalHiveSplitFactory
         return partitionName;
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable, Optional<DeleteDeltaLocations> deleteDeltaLocations)
+    public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable, Optional<AcidInfo> acidInfo)
     {
-        splittable = splittable && isSplittable(inputFormat, fileSystem, status.getPath());
+        splittable = splittable &&
+                status.getLen() > minimumTargetSplitSizeInBytes &&
+                isSplittable(inputFormat, fileSystem, status.getPath());
         return createInternalHiveSplit(
                 status.getPath(),
                 status.getBlockLocations(),
@@ -108,7 +122,7 @@ public class InternalHiveSplitFactory
                 status.getModificationTime(),
                 bucketNumber,
                 splittable,
-                deleteDeltaLocations);
+                acidInfo);
     }
 
     public Optional<InternalHiveSplit> createInternalHiveSplit(FileSplit split)
@@ -132,11 +146,11 @@ public class InternalHiveSplitFactory
             BlockLocation[] blockLocations,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             long fileModificationTime,
             OptionalInt bucketNumber,
             boolean splittable,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            Optional<AcidInfo> acidInfo)
     {
         String pathString = path.toString();
         if (!pathMatchesPredicate(pathDomain, pathString)) {
@@ -154,7 +168,7 @@ public class InternalHiveSplitFactory
         // For empty files, some filesystem (e.g. LocalFileSystem) produce one empty block
         // while others (e.g. hdfs.DistributedFileSystem) produces no block.
         // Synthesize an empty block if one does not already exist.
-        if (fileSize == 0 && blockLocations.length == 0) {
+        if (estimatedFileSize == 0 && blockLocations.length == 0) {
             blockLocations = new BlockLocation[] {new BlockLocation()};
             // Turn off force local scheduling because hosts list doesn't exist.
             forceLocalScheduling = false;
@@ -176,11 +190,18 @@ public class InternalHiveSplitFactory
             blockBuilder.add(new InternalHiveBlock(blockStart, blockEnd, getHostAddresses(blockLocation)));
         }
         List<InternalHiveBlock> blocks = blockBuilder.build();
-        checkBlocks(blocks, start, length);
+        checkBlocks(path, blocks, start, length);
 
         if (!splittable) {
             // not splittable, use the hosts from the first block if it exists
             blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).getAddresses()));
+        }
+
+        int statementId = 0;
+
+        if (transaction.isDelete()) {
+            int bucketNumberIndex = bucketNumber.orElse(0);
+            statementId = bucketStatementCounters.computeIfAbsent(bucketNumberIndex, index -> new AtomicInteger()).getAndIncrement();
         }
 
         return Optional.of(new InternalHiveSplit(
@@ -188,28 +209,45 @@ public class InternalHiveSplitFactory
                 pathString,
                 start,
                 start + length,
-                fileSize,
+                estimatedFileSize,
                 fileModificationTime,
                 schema,
                 partitionKeys,
                 blocks,
                 bucketNumber,
+                statementId,
                 splittable,
                 forceLocalScheduling && allBlocksHaveAddress(blocks),
                 tableToPartitionMapping,
                 bucketConversion,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path),
-                deleteDeltaLocations));
+                acidInfo));
     }
 
-    private static void checkBlocks(List<InternalHiveBlock> blocks, long start, long length)
+    private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)
     {
-        checkArgument(length >= 0);
-        checkArgument(!blocks.isEmpty());
-        checkArgument(start == blocks.get(0).getStart());
-        checkArgument(start + length == blocks.get(blocks.size() - 1).getEnd());
+        checkArgument(start >= 0, "Split (%s) has negative start (%s)", path, start);
+        checkArgument(length >= 0, "Split (%s) has negative length (%s)", path, length);
+        checkArgument(!blocks.isEmpty(), "Split (%s) has no blocks", path);
+        checkArgument(
+                start == blocks.get(0).getStart(),
+                "Split (%s) start (%s) does not match first block start (%s)",
+                path,
+                start,
+                blocks.get(0).getStart());
+        checkArgument(
+                start + length == blocks.get(blocks.size() - 1).getEnd(),
+                "Split (%s) end (%s) does not match last block end (%s)",
+                path,
+                start + length,
+                blocks.get(blocks.size() - 1).getEnd());
         for (int i = 1; i < blocks.size(); i++) {
-            checkArgument(blocks.get(i - 1).getEnd() == blocks.get(i).getStart());
+            checkArgument(
+                    blocks.get(i - 1).getEnd() == blocks.get(i).getStart(),
+                    "Split (%s) block end (%s) does not match next block start (%s)",
+                    path,
+                    blocks.get(i - 1).getEnd(),
+                    blocks.get(i).getStart());
         }
     }
 

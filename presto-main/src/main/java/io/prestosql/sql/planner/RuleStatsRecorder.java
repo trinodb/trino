@@ -82,4 +82,9 @@ public class RuleStatsRecorder
         }
         mbeanExports.clear();
     }
+
+    public Map<Class<?>, RuleStats> getStats()
+    {
+        return ImmutableMap.copyOf(stats);
+    }
 }

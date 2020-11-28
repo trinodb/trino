@@ -45,7 +45,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -98,8 +97,9 @@ public class TestJdbcWarnings
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
+            throws Exception
     {
-        closeQuietly(server);
+        server.close();
     }
 
     @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
@@ -109,15 +109,16 @@ public class TestJdbcWarnings
     {
         connection = createConnection();
         statement = connection.createStatement();
-        executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     }
 
     @AfterMethod(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
-        closeQuietly(statement);
-        closeQuietly(connection);
         executor.shutdownNow();
+        statement.close();
+        connection.close();
     }
 
     @Test

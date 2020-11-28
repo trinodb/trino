@@ -40,17 +40,17 @@ import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
 import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestDictionaryAwarePageProjection
 {
-    private static final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%s"));
+    private static final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("TestDictionaryAwarePageProjection-%s"));
 
     @DataProvider(name = "forceYield")
     public static Object[][] forceYieldAndProduceLazyBlock()
@@ -221,10 +221,18 @@ public class TestDictionaryAwarePageProjection
 
     private static void testProjectFails(Block block, Class<? extends Block> expectedResultType, boolean forceYield, boolean produceLazyBlock)
     {
-        assertThrows(NegativeValueException.class, () -> testProjectRange(block, expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock));
-        assertThrows(NegativeValueException.class, () -> testProjectList(block, expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock));
-        assertThrows(NegativeValueException.class, () -> testProjectRange(lazyWrapper(block), expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock));
-        assertThrows(NegativeValueException.class, () -> testProjectList(lazyWrapper(block), expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock));
+        assertThatThrownBy(() -> testProjectRange(block, expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock))
+                .isInstanceOf(NegativeValueException.class)
+                .hasMessageContaining("value is negative");
+        assertThatThrownBy(() -> testProjectList(block, expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock))
+                .isInstanceOf(NegativeValueException.class)
+                .hasMessageContaining("value is negative");
+        assertThatThrownBy(() -> testProjectRange(lazyWrapper(block), expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock))
+                .isInstanceOf(NegativeValueException.class)
+                .hasMessageContaining("value is negative");
+        assertThatThrownBy(() -> testProjectList(lazyWrapper(block), expectedResultType, createProjection(produceLazyBlock), forceYield, produceLazyBlock))
+                .isInstanceOf(NegativeValueException.class)
+                .hasMessageContaining("value is negative");
     }
 
     private static void testProjectRange(Block block, Class<? extends Block> expectedResultType, DictionaryAwarePageProjection projection, boolean forceYield, boolean produceLazyBlock)

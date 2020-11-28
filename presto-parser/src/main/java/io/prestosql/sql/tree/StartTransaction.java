@@ -76,7 +76,7 @@ public final class StartTransaction
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final StartTransaction other = (StartTransaction) obj;
+        StartTransaction other = (StartTransaction) obj;
         return Objects.equals(this.transactionModes, other.transactionModes);
     }
 

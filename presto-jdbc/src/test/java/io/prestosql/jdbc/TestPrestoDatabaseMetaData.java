@@ -13,10 +13,9 @@
  */
 package io.prestosql.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multiset;
 import io.airlift.log.Logging;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
 import io.prestosql.plugin.hive.HiveHadoop2Plugin;
@@ -70,14 +69,18 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertContains;
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
+import static io.prestosql.jdbc.TestingJdbcUtils.array;
+import static io.prestosql.jdbc.TestingJdbcUtils.assertResultSet;
+import static io.prestosql.jdbc.TestingJdbcUtils.list;
+import static io.prestosql.jdbc.TestingJdbcUtils.readRows;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -157,8 +160,30 @@ public class TestPrestoDatabaseMetaData
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
+            throws Exception
     {
-        closeQuietly(connection);
+        connection.close();
+    }
+
+    @Test
+    public void testGetClientInfoProperties()
+            throws Exception
+    {
+        DatabaseMetaData metaData = connection.getMetaData();
+
+        try (ResultSet resultSet = metaData.getClientInfoProperties()) {
+            assertResultSet(resultSet)
+                    .hasColumnCount(4)
+                    .hasColumn(1, "NAME", Types.VARCHAR)
+                    .hasColumn(2, "MAX_LEN", Types.INTEGER)
+                    .hasColumn(3, "DEFAULT_VALUE", Types.VARCHAR)
+                    .hasColumn(4, "DESCRIPTION", Types.VARCHAR)
+                    .hasRows((list(
+                            list("ApplicationName", Integer.MAX_VALUE, null, null),
+                            list("ClientInfo", Integer.MAX_VALUE, null, null),
+                            list("ClientTags", Integer.MAX_VALUE, null, null),
+                            list("TraceToken", Integer.MAX_VALUE, null, null))));
+        }
     }
 
     @Test
@@ -547,8 +572,8 @@ public class TestPrestoDatabaseMetaData
 
                     try (ResultSet rs = connection.getMetaData().getTables("hive", "default", "test_%", types.toArray(new String[0]))) {
                         assertTableMetadata(rs);
-                        Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                        assertThat(rows).containsExactlyInAnyOrder(expected.toArray(new List[0]));
+                        Multiset<List<Object>> rows = ImmutableMultiset.copyOf(readRows(rs));
+                        assertThat(rows).isEqualTo(ImmutableMultiset.copyOf(expected));
                     }
                 }
             }
@@ -716,7 +741,9 @@ public class TestPrestoDatabaseMetaData
                             "c_time time, " +
                             "c_time_with_time_zone time with time zone, " +
                             "c_timestamp timestamp, " +
+                            "c_timestamp_nano timestamp(9), " +
                             "c_timestamp_with_time_zone timestamp with time zone, " +
+                            "c_timestamp_with_time_zone_nano timestamp(9) with time zone, " +
                             "c_date date, " +
                             "c_decimal_8_2 decimal(8,2), " +
                             "c_decimal_38_0 decimal(38,0), " +
@@ -737,10 +764,12 @@ public class TestPrestoDatabaseMetaData
                 assertColumnSpec(rs, Types.VARCHAR, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, createUnboundedVarcharType());
                 assertColumnSpec(rs, Types.CHAR, 345L, null, null, 345L, createCharType(345));
                 assertColumnSpec(rs, Types.VARBINARY, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
-                assertColumnSpec(rs, Types.TIME, 8L, null, null, null, TimeType.TIME);
-                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, null, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
-                assertColumnSpec(rs, Types.TIMESTAMP, 23L, null, null, null, TimestampType.TIMESTAMP);
-                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 29L, null, null, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIME, 12L, null, null, null, TimeType.TIME);
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, null, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIMESTAMP, 25L, null, null, null, TimestampType.TIMESTAMP_MILLIS);
+                assertColumnSpec(rs, Types.TIMESTAMP, 31L, null, null, null, createTimestampType(9));
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, null, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 65L, null, null, null, createTimestampWithTimeZoneType(9));
                 assertColumnSpec(rs, Types.DATE, 14L, null, null, null, DateType.DATE);
                 assertColumnSpec(rs, Types.DECIMAL, 8L, 10L, 2L, null, createDecimalType(8, 2));
                 assertColumnSpec(rs, Types.DECIMAL, 38L, 10L, 0L, null, createDecimalType(38, 0));
@@ -1390,47 +1419,6 @@ public class TestPrestoDatabaseMetaData
     {
         String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "admin", null);
-    }
-
-    private static List<List<Object>> readRows(ResultSet rs)
-            throws SQLException
-    {
-        ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
-        int columnCount = rs.getMetaData().getColumnCount();
-        while (rs.next()) {
-            List<Object> row = new ArrayList<>();
-            for (int i = 1; i <= columnCount; i++) {
-                row.add(rs.getObject(i));
-            }
-            rows.add(row);
-        }
-        return rows.build();
-    }
-
-    private static List<List<Object>> readRows(ResultSet rs, List<String> columns)
-            throws SQLException
-    {
-        ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
-        while (rs.next()) {
-            List<Object> row = new ArrayList<>();
-            for (String column : columns) {
-                row.add(rs.getObject(column));
-            }
-            rows.add(row);
-        }
-        return rows.build();
-    }
-
-    @SafeVarargs
-    private static <T> List<T> list(T... elements)
-    {
-        return asList(elements);
-    }
-
-    @SafeVarargs
-    private static <T> T[] array(T... elements)
-    {
-        return elements;
     }
 
     private interface MetaDataCallback<T>

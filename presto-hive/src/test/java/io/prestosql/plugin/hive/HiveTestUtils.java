@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.azure.HiveAzureConfig;
@@ -43,7 +42,6 @@ import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.NamedTypeSignature;
@@ -51,14 +49,17 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.type.InternalTypeManager;
+import org.apache.hadoop.hive.common.type.Timestamp;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -66,7 +67,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 
 public final class HiveTestUtils
@@ -76,7 +77,7 @@ public final class HiveTestUtils
     public static final ConnectorSession SESSION = getHiveSession(new HiveConfig());
 
     private static final Metadata METADATA = createTestMetadataManager();
-    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
+    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
 
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment();
 
@@ -94,6 +95,13 @@ public final class HiveTestUtils
                 .build();
     }
 
+    public static TestingConnectorSession getHiveSession(HiveConfig hiveConfig, ParquetWriterConfig parquetWriterConfig)
+    {
+        return TestingConnectorSession.builder()
+                .setPropertyMetadata(getHiveSessionProperties(hiveConfig, parquetWriterConfig).getSessionProperties())
+                .build();
+    }
+
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig)
     {
         return getHiveSessionProperties(hiveConfig, new OrcReaderConfig());
@@ -108,20 +116,29 @@ public final class HiveTestUtils
     {
         return new HiveSessionProperties(
                 hiveConfig,
-                rubixEnabledConfig,
                 orcReaderConfig,
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
                 new ParquetWriterConfig());
     }
 
-    public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment)
+    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, ParquetWriterConfig parquetWriterConfig)
+    {
+        return new HiveSessionProperties(
+                hiveConfig,
+                new OrcReaderConfig(),
+                new OrcWriterConfig(),
+                new ParquetReaderConfig(),
+                parquetWriterConfig);
+    }
+
+    public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats))
-                .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats))
-                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new ParquetReaderConfig()))
+                .add(new RcFilePageSourceFactory(TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
+                .add(new OrcPageSourceFactory(new OrcReaderConfig(), hdfsEnvironment, stats, hiveConfig))
+                .add(new ParquetPageSourceFactory(hdfsEnvironment, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
     }
 
@@ -136,17 +153,16 @@ public final class HiveTestUtils
     {
         return ImmutableSet.<HiveFileWriterFactory>builder()
                 .add(new RcFileFileWriterFactory(hdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig, new FileFormatDataSourceStats()))
-                .add(getDefaultOrcFileWriterFactory(hiveConfig, hdfsEnvironment))
+                .add(getDefaultOrcFileWriterFactory(hdfsEnvironment))
                 .build();
     }
 
-    public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
+    private static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HdfsEnvironment hdfsEnvironment)
     {
         return new OrcFileWriterFactory(
                 hdfsEnvironment,
                 TYPE_MANAGER,
                 new NodeVersion("test_version"),
-                hiveConfig,
                 new OrcWriterConfig(),
                 new FileFormatDataSourceStats(),
                 new OrcWriterConfig());
@@ -214,9 +230,7 @@ public final class HiveTestUtils
 
     public static MethodHandle distinctFromOperator(Type type)
     {
-        ResolvedFunction function = METADATA.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NULL_FLAG, NULL_FLAG), FAIL_ON_NULL, false, false);
-        return METADATA.getScalarFunctionInvoker(function, Optional.of(invocationConvention)).getMethodHandle();
+        return TYPE_MANAGER.getTypeOperators().getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
     }
 
     public static boolean isDistinctFrom(MethodHandle handle, Block left, Block right)
@@ -227,5 +241,10 @@ public final class HiveTestUtils
         catch (Throwable t) {
             throw new AssertionError(t);
         }
+    }
+
+    public static Timestamp hiveTimestamp(LocalDateTime local)
+    {
+        return Timestamp.ofEpochSecond(local.toEpochSecond(ZoneOffset.UTC), local.getNano());
     }
 }

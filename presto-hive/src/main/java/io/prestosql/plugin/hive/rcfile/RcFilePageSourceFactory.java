@@ -18,15 +18,23 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.prestosql.plugin.hive.DeleteDeltaLocations;
+import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
-import io.prestosql.plugin.hive.ReaderProjections;
+import io.prestosql.plugin.hive.HiveTimestampPrecision;
+import io.prestosql.plugin.hive.ReaderColumns;
+import io.prestosql.plugin.hive.ReaderPageSource;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
+import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
 import io.prestosql.rcfile.AircompressorCodecFactory;
 import io.prestosql.rcfile.HadoopCodecFactory;
+import io.prestosql.rcfile.MemoryRcFileDataSource;
 import io.prestosql.rcfile.RcFileCorruptionException;
+import io.prestosql.rcfile.RcFileDataSource;
+import io.prestosql.rcfile.RcFileDataSourceId;
 import io.prestosql.rcfile.RcFileEncoding;
 import io.prestosql.rcfile.RcFileReader;
 import io.prestosql.rcfile.binary.BinaryRcFileEncoding;
@@ -34,6 +42,7 @@ import io.prestosql.rcfile.text.TextRcFileEncoding;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -53,17 +62,23 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.prestosql.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
@@ -81,61 +96,83 @@ public class RcFilePageSourceFactory
 {
     private static final int TEXT_LEGACY_NESTING_LEVELS = 8;
     private static final int TEXT_EXTENDED_NESTING_LEVELS = 29;
+    private static final DataSize BUFFER_SIZE = DataSize.of(8, Unit.MEGABYTE);
 
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final DateTimeZone timeZone;
 
     @Inject
-    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getRcfileDateTimeZone();
     }
 
     @Override
-    public Optional<ReaderPageSourceWithProjections> createPageSource(
+    public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction)
     {
         RcFileEncoding rcFileEncoding;
         String deserializerClassName = getDeserializerClassName(schema);
         if (deserializerClassName.equals(LazyBinaryColumnarSerDe.class.getName())) {
-            rcFileEncoding = new BinaryRcFileEncoding();
+            rcFileEncoding = new BinaryRcFileEncoding(timeZone);
         }
         else if (deserializerClassName.equals(ColumnarSerDe.class.getName())) {
-            rcFileEncoding = createTextVectorEncoding(schema, hiveStorageTimeZone);
+            rcFileEncoding = createTextVectorEncoding(schema);
         }
         else {
             return Optional.empty();
         }
 
-        checkArgument(deleteDeltaLocations.isEmpty(), "Delete delta is not supported");
+        checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
-        if (fileSize == 0) {
+        if (estimatedFileSize == 0) {
             throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
         }
 
-        Optional<ReaderProjections> readerProjections = projectBaseColumns(columns);
+        List<HiveColumnHandle> projectedReaderColumns = columns;
+        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
 
-        List<HiveColumnHandle> projectedReaderColumns = readerProjections
-                .map(ReaderProjections::getReaderColumns)
-                .orElse(columns);
+        if (readerProjections.isPresent()) {
+            projectedReaderColumns = readerProjections.get().get().stream()
+                    .map(HiveColumnHandle.class::cast)
+                    .collect(toImmutableList());
+        }
 
-        FSDataInputStream inputStream;
+        RcFileDataSource dataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            inputStream = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(path));
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(path));
+            if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
+                //  Handle potentially imprecise file lengths by reading the footer
+                try {
+                    FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(path.toString(), estimatedFileSize, inputStream, toIntExact(BUFFER_SIZE.toBytes()));
+                    dataSource = new MemoryRcFileDataSource(new RcFileDataSourceId(path.toString()), fileTail.getTailSlice());
+                }
+                finally {
+                    inputStream.close();
+                }
+            }
+            else {
+                long fileSize = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.getFileStatus(path).getLen());
+                dataSource = new HdfsRcFileDataSource(path.toString(), inputStream, fileSize, stats);
+            }
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
@@ -145,27 +182,34 @@ public class RcFilePageSourceFactory
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
+        length = min(dataSource.getSize() - start, length);
+        // Split may be empty now that the correct file size is known
+        if (length <= 0) {
+            return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
+        }
+
         try {
             ImmutableMap.Builder<Integer, Type> readColumns = ImmutableMap.builder();
+            HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
             for (HiveColumnHandle column : projectedReaderColumns) {
-                readColumns.put(column.getBaseHiveColumnIndex(), column.getHiveType().getType(typeManager));
+                readColumns.put(column.getBaseHiveColumnIndex(), column.getHiveType().getType(typeManager, timestampPrecision));
             }
 
             RcFileReader rcFileReader = new RcFileReader(
-                    new HdfsRcFileDataSource(path.toString(), inputStream, fileSize, stats),
+                    dataSource,
                     rcFileEncoding,
                     readColumns.build(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
                     start,
                     length,
-                    DataSize.of(8, Unit.MEGABYTE));
+                    BUFFER_SIZE);
 
             ConnectorPageSource pageSource = new RcFilePageSource(rcFileReader, projectedReaderColumns);
-            return Optional.of(new ReaderPageSourceWithProjections(pageSource, readerProjections));
+            return Optional.of(new ReaderPageSource(pageSource, readerProjections));
         }
         catch (Throwable e) {
             try {
-                inputStream.close();
+                dataSource.close();
             }
             catch (IOException ignored) {
             }
@@ -188,7 +232,7 @@ public class RcFilePageSourceFactory
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 
-    public static TextRcFileEncoding createTextVectorEncoding(Properties schema, DateTimeZone hiveStorageTimeZone)
+    public static TextRcFileEncoding createTextVectorEncoding(Properties schema)
     {
         // separators
         int nestingLevels;
@@ -229,7 +273,6 @@ public class RcFilePageSourceFactory
         }
 
         return new TextRcFileEncoding(
-                hiveStorageTimeZone,
                 nullSequence,
                 separators,
                 escapeByte,

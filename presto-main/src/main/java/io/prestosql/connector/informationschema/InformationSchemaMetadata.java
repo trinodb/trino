@@ -199,7 +199,7 @@ public class InformationSchemaMetadata
         Optional<Set<String>> grantees = table.getGrantees();
         if (ROLE_AUTHORIZATION_DESCRIPTORS.equals(table.getTable()) && table.getRoles().isEmpty() && table.getGrantees().isEmpty()) {
             roles = calculateRoles(session, constraint.getSummary(), constraint.predicate());
-            grantees = calculateGrantees(session, constraint.getSummary(), constraint.predicate());
+            grantees = calculateGrantees(constraint.getSummary(), constraint.predicate());
         }
 
         Set<QualifiedTablePrefix> prefixes = table.getPrefixes();
@@ -287,7 +287,6 @@ public class InformationSchemaMetadata
     }
 
     private Optional<Set<String>> calculateGrantees(
-            ConnectorSession connectorSession,
             TupleDomain<ColumnHandle> constraint,
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {

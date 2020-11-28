@@ -24,8 +24,10 @@ public class QueryStatistics
     private final Duration cpuTime;
     private final Duration wallTime;
     private final Duration queuedTime;
+    private final Optional<Duration> scheduledTime;
     private final Optional<Duration> waitingTime;
     private final Optional<Duration> analysisTime;
+    private final Optional<Duration> planningTime;
     private final Optional<Duration> executionTime;
 
     private final long peakUserMemoryBytes;
@@ -68,8 +70,10 @@ public class QueryStatistics
             Duration cpuTime,
             Duration wallTime,
             Duration queuedTime,
+            Optional<Duration> scheduledTime,
             Optional<Duration> waitingTime,
             Optional<Duration> analysisTime,
+            Optional<Duration> planningTime,
             Optional<Duration> executionTime,
             long peakUserMemoryBytes,
             long peakTotalNonRevocableMemoryBytes,
@@ -95,9 +99,11 @@ public class QueryStatistics
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
-        this.waitingTime = requireNonNull(waitingTime, "waitingTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.scheduledTime = requireNonNull(scheduledTime, "scheduledTime is null");
+        this.waitingTime = requireNonNull(waitingTime, "waitingTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
+        this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
@@ -137,6 +143,11 @@ public class QueryStatistics
         return queuedTime;
     }
 
+    public Optional<Duration> getScheduledTime()
+    {
+        return scheduledTime;
+    }
+
     public Optional<Duration> getResourceWaitingTime()
     {
         return waitingTime;
@@ -145,6 +156,11 @@ public class QueryStatistics
     public Optional<Duration> getAnalysisTime()
     {
         return analysisTime;
+    }
+
+    public Optional<Duration> getPlanningTime()
+    {
+        return planningTime;
     }
 
     public Optional<Duration> getExecutionTime()

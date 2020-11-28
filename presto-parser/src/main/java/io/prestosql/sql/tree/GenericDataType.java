@@ -85,4 +85,10 @@ public class GenericDataType
     {
         return Objects.hash(name, arguments);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

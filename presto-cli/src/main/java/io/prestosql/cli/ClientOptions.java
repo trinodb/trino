@@ -19,7 +19,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.airlift.airline.Option;
 import io.airlift.units.Duration;
 import io.prestosql.client.ClientSession;
 
@@ -40,120 +39,130 @@ import static io.prestosql.client.KerberosUtil.defaultCredentialCachePath;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static picocli.CommandLine.Option;
 
 public class ClientOptions
 {
     private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
     private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
+    private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
 
-    @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
-    public String server = "localhost:8080";
+    @Option(names = "--server", paramLabel = "<server>", defaultValue = "localhost:8080", description = "Presto server location " + DEFAULT_VALUE)
+    public String server;
 
-    @Option(name = "--krb5-service-principal-pattern", title = "krb5 remote service principal pattern", description = "Remote kerberos service principal pattern (default: ${SERVICE}@${HOST})")
-    public String krb5ServicePrincipalPattern = "${SERVICE}@${HOST}";
+    @Option(names = "--krb5-service-principal-pattern", paramLabel = "<pattern>", defaultValue = "$${SERVICE}@$${HOST}", description = "Remote kerberos service principal pattern " + DEFAULT_VALUE)
+    public String krb5ServicePrincipalPattern;
 
-    @Option(name = "--krb5-remote-service-name", title = "krb5 remote service name", description = "Remote peer's kerberos service name")
+    @Option(names = "--krb5-remote-service-name", paramLabel = "<name>", description = "Remote peer's kerberos service name")
     public String krb5RemoteServiceName;
 
-    @Option(name = "--krb5-config-path", title = "krb5 config path", description = "Kerberos config file path (default: /etc/krb5.conf)")
-    public String krb5ConfigPath = "/etc/krb5.conf";
+    @Option(names = "--krb5-config-path", paramLabel = "<path>", defaultValue = "/etc/krb5.conf", description = "Kerberos config file path " + DEFAULT_VALUE)
+    public String krb5ConfigPath;
 
-    @Option(name = "--krb5-keytab-path", title = "krb5 keytab path", description = "Kerberos key table path (default: /etc/krb5.keytab)")
-    public String krb5KeytabPath = "/etc/krb5.keytab";
+    @Option(names = "--krb5-keytab-path", paramLabel = "<path>", defaultValue = "/etc/krb5.keytab", description = "Kerberos key table path " + DEFAULT_VALUE)
+    public String krb5KeytabPath;
 
-    @Option(name = "--krb5-credential-cache-path", title = "krb5 credential cache path", description = "Kerberos credential cache path")
+    @Option(names = "--krb5-credential-cache-path", paramLabel = "<path>", description = "Kerberos credential cache path")
     public String krb5CredentialCachePath = defaultCredentialCachePath().orElse(null);
 
-    @Option(name = "--krb5-principal", title = "krb5 principal", description = "Kerberos principal to be used")
+    @Option(names = "--krb5-principal", paramLabel = "<principal>", description = "Kerberos principal to be used")
     public String krb5Principal;
 
-    @Option(name = "--krb5-disable-remote-service-hostname-canonicalization", title = "krb5 disable remote service hostname canonicalization", description = "Disable service hostname canonicalization using the DNS reverse lookup")
+    @Option(names = "--krb5-disable-remote-service-hostname-canonicalization", description = "Disable service hostname canonicalization using the DNS reverse lookup")
     public boolean krb5DisableRemoteServiceHostnameCanonicalization;
 
-    @Option(name = "--keystore-path", title = "keystore path", description = "Keystore path")
+    @Option(names = "--keystore-path", paramLabel = "<path>", description = "Keystore path")
     public String keystorePath;
 
-    @Option(name = "--keystore-password", title = "keystore password", description = "Keystore password")
+    @Option(names = "--keystore-password", paramLabel = "<password>", description = "Keystore password")
     public String keystorePassword;
 
-    @Option(name = "--truststore-path", title = "truststore path", description = "Truststore path")
+    @Option(names = "--keystore-type", paramLabel = "<type>", description = "Keystore type")
+    public String keystoreType;
+
+    @Option(names = "--truststore-path", paramLabel = "<path>", description = "Truststore path")
     public String truststorePath;
 
-    @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
+    @Option(names = "--truststore-password", paramLabel = "<password>", description = "Truststore password")
     public String truststorePassword;
 
-    @Option(name = "--insecure", title = "trust all certificates", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
+    @Option(names = "--truststore-type", paramLabel = "<type>", description = "Truststore type")
+    public String truststoreType;
+
+    @Option(names = "--insecure", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
     public boolean insecure;
 
-    @Option(name = "--access-token", title = "access token", description = "Access token")
+    @Option(names = "--access-token", paramLabel = "<token>", description = "Access token")
     public String accessToken;
 
-    @Option(name = "--user", title = "user", description = "Username")
+    @Option(names = "--user", paramLabel = "<user>", description = "Username " + DEFAULT_VALUE)
     public String user = System.getProperty("user.name");
 
-    @Option(name = "--password", title = "password", description = "Prompt for password")
+    @Option(names = "--password", paramLabel = "<password>", description = "Prompt for password")
     public boolean password;
 
-    @Option(name = "--source", title = "source", description = "Name of source making query")
-    public String source = "presto-cli";
+    @Option(names = "--source", paramLabel = "<source>", defaultValue = "presto-cli", description = "Name of source making query " + DEFAULT_VALUE)
+    public String source;
 
-    @Option(name = "--client-info", title = "client-info", description = "Extra information about client making query")
+    @Option(names = "--client-info", paramLabel = "<info>", description = "Extra information about client making query")
     public String clientInfo;
 
-    @Option(name = "--client-tags", title = "client tags", description = "Client tags")
-    public String clientTags = "";
+    @Option(names = "--client-tags", paramLabel = "<tags>", description = "Client tags")
+    public String clientTags;
 
-    @Option(name = "--trace-token", title = "trace token", description = "Trace token")
+    @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
     public String traceToken;
 
-    @Option(name = "--catalog", title = "catalog", description = "Default catalog")
+    @Option(names = "--catalog", paramLabel = "<catalog>", description = "Default catalog")
     public String catalog;
 
-    @Option(name = "--schema", title = "schema", description = "Default schema")
+    @Option(names = "--schema", paramLabel = "<schema>", description = "Default schema")
     public String schema;
 
-    @Option(name = {"-f", "--file"}, title = "file", description = "Execute statements from file and exit")
+    @Option(names = {"-f", "--file"}, paramLabel = "<file>", description = "Execute statements from file and exit")
     public String file;
 
-    @Option(name = "--debug", title = "debug", description = "Enable debug information")
+    @Option(names = "--debug", paramLabel = "<debug>", description = "Enable debug information")
     public boolean debug;
 
-    @Option(name = "--progress", title = "progress", description = "Show query progress in batch mode")
+    @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress in batch mode")
     public boolean progress;
 
-    @Option(name = "--log-levels-file", title = "log levels file", description = "Configure log levels for debugging using this file")
+    @Option(names = "--log-levels-file", paramLabel = "<file>", description = "Configure log levels for debugging using this file")
     public String logLevelsFile;
 
-    @Option(name = "--execute", title = "execute", description = "Execute specified statements and exit")
+    @Option(names = "--execute", paramLabel = "<execute>", description = "Execute specified statements and exit")
     public String execute;
 
-    @Option(name = "--output-format", title = "output-format", description = "Output format for batch mode [ALIGNED, VERTICAL, JSON, CSV, TSV, CSV_HEADER, TSV_HEADER, CSV_UNQUOTED, CSV_HEADER_UNQUOTED, NULL] (default: CSV)")
-    public OutputFormat outputFormat = OutputFormat.CSV;
+    @Option(names = "--output-format", paramLabel = "<format>", defaultValue = "CSV", description = "Output format for batch mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
+    public OutputFormat outputFormat;
 
-    @Option(name = "--resource-estimate", title = "resource-estimate", description = "Resource estimate (property can be used multiple times; format is key=value)")
+    @Option(names = "--resource-estimate", paramLabel = "<estimate>", description = "Resource estimate (property can be used multiple times; format is key=value)")
     public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
 
-    @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
+    @Option(names = "--session", paramLabel = "<session>", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
-    @Option(name = "--extra-credential", title = "extra-credential", description = "Extra credentials (property can be used multiple times; format is key=value)")
+    @Option(names = "--extra-credential", paramLabel = "<credential>", description = "Extra credentials (property can be used multiple times; format is key=value)")
     public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
-    @Option(name = "--socks-proxy", title = "socks-proxy", description = "SOCKS proxy to use for server connections")
+    @Option(names = "--socks-proxy", paramLabel = "<proxy>", description = "SOCKS proxy to use for server connections")
     public HostAndPort socksProxy;
 
-    @Option(name = "--http-proxy", title = "http-proxy", description = "HTTP proxy to use for server connections")
+    @Option(names = "--http-proxy", paramLabel = "<proxy>", description = "HTTP proxy to use for server connections")
     public HostAndPort httpProxy;
 
-    @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
-    public Duration clientRequestTimeout = new Duration(2, MINUTES);
+    @Option(names = "--client-request-timeout", paramLabel = "<timeout>", defaultValue = "2m", description = "Client request timeout " + DEFAULT_VALUE)
+    public Duration clientRequestTimeout;
 
-    @Option(name = "--ignore-errors", title = "ignore errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
+    @Option(names = "--ignore-errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
     public boolean ignoreErrors;
 
-    @Option(name = "--timezone", title = "timezone", description = "Session time zone (default: system time zone)")
-    public String timeZone = ZoneId.systemDefault().getId();
+    @Option(names = "--timezone", paramLabel = "<timezone>", description = "Session time zone " + DEFAULT_VALUE)
+    public ZoneId timeZone = ZoneId.systemDefault();
+
+    @Option(names = "--disable-compression", description = "Disable compression of query results")
+    public boolean disableCompression;
 
     public enum OutputFormat
     {
@@ -176,12 +185,12 @@ public class ClientOptions
                 user,
                 source,
                 Optional.ofNullable(traceToken),
-                parseClientTags(clientTags),
+                parseClientTags(nullToEmpty(clientTags)),
                 clientInfo,
                 catalog,
                 schema,
                 null,
-                ZoneId.of(timeZone),
+                timeZone,
                 Locale.getDefault(),
                 toResourceEstimates(resourceEstimates),
                 toProperties(sessionProperties),
@@ -189,7 +198,8 @@ public class ClientOptions
                 emptyMap(),
                 toExtraCredentials(extraCredentials),
                 null,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                disableCompression);
     }
 
     public static URI parseServer(String server)
@@ -259,9 +269,9 @@ public class ClientOptions
             this.estimate = nameValue.get(1);
             checkArgument(!resource.isEmpty(), "Resource name is empty");
             checkArgument(!estimate.isEmpty(), "Resource estimate is empty");
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(resource), "Resource contains spaces or is not US_ASCII: %s", resource);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(resource), "Resource contains spaces or is not ASCII: %s", resource);
             checkArgument(resource.indexOf('=') < 0, "Resource must not contain '=': %s", resource);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(estimate), "Resource estimate contains spaces or is not US_ASCII: %s", resource);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(estimate), "Resource estimate contains spaces or is not ASCII: %s", resource);
         }
 
         @VisibleForTesting
@@ -349,10 +359,10 @@ public class ClientOptions
             checkArgument(!catalog.isPresent() || !catalog.get().isEmpty(), "Invalid session property: %s.%s:%s", catalog, name, value);
             checkArgument(!name.isEmpty(), "Session property name is empty");
             checkArgument(catalog.orElse("").indexOf('=') < 0, "Session property catalog must not contain '=': %s", name);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(catalog.orElse("")), "Session property catalog contains spaces or is not US_ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(catalog.orElse("")), "Session property catalog contains spaces or is not ASCII: %s", name);
             checkArgument(name.indexOf('=') < 0, "Session property name must not contain '=': %s", name);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Session property name contains spaces or is not US_ASCII: %s", name);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Session property value contains spaces or is not US_ASCII: %s", value);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Session property name contains spaces or is not ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Session property value contains spaces or is not ASCII: %s", value);
         }
 
         public Optional<String> getCatalog()
@@ -412,9 +422,9 @@ public class ClientOptions
             this.value = nameValue.get(1);
             checkArgument(!name.isEmpty(), "Credential name is empty");
             checkArgument(!value.isEmpty(), "Credential value is empty");
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not US_ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not ASCII: %s", name);
             checkArgument(name.indexOf('=') < 0, "Credential name must not contain '=': %s", name);
-            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains space or is not US_ASCII: %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains space or is not ASCII: %s", name);
         }
 
         public ClientExtraCredential(String name, String value)

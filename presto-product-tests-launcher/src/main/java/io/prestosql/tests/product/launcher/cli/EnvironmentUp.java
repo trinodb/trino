@@ -13,46 +13,55 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
-import com.github.dockerjava.api.DockerClient;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.airlift.airline.Command;
-import io.airlift.airline.Option;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.docker.ContainerUtil;
+import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
-import io.prestosql.tests.product.launcher.env.Environments;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.ContainerState;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.ExitCode;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.Collection;
+import java.nio.file.Path;
+import java.util.Optional;
+import java.util.concurrent.Callable;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.prestosql.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static java.util.Objects.requireNonNull;
+import static picocli.CommandLine.Mixin;
+import static picocli.CommandLine.Option;
 
-@Command(name = "up", description = "start an environment")
+@Command(
+        name = "up",
+        description = "Start an environment",
+        usageHelpAutoWidth = true)
 public final class EnvironmentUp
-        implements Runnable
+        implements Callable<Integer>
 {
     private static final Logger log = Logger.get(EnvironmentUp.class);
 
-    @Inject
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
+
+    @Mixin
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
 
-    @Inject
+    @Mixin
     public EnvironmentUpOptions environmentUpOptions = new EnvironmentUpOptions();
 
-    private Module additionalEnvironments;
+    private final Module additionalEnvironments;
 
     public EnvironmentUp(Extensions extensions)
     {
@@ -60,13 +69,12 @@ public final class EnvironmentUp
     }
 
     @Override
-    public void run()
+    public Integer call()
     {
-        runCommand(
+        return runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
-                        .add(new EnvironmentModule(additionalEnvironments))
-                        .add(environmentOptions.toModule())
+                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
                         .add(environmentUpOptions.toModule())
                         .build(),
                 EnvironmentUp.Execution.class);
@@ -74,11 +82,14 @@ public final class EnvironmentUp
 
     public static class EnvironmentUpOptions
     {
-        @Option(name = "--background", title = "background", description = "keep containers running in the background once they are started")
+        @Option(names = "--background", description = "Keep containers running in the background once they are started")
         public boolean background;
 
-        @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
+        @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
+
+        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory", converter = OptionalPathConverter.class, defaultValue = "")
+        public Optional<Path> logsDirBase;
 
         public Module toModule()
         {
@@ -87,73 +98,60 @@ public final class EnvironmentUp
     }
 
     public static class Execution
-            implements Runnable
+            implements Callable<Integer>
     {
         private final EnvironmentFactory environmentFactory;
         private final boolean withoutPrestoMaster;
         private final boolean background;
         private final String environment;
+        private final EnvironmentConfig environmentConfig;
+        private final Optional<Path> logsDirBase;
+        private final DockerContainer.OutputMode outputMode;
 
         @Inject
-        public Execution(EnvironmentFactory environmentFactory, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
+        public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
+            this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
             this.withoutPrestoMaster = options.withoutPrestoMaster;
             this.background = environmentUpOptions.background;
             this.environment = environmentUpOptions.environment;
+            this.outputMode = requireNonNull(options.output, "options.output is null");
+            this.logsDirBase = requireNonNull(environmentUpOptions.logsDirBase, "environmentUpOptions.logsDirBase is null");
         }
 
         @Override
-        public void run()
+        public Integer call()
         {
-            log.info("Pruning old environment(s)");
-            Environments.pruneEnvironment();
-
-            Environment.Builder builder = environmentFactory.get(environment)
-                    .removeContainer("tests");
+            Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
+            Environment.Builder builder = environmentFactory.get(environment, environmentConfig)
+                    .setContainerOutputMode(outputMode)
+                    .setLogsBaseDir(environmentLogPath)
+                    .removeContainer(TESTS);
 
             if (withoutPrestoMaster) {
-                builder.removeContainer("presto-master");
+                builder.removeContainers(container -> isPrestoContainer(container.getLogicalName()));
             }
 
-            Environment environment = builder.build();
-
-            log.info("Starting the environment '%s'", this.environment);
+            log.info("Creating environment '%s' with configuration %s", environment, environmentConfig);
+            Environment environment = builder.build(getStandardListeners(environmentLogPath));
             environment.start();
-            log.info("Environment '%s' started", this.environment);
 
             if (background) {
                 killContainersReaperContainer();
-                return;
+                return ExitCode.OK;
             }
 
-            wait(environment.getContainers());
-            log.info("Exiting, the containers will exit too");
+            environment.awaitContainersStopped();
+            environment.stop();
+
+            return ExitCode.OK;
         }
 
-        private void killContainersReaperContainer()
+        private static void killContainersReaperContainer()
         {
-            try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
-                log.info("Killing the testcontainers reaper container (Ryuk) so that environment can stay alive");
-                ContainerUtil.killContainersReaperContainer(dockerClient);
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-
-        private void wait(Collection<Container<?>> containers)
-        {
-            try {
-                while (containers.stream().anyMatch(ContainerState::isRunning)) {
-                    Thread.sleep(1_000);
-                }
-                throw new RuntimeException("All containers have been stopped");
-            }
-            catch (InterruptedException e) {
-                log.info("Interrupted");
-                // It's OK not to restore interrupt flag here. When we return we're exiting the process.
-            }
+            log.info("Killing the testcontainers reaper container (Ryuk) so that environment can stay alive");
+            ContainerUtil.killContainersReaperContainer(DockerClientFactory.lazyClient());
         }
     }
 }

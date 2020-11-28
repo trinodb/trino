@@ -15,7 +15,10 @@ package io.prestosql.spi.type;
 
 import java.util.Objects;
 
+import static io.prestosql.spi.type.Timestamps.formatTimestamp;
+
 public final class LongTimestamp
+        implements Comparable<LongTimestamp>
 {
     private static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
 
@@ -25,10 +28,10 @@ public final class LongTimestamp
     public LongTimestamp(long epochMicros, int picosOfMicro)
     {
         if (picosOfMicro < 0) {
-            throw new IllegalArgumentException("picosOfMicro must be >= 0");
+            throw new IllegalArgumentException("picosOfMicro must be >= 0: " + picosOfMicro);
         }
         if (picosOfMicro >= PICOSECONDS_PER_MICROSECOND) {
-            throw new IllegalArgumentException("picosOfMicro must be < 1_000_000");
+            throw new IllegalArgumentException("picosOfMicro must be < 1_000_000: " + picosOfMicro);
         }
         this.epochMicros = epochMicros;
         this.picosOfMicro = picosOfMicro;
@@ -62,5 +65,21 @@ public final class LongTimestamp
     public int hashCode()
     {
         return Objects.hash(epochMicros, picosOfMicro);
+    }
+
+    @Override
+    public int compareTo(LongTimestamp other)
+    {
+        int value = Long.compare(epochMicros, other.epochMicros);
+        if (value != 0) {
+            return value;
+        }
+        return Integer.compare(picosOfMicro, other.picosOfMicro);
+    }
+
+    @Override
+    public String toString()
+    {
+        return formatTimestamp(TimestampType.MAX_PRECISION, epochMicros, picosOfMicro);
     }
 }

@@ -14,6 +14,7 @@
 package io.prestosql.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.session.ResourceEstimates;
 
@@ -27,6 +28,7 @@ public class QueryContext
 {
     private final String user;
     private final Optional<String> principal;
+    private final Set<String> groups;
     private final Optional<String> traceToken;
     private final Optional<String> remoteClientAddress;
     private final Optional<String> userAgent;
@@ -47,9 +49,12 @@ public class QueryContext
     private final String serverVersion;
     private final String environment;
 
+    private final Optional<QueryType> queryType;
+
     public QueryContext(
             String user,
             Optional<String> principal,
+            Set<String> groups,
             Optional<String> traceToken,
             Optional<String> remoteClientAddress,
             Optional<String> userAgent,
@@ -64,10 +69,12 @@ public class QueryContext
             ResourceEstimates resourceEstimates,
             String serverAddress,
             String serverVersion,
-            String environment)
+            String environment,
+            Optional<QueryType> queryType)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.groups = requireNonNull(groups, "groups is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.remoteClientAddress = requireNonNull(remoteClientAddress, "remoteClientAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
@@ -83,6 +90,7 @@ public class QueryContext
         this.serverAddress = requireNonNull(serverAddress, "serverAddress is null");
         this.serverVersion = requireNonNull(serverVersion, "serverVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
     @JsonProperty
@@ -95,6 +103,12 @@ public class QueryContext
     public Optional<String> getPrincipal()
     {
         return principal;
+    }
+
+    @JsonProperty
+    public Set<String> getGroups()
+    {
+        return groups;
     }
 
     @JsonProperty
@@ -185,5 +199,11 @@ public class QueryContext
     public String getEnvironment()
     {
         return environment;
+    }
+
+    @JsonProperty
+    public Optional<QueryType> getQueryType()
+    {
+        return queryType;
     }
 }

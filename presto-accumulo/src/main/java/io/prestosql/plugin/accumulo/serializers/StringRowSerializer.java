@@ -39,7 +39,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -337,7 +337,7 @@ public class StringRowSerializer
         else if (type.equals(TIME)) {
             setTime(text, (Time) value);
         }
-        else if (type.equals(TIMESTAMP)) {
+        else if (type.equals(TIMESTAMP_MILLIS)) {
             setTimestamp(text, (Timestamp) value);
         }
         else if (type.equals(TINYINT)) {
@@ -391,7 +391,7 @@ public class StringRowSerializer
         if (type.equals(TIME)) {
             return (T) (Long) Long.parseLong(strValue);
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return (T) (Long) Long.parseLong(strValue);
         }
         if (type.equals(TINYINT)) {

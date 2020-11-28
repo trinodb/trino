@@ -27,6 +27,7 @@ import io.prestosql.execution.scheduler.SplitSchedulerStats;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.planner.PlanFragment;
@@ -76,6 +77,7 @@ public final class SqlStageExecution
     private final boolean summarizeTaskInfo;
     private final Executor executor;
     private final FailureDetector failureDetector;
+    private final DynamicFilterService dynamicFilterService;
 
     private final Map<PlanFragmentId, RemoteSourceNode> exchangeSources;
 
@@ -87,6 +89,8 @@ public final class SqlStageExecution
     private final Set<TaskId> allTasks = newConcurrentHashSet();
     @GuardedBy("this")
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
+    @GuardedBy("this")
+    private final Set<TaskId> flushingTasks = newConcurrentHashSet();
     @GuardedBy("this")
     private final Set<TaskId> tasksWithFinalInfo = newConcurrentHashSet();
     @GuardedBy("this")
@@ -113,6 +117,7 @@ public final class SqlStageExecution
             NodeTaskMap nodeTaskMap,
             ExecutorService executor,
             FailureDetector failureDetector,
+            DynamicFilterService dynamicFilterService,
             SplitSchedulerStats schedulerStats)
     {
         requireNonNull(stageId, "stageId is null");
@@ -123,6 +128,7 @@ public final class SqlStageExecution
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         requireNonNull(executor, "executor is null");
         requireNonNull(failureDetector, "failureDetector is null");
+        requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
@@ -131,12 +137,20 @@ public final class SqlStageExecution
                 nodeTaskMap,
                 summarizeTaskInfo,
                 executor,
-                failureDetector);
+                failureDetector,
+                dynamicFilterService);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
 
-    private SqlStageExecution(StageStateMachine stateMachine, RemoteTaskFactory remoteTaskFactory, NodeTaskMap nodeTaskMap, boolean summarizeTaskInfo, Executor executor, FailureDetector failureDetector)
+    private SqlStageExecution(
+            StageStateMachine stateMachine,
+            RemoteTaskFactory remoteTaskFactory,
+            NodeTaskMap nodeTaskMap,
+            boolean summarizeTaskInfo,
+            Executor executor,
+            FailureDetector failureDetector,
+            DynamicFilterService dynamicFilterService)
     {
         this.stateMachine = stateMachine;
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
@@ -144,6 +158,7 @@ public final class SqlStageExecution
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.executor = requireNonNull(executor, "executor is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : stateMachine.getFragment().getRemoteSourceNodes()) {
@@ -158,6 +173,11 @@ public final class SqlStageExecution
     private void initialize()
     {
         stateMachine.addStateChangeListener(newState -> checkAllTaskFinal());
+        stateMachine.addStateChangeListener(newState -> {
+            if (!newState.canScheduleMoreTasks()) {
+                dynamicFilterService.stageCannotScheduleMoreTasks(stateMachine.getStageId(), getAllTasks().size());
+            }
+        });
     }
 
     public StageId getStageId()
@@ -223,6 +243,9 @@ public final class SqlStageExecution
 
         if (getAllTasks().stream().anyMatch(task -> getState() == StageState.RUNNING)) {
             stateMachine.transitionToRunning();
+        }
+        if (isFlushing()) {
+            stateMachine.transitionToFlushing();
         }
         if (finishedTasks.containsAll(allTasks)) {
             stateMachine.transitionToFinished();
@@ -493,13 +516,20 @@ public final class SqlStageExecution
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
                 stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
             }
+            else if (taskState == TaskState.FLUSHING) {
+                flushingTasks.add(taskStatus.getTaskId());
+            }
             else if (taskState == TaskState.FINISHED) {
                 finishedTasks.add(taskStatus.getTaskId());
+                flushingTasks.remove(taskStatus.getTaskId());
             }
 
-            if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING) {
+            if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING || stageState == StageState.FLUSHING) {
                 if (taskState == TaskState.RUNNING) {
                     stateMachine.transitionToRunning();
+                }
+                if (isFlushing()) {
+                    stateMachine.transitionToFlushing();
                 }
                 if (finishedTasks.containsAll(allTasks)) {
                     stateMachine.transitionToFinished();
@@ -510,6 +540,13 @@ public final class SqlStageExecution
             // after updating state, check if all tasks have final status information
             checkAllTaskFinal();
         }
+    }
+
+    private synchronized boolean isFlushing()
+    {
+        // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
+        return !flushingTasks.isEmpty()
+                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
@@ -526,6 +563,18 @@ public final class SqlStageExecution
                     .collect(toImmutableList());
             stateMachine.setAllTasksFinal(finalTaskInfos);
         }
+    }
+
+    public List<TaskStatus> getTaskStatuses()
+    {
+        return getAllTasks().stream()
+                .map(RemoteTask::getTaskStatus)
+                .collect(toImmutableList());
+    }
+
+    public boolean isAnyTaskBlocked()
+    {
+        return getTaskStatuses().stream().anyMatch(TaskStatus::isOutputBufferOverutilized);
     }
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)

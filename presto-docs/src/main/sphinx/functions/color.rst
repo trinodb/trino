@@ -11,6 +11,7 @@ Color Functions
     a bar of 40 characters.
 
 .. function:: bar(x, width, low_color, high_color) -> varchar
+    :noindex:
 
     Renders a single line in an ANSI bar chart of the specified
     ``width``. The parameter ``x`` is a double value between 0 and 1.
@@ -35,6 +36,7 @@ Color Functions
     ``white``.
 
 .. function:: color(x, low, high, low_color, high_color) -> color
+    :noindex:
 
     Returns a color interpolated between ``low_color`` and
     ``high_color`` using the double parameters ``x``, ``low``, and
@@ -44,6 +46,7 @@ Color Functions
     it's value will be truncated to fit within this range.
 
 .. function:: color(x, low_color, high_color) -> color
+    :noindex:
 
     Returns a color interpolated between ``low_color`` and
     ``high_color`` according to the double argument ``x`` between 0
@@ -57,6 +60,7 @@ Color Functions
     color codes. ``x`` can be either a double, bigint, or varchar.
 
 .. function:: render(b) -> varchar
+    :noindex:
 
     Accepts boolean value ``b`` and renders a green true or a red
     false using ANSI color codes.

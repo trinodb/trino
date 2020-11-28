@@ -176,7 +176,7 @@ public final class MapHashTables
                 Boolean isDuplicateKey;
                 try {
                     // assuming maps with indeterminate keys are not supported
-                    isDuplicateKey = (Boolean) mapType.getKeyBlockEquals().invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + hashTables[hashTableOffset + hash]);
+                    isDuplicateKey = (Boolean) mapType.getKeyBlockEqual().invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + hashTables[hashTableOffset + hash]);
                 }
                 catch (RuntimeException e) {
                     throw e;

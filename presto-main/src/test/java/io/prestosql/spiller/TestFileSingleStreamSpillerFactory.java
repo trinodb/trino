@@ -45,6 +45,7 @@ import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PRE
 import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static java.nio.file.Files.setPosixFilePermissions;
 import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -81,14 +82,7 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Type> types = ImmutableList.of(BIGINT);
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 0);
         assertEquals(listFiles(spillPath2.toPath()).size(), 0);
@@ -114,14 +108,7 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Type> types = ImmutableList.of(BIGINT);
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 0);
         assertEquals(listFiles(spillPath2.toPath()).size(), 0);
@@ -159,14 +146,7 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Type> types = ImmutableList.of(BIGINT);
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                0.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths, 0.0);
 
         spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
     }
@@ -176,14 +156,8 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Path> spillPaths = emptyList();
         List<Type> types = ImmutableList.of(BIGINT);
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
+
         spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
     }
 
@@ -205,17 +179,94 @@ public class TestFileSingleStreamSpillerFactory
         assertEquals(listFiles(spillPath1.toPath()).size(), 3);
         assertEquals(listFiles(spillPath2.toPath()).size(), 3);
 
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
         spillerFactory.cleanupOldSpillFiles();
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 1);
         assertEquals(listFiles(spillPath2.toPath()).size(), 2);
+    }
+
+    @Test
+    public void testCacheInvalidatedOnBadDisk()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT);
+        List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
+
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
+
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+
+        Page page = buildPage();
+        List<SingleStreamSpiller> spillers = new ArrayList<>();
+
+        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        getUnchecked(singleStreamSpiller.spill(page));
+        spillers.add(singleStreamSpiller);
+
+        SingleStreamSpiller singleStreamSpiller2 = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        // Set second spiller path to read-only after initialization to emulate a disk failing during runtime
+        setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
+
+        assertThatThrownBy(() -> { getUnchecked(singleStreamSpiller2.spill(page)); })
+                .isInstanceOf(com.google.common.util.concurrent.UncheckedExecutionException.class)
+                .hasMessageContaining("Failed to spill pages");
+        spillers.add(singleStreamSpiller2);
+
+        assertEquals(spillerFactory.getSpillPathCacheSize(), 0, "cache still contains entries");
+
+        // restore permissions to allow cleanup
+        setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        spillers.forEach(SingleStreamSpiller::close);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+    }
+
+    @Test
+    public void testCacheFull()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT);
+        List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
+
+        FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
+
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+
+        Page page = buildPage();
+        List<SingleStreamSpiller> spillers = new ArrayList<>();
+
+        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        getUnchecked(singleStreamSpiller.spill(page));
+        spillers.add(singleStreamSpiller);
+
+        SingleStreamSpiller singleStreamSpiller2 = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        getUnchecked(singleStreamSpiller2.spill(page));
+        spillers.add(singleStreamSpiller2);
+
+        assertEquals(spillerFactory.getSpillPathCacheSize(), 2, "cache contains no entries");
+
+        spillers.forEach(SingleStreamSpiller::close);
+        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
+        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+    }
+
+    private FileSingleStreamSpillerFactory spillerFactoryFactory(List<Path> paths)
+    {
+        return spillerFactoryFactory(paths, 1.0);
+    }
+
+    private FileSingleStreamSpillerFactory spillerFactoryFactory(List<Path> paths, Double maxUsedSpaceThreshold)
+    {
+        return new FileSingleStreamSpillerFactory(
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
+                blockEncodingSerde,
+                new SpillerStats(),
+                paths,
+                maxUsedSpaceThreshold,
+                false,
+                false);
     }
 }

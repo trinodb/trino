@@ -16,22 +16,38 @@ package io.prestosql.server.ui;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
 import io.prestosql.server.security.Authenticator;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 
+import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
 public class FormUiAuthenticatorModule
         implements Module
 {
+    private final boolean usePasswordManager;
+
+    public FormUiAuthenticatorModule(boolean usePasswordManager)
+    {
+        this.usePasswordManager = usePasswordManager;
+    }
+
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
-        binder.bind(WebUiAuthenticationManager.class).to(FormWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
+        binder.bind(PasswordAuthenticatorManager.class).in(SINGLETON);
+        binder.bind(FormWebUiAuthenticationFilter.class).in(SINGLETON);
+        binder.bind(WebUiAuthenticationFilter.class).to(FormWebUiAuthenticationFilter.class).in(SINGLETON);
+        if (usePasswordManager) {
+            binder.bind(FormAuthenticator.class).to(PasswordManagerFormAuthenticator.class).in(SINGLETON);
+        }
+        else {
+            binder.bind(FormAuthenticator.class).to(InsecureFormAuthenticator.class).in(SINGLETON);
+        }
         configBinder(binder).bindConfig(FormWebUiConfig.class);
+        jaxrsBinder(binder).bind(LoginResource.class);
         newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class));
     }
 }

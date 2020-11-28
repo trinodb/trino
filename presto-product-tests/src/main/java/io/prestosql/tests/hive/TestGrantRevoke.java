@@ -15,6 +15,8 @@ package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
@@ -37,12 +39,15 @@ import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGrantRevoke
         extends ProductTest
 {
     private static final Set<String> PREDEFINED_ROLES = ImmutableSet.of("admin", "public");
+
+    @Inject
+    @Named("databases.presto.jdbc_user")
+    private String userName;
 
     private String tableName;
     private String viewName;
@@ -138,7 +143,7 @@ public class TestGrantRevoke
                 .containsOnly(ImmutableList.of(
                         row("alice", "USER", "bob", "USER", "hive", "default", "alice_owned_table", "SELECT", "YES", null),
                         row("alice", "USER", "bob", "USER", "hive", "default", "alice_owned_table", "INSERT", "NO", null),
-                        row("hdfs", "USER", "role1", "ROLE", "hive", "default", "alice_owned_table", "SELECT", "NO", null)));
+                        row(userName, "USER", "role1", "ROLE", "hive", "default", "alice_owned_table", "SELECT", "NO", null)));
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -232,15 +237,12 @@ public class TestGrantRevoke
     public void testTablePrivilegesWithHiveOnlyViews()
     {
         executeWith(createViewAs("hive_only_view", format("SELECT * FROM %s", tableName), onHive()), view -> {
-            assertThatThrownBy(() -> onPresto().executeQuery(format("SELECT * FROM %s", view.getName())))
-                    .hasMessageContaining("Hive views are not supported");
-
             assertThat(onPresto().executeQuery("SELECT DISTINCT table_name FROM information_schema.table_privileges"))
                     .contains(row(tableName))
-                    .doesNotHave(expectedRow(row(view.getName())));
+                    .contains(row(view.getName()));
             assertThat(onPresto().executeQuery("SHOW GRANTS").project(7))
                     .contains(row(tableName))
-                    .doesNotHave(expectedRow(row(view.getName())));
+                    .contains(row(view.getName()));
         });
     }
 

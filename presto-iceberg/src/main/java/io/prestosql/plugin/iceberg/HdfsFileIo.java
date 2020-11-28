@@ -16,17 +16,14 @@ package io.prestosql.plugin.iceberg;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.spi.PrestoException;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.iceberg.hadoop.HadoopInputFile;
-import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
 
 import java.io.IOException;
 
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsFileIo
@@ -44,15 +41,13 @@ public class HdfsFileIo
     @Override
     public InputFile newInputFile(String path)
     {
-        Configuration configuration = environment.getConfiguration(context, new Path(path));
-        return HadoopInputFile.fromLocation(path, configuration);
+        return new HdfsInputFile(new Path(path), environment, context);
     }
 
     @Override
     public OutputFile newOutputFile(String path)
     {
-        Configuration configuration = environment.getConfiguration(context, new Path(path));
-        return HadoopOutputFile.fromPath(new Path(path), configuration);
+        return new HdfsOutputFile(new Path(path), environment, context);
     }
 
     @Override
@@ -60,10 +55,10 @@ public class HdfsFileIo
     {
         Path path = new Path(pathString);
         try {
-            environment.getFileSystem(context, path).delete(path, false);
+            environment.doAs(context.getIdentity().getUser(), () -> environment.getFileSystem(context, path).delete(path, false));
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to delete file: " + path, e);
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete file: " + path, e);
         }
     }
 }

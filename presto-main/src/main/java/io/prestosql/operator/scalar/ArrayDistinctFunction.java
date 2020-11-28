@@ -25,16 +25,17 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.prestosql.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
-import java.lang.invoke.MethodHandle;
-
+import static io.prestosql.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.util.Failures.internalError;
 
 @ScalarFunction("array_distinct")
 @Description("Remove duplicate values from the given array")
@@ -55,7 +56,11 @@ public final class ArrayDistinctFunction
             @OperatorDependency(
                     operator = IS_DISTINCT_FROM,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle elementIsDistinctFrom,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsDistinctFrom elementIsDistinctFrom,
+            @OperatorDependency(
+                    operator = HASH_CODE,
+                    argumentTypes = "E",
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode elementHashCode,
             @SqlType("array(E)") Block array)
     {
         if (array.getPositionCount() < 2) {
@@ -63,20 +68,14 @@ public final class ArrayDistinctFunction
         }
 
         if (array.getPositionCount() == 2) {
-            boolean distinct;
-            try {
-                distinct = (boolean) elementIsDistinctFrom.invoke(array, 0, array, 1);
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
+            boolean distinct = elementIsDistinctFrom.isDistinctFrom(array, 0, array, 1);
             if (distinct) {
                 return array;
             }
             return array.getSingleValueBlock(0);
         }
 
-        TypedSet typedSet = new TypedSet(type, elementIsDistinctFrom, array.getPositionCount(), "array_distinct");
+        TypedSet typedSet = createDistinctTypedSet(type, elementIsDistinctFrom, elementHashCode, array.getPositionCount(), "array_distinct");
         int distinctCount = 0;
 
         if (pageBuilder.isFull()) {

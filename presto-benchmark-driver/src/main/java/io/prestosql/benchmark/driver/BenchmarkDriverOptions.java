@@ -13,11 +13,11 @@
  */
 package io.prestosql.benchmark.driver;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.airlift.airline.Option;
 import io.airlift.units.Duration;
 import io.prestosql.client.ClientSession;
 
@@ -33,57 +33,69 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static picocli.CommandLine.Option;
 
 public class BenchmarkDriverOptions
 {
-    @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
-    public String server = "localhost:8080";
+    private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
+    private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E);
 
-    @Option(name = "--user", title = "user", description = "Username")
+    private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
+
+    @Option(names = "--server", paramLabel = "<server>", defaultValue = "localhost:8080", description = "Presto server location " + DEFAULT_VALUE)
+    public String server;
+
+    @Option(names = "--user", paramLabel = "<user>", description = "Username " + DEFAULT_VALUE)
     public String user = System.getProperty("user.name");
 
-    @Option(name = "--catalog", title = "catalog", description = "Default catalog")
+    @Option(names = "--catalog", paramLabel = "<catalog>", description = "Default catalog")
     public String catalog;
 
-    @Option(name = "--schema", title = "schema", description = "Default schema")
+    @Option(names = "--schema", paramLabel = "<schema>", description = "Default schema")
     public String schema;
 
-    @Option(name = "--suite", title = "suite", description = "Suite to execute")
+    @Option(names = "--suite", paramLabel = "<suite>", description = "Suite to execute")
     public List<String> suites = new ArrayList<>();
 
-    @Option(name = "--suite-config", title = "suite-config", description = "Suites configuration file (default: suite.json)")
-    public String suiteConfigFile = "suite.json";
+    @Option(names = "--suite-config", paramLabel = "<file>", defaultValue = "suite.json", description = "Suites configuration file " + DEFAULT_VALUE)
+    public String suiteConfigFile;
 
-    @Option(name = "--sql", title = "sql", description = "Directory containing sql files (default: sql)")
-    public String sqlTemplateDir = "sql";
+    @Option(names = "--sql", paramLabel = "<path>", defaultValue = "sql", description = "Directory containing sql files " + DEFAULT_VALUE)
+    public String sqlTemplateDir;
 
-    @Option(name = "--query", title = "query", description = "Queries to execute")
+    @Option(names = "--query", paramLabel = "<query>", description = "Queries to execute")
     public List<String> queries = new ArrayList<>();
 
-    @Option(name = "--debug", title = "debug", description = "Enable debug information (default: false)")
+    @Option(names = "--debug", description = "Enable debug information")
     public boolean debug;
 
-    @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value)")
+    @Option(names = "--session", paramLabel = "<session>", description = "Session property (property can be used multiple times; format is key=value)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
-    @Option(name = "--runs", title = "runs", description = "Number of times to run each query (default: 3)")
-    public int runs = 3;
+    @Option(names = "--extra-credential", paramLabel = "<credential>", description = "Extra credentials (property can be used multiple times; format is key=value)")
+    public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
-    @Option(name = "--warm", title = "warm", description = "Number of times to run each query for a warm-up (default: 1)")
-    public int warm = 1;
+    @Option(names = "--runs", paramLabel = "<runs>", defaultValue = "3", description = "Number of times to run each query " + DEFAULT_VALUE)
+    public int runs;
 
-    @Option(name = "--max-failures", title = "max failures", description = "Max number of consecutive failures before benchmark fails")
-    public int maxFailures = 10;
+    @Option(names = "--warm", paramLabel = "<warm>", defaultValue = "1", description = "Number of times to run each query for a warm-up " + DEFAULT_VALUE)
+    public int warm;
 
-    @Option(name = "--socks", title = "socks", description = "Socks proxy to use")
+    @Option(names = "--max-failures", paramLabel = "<count>", defaultValue = "10", description = "Max number of consecutive failures before benchmark fails " + DEFAULT_VALUE)
+    public int maxFailures;
+
+    @Option(names = "--socks", paramLabel = "<proxy>", description = "Socks proxy to use")
     public HostAndPort socksProxy;
 
-    @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
-    public Duration clientRequestTimeout = new Duration(2, MINUTES);
+    @Option(names = "--client-request-timeout", paramLabel = "<timeout>", defaultValue = "2m", description = "Client request timeout " + DEFAULT_VALUE)
+    public Duration clientRequestTimeout;
+
+    @Option(names = "--disable-compression", description = "Disable compression of query results")
+    public boolean disableCompression;
 
     public ClientSession getClientSession()
     {
@@ -103,9 +115,11 @@ public class BenchmarkDriverOptions
                 toProperties(this.sessionProperties),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                ImmutableMap.of(),
+                extraCredentials.stream()
+                        .collect(toImmutableMap(ClientExtraCredential::getName, ClientExtraCredential::getValue)),
                 null,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                disableCompression);
     }
 
     private static URI parseServer(String server)
@@ -227,6 +241,67 @@ public class BenchmarkDriverOptions
             return Objects.equals(this.catalog, other.catalog) &&
                     Objects.equals(this.name, other.name) &&
                     Objects.equals(this.value, other.value);
+        }
+    }
+
+    public static final class ClientExtraCredential
+    {
+        private final String name;
+        private final String value;
+
+        public ClientExtraCredential(String extraCredential)
+        {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(extraCredential);
+            checkArgument(nameValue.size() == 2, "Extra credential: %s", extraCredential);
+
+            this.name = nameValue.get(0);
+            this.value = nameValue.get(1);
+            checkArgument(!name.isEmpty(), "Credential name is empty");
+            checkArgument(!value.isEmpty(), "Credential value is empty");
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not US_ASCII: %s", name);
+            checkArgument(name.indexOf('=') < 0, "Credential name must not contain '=': %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains space or is not US_ASCII: %s", name);
+        }
+
+        public ClientExtraCredential(String name, String value)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.value = value;
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        @Override
+        public String toString()
+        {
+            return name + '=' + value;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ClientExtraCredential other = (ClientExtraCredential) o;
+            return Objects.equals(name, other.name) && Objects.equals(value, other.value);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, value);
         }
     }
 }

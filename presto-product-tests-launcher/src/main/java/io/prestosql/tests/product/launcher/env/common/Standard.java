@@ -13,35 +13,58 @@
  */
 package io.prestosql.tests.product.launcher.env.common;
 
-import io.prestosql.tests.product.launcher.PathResolver;
+import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
+import io.prestosql.tests.product.launcher.env.Debug;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
+import io.prestosql.tests.product.launcher.env.ServerPackage;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.enableJavaDebugger;
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.WORKER;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.WORKER_NTH;
+import static java.lang.Integer.parseInt;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
+import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public final class Standard
         implements EnvironmentExtender
 {
-    public static final String CONTAINER_PRESTO_ETC = "/docker/presto-product-tests/conf/presto/etc";
+    private static final Logger log = Logger.get(Standard.class);
+
+    public static final String CONTAINER_HEALTH_D = "/etc/health.d/";
+    public static final String CONTAINER_CONF_ROOT = "/docker/presto-product-tests/";
+    public static final String CONTAINER_PRESTO_ETC = CONTAINER_CONF_ROOT + "conf/presto/etc";
     public static final String CONTAINER_PRESTO_JVM_CONFIG = CONTAINER_PRESTO_ETC + "/jvm.config";
+    public static final String CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES = CONTAINER_PRESTO_ETC + "/access-control.properties";
     public static final String CONTAINER_PRESTO_CONFIG_PROPERTIES = CONTAINER_PRESTO_ETC + "/config.properties";
     public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml";
 
-    private final PathResolver pathResolver;
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
 
@@ -51,49 +74,43 @@ public final class Standard
 
     @Inject
     public Standard(
-            PathResolver pathResolver,
             DockerFiles dockerFiles,
             PortBinder portBinder,
-            EnvironmentOptions environmentOptions)
+            EnvironmentConfig environmentConfig,
+            @ServerPackage File serverPackage,
+            @Debug boolean debug)
     {
-        this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        requireNonNull(environmentOptions, "environmentOptions is null");
-        this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
-        this.serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
+        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
+        this.debug = debug;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
-        this.debug = environmentOptions.debug;
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer("presto-master", createPrestoMaster());
-        builder.addContainer("tests", createTestsContainer());
+        builder.addContainers(createPrestoMaster(), createTestsContainer());
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createPrestoMaster()
     {
         DockerContainer container =
-                createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
-                        .withFileSystemBind(dockerFiles.getDockerFilesHostPath("common/standard/config.properties"), CONTAINER_PRESTO_CONFIG_PROPERTIES, READ_ONLY);
+                createPrestoContainer(dockerFiles, serverPackage, debug, "prestodev/centos7-oj11:" + imagesVersion, COORDINATOR)
+                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
+                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
         portBinder.exposePort(container, 8080); // Presto default port
-
-        if (debug) {
-            enableJavaDebugger(container, CONTAINER_PRESTO_JVM_CONFIG, 5005); // debug port
-        }
-
         return container;
     }
 
     @SuppressWarnings("resource")
     private DockerContainer createTestsContainer()
     {
-        DockerContainer container = new DockerContainer("prestodev/centos6-oj8:" + imagesVersion)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
+        DockerContainer container = new DockerContainer("prestodev/centos6-oj8:" + imagesVersion, TESTS)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy());
@@ -102,15 +119,73 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, PathResolver pathResolver, File serverPackage, String dockerImageName)
+    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, boolean debug, String dockerImageName, String logicalName)
     {
-        return new DockerContainer(dockerImageName)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config"), CONTAINER_PRESTO_JVM_CONFIG, READ_ONLY)
-                .withFileSystemBind(pathResolver.resolvePlaceholders(serverPackage).getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
+        DockerContainer container = new DockerContainer(dockerImageName, logicalName)
+                .withNetworkAliases(logicalName + ".docker.cluster")
+                .withExposedLogPaths("/var/presto/var/log", "/var/log/container-health.log")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/presto-health-check.sh")), CONTAINER_HEALTH_D + "presto-health-check.sh")
+                // the server package is hundreds MB and file system bind is much more efficient
+                .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
+                .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5));
+        if (debug) {
+            enablePrestoJavaDebugger(container);
+        }
+        else {
+            container.withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
+        }
+        return container;
+    }
+
+    private static void enablePrestoJavaDebugger(DockerContainer dockerContainer)
+    {
+        String logicalName = dockerContainer.getLogicalName();
+
+        int debugPort;
+        if (logicalName.equals(COORDINATOR)) {
+            debugPort = 5005;
+        }
+        else if (logicalName.equals(WORKER)) {
+            debugPort = 5009;
+        }
+        else if (logicalName.startsWith(WORKER_NTH)) {
+            int workerNumber = parseInt(logicalName.substring(WORKER_NTH.length()));
+            debugPort = 5008 + workerNumber;
+        }
+        else {
+            throw new IllegalStateException("Cannot enable Java debugger for: " + logicalName);
+        }
+
+        enablePrestoJavaDebugger(dockerContainer, logicalName, debugPort);
+    }
+
+    private static void enablePrestoJavaDebugger(DockerContainer container, String containerName, int debugPort)
+    {
+        log.info("Enabling Java debugger for container: '%s' on port %d", containerName, debugPort);
+
+        try {
+            FileAttribute<Set<PosixFilePermission>> rwx = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxrwxrwx"));
+            Path script = Files.createTempFile("enable-java-debugger", ".sh", rwx);
+            Files.writeString(
+                    script,
+                    format(
+                            "#!/bin/bash\n" +
+                                    "printf '%%s\\n' '%s' >> '%s'\n",
+                            "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:" + debugPort,
+                            CONTAINER_PRESTO_JVM_CONFIG),
+                    UTF_8);
+            container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-java-debugger.sh");
+
+            // expose debug port unconditionally when debug is enabled
+            exposePort(container, debugPort);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

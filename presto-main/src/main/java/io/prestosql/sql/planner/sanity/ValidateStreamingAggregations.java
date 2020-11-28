@@ -20,6 +20,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.GroupingProperty;
 import io.prestosql.spi.connector.LocalProperty;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
@@ -44,9 +45,15 @@ public class ValidateStreamingAggregations
         implements Checker
 {
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode planNode,
+            Session session,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, typeAnalyzer, types, warningCollector), null);
+        planNode.accept(new Visitor(session, metadata, typeOperators, typeAnalyzer, types), null);
     }
 
     private static final class Visitor
@@ -54,17 +61,21 @@ public class ValidateStreamingAggregations
     {
         private final Session session;
         private final Metadata metadata;
+        private final TypeOperators typeOperators;
         private final TypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
-        private final WarningCollector warningCollector;
 
-        private Visitor(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
+        private Visitor(Session session,
+                Metadata metadata,
+                TypeOperators typeOperators,
+                TypeAnalyzer typeAnalyzer,
+                TypeProvider types)
         {
             this.session = session;
             this.metadata = metadata;
+            this.typeOperators = typeOperators;
             this.typeAnalyzer = typeAnalyzer;
             this.types = types;
-            this.warningCollector = warningCollector;
         }
 
         @Override
@@ -81,7 +92,7 @@ public class ValidateStreamingAggregations
                 return null;
             }
 
-            StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, session, types, typeAnalyzer);
+            StreamProperties properties = derivePropertiesRecursively(node.getSource(), metadata, typeOperators, session, types, typeAnalyzer);
 
             List<LocalProperty<Symbol>> desiredProperties = ImmutableList.of(new GroupingProperty<>(node.getPreGroupedSymbols()));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(properties.getLocalProperties(), desiredProperties).iterator();

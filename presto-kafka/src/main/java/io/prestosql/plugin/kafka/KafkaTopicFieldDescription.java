@@ -101,16 +101,15 @@ public final class KafkaTopicFieldDescription
         return hidden;
     }
 
-    KafkaColumnHandle getColumnHandle(boolean keyDecoder, int index)
+    KafkaColumnHandle getColumnHandle(boolean keyCodec, int index)
     {
         return new KafkaColumnHandle(
-                index,
                 getName(),
                 getType(),
                 getMapping(),
                 getDataFormat(),
                 getFormatHint(),
-                keyDecoder,
+                keyCodec,
                 isHidden(),
                 false);
     }

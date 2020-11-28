@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.SortItem;
 import io.prestosql.sql.tree.SortItem.NullOrdering;
@@ -128,5 +128,14 @@ public class OrderingScheme
             return SortOrder.DESC_NULLS_FIRST;
         }
         return SortOrder.DESC_NULLS_LAST;
+    }
+
+    public List<io.prestosql.spi.connector.SortItem> toSortItems()
+    {
+        return getOrderBy().stream()
+                .map(symbol -> new io.prestosql.spi.connector.SortItem(
+                        symbol.getName(),
+                        io.prestosql.spi.connector.SortOrder.valueOf(getOrdering(symbol).name())))
+                .collect(toImmutableList());
     }
 }

@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.AllRows;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -38,6 +39,7 @@ import io.prestosql.sql.tree.ColumnDefinition;
 import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.CreateMaterializedView;
 import io.prestosql.sql.tree.CreateRole;
 import io.prestosql.sql.tree.CreateSchema;
 import io.prestosql.sql.tree.CreateTable;
@@ -58,6 +60,7 @@ import io.prestosql.sql.tree.DescribeInput;
 import io.prestosql.sql.tree.DescribeOutput;
 import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.DropColumn;
+import io.prestosql.sql.tree.DropMaterializedView;
 import io.prestosql.sql.tree.DropRole;
 import io.prestosql.sql.tree.DropSchema;
 import io.prestosql.sql.tree.DropTable;
@@ -79,6 +82,7 @@ import io.prestosql.sql.tree.FunctionCall.NullTreatment;
 import io.prestosql.sql.tree.GenericDataType;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
+import io.prestosql.sql.tree.GrantOnType;
 import io.prestosql.sql.tree.GrantRoles;
 import io.prestosql.sql.tree.GrantorSpecification;
 import io.prestosql.sql.tree.GroupBy;
@@ -117,6 +121,7 @@ import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.NumericParameter;
 import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.PathElement;
 import io.prestosql.sql.tree.PathSpecification;
 import io.prestosql.sql.tree.Prepare;
@@ -127,6 +132,7 @@ import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QueryBody;
 import io.prestosql.sql.tree.QuerySpecification;
+import io.prestosql.sql.tree.RefreshMaterializedView;
 import io.prestosql.sql.tree.Relation;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameSchema;
@@ -147,6 +153,8 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetTableAuthorization;
+import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
@@ -349,6 +357,43 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCreateMaterializedView(SqlBaseParser.CreateMaterializedViewContext context)
+    {
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new CreateMaterializedView(
+                Optional.of(getLocation(context)),
+                getQualifiedName(context.qualifiedName()),
+                (Query) visit(context.query()),
+                context.REPLACE() != null,
+                context.EXISTS() != null,
+                properties,
+                comment);
+    }
+
+    @Override
+    public Node visitRefreshMaterializedView(SqlBaseParser.RefreshMaterializedViewContext context)
+    {
+        return new RefreshMaterializedView(Optional.of(getLocation(context)),
+                getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitDropMaterializedView(SqlBaseParser.DropMaterializedViewContext context)
+    {
+        return new DropMaterializedView(
+                getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
+    }
+
+    @Override
     public Node visitShowCreateTable(SqlBaseParser.ShowCreateTableContext context)
     {
         return new ShowCreate(getLocation(context), ShowCreate.Type.TABLE, getQualifiedName(context.qualifiedName()));
@@ -392,7 +437,7 @@ class AstBuilder
     @Override
     public Node visitRenameTable(SqlBaseParser.RenameTableContext context)
     {
-        return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
+        return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to), context.EXISTS() != null);
     }
 
     @Override
@@ -408,13 +453,27 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCommentColumn(SqlBaseParser.CommentColumnContext context)
+    {
+        Optional<String> comment = Optional.empty();
+
+        if (context.string() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
+        return new Comment(getLocation(context), Comment.Type.COLUMN, getQualifiedName(context.qualifiedName()), comment);
+    }
+
+    @Override
     public Node visitRenameColumn(SqlBaseParser.RenameColumnContext context)
     {
         return new RenameColumn(
                 getLocation(context),
                 getQualifiedName(context.tableName),
                 (Identifier) visit(context.from),
-                (Identifier) visit(context.to));
+                (Identifier) visit(context.to),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
 
     @Override
@@ -433,13 +492,30 @@ class AstBuilder
     @Override
     public Node visitAddColumn(SqlBaseParser.AddColumnContext context)
     {
-        return new AddColumn(getLocation(context), getQualifiedName(context.qualifiedName()), (ColumnDefinition) visit(context.columnDefinition()));
+        return new AddColumn(getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                (ColumnDefinition) visit(context.columnDefinition()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitSetTableAuthorization(SqlBaseParser.SetTableAuthorizationContext context)
+    {
+        return new SetTableAuthorization(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                getPrincipalSpecification(context.principal()));
     }
 
     @Override
     public Node visitDropColumn(SqlBaseParser.DropColumnContext context)
     {
-        return new DropColumn(getLocation(context), getQualifiedName(context.tableName), (Identifier) visit(context.column));
+        return new DropColumn(getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
 
     @Override
@@ -471,6 +547,15 @@ class AstBuilder
     public Node visitRenameView(SqlBaseParser.RenameViewContext context)
     {
         return new RenameView(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
+    }
+
+    @Override
+    public Node visitSetViewAuthorization(SqlBaseParser.SetViewAuthorizationContext context)
+    {
+        return new SetViewAuthorization(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                getPrincipalSpecification(context.principal()));
     }
 
     @Override
@@ -631,17 +716,50 @@ class AstBuilder
             orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
         }
 
-        Optional<Node> limit = Optional.empty();
-        if (context.FETCH() != null) {
-            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), getTextIfPresent(context.fetchFirst), context.TIES() != null));
-        }
-        else if (context.LIMIT() != null) {
-            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
-        }
-
         Optional<Offset> offset = Optional.empty();
         if (context.OFFSET() != null) {
-            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
+            Expression rowCount;
+            if (context.offset.INTEGER_VALUE() != null) {
+                rowCount = new LongLiteral(getLocation(context.offset.INTEGER_VALUE()), context.offset.getText());
+            }
+            else {
+                rowCount = new Parameter(getLocation(context.offset.PARAMETER()), parameterPosition);
+                parameterPosition++;
+            }
+            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), rowCount));
+        }
+
+        Optional<Node> limit = Optional.empty();
+        if (context.FETCH() != null) {
+            Optional<Expression> rowCount = Optional.empty();
+            if (context.fetchFirst != null) {
+                if (context.fetchFirst.INTEGER_VALUE() != null) {
+                    rowCount = Optional.of(new LongLiteral(getLocation(context.fetchFirst.INTEGER_VALUE()), context.fetchFirst.getText()));
+                }
+                else {
+                    rowCount = Optional.of(new Parameter(getLocation(context.fetchFirst.PARAMETER()), parameterPosition));
+                    parameterPosition++;
+                }
+            }
+            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), rowCount, context.TIES() != null));
+        }
+        else if (context.LIMIT() != null) {
+            if (context.limit == null) {
+                throw new IllegalStateException("Missing LIMIT value");
+            }
+            Expression rowCount;
+            if (context.limit.ALL() != null) {
+                rowCount = new AllRows(getLocation(context.limit.ALL()));
+            }
+            else if (context.limit.rowCount().INTEGER_VALUE() != null) {
+                rowCount = new LongLiteral(getLocation(context.limit.rowCount().INTEGER_VALUE()), context.limit.getText());
+            }
+            else {
+                rowCount = new Parameter(getLocation(context.limit.rowCount().PARAMETER()), parameterPosition);
+                parameterPosition++;
+            }
+
+            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), rowCount));
         }
 
         if (term instanceof QuerySpecification) {
@@ -915,6 +1033,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitShowCreateMaterializedView(SqlBaseParser.ShowCreateMaterializedViewContext context)
+    {
+        return new ShowCreate(getLocation(context), ShowCreate.Type.MATERIALIZED_VIEW, getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
     public Node visitShowFunctions(SqlBaseParser.ShowFunctionsContext context)
     {
         return new ShowFunctions(getLocation(context),
@@ -1010,10 +1134,22 @@ class AstBuilder
                     .map(SqlBaseParser.PrivilegeContext::getText)
                     .collect(toList()));
         }
+
+        Optional<GrantOnType> type;
+        if (context.SCHEMA() != null) {
+            type = Optional.of(GrantOnType.SCHEMA);
+        }
+        else if (context.TABLE() != null) {
+            type = Optional.of(GrantOnType.TABLE);
+        }
+        else {
+            type = Optional.empty();
+        }
+
         return new Grant(
                 getLocation(context),
                 privileges,
-                context.TABLE() != null,
+                type,
                 getQualifiedName(context.qualifiedName()),
                 getPrincipalSpecification(context.grantee),
                 context.OPTION() != null);
@@ -1031,11 +1167,23 @@ class AstBuilder
                     .map(SqlBaseParser.PrivilegeContext::getText)
                     .collect(toList()));
         }
+
+        Optional<GrantOnType> type;
+        if (context.SCHEMA() != null) {
+            type = Optional.of(GrantOnType.SCHEMA);
+        }
+        else if (context.TABLE() != null) {
+            type = Optional.of(GrantOnType.TABLE);
+        }
+        else {
+            type = Optional.empty();
+        }
+
         return new Revoke(
                 getLocation(context),
                 context.OPTION() != null,
                 privileges,
-                context.TABLE() != null,
+                type,
                 getQualifiedName(context.qualifiedName()),
                 getPrincipalSpecification(context.grantee));
     }
@@ -1451,7 +1599,7 @@ class AstBuilder
         String fieldString = context.identifier().getText();
         Extract.Field field;
         try {
-            field = Extract.Field.valueOf(fieldString.toUpperCase());
+            field = Extract.Field.valueOf(fieldString.toUpperCase(ENGLISH));
         }
         catch (IllegalArgumentException e) {
             throw parseError("Invalid EXTRACT field: " + fieldString, context);
@@ -2324,6 +2472,8 @@ class AstBuilder
                 return WindowFrame.Type.RANGE;
             case SqlBaseLexer.ROWS:
                 return WindowFrame.Type.ROWS;
+            case SqlBaseLexer.GROUPS:
+                return WindowFrame.Type.GROUPS;
         }
 
         throw new IllegalArgumentException("Unsupported frame type: " + type.getText());
@@ -2484,11 +2634,11 @@ class AstBuilder
     public static NodeLocation getLocation(Token token)
     {
         requireNonNull(token, "token is null");
-        return new NodeLocation(token.getLine(), token.getCharPositionInLine());
+        return new NodeLocation(token.getLine(), token.getCharPositionInLine() + 1);
     }
 
     private static ParsingException parseError(String message, ParserRuleContext context)
     {
-        return new ParsingException(message, null, context.getStart().getLine(), context.getStart().getCharPositionInLine());
+        return new ParsingException(message, null, context.getStart().getLine(), context.getStart().getCharPositionInLine() + 1);
     }
 }

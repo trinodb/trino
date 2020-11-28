@@ -25,7 +25,7 @@ public class FixedUiAuthenticatorModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(WebUiAuthenticationManager.class).to(FixedUserWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
+        binder.bind(WebUiAuthenticationFilter.class).to(FixedUserWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FixedUserWebUiConfig.class);
     }
 }

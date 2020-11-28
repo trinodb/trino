@@ -71,6 +71,8 @@ public class FileSingleStreamSpiller
     private long spilledPagesInMemorySize;
     private ListenableFuture<?> spillInProgress = Futures.immediateFuture(null);
 
+    private final Runnable fileSystemErrorHandler;
+
     public FileSingleStreamSpiller(
             PagesSerde serde,
             ListeningExecutorService executor,
@@ -78,7 +80,8 @@ public class FileSingleStreamSpiller
             SpillerStats spillerStats,
             SpillContext spillContext,
             LocalMemoryContext memoryContext,
-            Optional<SpillCipher> spillCipher)
+            Optional<SpillCipher> spillCipher,
+            Runnable fileSystemErrorHandler)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -99,10 +102,12 @@ public class FileSingleStreamSpiller
         // before/after the spiller thread allocates that memory -- -- whether before or after depends on whether writePages() is in the
         // middle of execution when close() is called (note that this applies to both readPages() and writePages() methods).
         this.memoryContext.setBytes(BUFFER_SIZE);
+        this.fileSystemErrorHandler = requireNonNull(fileSystemErrorHandler, "filesystemErrorHandler is null");
         try {
             this.targetFile = closer.register(new FileHolder(Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX)));
         }
         catch (IOException e) {
+            this.fileSystemErrorHandler.run();
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to create spill file", e);
         }
     }
@@ -138,11 +143,12 @@ public class FileSingleStreamSpiller
     private void writePages(Iterator<Page> pageIterator)
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
-        try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
+        try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE);
+             PagesSerde.PagesSerdeContext context = serde.newContext()) {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 spilledPagesInMemorySize += page.getSizeInBytes();
-                SerializedPage serializedPage = serde.serialize(page);
+                SerializedPage serializedPage = serde.serialize(context, page);
                 long pageSize = serializedPage.getSizeInBytes();
                 localSpillContext.updateBytes(pageSize);
                 spillerStats.addToTotalSpilledBytes(pageSize);
@@ -150,6 +156,7 @@ public class FileSingleStreamSpiller
             }
         }
         catch (UncheckedIOException | IOException e) {
+            fileSystemErrorHandler.run();
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
         }
     }
@@ -165,6 +172,7 @@ public class FileSingleStreamSpiller
             return closeWhenExhausted(pages, input);
         }
         catch (IOException e) {
+            fileSystemErrorHandler.run();
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);
         }
     }
@@ -178,6 +186,7 @@ public class FileSingleStreamSpiller
             closer.close();
         }
         catch (IOException e) {
+            fileSystemErrorHandler.run();
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to close spiller", e);
         }
     }
@@ -192,7 +201,7 @@ public class FileSingleStreamSpiller
         requireNonNull(iterator, "iterator is null");
         requireNonNull(resource, "resource is null");
 
-        return new AbstractIterator<T>()
+        return new AbstractIterator<>()
         {
             @Override
             protected T computeNext()

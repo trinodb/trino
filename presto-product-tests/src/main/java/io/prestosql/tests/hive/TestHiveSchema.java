@@ -68,15 +68,15 @@ public class TestHiveSchema
 
         // SHOW COLUMNS
         assertThat(() -> onPresto().executeQuery("SHOW COLUMNS FROM hive.sys.version")) // sys.version exists in Hive 3 and is a view
-                .failsWithMessage("line 1:1: Table 'hive.sys.version' does not exist");
+                .failsWithMessage("line 1:1: Schema 'sys' does not exist");
         assertThat(() -> onPresto().executeQuery("SHOW COLUMNS FROM hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
-                .failsWithMessage("line 1:1: Table 'hive.sys.table_params' does not exist");
+                .failsWithMessage("line 1:1: Schema 'sys' does not exist");
 
         // DESCRIBE
         assertThat(() -> onPresto().executeQuery("DESCRIBE hive.sys.version")) // sys.version exists in Hive 3 and is a view
-                .failsWithMessage("line 1:1: Table 'hive.sys.version' does not exist");
+                .failsWithMessage("line 1:1: Schema 'sys' does not exist");
         assertThat(() -> onPresto().executeQuery("DESCRIBE hive.sys.table_params")) // sys.table_params exists in Hive 3 and is a table
-                .failsWithMessage("line 1:1: Table 'hive.sys.table_params' does not exist");
+                .failsWithMessage("line 1:1: Schema 'sys' does not exist");
 
         // information_schema.schemata
         assertThat(onPresto().executeQuery("SELECT schema_name FROM information_schema.schemata"))

@@ -14,19 +14,16 @@
 package io.prestosql.block;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.Int128ArrayBlock;
 import io.prestosql.spi.block.Int128ArrayBlockBuilder;
 import io.prestosql.spi.block.VariableWidthBlockBuilder;
-import io.prestosql.type.DecimalInequalityOperators;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestInt128ArrayBlock
@@ -83,16 +80,6 @@ public class TestInt128ArrayBlock
         testCompactBlock(new Int128ArrayBlock(0, Optional.empty(), new long[0]));
         testCompactBlock(new Int128ArrayBlock(valueIsNull.length, Optional.of(valueIsNull), longArray));
         testIncompactBlock(new Int128ArrayBlock(valueIsNull.length - 2, Optional.of(valueIsNull), longArray));
-    }
-
-    @Test
-    public void testIsDistinctFrom()
-    {
-        Block left = new Int128ArrayBlock(1, Optional.empty(), new long[] {112L, 0L});
-        Block right = new Int128ArrayBlock(1, Optional.empty(), new long[] {185L, 0L});
-
-        assertFalse(DecimalInequalityOperators.distinctBlockPositionLongLong(left, 0, left, 0));
-        assertTrue(DecimalInequalityOperators.distinctBlockPositionLongLong(left, 0, right, 0));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)

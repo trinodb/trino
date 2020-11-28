@@ -40,7 +40,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
@@ -52,11 +51,11 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -68,11 +67,11 @@ public final class TypeUtils
 
     public static String getArrayElementPhoenixTypeName(ConnectorSession session, PhoenixClient client, Type elementType)
     {
-        if (isVarcharType(elementType)) {
+        if (elementType instanceof VarcharType) {
             return "VARCHAR";
         }
 
-        if (isCharType(elementType)) {
+        if (elementType instanceof CharType) {
             return "CHAR";
         }
 
@@ -80,7 +79,7 @@ public final class TypeUtils
             return "DECIMAL";
         }
 
-        return client.toWriteMapping(session, elementType).getDataType().toUpperCase();
+        return client.toWriteMapping(session, elementType).getDataType().toUpperCase(ENGLISH);
     }
 
     public static Block jdbcObjectArrayToBlock(ConnectorSession session, Type type, Object[] elements)

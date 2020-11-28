@@ -13,8 +13,6 @@
  */
 package io.prestosql.type;
 
-import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.ParameterKind;
 import io.prestosql.spi.type.ParametricType;
@@ -23,12 +21,9 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeParameter;
 
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 
 public final class MapParametricType
         implements ParametricType
@@ -52,19 +47,6 @@ public final class MapParametricType
                 "Expected key and type to be types, got %s",
                 parameters);
 
-        Type keyType = firstParameter.getType();
-        Type valueType = secondParameter.getType();
-        MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
-        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-        return new MapType(
-                keyType,
-                valueType,
-                keyBlockNativeEquals,
-                keyBlockEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+        return new MapType(firstParameter.getType(), secondParameter.getType(), typeManager.getTypeOperators());
     }
 }

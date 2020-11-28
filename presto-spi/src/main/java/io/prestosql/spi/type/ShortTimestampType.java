@@ -13,28 +13,49 @@
  */
 package io.prestosql.spi.type;
 
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.block.LongArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.ScalarOperator;
 
-import static java.lang.Long.rotateLeft;
-import static java.lang.Math.multiplyExact;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
+import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.lookup;
 
 /**
  * Encodes timestamps up to p = 6.
- *
- * For 0 <= p <= 3, the value is encoded as milliseconds from the 1970-01-01 00:00:00 epoch.
- * For 3 < p <= 6, the value is encoded as microseconds from the 1970-01-01 00:00:00 epoch.
+ * <p>
+ * The value is encoded as microseconds from the 1970-01-01 00:00:00 epoch and is to be interpreted as
+ * local date time without regards to any time zone.
  */
-public class ShortTimestampType
+class ShortTimestampType
         extends TimestampType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortTimestampType.class, lookup(), long.class);
+
     public ShortTimestampType(int precision)
     {
         super(precision, long.class);
+
+        if (precision < 0 || precision > MAX_SHORT_PRECISION) {
+            throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_SHORT_PRECISION));
+        }
+    }
+
+    @Override
+    public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
+    {
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override
@@ -62,30 +83,8 @@ public class ShortTimestampType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            blockBuilder.writeLong(getLong(block, position)).closeEntry();
         }
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return hash(block.getLong(position, 0));
-    }
-
-    @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return Long.compare(leftValue, rightValue);
     }
 
     @Override
@@ -122,28 +121,43 @@ public class ShortTimestampType
             return null;
         }
 
-        long value = block.getLong(position, 0);
-
-        if (getPrecision() <= 3) {
-            value = scaleEpochMillisToMicros(value);
-        }
-
-        if (session.isLegacyTimestamp()) {
-            return SqlTimestamp.newLegacyInstance(getPrecision(), value, 0, session.getTimeZoneKey());
-        }
-        else {
-            return SqlTimestamp.newInstance(getPrecision(), value, 0);
-        }
+        long epochMicros = getLong(block, position);
+        return SqlTimestamp.newInstance(getPrecision(), epochMicros, 0);
     }
 
-    public static long hash(long value)
+    @ScalarOperator(EQUAL)
+    private static boolean equalOperator(long left, long right)
     {
-        // xxhash64 mix
-        return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
+        return left == right;
     }
 
-    private static long scaleEpochMillisToMicros(long epochMillis)
+    @ScalarOperator(HASH_CODE)
+    private static long hashCodeOperator(long value)
     {
-        return multiplyExact(epochMillis, 1000);
+        return AbstractLongType.hash(value);
+    }
+
+    @ScalarOperator(XX_HASH_64)
+    private static long xxHash64Operator(long value)
+    {
+        return XxHash64.hash(value);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(long left, long right)
+    {
+        return Long.compare(left, right);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(long left, long right)
+    {
+        return left < right;
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(long left, long right)
+    {
+        return left <= right;
     }
 }

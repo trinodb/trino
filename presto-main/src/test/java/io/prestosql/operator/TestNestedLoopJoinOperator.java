@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import io.prestosql.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
-import io.prestosql.operator.NestedLoopJoinOperator.NestedLoopPageBuilder;
+import io.prestosql.operator.NestedLoopJoinOperator.NestedLoopOutputIterator;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -54,8 +54,8 @@ public class TestNestedLoopJoinOperator
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -474,7 +474,7 @@ public class TestNestedLoopJoinOperator
         Page buildPage = new Page(100);
         Page probePage = new Page(45);
 
-        NestedLoopPageBuilder resultPageBuilder = new NestedLoopPageBuilder(probePage, buildPage, ImmutableList.of(), ImmutableList.of());
+        NestedLoopOutputIterator resultPageBuilder = NestedLoopJoinOperator.createNestedLoopOutputIterator(probePage, buildPage, new int[0], new int[0]);
         assertTrue(resultPageBuilder.hasNext(), "There should be at least one page.");
 
         long result = 0;
@@ -485,7 +485,7 @@ public class TestNestedLoopJoinOperator
 
         // force the product to be bigger than Integer.MAX_VALUE
         buildPage = new Page(Integer.MAX_VALUE - 10);
-        resultPageBuilder = new NestedLoopPageBuilder(probePage, buildPage, ImmutableList.of(), ImmutableList.of());
+        resultPageBuilder = NestedLoopJoinOperator.createNestedLoopOutputIterator(probePage, buildPage, new int[0], new int[0]);
 
         result = 0;
         while (resultPageBuilder.hasNext()) {

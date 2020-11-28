@@ -26,7 +26,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static java.lang.String.format;
 
-class TestingH2JdbcModule
+public class TestingH2JdbcModule
         implements Module
 {
     @Override
@@ -36,7 +36,7 @@ class TestingH2JdbcModule
     @ForBaseJdbc
     public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        return new BaseJdbcClient(config, "\"", connectionFactory);
+        return new TestingH2JdbcClient(config, connectionFactory);
     }
 
     @Provides

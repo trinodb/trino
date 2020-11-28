@@ -15,34 +15,40 @@ package io.prestosql.plugin.iceberg;
 
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.EquatableValueSet;
 import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DateType;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.TimeWithTimeZoneType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.iceberg.expressions.Expression;
 
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.TimeType.TIME_MICROS;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.expressions.Expressions.and;
@@ -53,14 +59,13 @@ import static org.apache.iceberg.expressions.Expressions.isNull;
 import static org.apache.iceberg.expressions.Expressions.lessThan;
 import static org.apache.iceberg.expressions.Expressions.lessThanOrEqual;
 import static org.apache.iceberg.expressions.Expressions.not;
-import static org.apache.iceberg.expressions.Expressions.notEqual;
 import static org.apache.iceberg.expressions.Expressions.or;
 
 public final class ExpressionConverter
 {
     private ExpressionConverter() {}
 
-    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain, ConnectorSession session)
+    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain)
     {
         if (tupleDomain.isAll()) {
             return alwaysTrue();
@@ -73,12 +78,12 @@ public final class ExpressionConverter
         for (Map.Entry<IcebergColumnHandle, Domain> entry : domainMap.entrySet()) {
             IcebergColumnHandle columnHandle = entry.getKey();
             Domain domain = entry.getValue();
-            expression = and(expression, toIcebergExpression(columnHandle.getName(), columnHandle.getType(), domain, session));
+            expression = and(expression, toIcebergExpression(columnHandle.getName(), columnHandle.getType(), domain));
         }
         return expression;
     }
 
-    private static Expression toIcebergExpression(String columnName, Type type, Domain domain, ConnectorSession session)
+    private static Expression toIcebergExpression(String columnName, Type type, Domain domain)
     {
         if (domain.isAll()) {
             return alwaysTrue();
@@ -91,20 +96,15 @@ public final class ExpressionConverter
             return domain.isNullAllowed() ? alwaysTrue() : not(isNull(columnName));
         }
 
+        // Skip structural types. TODO: Evaluate Apache Iceberg's support for predicate on structural types
+        if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
+            return alwaysTrue();
+        }
+
         ValueSet domainValues = domain.getValues();
         Expression expression = null;
         if (domain.isNullAllowed()) {
             expression = isNull(columnName);
-        }
-
-        if (domainValues instanceof EquatableValueSet) {
-            expression = firstNonNull(expression, alwaysFalse());
-            EquatableValueSet valueSet = (EquatableValueSet) domainValues;
-            if (valueSet.isWhiteList()) {
-                // if whitelist is true than this is a case of "in", otherwise this is a case of "not in".
-                return or(expression, equal(columnName, valueSet.getValues()));
-            }
-            return or(expression, notEqual(columnName, valueSet.getValues()));
         }
 
         if (domainValues instanceof SortedRangeSet) {
@@ -120,42 +120,42 @@ public final class ExpressionConverter
                 // case col <> 'val' is represented as (col < 'val' or col > 'val')
                 if (lowBound == EXACTLY && highBound == EXACTLY) {
                     // case ==
-                    if (getValue(type, low, session).equals(getValue(type, high, session))) {
-                        expression = or(expression, equal(columnName, getValue(type, low, session)));
+                    if (getIcebergLiteralValue(type, low).equals(getIcebergLiteralValue(type, high))) {
+                        expression = or(expression, equal(columnName, getIcebergLiteralValue(type, low)));
                     }
                     else { // case between
                         Expression between = and(
-                                greaterThanOrEqual(columnName, getValue(type, low, session)),
-                                lessThanOrEqual(columnName, getValue(type, high, session)));
+                                greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)),
+                                lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
                         expression = or(expression, between);
                     }
                 }
                 else {
                     if (lowBound == EXACTLY && low.getValueBlock().isPresent()) {
                         // case >=
-                        expression = or(expression, greaterThanOrEqual(columnName, getValue(type, low, session)));
+                        expression = or(expression, greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)));
                     }
                     else if (lowBound == ABOVE && low.getValueBlock().isPresent()) {
                         // case >
-                        expression = or(expression, greaterThan(columnName, getValue(type, low, session)));
+                        expression = or(expression, greaterThan(columnName, getIcebergLiteralValue(type, low)));
                     }
 
                     if (highBound == EXACTLY && high.getValueBlock().isPresent()) {
                         // case <=
                         if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThanOrEqual(columnName, getValue(type, high, session)));
+                            expression = and(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
                         }
                         else {
-                            expression = or(expression, lessThanOrEqual(columnName, getValue(type, high, session)));
+                            expression = or(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
                         }
                     }
                     else if (highBound == BELOW && high.getValueBlock().isPresent()) {
                         // case <
                         if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThan(columnName, getValue(type, high, session)));
+                            expression = and(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
                         }
                         else {
-                            expression = or(expression, lessThan(columnName, getValue(type, high, session)));
+                            expression = or(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
                         }
                     }
                 }
@@ -163,17 +163,17 @@ public final class ExpressionConverter
             return expression;
         }
 
-        throw new VerifyException("Did not expect a domain value set other than SortedRangeSet and EquatableValueSet but got " + domainValues.getClass().getSimpleName());
+        throw new VerifyException("Did not expect a domain value set other than SortedRangeSet but got " + domainValues.getClass().getSimpleName());
     }
 
-    private static Object getValue(Type type, Marker marker, ConnectorSession session)
+    private static Object getIcebergLiteralValue(Type type, Marker marker)
     {
-        if (type instanceof TimestampWithTimeZoneType || type instanceof TimeWithTimeZoneType) {
-            return MILLISECONDS.toMicros(unpackMillisUtc((Long) marker.getValue()));
+        if (type instanceof IntegerType) {
+            return toIntExact((long) marker.getValue());
         }
 
-        if (type instanceof TimestampType || type instanceof TimeType) {
-            return MILLISECONDS.toMicros((Long) marker.getValue());
+        if (type instanceof RealType) {
+            return intBitsToFloat(toIntExact((long) marker.getValue()));
         }
 
         // TODO: Remove this conversion once we move to next iceberg version
@@ -181,12 +181,27 @@ public final class ExpressionConverter
             return toIntExact(((Long) marker.getValue()));
         }
 
+        if (type.equals(TIME_MICROS)) {
+            return ((long) marker.getValue()) / PICOSECONDS_PER_MICROSECOND;
+        }
+
         if (type instanceof VarcharType) {
             return ((Slice) marker.getValue()).toStringUtf8();
         }
 
         if (type instanceof VarbinaryType) {
-            return ((Slice) marker.getValue()).getBytes();
+            return ByteBuffer.wrap(((Slice) marker.getValue()).getBytes());
+        }
+
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            Object value = requireNonNull(marker.getValue(), "The value of the marker must be non-null");
+            if (Decimals.isShortDecimal(decimalType)) {
+                checkArgument(value instanceof Long, "A short decimal should be represented by a Long value but was %s", value.getClass().getName());
+                return BigDecimal.valueOf((long) value).movePointLeft(decimalType.getScale());
+            }
+            checkArgument(value instanceof Slice, "A long decimal should be represented by a Slice value but was %s", value.getClass().getName());
+            return new BigDecimal(Decimals.decodeUnscaledValue((Slice) value), decimalType.getScale());
         }
 
         return marker.getValue();

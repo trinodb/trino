@@ -14,6 +14,7 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.prestosql.plugin.iceberg.util.PageListBuilder;
 import io.prestosql.spi.Page;
@@ -29,6 +30,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.transforms.Transforms;
@@ -42,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TypeSignature.mapType;
@@ -57,7 +58,7 @@ public class FilesTable
     private final Table icebergTable;
     private final Optional<Long> snapshotId;
 
-    public FilesTable(SchemaTableName tableName, Table icebergTable, Optional<Long> snapshotId, TypeManager typeManager)
+    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
 
@@ -93,15 +94,20 @@ public class FilesTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        return new FixedPageSource(buildPages(tableMetadata, session, icebergTable, snapshotId));
+        if (snapshotId.isEmpty()) {
+            return new FixedPageSource(ImmutableList.of());
+        }
+        return new FixedPageSource(buildPages(tableMetadata, icebergTable, snapshotId.get()));
     }
 
-    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, ConnectorSession session, Table icebergTable, Optional<Long> snapshotId)
+    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable, long snapshotId)
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
-        TableScan tableScan = getTableScan(session, TupleDomain.all(), snapshotId, icebergTable).includeColumnStats();
-        Map<Integer, Type> idToTypeMapping = icebergTable.schema().columns().stream()
-                .collect(toImmutableMap(Types.NestedField::fieldId, column -> column.type().asPrimitiveType()));
+        Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
+
+        TableScan tableScan = icebergTable.newScan()
+                .useSnapshot(snapshotId)
+                .includeColumnStats();
 
         tableScan.planFiles().forEach(fileScanTask -> {
             DataFile dataFile = fileScanTask.file();
@@ -153,5 +159,23 @@ public class FilesTable
             return false;
         }
         return true;
+    }
+
+    private static Map<Integer, Type> getIcebergIdToTypeMapping(Schema schema)
+    {
+        ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping = ImmutableMap.builder();
+        for (Types.NestedField field : schema.columns()) {
+            populateIcebergIdToTypeMapping(field, icebergIdToTypeMapping);
+        }
+        return icebergIdToTypeMapping.build();
+    }
+
+    private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping)
+    {
+        Type type = field.type();
+        icebergIdToTypeMapping.put(field.fieldId(), type);
+        if (type instanceof Type.NestedType) {
+            type.asNestedType().fields().forEach(child -> populateIcebergIdToTypeMapping(child, icebergIdToTypeMapping));
+        }
     }
 }

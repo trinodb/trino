@@ -41,22 +41,34 @@ Drop table::
 
     DROP TABLE memory.default.nation;
 
+Dynamic Filtering
+-----------------
 
-Memory Connector Limitations
-----------------------------
+The Memory connector supports the :doc:`dynamic filtering </admin/dynamic-filtering>` optimization.
+Dynamic filters are pushed into local table scan on worker nodes for broadcast joins.
 
-    * After ``DROP TABLE`` memory is not released immediately. It is
-      released after the next write access to memory connector.
-    * When one worker fails/restarts, all data that was stored in its
-      memory is lost. To prevent silent data loss the
-      connector throws an error on any read access to such
-      corrupted table.
-    * When a query fails for any reason during writing to memory table,
-      the table enters an undefined state. The table should be dropped
-      and recreated manually. Reading attempts from the table may fail,
-      or may return partial data.
-    * When the coordinator fails/restarts, all metadata about tables is
-      lost. The tables remain on the workers, but become inaccessible.
-    * This connector does not work properly with multiple
-      coordinators, since each coordinator has different
-      metadata.
+Delayed execution for dynamic filters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For the Memory connector, a table scan is delayed until the collection of dynamic filters.
+This can be disabled by using the configuration property ``memory.enable-lazy-dynamic-filtering``
+in the catalog file.
+
+Limitations
+-----------
+
+* After ``DROP TABLE`` memory is not released immediately. It is
+  released after the next write access to memory connector.
+* When one worker fails/restarts, all data that was stored in its
+  memory is lost. To prevent silent data loss the
+  connector throws an error on any read access to such
+  corrupted table.
+* When a query fails for any reason during writing to memory table,
+  the table enters an undefined state. The table should be dropped
+  and recreated manually. Reading attempts from the table may fail,
+  or may return partial data.
+* When the coordinator fails/restarts, all metadata about tables is
+  lost. The tables remain on the workers, but become inaccessible.
+* This connector does not work properly with multiple
+  coordinators, since each coordinator has different
+  metadata.

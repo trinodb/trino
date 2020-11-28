@@ -24,6 +24,7 @@ import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -52,6 +53,7 @@ public class UnregisterPartitionProcedure
             UnregisterPartitionProcedure.class,
             "unregisterPartition",
             ConnectorSession.class,
+            ConnectorAccessControl.class,
             String.class,
             String.class,
             List.class,
@@ -81,20 +83,22 @@ public class UnregisterPartitionProcedure
                 UNREGISTER_PARTITION.bindTo(this));
     }
 
-    public void unregisterPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues)
+    public void unregisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doUnregisterPartition(session, schemaName, tableName, partitionColumn, partitionValues);
+            doUnregisterPartition(session, accessControl, schemaName, tableName, partitionColumn, partitionValues);
         }
     }
 
-    private void doUnregisterPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues)
+    private void doUnregisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues)
     {
         HiveIdentity identity = new HiveIdentity(session);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
         Table table = metastore.getTable(identity, schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+
+        accessControl.checkCanDeleteFromTable(null, schemaTableName);
 
         checkIsPartitionedTable(table);
         checkPartitionColumns(table, partitionColumn);

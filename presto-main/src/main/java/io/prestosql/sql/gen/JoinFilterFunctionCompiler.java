@@ -133,7 +133,7 @@ public class JoinFilterFunctionCompiler
 
         FieldDefinition sessionField = classDefinition.declareField(a(PRIVATE, FINAL), "session", ConnectorSession.class);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, leftBlocksSize, filter);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter);
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, sessionField);
 
         generateConstructor(classDefinition, sessionField, cachedInstanceBinder);
@@ -214,7 +214,6 @@ public class JoinFilterFunctionCompiler
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            int leftBlocksSize,
             RowExpression filter)
     {
         Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(filter));
@@ -252,12 +251,12 @@ public class JoinFilterFunctionCompiler
     }
 
     private static RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler(
-            final CallSiteBinder callSiteBinder,
-            final Variable leftPosition,
-            final Variable leftPage,
-            final Variable rightPosition,
-            final Variable rightPage,
-            final int leftBlocksSize)
+            CallSiteBinder callSiteBinder,
+            Variable leftPosition,
+            Variable leftPage,
+            Variable rightPosition,
+            Variable rightPage,
+            int leftBlocksSize)
     {
         return new InputReferenceCompiler(
                 (scope, field) -> {

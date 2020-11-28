@@ -30,6 +30,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -63,6 +64,7 @@ public class RegisterPartitionProcedure
             RegisterPartitionProcedure.class,
             "registerPartition",
             ConnectorSession.class,
+            ConnectorAccessControl.class,
             String.class,
             String.class,
             List.class,
@@ -94,18 +96,18 @@ public class RegisterPartitionProcedure
                         new Procedure.Argument("table_name", VARCHAR),
                         new Procedure.Argument("partition_columns", new ArrayType(VARCHAR)),
                         new Procedure.Argument("partition_values", new ArrayType(VARCHAR)),
-                        new Procedure.Argument("location", VARCHAR)),
+                        new Procedure.Argument("location", VARCHAR, false, null)),
                 REGISTER_PARTITION.bindTo(this));
     }
 
-    public void registerPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
+    public void registerPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doRegisterPartition(session, schemaName, tableName, partitionColumn, partitionValues, location);
+            doRegisterPartition(session, accessControl, schemaName, tableName, partitionColumn, partitionValues, location);
         }
     }
 
-    private void doRegisterPartition(ConnectorSession session, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
+    private void doRegisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
     {
         if (!allowRegisterPartition) {
             throw new PrestoException(PERMISSION_DENIED, "register_partition procedure is disabled");
@@ -115,10 +117,10 @@ public class RegisterPartitionProcedure
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
-        Path partitionLocation = new Path(location);
-
         Table table = metastore.getTable(identity, schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+
+        accessControl.checkCanInsertIntoTable(null, schemaTableName);
 
         checkIsPartitionedTable(table);
         checkPartitionColumns(table, partitionColumn);
@@ -127,6 +129,15 @@ public class RegisterPartitionProcedure
         if (partition.isPresent()) {
             String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
             throw new PrestoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
+        }
+
+        Path partitionLocation;
+
+        if (location == null) {
+            partitionLocation = new Path(table.getStorage().getLocation(), FileUtils.makePartName(partitionColumn, partitionValues));
+        }
+        else {
+            partitionLocation = new Path(location);
         }
 
         if (!HiveWriteUtils.pathExists(hdfsContext, hdfsEnvironment, partitionLocation)) {

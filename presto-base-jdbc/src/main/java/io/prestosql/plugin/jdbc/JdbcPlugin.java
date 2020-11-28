@@ -15,11 +15,13 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
+import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcPlugin
@@ -38,6 +40,6 @@ public class JdbcPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new JdbcConnectorFactory(name, module));
+        return ImmutableList.of(new JdbcConnectorFactory(name, combine(new CredentialProviderModule(), module)));
     }
 }

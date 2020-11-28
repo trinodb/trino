@@ -4,11 +4,6 @@ Aggregate Functions
 
 Aggregate functions operate on a set of values to compute a single result.
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Except for :func:`count`, :func:`count_if`, :func:`max_by`, :func:`min_by` and
 :func:`approx_distinct`, all of these aggregate functions ignore null values
 and return null for no input rows or when all values are null. For example,
@@ -107,6 +102,7 @@ General Aggregate Functions
     Returns the average (arithmetic mean) of all input values.
 
 .. function:: avg(time interval type) -> time interval type
+    :noindex:
 
     Returns the average interval length of all input values.
 
@@ -127,6 +123,7 @@ General Aggregate Functions
     Returns the number of input rows.
 
 .. function:: count(x) -> bigint
+    :noindex:
 
     Returns the number of non-null input values.
 
@@ -143,39 +140,43 @@ General Aggregate Functions
 
     Returns the geometric mean of all input values.
 
-.. function:: max_by(x, y) -> [same as x]
-
-    Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
-
-.. function:: max_by(x, y, n) -> array<[same as x]>
-
-    Returns ``n`` values of ``x`` associated with the ``n`` largest of all input values of ``y``
-    in descending order of ``y``.
-
-.. function:: min_by(x, y) -> [same as x]
-
-    Returns the value of ``x`` associated with the minimum value of ``y`` over all input values.
-
-.. function:: min_by(x, y, n) -> array<[same as x]>
-
-    Returns ``n`` values of ``x`` associated with the ``n`` smallest of all input values of ``y``
-    in ascending order of ``y``.
-
 .. function:: max(x) -> [same as input]
 
     Returns the maximum value of all input values.
 
 .. function:: max(x, n) -> array<[same as x]>
+    :noindex:
 
     Returns ``n`` largest values of all input values of ``x``.
+
+.. function:: max_by(x, y) -> [same as x]
+
+    Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
+
+.. function:: max_by(x, y, n) -> array<[same as x]>
+    :noindex:
+
+    Returns ``n`` values of ``x`` associated with the ``n`` largest of all input values of ``y``
+    in descending order of ``y``.
 
 .. function:: min(x) -> [same as input]
 
     Returns the minimum value of all input values.
 
 .. function:: min(x, n) -> array<[same as x]>
+    :noindex:
 
     Returns ``n`` smallest values of all input values of ``x``.
+
+.. function:: min_by(x, y) -> [same as x]
+
+    Returns the value of ``x`` associated with the minimum value of ``y`` over all input values.
+
+.. function:: min_by(x, y, n) -> array<[same as x]>
+    :noindex:
+
+    Returns ``n`` values of ``x`` associated with the ``n`` smallest of all input values of ``y``
+    in ascending order of ``y``.
 
 .. function:: sum(x) -> [same as input]
 
@@ -228,6 +229,7 @@ Approximate Aggregate Functions
     any specific input set.
 
 .. function:: approx_distinct(x, e) -> bigint
+    :noindex:
 
     Returns the approximate number of distinct input values.
     This function provides an approximation of ``count(DISTINCT x)``.
@@ -239,6 +241,27 @@ Approximate Aggregate Functions
     for any specific input set. The current implementation of this function
     requires that ``e`` be in the range of ``[0.0040625, 0.26000]``.
 
+.. function:: approx_most_frequent(buckets, value, capacity) -> map<[same as value], bigint>
+
+    Computes the top frequent values up to ``buckets`` elements approximately.
+    Approximate estimation of the function enables us to pick up the frequent
+    values with less memory. Larger ``capacity`` improves the accuracy of
+    underlying algorithm with sacrificing the memory capacity. The returned
+    value is a map containing the top elements with corresponding estimated
+    frequency.
+
+    The error of the function depends on the permutation of the values and its
+    cardinality. We can set the capacity same as the cardinality of the
+    underlying data to achieve the least error.
+
+    ``buckets`` and ``capacity`` must be ``bigint``. ``value`` can be numeric
+    or string type.
+
+    The function uses the stream summary data structure proposed in the paper
+    `Efficient Computation of Frequent and Top-k Elements in Data Streams
+    <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_
+    by A. Metwalley, D. Agrawl and A. Abbadi.
+
 .. function:: approx_percentile(x, percentage) -> [same as x]
 
     Returns the approximate percentile for all input values of ``x`` at the
@@ -246,36 +269,29 @@ Approximate Aggregate Functions
     one and must be constant for all input rows.
 
 .. function:: approx_percentile(x, percentages) -> array<[same as x]>
+    :noindex:
 
     Returns the approximate percentile for all input values of ``x`` at each of
     the specified percentages. Each element of the ``percentages`` array must be
     between zero and one, and the array must be constant for all input rows.
 
 .. function:: approx_percentile(x, w, percentage) -> [same as x]
+    :noindex:
 
     Returns the approximate weighed percentile for all input values of ``x``
-    using the per-item weight ``w`` at the percentage ``p``. Weights must be
+    using the per-item weight ``w`` at the percentage ``percentage``. Weights must be
     strictly positive. Integer-value weights can be thought of as a replication
-    count for the value ``x`` in the percentile set. The value of ``p`` must be
+    count for the value ``x`` in the percentile set. The value of ``percentage`` must be
     between zero and one and must be constant for all input rows.
 
-.. function:: approx_percentile(x, w, percentage, accuracy) -> [same as x]
-
-    Returns the approximate weighed percentile for all input values of ``x``
-    using the per-item weight ``w`` at the percentage ``p``, with a maximum rank
-    error of ``accuracy``. Weights must be strictly positive. Integer-value
-    weights can be thought of as a replication count for the value ``x`` in the
-    percentile set. The value of ``p`` must be between zero and one and must be
-    constant for all input rows. ``accuracy`` must be a value greater than zero
-    and less than one, and it must be constant for all input rows.
-
 .. function:: approx_percentile(x, w, percentages) -> array<[same as x]>
+    :noindex:
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at each of the given percentages specified
     in the array. Weights must be strictly positive. Integer-value weights can
     be thought of as a replication count for the value ``x`` in the percentile
-    set. Each element of the array must be between zero and one, and the array
+    set. Each element of the ``percentages`` array must be between zero and one, and the array
     must be constant for all input rows.
 
 .. function:: approx_set(x) -> HyperLogLog
@@ -293,6 +309,31 @@ Approximate Aggregate Functions
 
     See :doc:`qdigest`.
 
+.. function:: merge(tdigest) -> tdigest
+    :noindex:
+
+    See :doc:`tdigest`.
+
+.. function:: numeric_histogram(buckets, value) -> map<double, double>
+    :noindex:
+
+    Computes an approximate histogram with up to ``buckets`` number of buckets
+    for all ``value``\ s. This function is equivalent to the variant of
+    :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
+
+.. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
+
+    Computes an approximate histogram with up to ``buckets`` number of buckets
+    for all ``value``\ s with a per-item weight of ``weight``. The algorithm
+    is based loosely on:
+
+    .. code-block:: none
+
+        Yael Ben-Haim and Elad Tom-Tov, "A streaming parallel decision tree algorithm",
+        J. Machine Learning Research 11 (2010), pp. 849--872.
+
+    ``buckets`` must be a ``bigint``. ``value`` and ``weight`` must be numeric.
+
 .. function:: qdigest_agg(x) -> qdigest<[same as x]>
     :noindex:
 
@@ -308,24 +349,15 @@ Approximate Aggregate Functions
 
     See :doc:`qdigest`.
 
-.. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
+.. function:: tdigest_agg(x) -> tdigest
+    :noindex:
 
-    Computes an approximate histogram with up to ``buckets`` number of buckets
-    for all ``value``\ s with a per-item weight of ``weight``. The algorithm
-    is based loosely on:
+    See :doc:`tdigest`.
 
-    .. code-block:: none
+.. function:: tdigest_agg(x, w) -> tdigest
+    :noindex:
 
-        Yael Ben-Haim and Elad Tom-Tov, "A streaming parallel decision tree algorithm",
-        J. Machine Learning Research 11 (2010), pp. 849--872.
-
-    ``buckets`` must be a ``bigint``. ``value`` and ``weight`` must be numeric.
-
-.. function:: numeric_histogram(buckets, value) -> map<double, double>
-
-    Computes an approximate histogram with up to ``buckets`` number of buckets
-    for all ``value``\ s. This function is equivalent to the variant of
-    :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
+    See :doc:`tdigest`.
 
 Statistical Aggregate Functions
 -------------------------------

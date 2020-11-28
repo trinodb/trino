@@ -34,6 +34,7 @@ import io.prestosql.orc.metadata.statistics.DoubleStatistics;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.metadata.statistics.StripeStatistics;
+import io.prestosql.orc.metadata.statistics.TimestampStatistics;
 import io.prestosql.orc.proto.OrcProto;
 import io.prestosql.orc.proto.OrcProto.RowIndexEntry;
 import io.prestosql.orc.protobuf.ByteString;
@@ -43,11 +44,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.ByteOrder;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
@@ -70,6 +71,7 @@ import static io.prestosql.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE
 import static io.prestosql.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static io.prestosql.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static io.prestosql.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
+import static io.prestosql.orc.metadata.statistics.TimestampStatistics.TIMESTAMP_VALUE_BYTES;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Math.toIntExact;
 
@@ -160,7 +162,7 @@ public class OrcMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream, ZoneId legacyFileTimeZone)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -169,7 +171,8 @@ public class OrcMetadataReader
                 toStream(stripeFooter.getStreamsList()),
                 toColumnEncoding(stripeFooter.getColumnsList()),
                 Optional.ofNullable(emptyToNull(stripeFooter.getWriterTimezone()))
-                        .map(zone -> TimeZone.getTimeZone(zone).toZoneId()));
+                        .map(ZoneId::of)
+                        .orElse(legacyFileTimeZone));
     }
 
     private static Stream toStream(OrcProto.Stream stream)
@@ -267,6 +270,9 @@ public class OrcMetadataReader
         else if (statistics.hasDateStatistics()) {
             minAverageValueBytes = DATE_VALUE_BYTES;
         }
+        else if (statistics.hasTimestampStatistics()) {
+            minAverageValueBytes = TIMESTAMP_VALUE_BYTES;
+        }
         else if (statistics.hasDecimalStatistics()) {
             // could be 8 or 16; return the smaller one given it is a min average
             minAverageValueBytes = DECIMAL_VALUE_BYTES_OVERHEAD + SHORT_DECIMAL_VALUE_BYTES;
@@ -282,6 +288,14 @@ public class OrcMetadataReader
             minAverageValueBytes = 0;
         }
 
+        // To handle an existing issue of Hive writer during minor compaction (HIVE-20604):
+        // After minor compaction, stripe stats don't have column statistics and bit field of numberOfValues
+        // is set to 1, but the value is wrongly set to default 0 which implies there is something wrong with
+        // the stats. Drop the column statistics altogether.
+        if (statistics.hasHasNull() && statistics.getNumberOfValues() == 0 && !statistics.getHasNull()) {
+            return new ColumnStatistics(null, 0, null, null, null, null, null, null, null, null, null);
+        }
+
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 minAverageValueBytes,
@@ -290,6 +304,7 @@ public class OrcMetadataReader
                 statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,
                 statistics.hasStringStatistics() ? toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup) : null,
                 statistics.hasDateStatistics() ? toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup) : null,
+                statistics.hasTimestampStatistics() ? toTimestampStatistics(hiveWriterVersion, statistics.getTimestampStatistics(), isRowGroup) : null,
                 statistics.hasDecimalStatistics() ? toDecimalStatistics(statistics.getDecimalStatistics()) : null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
                 null);
@@ -481,6 +496,17 @@ public class OrcMetadataReader
                 dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);
     }
 
+    private static TimestampStatistics toTimestampStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.TimestampStatistics timestampStatistics, boolean isRowGroup)
+    {
+        if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
+            return null;
+        }
+
+        return new TimestampStatistics(
+                timestampStatistics.hasMinimumUtc() ? timestampStatistics.getMinimumUtc() : null,
+                timestampStatistics.hasMaximumUtc() ? timestampStatistics.getMaximumUtc() : null);
+    }
+
     private static OrcType toType(OrcProto.Type type)
     {
         Optional<Integer> length = Optional.empty();
@@ -533,6 +559,8 @@ public class OrcMetadataReader
                 return OrcTypeKind.BINARY;
             case TIMESTAMP:
                 return OrcTypeKind.TIMESTAMP;
+            case TIMESTAMP_INSTANT:
+                return OrcTypeKind.TIMESTAMP_INSTANT;
             case LIST:
                 return OrcTypeKind.LIST;
             case MAP:

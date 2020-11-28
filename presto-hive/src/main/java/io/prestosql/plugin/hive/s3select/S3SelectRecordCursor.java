@@ -20,7 +20,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
-import org.joda.time.DateTimeZone;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,10 +50,9 @@ class S3SelectRecordCursor<K, V extends Writable>
             RecordReader<K, V> recordReader,
             long totalBytes,
             Properties splitSchema,
-            List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone)
+            List<HiveColumnHandle> columns)
     {
-        super(configuration, path, recordReader, totalBytes, updateSplitSchema(splitSchema, columns), columns, hiveStorageTimeZone);
+        super(configuration, path, recordReader, totalBytes, updateSplitSchema(splitSchema, columns), columns);
     }
 
     // since s3select only returns the required column, not the whole columns
@@ -110,12 +108,12 @@ class S3SelectRecordCursor<K, V extends Writable>
             return null;
         }
         String[] parts = ddl.trim().split("\\s+");
-        checkArgument(parts.length >= 5, "Invalid Thrift DDL " + ddl);
-        checkArgument(THRIFT_STRUCT.equals(parts[0]), "Thrift DDL should start with " + THRIFT_STRUCT);
+        checkArgument(parts.length >= 5, "Invalid Thrift DDL %s", ddl);
+        checkArgument(THRIFT_STRUCT.equals(parts[0]), "Thrift DDL should start with %s", THRIFT_STRUCT);
         ThriftTable thriftTable = new ThriftTable();
         thriftTable.setTableName(parts[1]);
-        checkArgument(START_STRUCT.equals(parts[2]), "Invalid Thrift DDL " + ddl);
-        checkArgument(parts[parts.length - 1].endsWith(END_STRUCT), "Invalid Thrift DDL " + ddl);
+        checkArgument(START_STRUCT.equals(parts[2]), "Invalid Thrift DDL %s", ddl);
+        checkArgument(parts[parts.length - 1].endsWith(END_STRUCT), "Invalid Thrift DDL %s", ddl);
         String lastColumnNameWithEndStruct = parts[parts.length - 1];
         parts[parts.length - 1] = lastColumnNameWithEndStruct.substring(0, lastColumnNameWithEndStruct.length() - 1);
         List<ThriftField> fields = new ArrayList<>();

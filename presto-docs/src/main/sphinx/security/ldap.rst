@@ -18,15 +18,6 @@ Presto nodes with SSL/TLS configure :doc:`/security/internal-communication`.
 Presto Server Configuration
 ---------------------------
 
-Environment Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Secure LDAP
-~~~~~~~~~~~
-
-Presto requires Secure LDAP (LDAPS), so make sure you have TLS
-enabled on your LDAP server.
-
 Presto Coordinator Node Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -68,7 +59,7 @@ Property                                                      Description
                                                               used to secure TLS.
 ``http-server.https.keystore.key``                            The password for the keystore. This must match the
                                                               password you specified when creating the keystore.
-``http-server.authentication.allow-forwarded-https``          Enable treating forwarded HTTPS requests over HTTP
+``http-server.process-forwarded``                             Enable treating forwarded HTTPS requests over HTTP
                                                               as secure.  Requires the ``X-Forwarded-Proto`` header
                                                               to be set to ``https`` on forwarded requests.
                                                               Default value is ``false``.
@@ -92,21 +83,32 @@ Password authentication needs to be configured to use LDAP. Create an
     ldap.ssl-trust-certificate=/path/to/ldap_server.crt
     ldap.user-bind-pattern=<Refer below for usage>
 
-======================================================= ======================================================
-Property                                                Description
-======================================================= ======================================================
-``ldap.url``                                            The url to the LDAP server. The url scheme must be
-                                                        ``ldaps://`` since Presto allows only Secure LDAP.
-``ldap.ssl-trust-certificate``                          The path to the PEM encoded trust certificate  for the
-                                                        LDAP server. This file should contain the LDAP
-                                                        server's certificate or its certificate authority.
-``ldap.user-bind-pattern``                              This property can be used to specify the LDAP user
-                                                        bind string for password authentication. This property
-                                                        must contain the pattern ``${USER}``, which is
-                                                        replaced by the actual username during the password
-                                                        authentication. Example: ``${USER}@corp.example.com``.
-``ldap.cache-ttl``                                      LDAP cache duration. Defaults to ``1h``.
-======================================================= ======================================================
+================================== ======================================================
+Property                           Description
+================================== ======================================================
+``ldap.url``                       The URL to the LDAP server. The URL scheme must be
+                                   ``ldap://`` or ``ldaps://``. Connecting to the LDAP
+                                   server without SSL enabled requires
+                                   ``ldap.allow-insecure=true``.
+``ldap.allow-insecure``            Allow using an LDAP connection that is not secured with
+                                   TLS.
+``ldap.ssl-trust-certificate``     The path to the PEM encoded trust certificate  for the
+                                   LDAP server. This file should contain the LDAP
+                                   server's certificate or its certificate authority.
+``ldap.user-bind-pattern``         This property can be used to specify the LDAP user
+                                   bind string for password authentication. This property
+                                   must contain the pattern ``${USER}``, which is
+                                   replaced by the actual username during the password
+                                   authentication.
+
+                                   The property can contain multiple patterns separated
+                                   by a colon. Each pattern will be checked in order
+                                   until a login succeeds or all logins fail. Example:
+                                   ``${USER}@corp.example.com:${USER}@corp.example.co.uk``
+``ldap.ignore-referrals``          Ignore referrals to other LDAP servers while
+                                   performing search queries. Defaults to ``false``.
+``ldap.cache-ttl``                 LDAP cache duration. Defaults to ``1h``.
+================================== ======================================================
 
 Based on the LDAP server implementation type, the property
 ``ldap.user-bind-pattern`` can be used as described below.
@@ -282,7 +284,7 @@ Option                          Description
 ``--server``                    The address and port of the Presto coordinator.  The port must
                                 be set to the port the Presto coordinator is listening for HTTPS
                                 connections on. Presto CLI does not support using ``http`` scheme for
-                                the url when using LDAP authentication.
+                                the URL when using LDAP authentication.
 ``--keystore-path``             The location of the Java Keystore file that will be used
                                 to secure TLS.
 ``--keystore-password``         The password for the keystore. This must match the

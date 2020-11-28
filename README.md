@@ -1,27 +1,39 @@
-# Presto
-[![Maven Central](https://img.shields.io/maven-central/v/io.prestosql/presto-server.svg?label=Download)](https://prestosql.io/download.html)
-[![Presto Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://prestosql.io/slack.html)
-[![Presto: The Definitive Guide book download](https://img.shields.io/badge/Presto%3A%20The%20Definitive%20Guide-download-brightgreen)](https://www.starburstdata.com/oreilly-presto-guide-download/)
+<p align="center">
+    <img alt="Presto Logo" src="presto-docs/src/main/resources/logo/web/main/white/Presto_Logo_WhiteBG-01.png" width="25%" />
+</p>
+<p align="center">Presto is a distributed SQL query engine for big data.</p>
+<p align="center">See the <a href="https://prestosql.io/docs/current/">User Manual</a> for deployment instructions and end user documentation.</p>
+<p align="center">
+   <a href="https://prestosql.io/download.html">
+       <img src="https://img.shields.io/maven-central/v/io.prestosql/presto-server.svg?label=Download" alt="Maven Central" />
+   </a>
+   <a href="https://prestosql.io/slack.html">
+       <img src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358" alt="Presto Slack" />
+   </a>
+   <a href="https://www.starburstdata.com/oreilly-presto-guide-download">
+       <img src="https://img.shields.io/badge/Presto%3A%20The%20Definitive%20Guide-download-brightgreen" alt="Presto: The Definitive Guide book download" />
+   </a>
+</p>
 
-Presto is a distributed SQL query engine for big data.
-
-See the [User Manual](https://prestosql.io/docs/current/) for deployment instructions and end user documentation.
-
-## Requirements
+## Build requirements
 
 * Mac OS X or Linux
-* Java 11, 64-bit
-* Python 2.6+ (for running with the launcher script)
+* Java 11.0.7+, 64-bit
+* Docker
 
 ## Building Presto
 
-Presto is a standard Maven project. Simply run the following command from the project root directory:
+Presto is a standard Maven project. Simply run the following command from the
+project root directory:
 
     ./mvnw clean install
 
-On the first build, Maven will download all the dependencies from the internet and cache them in the local repository (`~/.m2/repository`), which can take a considerable amount of time. Subsequent builds will be faster.
+On the first build, Maven downloads all the dependencies from the internet
+and caches them in the local repository (`~/.m2/repository`), which can take a
+considerable amount of time. Subsequent builds are faster.
 
-Presto has a comprehensive set of unit tests that can take several minutes to run. You can disable the tests when building:
+Presto has a comprehensive set of unit tests that can also take a considerable
+amount of time to run. You can disable the tests when building:
 
     ./mvnw clean install -DskipTests
 
@@ -29,30 +41,44 @@ Presto has a comprehensive set of unit tests that can take several minutes to ru
 
 ### Overview
 
-After building Presto for the first time, you can load the project into your IDE and run the server. We recommend using [IntelliJ IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven project, you can import it into your IDE using the root `pom.xml` file. In IntelliJ, choose Open Project from the Quick Start box or choose Open from the File menu and select the root `pom.xml` file.
+After building Presto for the first time, you can load the project into your IDE
+and run the server. We recommend using [IntelliJ
+IDEA](http://www.jetbrains.com/idea/). Because Presto is a standard Maven
+project, you can import it into your IDE using the root `pom.xml` file. In
+IntelliJ, choose Open Project from the Quick Start box or choose Open from the
+File menu and select the root `pom.xml` file.
 
-After opening the project in IntelliJ, double check that the Java SDK is properly configured for the project:
+After opening the project in IntelliJ, double check that the Java SDK is
+properly configured for the project:
 
 * Open the File menu and select Project Structure
 * In the SDKs section, ensure that JDK 11 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 8 (Presto does not yet use Java 11 language features)
+* In the Project section, ensure the Project language level is set to 8 (Presto
+  does not yet use Java 11 language features)
 
-Presto comes with sample configuration that should work out-of-the-box for development. Use the following options to create a run configuration:
+Presto comes with sample configuration that should work out-of-the-box for
+development. Use the following options to create a run configuration:
 
 * Main Class: `io.prestosql.server.PrestoServer`
 * VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true`
 * Working directory: `$MODULE_DIR$`
 * Use classpath of module: `presto-server-main`
 
-The working directory should be the `presto-server-main` subdirectory. In IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
+The working directory should be the `presto-server-main` subdirectory. In
+IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
-Additionally, the Hive plugin must be configured with the location of your Hive metastore Thrift service. Add the following to the list of VM options, replacing `localhost:9083` with the correct host and port (or use the below value if you do not have a Hive metastore):
+Additionally, the Hive plugin must be configured with the location of your Hive
+metastore Thrift service. Add the following to the list of VM options, replacing
+`localhost:9083` with the correct host and port (or use the below value if you
+do not have a Hive metastore):
 
     -Dhive.metastore.uri=thrift://localhost:9083
 
 ### Using SOCKS for Hive or HDFS
 
-If your Hive metastore or HDFS cluster is not directly accessible to your local machine, you can use SSH port forwarding to access it. Setup a dynamic SOCKS proxy with SSH listening on local port 1080:
+If your Hive metastore or HDFS cluster is not directly accessible to your local
+machine, you can use SSH port forwarding to access it. Setup a dynamic SOCKS
+proxy with SSH listening on local port 1080:
 
     ssh -v -N -D 1080 server
 
@@ -71,59 +97,13 @@ Run a query to see the nodes in the cluster:
 
     SELECT * FROM system.runtime.nodes;
 
-In the sample configuration, the Hive connector is mounted in the `hive` catalog, so you can run the following queries to show the tables in the Hive database `default`:
+In the sample configuration, the Hive connector is mounted in the `hive`
+catalog, so you can run the following queries to show the tables in the Hive
+database `default`:
 
     SHOW TABLES FROM hive.default;
 
 ## Development
 
-### Code Style
-
-We recommend you use IntelliJ as your IDE. The code style template for the project can be found in the [codestyle](https://github.com/airlift/codestyle) repository along with our general programming and Java guidelines. In addition to those you should also adhere to the following:
-
-* Alphabetize sections in the documentation source files (both in the table of contents files and other regular documentation files). In general, alphabetize methods/variables/sections if such ordering already exists in the surrounding code.
-* When appropriate, use the stream API. However, note that the stream implementation does not perform well so avoid using it in inner loops or otherwise performance sensitive sections.
-* Categorize errors when throwing exceptions. For example, PrestoException takes an error code as an argument, `PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`. This categorization lets you generate reports so you can monitor the frequency of various failures.
-* Ensure that all files have the appropriate license header; you can generate the license by running `mvn license:format`.
-* Consider using String formatting (printf style formatting using the Java `Formatter` class): `format("Session property %s is invalid: %s", name, value)` (note that `format()` should always be statically imported). Sometimes, if you only need to append something, consider using the `+` operator.
-* Avoid using the ternary operator except for trivial expressions.
-* Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
-* When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
-
-### Additional IDE configuration
-
-When using IntelliJ to develop Presto, we recommend starting with all of the default inspections,
-with some modifications.
-
-Enable the following inspections:
-
-- ``Java | Internationalization | Implicit usage of platform's default charset``,
-- ``Java | Class structure | Utility class is not 'final'``,
-- ``Java | Class structure | Utility class with 'public' constructor``,
-- ``Java | Class structure | Utility class without 'private' constructor``.
-
-Disable the following inspections:
-
-- ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``,
-- ``Java | Abstraction issues | 'Optional' used as field or parameter type``.
-
-### Building the Web UI
-
-The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible Javascript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
-
-    yarn --cwd presto-main/src/main/resources/webapp/src install
-
-If no Javascript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
-
-    yarn --cwd presto-main/src/main/resources/webapp/src run package
-
-To simplify iteration, you can also run in `watch` mode, which automatically re-compiles when changes to source files are detected:
-
-    yarn --cwd presto-main/src/main/resources/webapp/src run watch
-
-To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
-
-## Writing and Building Documentation
-
-More information about the documentation process can be found in the
-[README file in presto-docs](./presto-docs/README.md).
+See [DEVELOPMENT](./DEVELOPMENT.md) for information about code style,
+development process & guidelines.

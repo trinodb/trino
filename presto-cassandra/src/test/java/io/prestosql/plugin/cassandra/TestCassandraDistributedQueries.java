@@ -22,10 +22,13 @@ import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
+import java.util.Optional;
+
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCassandraDistributedQueries
         extends AbstractTestDistributedQueries
@@ -47,7 +50,25 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
     {
         return false;
     }
@@ -83,33 +104,21 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
-    public void testInsert()
-    {
-        // TODO test inserts
-    }
-
-    @Override
     public void testInsertWithCoercion()
     {
-        // TODO test inserts
-    }
-
-    @Override
-    public void testInsertUnicode()
-    {
-        // TODO test inserts
+        // TODO
+        assertThatThrownBy(super::testInsertWithCoercion)
+                .hasMessage("unsupported type: decimal(5,3)");
+        throw new SkipException("TODO change test to use supported types");
     }
 
     @Override
     public void testInsertArray()
     {
-        // TODO test inserts
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // Cassandra connector currently does not support delete
+        // TODO
+        assertThatThrownBy(super::testInsertArray)
+                .hasMessage("unsupported type: array(double)");
+        throw new SkipException("Unsupported");
     }
 
     @Override
@@ -122,7 +131,7 @@ public class TestCassandraDistributedQueries
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
                 .row("totalprice", "double", "", "")
-                .row("orderdate", "varchar", "", "")
+                .row("orderdate", "date", "", "")
                 .row("orderpriority", "varchar", "", "")
                 .row("clerk", "varchar", "", "")
                 .row("shippriority", "integer", "", "")
@@ -133,30 +142,29 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
-    public void testWrittenStats()
-    {
-        // TODO Cassandra connector supports CTAS and inserts, but the test would fail
-    }
-
-    @Override
-    public void testCommentTable()
-    {
-        // Cassandra connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
     protected TestTable createTableWithDefaultColumns()
     {
         throw new SkipException("Cassandra connector does not support column default values");
     }
 
     @Override
-    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        // TODO Enable after fixing the following error messages
-        // - Multiple definition of identifier id
-        // - unsupported type: char(3), decimal(5,3), decimal(15,3), time, timestamp with time zone
-        // - Invalid (reserved) user type name smallint
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp")
+                || typeName.equals("decimal(5,3)")
+                || typeName.equals("decimal(15,3)")
+                || typeName.equals("char(3)")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected String dataMappingTableName(String prestoTypeName)
+    {
+        return "presto_tmp_" + System.nanoTime();
     }
 }

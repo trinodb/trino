@@ -90,7 +90,7 @@ public final class PartitionedConsumption<T>
             // Unreference futures to allow GC
             this.partitions = null;
         }
-        return new AbstractIterator<Partition<T>>()
+        return new AbstractIterator<>()
         {
             @Override
             protected Partition<T> computeNext()

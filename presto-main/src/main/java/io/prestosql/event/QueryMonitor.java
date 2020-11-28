@@ -15,11 +15,15 @@ package io.prestosql.event;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
+import io.airlift.units.DataSize;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
@@ -50,20 +54,30 @@ import io.prestosql.spi.eventlistener.QueryMetadata;
 import io.prestosql.spi.eventlistener.QueryOutputMetadata;
 import io.prestosql.spi.eventlistener.QueryStatistics;
 import io.prestosql.spi.eventlistener.StageCpuDistribution;
+import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.PlanFragmentId;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.planprinter.ValuePrinter;
 import io.prestosql.transaction.TransactionId;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
@@ -118,7 +132,7 @@ public class QueryMonitor
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
                         new QueryMetadata(
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
@@ -155,6 +169,8 @@ public class QueryMonitor
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
                         0,
                         0,
                         0,
@@ -176,7 +192,7 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         Optional.empty()),
-                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
@@ -194,7 +210,7 @@ public class QueryMonitor
                 new QueryCompletedEvent(
                         createQueryMetadata(queryInfo),
                         createQueryStatistics(queryInfo),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getQueryType()),
                         getQueryIOMetadata(queryInfo),
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
@@ -236,11 +252,13 @@ public class QueryMonitor
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
                 ofMillis(queryStats.getElapsedTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
+                Optional.of(ofMillis(queryStats.getTotalScheduledTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getResourceWaitingTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
+                Optional.of(ofMillis(queryStats.getPlanningTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getExecutionTime().toMillis())),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
-                queryStats.getPeakTotalMemoryReservation().toBytes(),
+                queryStats.getPeakNonRevocableMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),
                 queryStats.getPeakTaskTotalMemory().toBytes(),
                 queryStats.getPhysicalInputDataSize().toBytes(),
@@ -262,11 +280,12 @@ public class QueryMonitor
                 serializedPlanNodeStatsAndCosts);
     }
 
-    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)
+    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType)
     {
         return new QueryContext(
                 session.getUser(),
                 session.getPrincipal(),
+                session.getGroups(),
                 session.getTraceToken(),
                 session.getRemoteUserAddress(),
                 session.getUserAgent(),
@@ -281,7 +300,8 @@ public class QueryMonitor
                 session.getResourceEstimates(),
                 serverAddress,
                 serverVersion,
-                environment);
+                environment,
+                queryType);
     }
 
     private Optional<String> createTextQueryPlan(QueryInfo queryInfo)
@@ -304,15 +324,34 @@ public class QueryMonitor
 
     private static QueryIOMetadata getQueryIOMetadata(QueryInfo queryInfo)
     {
+        Multimap<FragmentNode, OperatorStats> planNodeStats = extractPlanNodeStats(queryInfo);
+
         ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
         for (Input input : queryInfo.getInputs()) {
+            // Note: input table can be mapped to multiple operators
+            Collection<OperatorStats> inputTableOperatorStats = planNodeStats.get(new FragmentNode(input.getFragmentId(), input.getPlanNodeId()));
+
+            OptionalLong physicalInputBytes = OptionalLong.empty();
+            OptionalLong physicalInputPositions = OptionalLong.empty();
+            if (!inputTableOperatorStats.isEmpty()) {
+                physicalInputBytes = OptionalLong.of(inputTableOperatorStats.stream()
+                        .map(OperatorStats::getPhysicalInputDataSize)
+                        .mapToLong(DataSize::toBytes)
+                        .sum());
+                physicalInputPositions = OptionalLong.of(inputTableOperatorStats.stream()
+                        .mapToLong(OperatorStats::getPhysicalInputPositions)
+                        .sum());
+            }
+
             inputs.add(new QueryInputMetadata(
                     input.getCatalogName(),
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
                             .map(Column::getName).collect(Collectors.toList()),
-                    input.getConnectorInfo()));
+                    input.getConnectorInfo(),
+                    physicalInputBytes,
+                    physicalInputPositions));
         }
 
         Optional<QueryOutputMetadata> output = Optional.empty();
@@ -332,6 +371,45 @@ public class QueryMonitor
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
         }
         return new QueryIOMetadata(inputs.build(), output);
+    }
+
+    private static Multimap<FragmentNode, OperatorStats> extractPlanNodeStats(QueryInfo queryInfo)
+    {
+        // Note: A plan may map a table scan to multiple operators.
+        ImmutableMultimap.Builder<FragmentNode, OperatorStats> planNodeStats = ImmutableMultimap.builder();
+        getAllStages(queryInfo.getOutputStage())
+                .forEach(stageInfo -> extractPlanNodeStats(stageInfo, planNodeStats));
+        return planNodeStats.build();
+    }
+
+    private static void extractPlanNodeStats(StageInfo stageInfo, ImmutableMultimap.Builder<FragmentNode, OperatorStats> planNodeStats)
+    {
+        PlanFragment fragment = stageInfo.getPlan();
+        if (fragment == null) {
+            return;
+        }
+
+        // Note: a plan node may be mapped to multiple operators
+        Map<PlanNodeId, Collection<OperatorStats>> allOperatorStats = Multimaps.index(stageInfo.getStageStats().getOperatorSummaries(), OperatorStats::getPlanNodeId).asMap();
+
+        // Sometimes a plan node is merged with other nodes into a single operator, and in that case,
+        // use the stats of the nearest parent node with stats.
+        fragment.getRoot().accept(
+                new PlanVisitor<Void, Collection<OperatorStats>>()
+                {
+                    @Override
+                    protected Void visitPlan(PlanNode node, Collection<OperatorStats> parentStats)
+                    {
+                        Collection<OperatorStats> operatorStats = allOperatorStats.getOrDefault(node.getId(), parentStats);
+                        planNodeStats.putAll(new FragmentNode(fragment.getId(), node.getId()), operatorStats);
+
+                        for (PlanNode child : node.getSources()) {
+                            child.accept(this, operatorStats);
+                        }
+                        return null;
+                    }
+                },
+                ImmutableList.of());
     }
 
     private Optional<QueryFailureInfo> createQueryFailureInfo(ExecutionFailureInfo failureInfo, Optional<StageInfo> outputStage)
@@ -401,7 +479,7 @@ public class QueryMonitor
             // Time spent waiting for required no. of worker nodes to be present
             long waiting = queryStats.getResourceWaitingTime().toMillis();
 
-            List<StageInfo> stages = StageInfo.getAllStages(queryInfo.getOutputStage());
+            List<StageInfo> stages = getAllStages(queryInfo.getOutputStage());
             // long lastSchedulingCompletion = 0;
             long firstTaskStartTime = queryEndTime.getMillis();
             long lastTaskStartTime = queryStartTime.getMillis() + planning;
@@ -547,5 +625,43 @@ public class QueryMonitor
                 (long) snapshot.getMax(),
                 (long) snapshot.getTotal(),
                 snapshot.getTotal() / snapshot.getCount());
+    }
+
+    private static class FragmentNode
+    {
+        private final PlanFragmentId fragmentId;
+        private final PlanNodeId nodeId;
+
+        public FragmentNode(PlanFragmentId fragmentId, PlanNodeId nodeId)
+        {
+            this.fragmentId = requireNonNull(fragmentId, "fragmentId is null");
+            this.nodeId = requireNonNull(nodeId, "nodeId is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            FragmentNode that = (FragmentNode) o;
+            return fragmentId.equals(that.fragmentId) &&
+                    nodeId.equals(that.nodeId);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(fragmentId, nodeId);
+        }
+
+        @Override
+        public String toString()
+        {
+            return fragmentId + ":" + nodeId;
+        }
     }
 }

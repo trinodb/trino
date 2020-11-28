@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.base.security;
 
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaRoutineName;
@@ -23,7 +22,6 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -92,6 +90,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
     }
@@ -108,7 +111,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    public Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         return columns;
     }
@@ -125,6 +128,11 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, PrestoPrincipal principal)
     {
     }
 
@@ -154,6 +162,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, PrestoPrincipal principal)
+    {
+    }
+
+    @Override
     public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
     }
@@ -165,6 +178,16 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
+    {
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal revokee, boolean grantOption)
     {
     }
 

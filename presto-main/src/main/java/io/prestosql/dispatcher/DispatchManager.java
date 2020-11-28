@@ -16,6 +16,7 @@ package io.prestosql.dispatcher;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
+import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.QueryIdGenerator;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManagerConfig;
@@ -50,6 +51,9 @@ import java.util.concurrent.Executor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static io.prestosql.execution.QueryState.QUEUED;
+import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static io.prestosql.util.StatementUtils.getQueryType;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
@@ -67,10 +71,11 @@ public class DispatchManager
     private final AccessControl accessControl;
     private final SessionSupplier sessionSupplier;
     private final SessionPropertyDefaults sessionPropertyDefaults;
+    private final QueryMonitor queryMonitor;
 
     private final int maxQueryLength;
 
-    private final Executor queryExecutor;
+    private final Executor dispatchExecutor;
 
     private final QueryTracker<DispatchQuery> queryTracker;
 
@@ -87,6 +92,7 @@ public class DispatchManager
             AccessControl accessControl,
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
+            QueryMonitor queryMonitor,
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor)
     {
@@ -99,11 +105,12 @@ public class DispatchManager
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
 
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
-        this.queryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
+        this.dispatchExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
     }
@@ -141,7 +148,7 @@ public class DispatchManager
         checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
 
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
-        queryExecutor.execute(() -> {
+        dispatchExecutor.execute(() -> {
             try {
                 createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
             }
@@ -203,7 +210,7 @@ public class DispatchManager
             boolean queryAdded = queryCreated(dispatchQuery);
             if (queryAdded && !dispatchQuery.isDone()) {
                 try {
-                    resourceGroupManager.submit(dispatchQuery, selectionContext, queryExecutor);
+                    resourceGroupManager.submit(dispatchQuery, selectionContext, dispatchExecutor);
                 }
                 catch (Throwable e) {
                     // dispatch query has already been registered, so just fail it directly
@@ -241,6 +248,17 @@ public class DispatchManager
             stats.trackQueryStats(dispatchQuery);
         }
 
+        // capture failures which happen before query is successfully dispatched; callback done in separate thread
+        addSuccessCallback(
+                dispatchQuery.getDispatchedFuture(),
+                dispatchStatus -> {
+                    if (dispatchStatus == DispatchQuery.DispatchStatus.FAILED) {
+                        queryMonitor.queryImmediateFailureEvent(dispatchQuery.getBasicQueryInfo(), dispatchQuery.getFullQueryInfo().getFailureInfo());
+                    }
+                    // if dispatchStatus == DISPATCHED then query termination will be handled by listener registered in SqlQueryManager.createQuery
+                },
+                dispatchExecutor);
+
         return queryAdded;
     }
 
@@ -259,6 +277,22 @@ public class DispatchManager
         return queryTracker.getAllQueries().stream()
                 .map(DispatchQuery::getBasicQueryInfo)
                 .collect(toImmutableList());
+    }
+
+    @Managed
+    public long getQueuedQueries()
+    {
+        return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == QUEUED)
+                .count();
+    }
+
+    @Managed
+    public long getRunningQueries()
+    {
+        return queryTracker.getAllQueries().stream()
+                .filter(query -> query.getState() == RUNNING && !query.getBasicQueryInfo().getQueryStats().isFullyBlocked())
+                .count();
     }
 
     public boolean isQueryRegistered(QueryId queryId)

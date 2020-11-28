@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.aggregation;
 
-import io.airlift.slice.Slice;
 import io.prestosql.operator.aggregation.state.BooleanDistinctState;
 import io.prestosql.operator.aggregation.state.HyperLogLogState;
 import io.prestosql.spi.block.Block;
@@ -75,7 +74,7 @@ public final class DefaultApproximateCountDistinctAggregation
     public static void input(
             @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
-            @SqlType("T") Slice value)
+            @SqlType("T") Object value)
     {
         ApproximateCountDistinctAggregation.input(methodHandle, state, value, DEFAULT_STANDARD_ERROR);
     }

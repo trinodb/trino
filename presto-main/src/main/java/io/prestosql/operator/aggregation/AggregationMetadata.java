@@ -147,7 +147,7 @@ public class AggregationMetadata
     {
         Class<?>[] parameters = method.type().parameterArray();
         checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
-        checkArgument(parameters.length == dataChannelMetadata.size() + lambdaInterfaces.size(), "Wenlei TODO...");
+        checkArgument(parameters.length == dataChannelMetadata.size() + lambdaInterfaces.size(), "Aggregation input function parameters count match parameter metadata");
         checkArgument(dataChannelMetadata.stream().filter(m -> m.getParameterType() == STATE).count() == stateDescriptors.size(), "Number of state parameter in input function must be the same as size of stateDescriptors");
         checkArgument(dataChannelMetadata.get(0).getParameterType() == STATE, "First parameter must be state");
 

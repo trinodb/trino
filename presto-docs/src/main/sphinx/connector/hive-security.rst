@@ -1,16 +1,11 @@
-===========================
-Hive Security Configuration
-===========================
-
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
+=====================================
+Hive Connector Security Configuration
+=====================================
 
 Authorization
 =============
 
-You can enable authorization checks for the :doc:`/connector/hive` by setting
+You can enable authorization checks for the :doc:`hive` by setting
 the ``hive.security`` property in the Hive catalog properties file. This
 property must be one of the following values:
 
@@ -39,6 +34,8 @@ Property Value                                     Description
                                                    To alter these privileges, use the :doc:`/sql/grant` and
                                                    :doc:`/sql/revoke` commands.
                                                    See :ref:`hive-sql-standard-based-authorization` for details.
+
+``allow-all``                                      No authorization checks are enforced.
 ================================================== ============================================================
 
 .. _hive-sql-standard-based-authorization:
@@ -484,6 +481,10 @@ each of which is a list of rules that are matched in the order specified
 in the config file. The user is granted the privileges from the first
 matching rule. All regexes default to ``.*`` if not specified.
 
+.. note::
+
+    These rules do not apply to system defined table in the ``information_schema`` schema.
+
 Schema Rules
 ------------
 
@@ -512,6 +513,27 @@ These rules govern the privileges granted on specific tables.
 
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
   ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``.
+
+* ``columns`` (optional): list of column constraints.
+
+* ``filter`` (optional): boolean filter expression for the table.
+
+* ``filter_environment`` (optional): environment use during filter evaluation.
+
+Column Constraint
+^^^^^^^^^^^^^^^^^
+
+These constraints can be used to restrict access to column data.
+
+* ``name``: name of the column.
+* ``allowed`` (optional): if false, column can not be accessed.
+* ``mask`` (optional): mask expression applied to column.
+* ``mask_environment`` (optional): environment use during mask evaluation.
+
+Filter and Mask Environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* ``user`` (optional): username for checking permission of subqueries in mask.
 
 Session Property Rules
 ----------------------
@@ -561,12 +583,31 @@ See below for an example.
           "privileges": []
         },
         {
+          "schema": "hr",
+          "table": "employee",
+          "privileges": ["SELECT"],
+          "filter": "user = current_user"
+        }
+        {
           "schema": "default",
           "table": ".*",
-          "privileges": ["SELECT"]
+          "privileges": ["SELECT"],
+          "columns" : [
+             {
+                "name": "address",
+                "allow": false
+             },
+             {
+                "name": "ssn",
+                "mask": "'XXX-XX-' + substring(credit_card, -4)",
+                "mask_environment": {
+                  "user": "admin"
+                }
+             }
+          ]
         }
       ],
-      "sessionProperties": [
+      "session_properties": [
         {
           "property": "force_local_scheduling",
           "allow": true

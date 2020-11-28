@@ -14,8 +14,10 @@
 package io.prestosql.spi.security;
 
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -23,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 
 public class Identity
 {
@@ -125,7 +128,14 @@ public class Identity
         sb.append(", groups=").append(groups);
         principal.ifPresent(principal -> sb.append(", principal=").append(principal));
         sb.append(", roles=").append(roles);
-        sb.append(", extraCredentials=").append(extraCredentials.keySet());
+        // Do not print any internal credential keys
+        List<String> filteredCredentials = extraCredentials.keySet().stream()
+                .filter(key -> !key.contains("$internal"))
+                .collect(toCollection(ArrayList::new));
+        if (filteredCredentials.size() != extraCredentials.size()) {
+            filteredCredentials.add("...");
+        }
+        sb.append(", extraCredentials=").append(filteredCredentials);
         sb.append('}');
         return sb.toString();
     }

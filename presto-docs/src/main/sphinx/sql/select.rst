@@ -2,17 +2,12 @@
 SELECT
 ======
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Synopsis
 --------
 
 .. code-block:: none
 
-    [ WITH with_query [, ...] ]
+    [ WITH [ RECURSIVE ] with_query [, ...] ]
     SELECT [ ALL | DISTINCT ] select_expression [, ...]
     [ FROM from_item [, ...] ]
     [ WHERE condition ]
@@ -21,7 +16,8 @@ Synopsis
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
     [ OFFSET count [ ROW | ROWS ] ]
-    [ LIMIT { count | ALL } | FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES } ]
+    [ LIMIT { count | ALL } ]
+    [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES } ]
 
 where ``from_item`` is one of
 
@@ -31,7 +27,8 @@ where ``from_item`` is one of
 
 .. code-block:: none
 
-    from_item join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]
+    from_item join_type from_item
+      [ ON join_condition | USING ( join_column [, ...] ) ]
 
 and ``join_type`` is one of
 
@@ -95,6 +92,77 @@ Additionally, the relations within a ``WITH`` clause can chain::
     relation is used. This means that if the relation is used more than once and the query
     is non-deterministic, the results may be different each time.
 
+WITH RECURSIVE Clause
+---------------------
+
+The ``WITH RECURSIVE`` clause is a variant of the ``WITH`` clause. It defines
+a list of queries to process, including recursive processing of suitable
+queries.
+
+.. warning::
+
+    This feature is experimental only. Proceed to use it only if you understand
+    potential query failures and the impact of the recursion processing on your
+    workload.
+
+A recursive ``WITH``-query must be shaped as a ``UNION`` of two relations. The
+first relation is called the *recursion base*, and the second relation is called
+the *recursion step*. Presto supports recursive ``WITH``-queries with a single
+recursive reference to a ``WITH``-query from within the query. The name ``T`` of
+the query ``T`` can be mentioned once in the ``FROM`` clause of the recursion
+step relation.
+
+The following listing shows a simple example, that displays a commonly used
+form of a single query in the list:
+
+.. code-block:: none
+
+    WITH RECURSIVE t(n) AS (
+        VALUES (1)
+        UNION ALL
+        SELECT n + 1 FROM t WHERE n < 4
+    )
+    SELECT sum(n) FROM t;
+
+In the preceding query the simple assignment ``VALUES (1)`` defines the
+recursion base relation. ``SELECT n + 1 FROM t WHERE n < 4`` defines the
+recursion step relation. The recursion processing performs these steps:
+
+- recursive base yields ``1``
+- first recursion yields ``1 + 1 = 2``
+- second recursion uses the result from the first and adds one: ``2 + 1 = 3``
+- third recursion uses the result from the second and adds one again:
+  ``3 + 1 = 4``
+- fourth recursion aborts since ``n = 4``
+- this results in ``t`` having values ``1``, ``2``, ``3`` and ``4``
+- the final statement performs the sum operation of these elements with the
+  final result value ``10``
+
+The types of the returned columns are those of the base relation. Therefore it
+is required that types in the step relation can be coerced to base relation
+types.
+
+The ``RECURSIVE`` clause applies to all queries in the ``WITH`` list, but not
+all of them must be recursive. If a ``WITH``-query is not shaped according to
+the rules mentioned above or it does not contain a recursive reference, it is
+processed like a regular ``WITH``-query. Column aliases are mandatory for all
+the queries in the recursive ``WITH`` list.
+
+The following limitations apply as a result of following the SQL standard and
+due to implementation choices, in addition to ``WITH`` clause limitations:
+
+- only single-element recursive cycles are supported. Like in regular
+  ``WITH``-queries, references to previous queries in the ``WITH`` list are
+  allowed. References to following queries are forbidden.
+- usage of outer joins, set operations, limit clause, and others is not always
+  allowed in the step relation
+- recursion depth is fixed, defaults to ``10``, and doesn't depend on the actual
+  query results
+
+You can adjust the recursion depth with the :doc:`session property
+</sql/set-session>` ``max_recursion_depth``. When changing the value consider
+that the size of the query plan growth is quadratic with the recursion depth.
+
 SELECT Clause
 -------------
 
@@ -112,7 +180,8 @@ rows are included in the result set. In this case, each output column must
 be of a type that allows comparison. If neither argument is specified,
 the behavior defaults to ``ALL``.
 
-**Select expressions**
+Select expressions
+^^^^^^^^^^^^^^^^^^
 
 Each ``select_expression`` must be in one of the following forms:
 
@@ -225,7 +294,8 @@ the ``GROUP BY`` clause.
 
 .. _complex_grouping_operations:
 
-**Complex Grouping Operations**
+Complex Grouping Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Presto also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
 and ``ROLLUP`` syntax. This syntax allows users to perform analysis that requires
@@ -238,7 +308,8 @@ Complex grouping operations are often equivalent to a ``UNION ALL`` of simple
 does not apply, however, when the source of data for the aggregation
 is non-deterministic.
 
-**GROUPING SETS**
+GROUPING SETS
+^^^^^^^^^^^^^
 
 Grouping sets allow users to specify multiple lists of columns to group on.
 The columns not part of a given sublist of grouping columns are set to ``NULL``.
@@ -305,7 +376,8 @@ query with the ``UNION ALL`` reads the underlying data three times. This is why
 queries with a ``UNION ALL`` may produce inconsistent results when the data
 source is not deterministic.
 
-**CUBE**
+CUBE
+^^^^
 
 The ``CUBE`` operator generates all possible grouping sets (i.e. a power set)
 for a given set of columns. For example, the query::
@@ -322,7 +394,8 @@ is equivalent to::
         (origin_state, destination_state),
         (origin_state),
         (destination_state),
-        ());
+        ()
+    );
 
 .. code-block:: none
 
@@ -342,7 +415,8 @@ is equivalent to::
      NULL         | NULL              |  1625
     (12 rows)
 
-**ROLLUP**
+ROLLUP
+^^^^^^
 
 The ``ROLLUP`` operator generates all possible subtotals for a given set of
 columns. For example, the query::
@@ -371,7 +445,8 @@ is equivalent to::
     FROM shipping
     GROUP BY GROUPING SETS ((origin_state, origin_zip), (origin_state), ());
 
-**Combining multiple grouping expressions**
+Combining multiple grouping expressions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Multiple grouping expressions in the same query are interpreted as having
 cross-product semantics. For example, the following query::
@@ -396,7 +471,8 @@ is logically equivalent to::
     FROM shipping
     GROUP BY GROUPING SETS (
         (origin_state, destination_state, origin_zip),
-        (origin_state, destination_state));
+        (origin_state, destination_state)
+    );
 
 .. code-block:: none
 
@@ -441,7 +517,8 @@ is equivalent to::
         (origin_state, destination_state),
         (origin_state),
         (destination_state),
-        ());
+        ()
+    );
 
 However, if the query uses the ``DISTINCT`` quantifier for the ``GROUP BY``::
 
@@ -461,11 +538,13 @@ only unique grouping sets are generated::
         (origin_state, destination_state),
         (origin_state),
         (destination_state),
-        ());
+        ()
+    );
 
 The default set quantifier is ``ALL``.
 
-**GROUPING Operation**
+GROUPING Operation
+^^^^^^^^^^^^^^^^^^
 
 ``grouping(col1, ..., colN) -> bigint``
 
@@ -483,9 +562,10 @@ below::
            grouping(origin_state, origin_zip, destination_state)
     FROM shipping
     GROUP BY GROUPING SETS (
-            (origin_state),
-            (origin_state, origin_zip),
-            (destination_state));
+        (origin_state),
+        (origin_state, origin_zip),
+        (destination_state)
+    );
 
 .. code-block:: none
 
@@ -539,8 +619,8 @@ with an account balance greater than the specified value::
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
 
-UNION | INTERSECT | EXCEPT Clause
----------------------------------
+Set Operations
+--------------
 
 ``UNION``  ``INTERSECT`` and ``EXCEPT`` are all set operations.  These clauses are used
 to combine the results of more than one select statement into a single result set:
@@ -570,7 +650,8 @@ specified via parentheses. Additionally, ``INTERSECT`` binds more tightly
 than ``EXCEPT`` and ``UNION``. That means ``A UNION B INTERSECT C EXCEPT D``
 is the same as ``A UNION (B INTERSECT C) EXCEPT D``.
 
-**UNION**
+UNION Clause
+^^^^^^^^^^^^
 
 ``UNION`` combines all the rows that are in the result set from the
 first query with those that are in the result set for the second query.
@@ -621,7 +702,8 @@ selects the values ``42`` and ``13``::
         13
     (2 rows)
 
-**INTERSECT**
+INTERSECT Clause
+^^^^^^^^^^^^^^^^
 
 ``INTERSECT`` returns only the rows that are in the result sets of both the first and
 the second queries. The following is an example of one of the simplest
@@ -640,7 +722,8 @@ is only in the result set of the first query, it is not included in the final re
         13
     (2 rows)
 
-**EXCEPT**
+EXCEPT Clause
+^^^^^^^^^^^^^
 
 ``EXCEPT`` returns the rows that are in the result set of the first query,
 but not the second. The following is an example of one of the simplest
@@ -688,7 +771,7 @@ In the following example, the clause only applies to the select statement.
 
     INSERT INTO some_table
     SELECT * FROM another_table
-    ORDER BY field
+    ORDER BY field;
 
 Since tables in SQL are inherently unordered, and the ``ORDER BY`` clause in
 this case does not result in any difference, but negatively impacts performance
@@ -702,7 +785,7 @@ the outcome of the overall statement, is a nested query:
     SELECT *
     FROM some_table
         JOIN (SELECT * FROM another_table ORDER BY field) u
-        ON some_table.key = u.key
+        ON some_table.key = u.key;
 
 More background information and details can be found in
 `a blog post about this optimization <https://prestosql.io/blog/2019/06/03/redundant-order-by.html>`_.
@@ -810,7 +893,9 @@ clause be present. The result set consists of the same set of leading rows
 and all of the rows in the same peer group as the last of them ('ties')
 as established by the ordering in the ``ORDER BY`` clause. The result set is sorted::
 
-    SELECT name, regionkey FROM nation ORDER BY regionkey FETCH FIRST ROW WITH TIES;
+    SELECT name, regionkey 
+    FROM nation 
+    ORDER BY regionkey FETCH FIRST ROW WITH TIES;
 
 .. code-block:: none
 
@@ -998,7 +1083,7 @@ computing the rows to be joined::
     SELECT name, x, y
     FROM nation
     CROSS JOIN LATERAL (SELECT name || ' :-' AS x)
-    CROSS JOIN LATERAL (SELECT x || ')' AS y)
+    CROSS JOIN LATERAL (SELECT x || ')' AS y);
 
 Qualifying Column Names
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -1043,7 +1128,11 @@ The ``EXISTS`` predicate determines if a subquery returns any rows::
 
     SELECT name
     FROM nation
-    WHERE EXISTS (SELECT * FROM region WHERE region.regionkey = nation.regionkey)
+    WHERE EXISTS (
+         SELECT * 
+         FROM region 
+         WHERE region.regionkey = nation.regionkey
+    );
 
 IN
 ^^
@@ -1054,7 +1143,11 @@ standard rules for nulls. The subquery must produce exactly one column::
 
     SELECT name
     FROM nation
-    WHERE regionkey IN (SELECT regionkey FROM region)
+    WHERE regionkey IN (
+         SELECT regionkey 
+         FROM region
+         WHERE name = 'AMERICA' OR name = 'AFRICA'
+    );
 
 Scalar Subquery
 ^^^^^^^^^^^^^^^
@@ -1065,6 +1158,6 @@ row. The returned value is ``NULL`` if the subquery produces no rows::
 
     SELECT name
     FROM nation
-    WHERE regionkey = (SELECT max(regionkey) FROM region)
+    WHERE regionkey = (SELECT max(regionkey) FROM region);
 
 .. note:: Currently only single column can be returned from the scalar subquery.

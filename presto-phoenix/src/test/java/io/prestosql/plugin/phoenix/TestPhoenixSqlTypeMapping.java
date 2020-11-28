@@ -14,6 +14,7 @@
 package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -76,7 +77,7 @@ public class TestPhoenixSqlTypeMapping
             throws Exception
     {
         phoenixServer = TestingPhoenixServer.getInstance();
-        return createPhoenixQueryRunner(phoenixServer);
+        return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -232,10 +233,12 @@ public class TestPhoenixSqlTypeMapping
                 .addRoundTrip(primaryKey(), 1);
 
         for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
+            Session session = Session.builder(getSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
-            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAsSelect("test_date"));
+            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
+            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_date"));
+            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_date"));
             phoenixTestCases.execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
         }
     }
@@ -405,7 +408,17 @@ public class TestPhoenixSqlTypeMapping
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return prestoCreateAsSelect(getSession(), tableNamePrefix);
+    }
+
+    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+    }
+
+    private DataSetup prestoCreateAndInsert(Session session, String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup phoenixCreateAndInsert(String tableNamePrefix)

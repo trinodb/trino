@@ -37,7 +37,7 @@ public class HiveSplit
     private final String path;
     private final long start;
     private final long length;
-    private final long fileSize;
+    private final long estimatedFileSize;
     private final long fileModifiedTime;
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
@@ -46,11 +46,12 @@ public class HiveSplit
     private final String table;
     private final String partitionName;
     private final OptionalInt bucketNumber;
+    private final int statementId;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
-    private final Optional<DeleteDeltaLocations> deleteDeltaLocations;
+    private final Optional<AcidInfo> acidInfo;
 
     @JsonCreator
     public HiveSplit(
@@ -60,21 +61,22 @@ public class HiveSplit
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
-            @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("estimatedFileSize") long estimatedFileSize,
             @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("schema") Properties schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("bucketNumber") OptionalInt bucketNumber,
+            @JsonProperty("statementId") int statementId,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
-            @JsonProperty("deleteDeltaLocations") Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
-        checkArgument(fileSize >= 0, "fileSize must be positive");
+        checkArgument(estimatedFileSize >= 0, "estimatedFileSize must be positive");
         requireNonNull(database, "database is null");
         requireNonNull(table, "table is null");
         requireNonNull(partitionName, "partitionName is null");
@@ -85,7 +87,7 @@ public class HiveSplit
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
-        requireNonNull(deleteDeltaLocations, "deleteDeltaLocations is null");
+        requireNonNull(acidInfo, "acidInfo is null");
 
         this.database = database;
         this.table = table;
@@ -93,17 +95,18 @@ public class HiveSplit
         this.path = path;
         this.start = start;
         this.length = length;
-        this.fileSize = fileSize;
+        this.estimatedFileSize = estimatedFileSize;
         this.fileModifiedTime = fileModifiedTime;
         this.schema = schema;
         this.partitionKeys = ImmutableList.copyOf(partitionKeys);
         this.addresses = ImmutableList.copyOf(addresses);
         this.bucketNumber = bucketNumber;
+        this.statementId = statementId;
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
-        this.deleteDeltaLocations = deleteDeltaLocations;
+        this.acidInfo = acidInfo;
     }
 
     @JsonProperty
@@ -143,9 +146,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public long getFileSize()
+    public long getEstimatedFileSize()
     {
-        return fileSize;
+        return estimatedFileSize;
     }
 
     @JsonProperty
@@ -180,6 +183,12 @@ public class HiveSplit
     }
 
     @JsonProperty
+    public int getStatementId()
+    {
+        return statementId;
+    }
+
+    @JsonProperty
     public boolean isForceLocalScheduling()
     {
         return forceLocalScheduling;
@@ -210,9 +219,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public Optional<DeleteDeltaLocations> getDeleteDeltaLocations()
+    public Optional<AcidInfo> getAcidInfo()
     {
-        return deleteDeltaLocations;
+        return acidInfo;
     }
 
     @Override
@@ -222,7 +231,7 @@ public class HiveSplit
                 .put("path", path)
                 .put("start", start)
                 .put("length", length)
-                .put("fileSize", fileSize)
+                .put("estimatedFileSize", estimatedFileSize)
                 .put("hosts", addresses)
                 .put("database", database)
                 .put("table", table)
@@ -239,7 +248,7 @@ public class HiveSplit
                 .addValue(path)
                 .addValue(start)
                 .addValue(length)
-                .addValue(fileSize)
+                .addValue(estimatedFileSize)
                 .toString();
     }
 

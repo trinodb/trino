@@ -20,7 +20,6 @@ import io.prestosql.parquet.writer.repdef.DefLevelIterables;
 import io.prestosql.parquet.writer.repdef.RepLevelIterable;
 import io.prestosql.parquet.writer.repdef.RepLevelIterables;
 import io.prestosql.parquet.writer.valuewriter.PrimitiveValueWriter;
-import io.prestosql.spi.type.Type;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
@@ -30,6 +29,7 @@ import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -53,7 +53,8 @@ import static org.apache.parquet.bytes.BytesInput.copy;
 public class PrimitiveColumnWriter
         implements ColumnWriter
 {
-    private final Type type;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PrimitiveColumnWriter.class).instanceSize();
+
     private final ColumnDescriptor columnDescriptor;
     private final CompressionCodecName compressionCodec;
 
@@ -76,6 +77,7 @@ public class PrimitiveColumnWriter
     private long totalCompressedSize;
     private long totalUnCompressedSize;
     private long totalRows;
+    private Statistics<?> columnStatistics;
 
     private final int maxDefinitionLevel;
 
@@ -86,9 +88,8 @@ public class PrimitiveColumnWriter
 
     private final int pageSizeThreshold;
 
-    public PrimitiveColumnWriter(Type type, ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, RunLengthBitPackingHybridEncoder definitionLevelEncoder, RunLengthBitPackingHybridEncoder repetitionLevelEncoder, CompressionCodecName compressionCodecName, int pageSizeThreshold)
+    public PrimitiveColumnWriter(ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, RunLengthBitPackingHybridEncoder definitionLevelEncoder, RunLengthBitPackingHybridEncoder repetitionLevelEncoder, CompressionCodecName compressionCodecName, int pageSizeThreshold)
     {
-        this.type = requireNonNull(type, "type is null");
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
         this.maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
 
@@ -99,6 +100,8 @@ public class PrimitiveColumnWriter
         this.compressionCodec = requireNonNull(compressionCodecName, "compressionCodecName is null");
         this.compressor = getCompressor(compressionCodecName);
         this.pageSizeThreshold = pageSizeThreshold;
+
+        this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
     }
 
     @Override
@@ -119,7 +122,6 @@ public class PrimitiveColumnWriter
 
         // write values
         primitiveValueWriter.write(columnChunk.getBlock());
-        encodings.add(primitiveValueWriter.getEncoding());
 
         // write definition levels
         Iterator<Integer> defIterator = DefLevelIterables.getIterator(current.getDefLevelIterables());
@@ -166,7 +168,7 @@ public class PrimitiveColumnWriter
     {
         checkState(getDataStreamsCalled);
 
-        return new ColumnMetaData(
+        ColumnMetaData columnMetaData = new ColumnMetaData(
                 ParquetTypeConverter.getType(columnDescriptor.getPrimitiveType().getPrimitiveTypeName()),
                 encodings.stream().map(parquetMetadataConverter::getEncoding).collect(toImmutableList()),
                 ImmutableList.copyOf(columnDescriptor.getPath()),
@@ -175,6 +177,8 @@ public class PrimitiveColumnWriter
                 totalUnCompressedSize,
                 totalCompressedSize,
                 -1);
+        columnMetaData.setStatistics(ParquetMetadataConverter.toParquetStatistics(columnStatistics));
+        return columnMetaData;
     }
 
     // page header
@@ -190,6 +194,9 @@ public class PrimitiveColumnWriter
         ParquetDataOutput repetitions = createDataOutput(copy(repetitionLevelEncoder.toBytes()));
         ParquetDataOutput definitions = createDataOutput(copy(definitionLevelEncoder.toBytes()));
 
+        // Add encoding should be called after primitiveValueWriter.getBytes() and before primitiveValueWriter.reset()
+        encodings.add(primitiveValueWriter.getEncoding());
+
         long uncompressedSize = bytes.size() + repetitions.size() + definitions.size();
 
         ParquetDataOutput data;
@@ -204,8 +211,11 @@ public class PrimitiveColumnWriter
         }
 
         ByteArrayOutputStream pageHeaderOutputStream = new ByteArrayOutputStream();
+
         Statistics<?> statistics = primitiveValueWriter.getStatistics();
         statistics.incrementNumNulls(currentPageNullCounts);
+
+        columnStatistics.mergeStatistics(statistics);
 
         parquetMetadataConverter.writeDataPageV2Header((int) uncompressedSize,
                 (int) compressedSize,
@@ -273,8 +283,9 @@ public class PrimitiveColumnWriter
             dictPage.add(pageData);
             totalCompressedSize += pageHeader.size() + compressedSize;
             totalUnCompressedSize += pageHeader.size() + uncompressedSize;
-        }
 
+            primitiveValueWriter.resetDictionary();
+        }
         getDataStreamsCalled = true;
 
         return ImmutableList.<ParquetDataOutput>builder()
@@ -286,15 +297,24 @@ public class PrimitiveColumnWriter
     @Override
     public long getBufferedBytes()
     {
-        return pageBuffer.stream().mapToLong(ParquetDataOutput::size).sum() + definitionLevelEncoder.getBufferedSize() + repetitionLevelEncoder.getBufferedSize();
+        return pageBuffer.stream().mapToLong(ParquetDataOutput::size).sum() +
+                definitionLevelEncoder.getBufferedSize() +
+                repetitionLevelEncoder.getBufferedSize() +
+                primitiveValueWriter.getBufferedSize();
+    }
+
+    @Override
+    public long getRetainedBytes()
+    {
+        return INSTANCE_SIZE +
+                primitiveValueWriter.getAllocatedSize() +
+                definitionLevelEncoder.getAllocatedSize() +
+                repetitionLevelEncoder.getAllocatedSize();
     }
 
     @Override
     public void reset()
     {
-        primitiveValueWriter.reset();
-        primitiveValueWriter.resetDictionary();
-
         pageBuffer.clear();
         closed = false;
 
@@ -302,6 +322,7 @@ public class PrimitiveColumnWriter
         totalUnCompressedSize = 0;
         totalRows = 0;
         encodings.clear();
+        this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
 
         getDataStreamsCalled = false;
     }

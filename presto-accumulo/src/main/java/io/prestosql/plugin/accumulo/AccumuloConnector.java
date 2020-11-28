@@ -14,7 +14,6 @@
 package io.prestosql.plugin.accumulo;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.accumulo.conf.AccumuloSessionProperties;
 import io.prestosql.plugin.accumulo.conf.AccumuloTableProperties;
 import io.prestosql.plugin.accumulo.io.AccumuloPageSinkProvider;
@@ -46,8 +45,6 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloConnector
         implements Connector
 {
-    private static final Logger LOG = Logger.get(AccumuloConnector.class);
-
     private final LifeCycleManager lifeCycleManager;
     private final AccumuloMetadataFactory metadataFactory;
     private final AccumuloSplitManager splitManager;

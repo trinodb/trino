@@ -25,9 +25,7 @@ import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.operator.scalar.DateTimeFunctions.dateFormat;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.prestosql.type.DateTimes.epochMicrosToMillisWithRounding;
 
 @ScalarFunction
 @Description("Formats the given timestamp by the given format")
@@ -37,16 +35,10 @@ public class DateFormat
 
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice format(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp, @SqlType("varchar(x)") Slice formatString)
+    public static Slice format(ConnectorSession session, @SqlType("timestamp(p)") long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         // TODO: currently, date formatting only supports up to millis, so round to that unit
-        if (precision > 3) {
-            timestamp = scaleEpochMicrosToMillis(round(timestamp, 3));
-        }
-
-        if (session.isLegacyTimestamp()) {
-            return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
-        }
+        timestamp = epochMicrosToMillisWithRounding(timestamp);
 
         return dateFormat(ISOChronology.getInstanceUTC(), session.getLocale(), timestamp, formatString);
     }
@@ -56,6 +48,6 @@ public class DateFormat
     public static Slice format(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         // Currently, date formatting only supports up to millis, so anything in the microsecond fraction is irrelevant
-        return format(6, session, timestamp.getEpochMicros(), formatString);
+        return format(session, timestamp.getEpochMicros(), formatString);
     }
 }

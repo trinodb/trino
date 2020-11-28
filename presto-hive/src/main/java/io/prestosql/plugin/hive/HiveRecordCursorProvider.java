@@ -19,7 +19,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,7 +38,6 @@ public interface HiveRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean s3SelectPushdownEnabled);
 
@@ -54,9 +52,9 @@ public interface HiveRecordCursorProvider
     class ReaderRecordCursorWithProjections
     {
         private final RecordCursor recordCursor;
-        private final Optional<ReaderProjections> projectedReaderColumns;
+        private final Optional<ReaderColumns> projectedReaderColumns;
 
-        public ReaderRecordCursorWithProjections(RecordCursor recordCursor, Optional<ReaderProjections> projectedReaderColumns)
+        public ReaderRecordCursorWithProjections(RecordCursor recordCursor, Optional<ReaderColumns> projectedReaderColumns)
         {
             this.recordCursor = requireNonNull(recordCursor, "recordCursor is null");
             this.projectedReaderColumns = requireNonNull(projectedReaderColumns, "projectedReaderColumns is null");
@@ -67,7 +65,7 @@ public interface HiveRecordCursorProvider
             return recordCursor;
         }
 
-        public Optional<ReaderProjections> getProjectedReaderColumns()
+        public Optional<ReaderColumns> getProjectedReaderColumns()
         {
             return projectedReaderColumns;
         }

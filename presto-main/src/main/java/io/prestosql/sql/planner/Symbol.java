@@ -68,11 +68,7 @@ public class Symbol
 
         Symbol symbol = (Symbol) o;
 
-        if (!name.equals(symbol.name)) {
-            return false;
-        }
-
-        return true;
+        return name.equals(symbol.name);
     }
 
     @Override

@@ -34,13 +34,14 @@ public class TestRedisPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertInstanceOf(factory, RedisConnectorFactory.class);
 
-        Connector c = factory.create(
+        Connector connector = factory.create(
                 "test-connector",
                 ImmutableMap.<String, String>builder()
                         .put("redis.table-names", "test")
                         .put("redis.nodes", "localhost:6379")
                         .build(),
                 new TestingConnectorContext());
-        assertNotNull(c);
+        assertNotNull(connector);
+        connector.shutdown();
     }
 }

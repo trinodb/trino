@@ -18,7 +18,11 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
+import io.prestosql.spi.connector.ConnectorRecordSetProvider;
+import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.procedure.Procedure;
 
 import javax.inject.Provider;
@@ -41,25 +45,30 @@ public class JdbcModule
     @Override
     public void configure(Binder binder)
     {
-        binder.install(new JdbcDiagnosticModule(catalogName));
+        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
+        binder.install(new JdbcDiagnosticModule());
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
 
         procedureBinder(binder);
+        tablePropertiesProviderBinder(binder);
 
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorRecordSetProvider.class).setDefault().to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorPageSinkProvider.class).setDefault().to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
 
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
+        bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
 
         binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(ConnectionFactory.class).to(Key.get(ConnectionFactory.class, StatsCollecting.class));
+
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
     }
 
     public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)
@@ -80,5 +89,15 @@ public class JdbcModule
     public static void bindProcedure(Binder binder, Class<? extends Provider<? extends Procedure>> type)
     {
         procedureBinder(binder).addBinding().toProvider(type).in(Scopes.SINGLETON);
+    }
+
+    public static Multibinder<TablePropertiesProvider> tablePropertiesProviderBinder(Binder binder)
+    {
+        return newSetBinder(binder, TablePropertiesProvider.class);
+    }
+
+    public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
+    {
+        tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
     }
 }

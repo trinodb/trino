@@ -42,7 +42,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
         "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
-        "cassandra.schema-refresh-interval"})
+        "cassandra.schema-refresh-interval", "cassandra.load-policy.use-white-list", "cassandra.load-policy.white-list.addresses"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
@@ -53,6 +53,7 @@ public class CassandraClientConfig
     private int nativeProtocolPort = 9042;
     private int partitionSizeForBatchSelect = 100;
     private int splitSize = 1_024;
+    private int batchSize = 100;
     private Long splitsPerNode;
     private boolean allowDropTable;
     private String username;
@@ -67,8 +68,7 @@ public class CassandraClientConfig
     private boolean dcAwareAllowRemoteDCsForLocal;
     private boolean useTokenAware;
     private boolean tokenAwareShuffleReplicas;
-    private boolean useWhiteList;
-    private List<String> whiteListAddresses = ImmutableList.of();
+    private List<String> allowedAddresses = ImmutableList.of();
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
@@ -164,6 +164,19 @@ public class CassandraClientConfig
         return this;
     }
 
+    @Min(1)
+    public int getBatchSize()
+    {
+        return batchSize;
+    }
+
+    @Config("cassandra.batch-size")
+    public CassandraClientConfig setBatchSize(int batchSize)
+    {
+        this.batchSize = batchSize;
+        return this;
+    }
+
     public Optional<Long> getSplitsPerNode()
     {
         return Optional.ofNullable(splitsPerNode);
@@ -182,7 +195,7 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.allow-drop-table")
-    @ConfigDescription("Allow hive connector to drop table")
+    @ConfigDescription("Allow Cassandra connector to drop table")
     public CassandraClientConfig setAllowDropTable(boolean allowDropTable)
     {
         this.allowDropTable = allowDropTable;
@@ -341,28 +354,16 @@ public class CassandraClientConfig
         return this;
     }
 
-    public boolean isUseWhiteList()
+    @Config("cassandra.load-policy.allowed-addresses")
+    public CassandraClientConfig setAllowedAddresses(String allowedAddresses)
     {
-        return this.useWhiteList;
-    }
-
-    @Config("cassandra.load-policy.use-white-list")
-    public CassandraClientConfig setUseWhiteList(boolean useWhiteList)
-    {
-        this.useWhiteList = useWhiteList;
+        this.allowedAddresses = SPLITTER.splitToList(allowedAddresses);
         return this;
     }
 
-    public List<String> getWhiteListAddresses()
+    public List<String> getAllowedAddresses()
     {
-        return whiteListAddresses;
-    }
-
-    @Config("cassandra.load-policy.white-list.addresses")
-    public CassandraClientConfig setWhiteListAddresses(String commaSeparatedList)
-    {
-        this.whiteListAddresses = SPLITTER.splitToList(commaSeparatedList);
-        return this;
+        return allowedAddresses;
     }
 
     @NotNull

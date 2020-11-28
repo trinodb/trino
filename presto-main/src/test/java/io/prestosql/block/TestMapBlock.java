@@ -17,6 +17,7 @@ package io.prestosql.block;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.ByteArrayBlock;
+import io.prestosql.spi.block.DuplicateMapKeyException;
 import io.prestosql.spi.block.MapBlock;
 import io.prestosql.spi.block.MapBlockBuilder;
 import io.prestosql.spi.block.SingleMapBlock;
@@ -38,6 +39,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -338,6 +340,40 @@ public class TestMapBlock
             assertTrue(map.containsKey(actualKey));
             assertEquals(actualValue, map.get(actualKey));
         }
+    }
+
+    @Test
+    public void testStrict()
+    {
+        MapType mapType = mapType(BIGINT, BIGINT);
+        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
+        mapBlockBuilder.strict();
+
+        // Add 100 maps with only one entry but the same key
+        for (int i = 0; i < 100; i++) {
+            BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
+            BIGINT.writeLong(entryBuilder, 1);
+            BIGINT.writeLong(entryBuilder, -1);
+            mapBlockBuilder.closeEntry();
+        }
+
+        BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
+        // Add 50 keys so we get some chance to get hash conflict
+        // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
+        for (int i = 0; i < 50; i++) {
+            BIGINT.writeLong(entryBuilder, i);
+            BIGINT.writeLong(entryBuilder, -1);
+        }
+        mapBlockBuilder.closeEntry();
+
+        entryBuilder = mapBlockBuilder.beginBlockEntry();
+        for (int i = 0; i < 2; i++) {
+            BIGINT.writeLong(entryBuilder, 99);
+            BIGINT.writeLong(entryBuilder, -1);
+        }
+        assertThatThrownBy(mapBlockBuilder::closeEntry)
+                .isInstanceOf(DuplicateMapKeyException.class)
+                .hasMessage("Duplicate map keys are not allowed");
     }
 
     @Test

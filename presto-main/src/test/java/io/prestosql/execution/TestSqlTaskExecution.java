@@ -88,6 +88,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createStringSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
+import static io.prestosql.execution.TaskState.FINISHED;
+import static io.prestosql.execution.TaskState.FLUSHING;
+import static io.prestosql.execution.TaskState.RUNNING;
 import static io.prestosql.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.prestosql.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
@@ -177,7 +180,7 @@ public class TestSqlTaskExecution
 
             //
             // test body
-            assertEquals(taskStateMachine.getState(), TaskState.RUNNING);
+            assertEquals(taskStateMachine.getState(), RUNNING);
 
             switch (executionStrategy) {
                 case UNGROUPED_EXECUTION:
@@ -277,9 +280,9 @@ public class TestSqlTaskExecution
                     throw new UnsupportedOperationException();
             }
 
+            assertEquals(taskStateMachine.getStateChange(RUNNING).get(10, SECONDS), FLUSHING);
             outputBufferConsumer.abort(); // complete the task by calling abort on it
-            TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
-            assertEquals(taskState, TaskState.FINISHED);
+            assertEquals(taskStateMachine.getStateChange(FLUSHING).get(10, SECONDS), FINISHED);
         }
         finally {
             taskExecutor.stop();
@@ -428,7 +431,7 @@ public class TestSqlTaskExecution
 
             //
             // test body
-            assertEquals(taskStateMachine.getState(), TaskState.RUNNING);
+            assertEquals(taskStateMachine.getState(), RUNNING);
 
             switch (executionStrategy) {
                 case UNGROUPED_EXECUTION:
@@ -579,9 +582,9 @@ public class TestSqlTaskExecution
                     throw new UnsupportedOperationException();
             }
 
+            assertEquals(taskStateMachine.getStateChange(RUNNING).get(10, SECONDS), FLUSHING);
             outputBufferConsumer.abort(); // complete the task by calling abort on it
-            TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
-            assertEquals(taskState, TaskState.FINISHED);
+            assertEquals(taskStateMachine.getStateChange(FLUSHING).get(10, SECONDS), FINISHED);
         }
         finally {
             taskExecutor.stop();
@@ -602,7 +605,7 @@ public class TestSqlTaskExecution
                 driverYieldExecutor,
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
-        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, OptionalInt.empty());
+        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, false, false, OptionalInt.empty());
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
@@ -759,7 +762,7 @@ public class TestSqlTaskExecution
             checkState(!overallNoMoreOperators, "noMoreOperators() has been called");
             checkState(!driverGroupsWithNoMoreOperators.contains(driverContext.getLifespan()), "noMoreOperators(lifespan) has been called");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, TestingScanOperator.class.getSimpleName());
-            return new TestingScanOperator(operatorContext, sourceId, driverContext.getLifespan());
+            return new TestingScanOperator(operatorContext, sourceId);
         }
 
         @Override
@@ -795,7 +798,6 @@ public class TestSqlTaskExecution
         {
             private final OperatorContext operatorContext;
             private final PlanNodeId planNodeId;
-            private final Lifespan lifespan;
 
             private final SettableFuture<?> blocked = SettableFuture.create();
 
@@ -805,12 +807,10 @@ public class TestSqlTaskExecution
 
             public TestingScanOperator(
                     OperatorContext operatorContext,
-                    PlanNodeId planNodeId,
-                    Lifespan lifespan)
+                    PlanNodeId planNodeId)
             {
                 this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
                 this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-                this.lifespan = requireNonNull(lifespan, "lifespan is null");
             }
 
             @Override

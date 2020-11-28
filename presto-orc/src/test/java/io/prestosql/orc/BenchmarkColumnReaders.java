@@ -14,6 +14,8 @@
 package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
+import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.DecimalType;
@@ -28,7 +30,6 @@ import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
-import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
@@ -57,6 +58,8 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.writeOrcColumnPresto;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
+import static io.prestosql.plugin.tpch.TpchTables.getTableColumns;
+import static io.prestosql.plugin.tpch.TpchTables.getTablePages;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -64,17 +67,17 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static java.lang.Math.toIntExact;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.openjdk.jmh.annotations.Scope.Thread;
 
 @SuppressWarnings("MethodMayBeStatic")
-@State(Scope.Thread)
+@State(Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(3)
 @Warmup(iterations = 30, time = 500, timeUnit = MILLISECONDS)
@@ -315,6 +318,19 @@ public class BenchmarkColumnReaders
         }
     }
 
+    @Benchmark
+    public Object readLineitem(LineitemBenchmarkData data)
+            throws Exception
+    {
+        List<Page> pages = new ArrayList<>();
+        try (OrcRecordReader recordReader = data.createRecordReader()) {
+            for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
+                pages.add(page.getLoadedPage());
+            }
+        }
+        return pages;
+    }
+
     private Object readFirstColumn(OrcRecordReader recordReader)
             throws IOException
     {
@@ -325,26 +341,37 @@ public class BenchmarkColumnReaders
         return blocks;
     }
 
-    private abstract static class BenchmarkData
+    public abstract static class BenchmarkData
     {
         protected final Random random = new Random(0);
-        private Type type;
+        private List<Type> types;
         private File temporaryDirectory;
         private File orcFile;
         private OrcDataSource dataSource;
 
-        public void setup(Type type)
+        @Param({"NONE", "ZLIB"})
+        private String compression = "NONE";
+
+        public void setup(List<Type> types, Iterator<Page> pages)
                 throws Exception
         {
-            this.type = type;
+            this.types = types;
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnPresto(orcFile, NONE, type, createValues(), new OrcWriterStats());
+            OrcTester.writeOrcPages(orcFile, CompressionKind.valueOf(compression), types, pages, new OrcWriterStats());
 
-            OrcDataSource dataSource = new FileOrcDataSource(orcFile, new OrcReaderOptions());
-            DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
-            dataSource = new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
-            this.dataSource = dataSource;
+            dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
+        }
+
+        public void setup(Type type, Iterator<?> values)
+                throws Exception
+        {
+            this.types = ImmutableList.of(type);
+            temporaryDirectory = createTempDir();
+            orcFile = new File(temporaryDirectory, randomUUID().toString());
+            writeOrcColumnPresto(orcFile, NONE, type, values, new OrcWriterStats());
+
+            dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
         }
 
         @TearDown
@@ -354,20 +381,14 @@ public class BenchmarkColumnReaders
             deleteRecursively(temporaryDirectory.toPath(), ALLOW_INSECURE);
         }
 
-        public Type getType()
-        {
-            return type;
-        }
-
-        protected abstract Iterator<?> createValues();
-
         OrcRecordReader createRecordReader()
                 throws IOException
         {
-            OrcReader orcReader = new OrcReader(dataSource, new OrcReaderOptions());
+            OrcReader orcReader = OrcReader.createOrcReader(dataSource, new OrcReaderOptions())
+                    .orElseThrow(() -> new RuntimeException("File is empty"));
             return orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
-                    ImmutableList.of(type),
+                    types,
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     newSimpleAggregatedMemoryContext(),
@@ -376,7 +397,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class AllNullBenchmarkData
             extends BenchmarkData
     {
@@ -404,17 +425,16 @@ public class BenchmarkColumnReaders
                 throws Exception
         {
             Type type = createTestMetadataManager().fromSqlType(typeName);
-            setup(type);
+            setup(type, createValues());
         }
 
-        @Override
-        protected final Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             return NULL_VALUES.iterator();
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class BooleanNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -422,11 +442,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BOOLEAN);
+            setup(BOOLEAN, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Boolean> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -436,7 +455,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class BooleanWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -444,11 +463,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BOOLEAN);
+            setup(BOOLEAN, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Boolean> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -458,7 +476,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class TinyIntNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -466,11 +484,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TINYINT);
+            setup(TINYINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Byte> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -480,7 +497,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class TinyIntWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -488,11 +505,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TINYINT);
+            setup(TINYINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Byte> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -507,7 +523,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class ShortDecimalNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -515,11 +531,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SHORT_DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -529,7 +544,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class ShortDecimalWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -537,11 +552,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SHORT_DECIMAL_TYPE);
+            setup(SHORT_DECIMAL_TYPE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -556,7 +570,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class LongDecimalNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -564,11 +578,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(LONG_DECIMAL_TYPE);
+            setup(LONG_DECIMAL_TYPE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -578,7 +591,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class LongDecimalWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -586,11 +599,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(LONG_DECIMAL_TYPE);
+            setup(LONG_DECIMAL_TYPE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlDecimal> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -605,7 +617,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class DoubleNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -613,11 +625,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(DOUBLE);
+            setup(DOUBLE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Double> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -627,7 +638,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class DoubleWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -635,11 +646,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(DOUBLE);
+            setup(DOUBLE, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Double> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -654,7 +664,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class FloatNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -662,11 +672,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(REAL);
+            setup(REAL, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Float> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -676,7 +685,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class FloatWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -684,11 +693,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(REAL);
+            setup(REAL, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Float> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -703,7 +711,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class BigintNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -719,11 +727,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BIGINT);
+            setup(BIGINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -733,7 +740,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class BigintWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -749,11 +756,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(BIGINT);
+            setup(BIGINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -768,7 +774,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class IntegerNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -784,11 +790,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(INTEGER);
+            setup(INTEGER, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Integer> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -798,7 +803,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class IntegerWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -814,11 +819,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(INTEGER);
+            setup(INTEGER, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Integer> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -833,7 +837,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class SmallintNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -849,11 +853,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SMALLINT);
+            setup(SMALLINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Short> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -863,7 +866,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class SmallintWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -879,11 +882,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(SMALLINT);
+            setup(SMALLINT, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<Short> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -898,7 +900,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class VarcharDirectNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -906,11 +908,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR);
+            setup(VARCHAR, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -920,7 +921,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class VarcharDirectWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -928,11 +929,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR);
+            setup(VARCHAR, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<String> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
@@ -947,7 +947,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class VarcharDictionaryNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -955,11 +955,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR);
+            setup(VARCHAR, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<String> dictionary = createDictionary(random);
 
@@ -971,7 +970,7 @@ public class BenchmarkColumnReaders
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class VarcharDictionaryWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -979,11 +978,10 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(VARCHAR);
+            setup(VARCHAR, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<String> dictionary = createDictionary(random);
 
@@ -1019,7 +1017,7 @@ public class BenchmarkColumnReaders
         return new String(value);
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class TimestampNoNullBenchmarkData
             extends BenchmarkData
     {
@@ -1027,21 +1025,20 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP);
+            setup(TIMESTAMP_MILLIS, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(SqlTimestamp.legacyFromMillis(3, (random.nextLong()), UTC_KEY));
+                values.add(SqlTimestamp.fromMillis(3, (random.nextLong())));
             }
             return values.iterator();
         }
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class TimestampWithNullBenchmarkData
             extends BenchmarkData
     {
@@ -1049,22 +1046,35 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP);
+            setup(TIMESTAMP_MILLIS, createValues());
         }
 
-        @Override
-        protected Iterator<?> createValues()
+        private Iterator<?> createValues()
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(SqlTimestamp.legacyFromMillis(3, random.nextLong(), UTC_KEY));
+                    values.add(SqlTimestamp.fromMillis(3, random.nextLong()));
                 }
                 else {
                     values.add(null);
                 }
             }
             return values.iterator();
+        }
+    }
+
+    @State(Thread)
+    public static class LineitemBenchmarkData
+            extends BenchmarkData
+    {
+        @Setup
+        public void setup()
+                throws Exception
+        {
+            setup(
+                    getTableColumns("lineitem"),
+                    getTablePages("lineitem", 0.1));
         }
     }
 

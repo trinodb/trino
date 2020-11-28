@@ -25,6 +25,7 @@ import com.google.inject.Inject;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -32,12 +33,14 @@ import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -52,6 +55,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -66,12 +70,14 @@ import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 public class AlluxioHiveMetastore
         implements HiveMetastore
 {
-    private TableMasterClient client;
+    private final TableMasterClient client;
 
     @Inject
-    public AlluxioHiveMetastore(TableMasterClient client)
+    public AlluxioHiveMetastore(TableMasterClient client, MetastoreConfig metastoreConfig)
     {
         this.client = requireNonNull(client);
+        requireNonNull(metastoreConfig, "metastoreConfig is null");
+        checkArgument(!metastoreConfig.isHideDeltaLakeTables(), "Hiding Delta Lake tables is not supported"); // TODO
     }
 
     @Override
@@ -181,7 +187,8 @@ public class AlluxioHiveMetastore
             HiveIdentity identity,
             String databaseName,
             String tableName,
-            Function<PartitionStatistics, PartitionStatistics> update)
+            Function<PartitionStatistics, PartitionStatistics> update,
+            AcidTransaction transaction)
     {
         throw new PrestoException(NOT_SUPPORTED, "updateTableStatistics");
     }
@@ -303,6 +310,18 @@ public class AlluxioHiveMetastore
     }
 
     @Override
+    public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "setTableOwner");
+    }
+
+    @Override
+    public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "commentColumn");
+    }
+
+    @Override
     public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName,
             HiveType columnType, String columnComment)
     {
@@ -329,44 +348,16 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "getPartitionNames");
-    }
-
-    /**
-     * return a list of partition names by which the values of each partition is at least
-     * contained which the {@code parts} argument
-     *
-     * @param databaseName the name of the database
-     * @param tableName the name of the table
-     * @param parts list of values which returned partitions should contain
-     * @return optionally, a list of strings where each entry is in the form of {key}={value}
-     */
-    @Override
-    public Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
+    public Optional<List<String>> getPartitionNamesByFilter(
+            HiveIdentity identity,
+            String databaseName,
+            String tableName,
+            List<String> columnNames,
+            TupleDomain<String> partitionKeysFilter)
     {
         try {
             List<PartitionInfo> partitionInfos = ProtoUtils.toPartitionInfoList(
                     client.readTable(databaseName, tableName, Constraint.getDefaultInstance()));
-            // TODO also check for database name equality
-            partitionInfos = partitionInfos.stream()
-                    .filter(p -> p.getTableName().equals(tableName))
-                    // Filter out any partitions which have values that don't match
-                    .filter(partition -> {
-                        List<String> values = partition.getValuesList();
-                        if (values.size() != parts.size()) {
-                            return false;
-                        }
-                        for (int i = 0; i < values.size(); i++) {
-                            String constraintPart = parts.get(i);
-                            if (!constraintPart.isEmpty() && !values.get(i).equals(constraintPart)) {
-                                return false;
-                            }
-                        }
-                        return true;
-                    })
-                    .collect(Collectors.toList());
             List<String> partitionNames = partitionInfos.stream()
                     .map(PartitionInfo::getPartitionName)
                     .collect(Collectors.toList());

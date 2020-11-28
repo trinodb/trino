@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.security.GroupProvider;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.execution.ParameterExtractor.getParameters;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.QueryUtil.aliased;
@@ -50,6 +52,7 @@ import static io.prestosql.sql.QueryUtil.row;
 import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.QueryUtil.values;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
@@ -65,10 +68,10 @@ final class DescribeInputRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            AccessControl accessControl,
+            GroupProvider groupProvider, AccessControl accessControl,
             WarningCollector warningCollector)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, accessControl, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, groupProvider, accessControl, warningCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -80,6 +83,7 @@ final class DescribeInputRewrite
         private final Optional<QueryExplainer> queryExplainer;
         private final List<Expression> parameters;
         private final Map<NodeRef<Parameter>, Expression> parameterLookup;
+        private final GroupProvider groupProvider;
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
 
@@ -90,6 +94,7 @@ final class DescribeInputRewrite
                 Optional<QueryExplainer> queryExplainer,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
+                GroupProvider groupProvider,
                 AccessControl accessControl,
                 WarningCollector warningCollector)
         {
@@ -97,6 +102,7 @@ final class DescribeInputRewrite
             this.parser = parser;
             this.metadata = metadata;
             this.queryExplainer = queryExplainer;
+            this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
             this.accessControl = accessControl;
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
@@ -110,18 +116,18 @@ final class DescribeInputRewrite
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
             // create  analysis for the query we are describing.
-            Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
             Analysis analysis = analyzer.analyze(statement, true);
 
             // get all parameters in query
             List<Parameter> parameters = getParameters(statement);
 
             // return the positions and types of all parameters
-            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(parameter, analysis)).toArray(Row[]::new);
+            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(session, parameter, analysis)).toArray(Row[]::new);
             Optional<Node> limit = Optional.empty();
             if (rows.length == 0) {
                 rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
-                limit = Optional.of(new Limit("0"));
+                limit = Optional.of(new Limit(new LongLiteral("0")));
             }
 
             return simpleQuery(
@@ -138,7 +144,7 @@ final class DescribeInputRewrite
                     limit);
         }
 
-        private static Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)
+        private static Row createDescribeInputRow(Session session, Parameter parameter, Analysis queryAnalysis)
         {
             Type type = queryAnalysis.getCoercion(parameter);
             if (type == null) {
@@ -147,7 +153,7 @@ final class DescribeInputRewrite
 
             return row(
                     new LongLiteral(Integer.toString(parameter.getPosition())),
-                    new StringLiteral(type.getBaseName()));
+                    new StringLiteral(getDisplayLabel(type, isOmitDateTimeTypePrecision(session))));
         }
 
         @Override

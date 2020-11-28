@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
+import io.prestosql.plugin.hive.acid.AcidOperation;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -27,11 +28,13 @@ import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
 public interface ThriftMetastoreClient
         extends Closeable
@@ -162,6 +165,12 @@ public interface ThriftMetastoreClient
     void commitTransaction(long transactionId)
             throws TException;
 
+    default void abortTransaction(long transactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
     void sendTransactionHeartbeat(long transactionId)
             throws TException;
 
@@ -178,5 +187,23 @@ public interface ThriftMetastoreClient
             throws TException;
 
     String getDelegationToken(String userName)
+            throws TException;
+
+    default List<TxnToWriteId> allocateTableWriteIds(String database, String tableName, List<Long> transactionIds)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
+            throws TException;
+
+    void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException;
+
+    void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+            throws TException;
+
+    void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext context)
             throws TException;
 }

@@ -42,9 +42,8 @@ final class TestingDatabase
             throws SQLException
     {
         String connectionUrl = "jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong();
-        jdbcClient = new BaseJdbcClient(
+        jdbcClient = new TestingH2JdbcClient(
                 new BaseJdbcConfig(),
-                "\"",
                 new DriverConnectionFactory(new Driver(), connectionUrl, new Properties(), new EmptyCredentialProvider()));
 
         connection = DriverManager.getConnection(connectionUrl);
@@ -91,7 +90,7 @@ final class TestingDatabase
 
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName table)
     {
-        return jdbcClient.getTableHandle(JdbcIdentity.from(session), table)
+        return jdbcClient.getTableHandle(session, table)
                 .orElseThrow(() -> new IllegalArgumentException("table not found: " + table));
     }
 

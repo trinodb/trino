@@ -74,7 +74,7 @@ Capping replicated table size
 -----------------------------
 
 Join distribution type will be chosen automatically when join reordering strategy
-is set to ``COST_BASED`` or when join distribution type is set to ``AUTOMATIC``.
+is set to ``AUTOMATIC`` or when join distribution type is set to ``AUTOMATIC``.
 In such case it is possible to cap the maximum size of replicated table via
 ``join-max-broadcast-table-size`` config property (e.g. ``join-max-broadcast-table-size=100MB``)
 or via ``join_max_broadcast_table_size`` session property (e.g. ``set session join_max_broadcast_table_size='100MB';``)

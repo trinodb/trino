@@ -1,0 +1,19 @@
+{
+  "rootGroups": [
+    {
+      "name": "single-query",
+      "softMemoryLimit": "50%",
+      "hardConcurrencyLimit": 1,
+      "maxQueued": 100,
+      "subGroups": [
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "source": "dashboard",
+      "group": "single-query"
+    }
+  ]
+}
+

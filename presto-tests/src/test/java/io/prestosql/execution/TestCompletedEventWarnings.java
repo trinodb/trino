@@ -44,20 +44,20 @@ public class TestCompletedEventWarnings
     private static final int EXPECTED_EVENTS = 3;
     private static final int TEST_WARNINGS = 5;
     private QueryRunner queryRunner;
-    private EventsBuilder generatedEvents;
+    private EventsCollector generatedEvents;
 
     @BeforeMethod
     public void setUp()
             throws Exception
     {
         SessionBuilder sessionBuilder = testSessionBuilder();
-        generatedEvents = new EventsBuilder();
+        generatedEvents = new EventsCollector();
         queryRunner = DistributedQueryRunner.builder(sessionBuilder.build())
                 .setExtraProperties(ImmutableMap.of("testing-warning-collector.preloaded-warnings", String.valueOf(TEST_WARNINGS)))
                 .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
-        generatedEvents.initialize(EXPECTED_EVENTS);
+        generatedEvents.reset(EXPECTED_EVENTS);
     }
 
     @AfterMethod(alwaysRun = true)

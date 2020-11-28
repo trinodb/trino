@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.Session;
@@ -36,24 +36,20 @@ public final class OracleQueryRunner
 {
     private OracleQueryRunner() {}
 
-    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server)
-            throws Exception
-    {
-        return createOracleQueryRunner(server, ImmutableList.of());
-    }
-
-    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createOracleQueryRunner(server, ImmutableList.copyOf(tables));
-    }
-
-    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createOracleQueryRunner(
+            TestingOracleServer server,
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> tables,
+            // TODO(https://github.com/prestosql/presto/issues/5721) use extraConnectorProperties instead individual parameters
+            boolean connectionPoolEnabled,
+            boolean remarksReportingEnabled)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession()).build();
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setExtraProperties(extraProperties)
+                    .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -63,6 +59,8 @@ public final class OracleQueryRunner
             connectorProperties.putIfAbsent("connection-user", TEST_USER);
             connectorProperties.putIfAbsent("connection-password", TEST_PASS);
             connectorProperties.putIfAbsent("allow-drop-table", "true");
+            connectorProperties.putIfAbsent("oracle.connection-pool.enabled", String.valueOf(connectionPoolEnabled));
+            connectorProperties.putIfAbsent("oracle.remarks-reporting.enabled", String.valueOf(remarksReportingEnabled));
 
             queryRunner.installPlugin(new OraclePlugin());
             queryRunner.createCatalog("oracle", "oracle", connectorProperties);
@@ -92,7 +90,10 @@ public final class OracleQueryRunner
 
         DistributedQueryRunner queryRunner = createOracleQueryRunner(
                 new TestingOracleServer(),
-                TpchTable.getTables());
+                ImmutableMap.of("http-server.http.port", "8080"),
+                TpchTable.getTables(),
+                false,
+                false);
 
         Logger log = Logger.get(OracleQueryRunner.class);
         log.info("======== SERVER STARTED ========");

@@ -24,14 +24,11 @@ import io.prestosql.sql.tree.ComparisonExpression;
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.MODULUS;
 import static io.prestosql.spi.function.OperatorType.MULTIPLY;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static java.util.Objects.requireNonNull;
 
@@ -76,20 +73,11 @@ public final class StandardFunctionResolution
             case EQUAL:
                 operatorType = EQUAL;
                 break;
-            case NOT_EQUAL:
-                operatorType = NOT_EQUAL;
-                break;
             case LESS_THAN:
                 operatorType = LESS_THAN;
                 break;
             case LESS_THAN_OR_EQUAL:
                 operatorType = LESS_THAN_OR_EQUAL;
-                break;
-            case GREATER_THAN:
-                operatorType = GREATER_THAN;
-                break;
-            case GREATER_THAN_OR_EQUAL:
-                operatorType = GREATER_THAN_OR_EQUAL;
                 break;
             case IS_DISTINCT_FROM:
                 operatorType = IS_DISTINCT_FROM;

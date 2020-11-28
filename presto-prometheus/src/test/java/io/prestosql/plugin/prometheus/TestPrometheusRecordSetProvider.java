@@ -20,39 +20,46 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
+import io.prestosql.type.InternalTypeManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.prestosql.plugin.prometheus.MetadataUtil.varcharMapType;
+import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.prestosql.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static java.time.Instant.ofEpochMilli;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestPrometheusRecordSetProvider
 {
+    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
+
     private PrometheusHttpServer prometheusHttpServer;
     private URI dataUri;
+    private PrometheusClient client;
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         prometheusHttpServer = new PrometheusHttpServer();
         dataUri = prometheusHttpServer.resolve("/prometheus-data/up_matrix_response.json");
+        client = new PrometheusClient(new PrometheusConnectorConfig(), METRIC_CODEC, TYPE_MANAGER);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         if (prometheusHttpServer != null) {
             prometheusHttpServer.stop();
@@ -63,30 +70,34 @@ public class TestPrometheusRecordSetProvider
     public void testGetRecordSet()
     {
         ConnectorTableHandle tableHandle = new PrometheusTableHandle("schema", "table");
-        PrometheusRecordSetProvider recordSetProvider = new PrometheusRecordSetProvider();
+        PrometheusRecordSetProvider recordSetProvider = new PrometheusRecordSetProvider(client);
         RecordSet recordSet = recordSetProvider.getRecordSet(PrometheusTransactionHandle.INSTANCE, SESSION,
                 new PrometheusSplit(dataUri), tableHandle, ImmutableList.of(
                         new PrometheusColumnHandle("labels", varcharMapType, 0),
-                        new PrometheusColumnHandle("timestamp", TimestampType.TIMESTAMP, 1),
+                        new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 1),
                         new PrometheusColumnHandle("value", DoubleType.DOUBLE, 2)));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
         assertNotNull(cursor, "cursor is null");
 
-        Map<Timestamp, Map> actual = new LinkedHashMap<>();
+        Map<Instant, Map<?, ?>> actual = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
-            actual.put((Timestamp) cursor.getObject(1), (Map) getMapFromBlock(varcharMapType, (Block) cursor.getObject(0)));
+            actual.put((Instant) cursor.getObject(1), getMapFromBlock(varcharMapType, (Block) cursor.getObject(0)));
         }
-        Map<Timestamp, Map> expected = ImmutableMap.<Timestamp, Map>builder()
-                .put(Timestamp.from(Instant.ofEpochMilli(1565962969044L)), ImmutableMap.of("instance",
-                        "localhost:9090", "__name__", "up", "job", "prometheus"))
-                .put(Timestamp.from(Instant.ofEpochMilli(1565962984045L)), ImmutableMap.of("instance",
-                        "localhost:9090", "__name__", "up", "job", "prometheus"))
-                .put(Timestamp.from(Instant.ofEpochMilli(1565962999044L)), ImmutableMap.of("instance",
-                        "localhost:9090", "__name__", "up", "job", "prometheus"))
-                .put(Timestamp.from(Instant.ofEpochMilli(1565963014044L)), ImmutableMap.of("instance",
-                        "localhost:9090", "__name__", "up", "job", "prometheus"))
+        Map<Instant, Map<String, String>> expected = ImmutableMap.<Instant, Map<String, String>>builder()
+                .put(ofEpochMilli(1565962969044L), ImmutableMap.of("instance",
+                        "localhost:9090", "__name__", "up",
+                        "job", "prometheus"))
+                .put(ofEpochMilli(1565962984045L), ImmutableMap.of("instance",
+                        "localhost:9090", "__name__", "up",
+                        "job", "prometheus"))
+                .put(ofEpochMilli(1565962999044L), ImmutableMap.of("instance",
+                        "localhost:9090", "__name__", "up",
+                        "job", "prometheus"))
+                .put(ofEpochMilli(1565963014044L), ImmutableMap.of("instance",
+                        "localhost:9090", "__name__", "up",
+                        "job", "prometheus"))
                 .build();
         assertEquals(actual, expected);
     }

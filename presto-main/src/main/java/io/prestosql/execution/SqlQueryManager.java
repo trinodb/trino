@@ -17,8 +17,10 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.ExceededCpuLimitException;
+import io.prestosql.ExceededScanLimitException;
 import io.prestosql.Session;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.QueryExecution.QueryOutputInfo;
@@ -29,7 +31,6 @@ import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.sql.planner.Plan;
-import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -41,6 +42,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -52,6 +54,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.prestosql.SystemSessionProperties.getQueryMaxCpuTime;
+import static io.prestosql.SystemSessionProperties.getQueryMaxScanPhysicalBytes;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
@@ -69,14 +72,13 @@ public class SqlQueryManager
     private final QueryTracker<QueryExecution> queryTracker;
 
     private final Duration maxQueryCpuTime;
+    private final Optional<DataSize> maxQueryScanPhysicalBytes;
 
     private final ExecutorService queryExecutor;
     private final ThreadPoolExecutorMBean queryExecutorMBean;
 
     private final ScheduledExecutorService queryManagementExecutor;
     private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
-
-    private final QueryManagerStats stats = new QueryManagerStats();
 
     @Inject
     public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, QueryManagerConfig queryManagerConfig)
@@ -85,6 +87,7 @@ public class SqlQueryManager
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
 
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
+        this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanPhysicalBytes();
 
         this.queryExecutor = newCachedThreadPool(threadsNamed("query-scheduler-%s"));
         this.queryExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryExecutor);
@@ -112,6 +115,13 @@ public class SqlQueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query CPU time limits");
+            }
+
+            try {
+                enforceScanLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query scan bytes limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -232,8 +242,6 @@ public class SqlQueryManager
             }
         });
 
-        stats.trackQueryStats(queryExecution);
-
         queryExecution.start();
     }
 
@@ -264,14 +272,6 @@ public class SqlQueryManager
 
         queryTracker.tryGetQuery(stageId.getQueryId())
                 .ifPresent(query -> query.cancelStage(stageId));
-    }
-
-    @Override
-    @Managed
-    @Flatten
-    public QueryManagerStats getStats()
-    {
-        return stats;
     }
 
     @Managed(description = "Query scheduler executor")
@@ -311,6 +311,28 @@ public class SqlQueryManager
             if (cpuTime.compareTo(limit) > 0) {
                 query.fail(new ExceededCpuLimitException(limit));
             }
+        }
+    }
+
+    /**
+     * Enforce query scan physical bytes limits
+     */
+    private void enforceScanLimits()
+    {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
+            Optional<DataSize> limitOpt = getQueryMaxScanPhysicalBytes(query.getSession());
+            if (maxQueryScanPhysicalBytes.isPresent()) {
+                limitOpt = limitOpt
+                    .flatMap(sessionLimit -> maxQueryScanPhysicalBytes.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
+                    .or(() -> maxQueryScanPhysicalBytes);
+            }
+
+            limitOpt.ifPresent(limit -> {
+                DataSize scan = query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize();
+                if (scan.compareTo(limit) > 0) {
+                    query.fail(new ExceededScanLimitException(limit));
+                }
+            });
         }
     }
 }

@@ -18,7 +18,6 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.decoder.DecoderModule;
 import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
@@ -31,6 +30,7 @@ import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.prestosql.elasticsearch.ElasticsearchConfig.Security.AWS;
+import static io.prestosql.elasticsearch.ElasticsearchConfig.Security.PASSWORD;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -54,9 +54,8 @@ public class ElasticsearchConnectorModule
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
 
-        binder.install(new DecoderModule());
-
         newOptionalBinder(binder, AwsSecurityConfig.class);
+        newOptionalBinder(binder, PasswordConfig.class);
 
         install(installModuleIf(
                 ElasticsearchConfig.class,
@@ -64,6 +63,13 @@ public class ElasticsearchConnectorModule
                         .filter(isEqual(AWS))
                         .isPresent(),
                 conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
+
+        install(installModuleIf(
+                ElasticsearchConfig.class,
+                config -> config.getSecurity()
+                        .filter(isEqual(PASSWORD))
+                        .isPresent(),
+                conditionalBinder -> configBinder(conditionalBinder).bindConfig(PasswordConfig.class)));
     }
 
     private static final class TypeDeserializer

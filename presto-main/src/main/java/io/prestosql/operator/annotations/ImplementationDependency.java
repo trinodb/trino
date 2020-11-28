@@ -14,8 +14,9 @@
 package io.prestosql.operator.annotations;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.spi.function.CastDependency;
 import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.FunctionDependency;
@@ -45,7 +46,9 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignatu
 
 public interface ImplementationDependency
 {
-    Object resolve(BoundVariables boundVariables, Metadata metadata);
+    void declareDependencies(FunctionDependencyDeclarationBuilder builder);
+
+    Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies);
 
     static boolean isImplementationDependencyAnnotation(Annotation annotation)
     {
@@ -96,7 +99,7 @@ public interface ImplementationDependency
     {
         private Factory() {}
 
-        public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters)
+        public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters, Class<?> type)
         {
             if (annotation instanceof TypeParameter) {
                 return new TypeImplementationDependency(((TypeParameter) annotation).value());
@@ -112,7 +115,8 @@ public interface ImplementationDependency
                         Arrays.stream(functionDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),
-                        toInvocationConvention(functionDependency.convention()));
+                        toInvocationConvention(functionDependency.convention()),
+                        type);
             }
             if (annotation instanceof OperatorDependency) {
                 OperatorDependency operatorDependency = (OperatorDependency) annotation;
@@ -123,14 +127,16 @@ public interface ImplementationDependency
                         Arrays.stream(operatorDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),
-                        toInvocationConvention(operatorDependency.convention()));
+                        toInvocationConvention(operatorDependency.convention()),
+                        type);
             }
             if (annotation instanceof CastDependency) {
                 CastDependency castDependency = (CastDependency) annotation;
                 return new CastImplementationDependency(
                         parseTypeSignature(castDependency.fromType(), literalParameters),
                         parseTypeSignature(castDependency.toType(), literalParameters),
-                        toInvocationConvention(castDependency.convention()));
+                        toInvocationConvention(castDependency.convention()),
+                        type);
             }
 
             throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());

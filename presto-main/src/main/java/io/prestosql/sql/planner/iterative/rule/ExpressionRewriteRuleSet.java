@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
@@ -34,17 +32,18 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SortItem;
 import io.prestosql.sql.tree.SortItem.NullOrdering;
 import io.prestosql.sql.tree.SymbolReference;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static io.prestosql.sql.planner.plan.Patterns.filter;
 import static io.prestosql.sql.planner.plan.Patterns.join;
@@ -170,12 +169,7 @@ public class ExpressionRewriteRuleSet
                                 aggregation.getArguments()),
                         context);
                 verify(
-                        ResolvedFunction.fromQualifiedName(call.getName())
-                                .map(ResolvedFunction::getSignature)
-                                .map(Signature::getName)
-                                .map(QualifiedName::of)
-                                .orElse(call.getName())
-                                .equals(QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())),
+                        QualifiedName.of(extractFunctionName(call.getName())).equals(QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())),
                         "Aggregation function name changed");
                 Aggregation newAggregation = new Aggregation(
                         aggregation.getResolvedFunction(),
@@ -291,18 +285,27 @@ public class ExpressionRewriteRuleSet
         @Override
         public Result apply(ValuesNode valuesNode, Captures captures, Context context)
         {
+            if (valuesNode.getRows().isEmpty()) {
+                return Result.empty();
+            }
+
             boolean anyRewritten = false;
-            ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
-            for (List<Expression> row : valuesNode.getRows()) {
-                ImmutableList.Builder<Expression> newRow = ImmutableList.builder();
-                for (Expression expression : row) {
-                    Expression rewritten = rewriter.rewrite(expression, context);
-                    if (!expression.equals(rewritten)) {
-                        anyRewritten = true;
-                    }
-                    newRow.add(rewritten);
+            ImmutableList.Builder<Expression> rows = ImmutableList.builder();
+            for (Expression row : valuesNode.getRows().get()) {
+                Expression rewritten;
+                if (row instanceof Row) {
+                    // preserve the structure of row
+                    rewritten = new Row(((Row) row).getItems().stream()
+                            .map(item -> rewriter.rewrite(item, context))
+                            .collect(toImmutableList()));
                 }
-                rows.add(newRow.build());
+                else {
+                    rewritten = rewriter.rewrite(row, context);
+                }
+                if (!row.equals(rewritten)) {
+                    anyRewritten = true;
+                }
+                rows.add(rewritten);
             }
             if (anyRewritten) {
                 return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));

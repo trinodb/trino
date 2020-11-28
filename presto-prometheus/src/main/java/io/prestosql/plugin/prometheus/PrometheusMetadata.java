@@ -57,7 +57,7 @@ public class PrometheusMetadata
         return listSchemaNames();
     }
 
-    public List<String> listSchemaNames()
+    private static List<String> listSchemaNames()
     {
         return ImmutableList.copyOf(ImmutableSet.of("default"));
     }
@@ -144,7 +144,7 @@ public class PrometheusMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (!prefix.getTable().isPresent()) {
+        if (prefix.getTable().isEmpty()) {
             return listTables(session, prefix.getSchema());
         }
         return ImmutableList.of(prefix.toSchemaTableName());
@@ -171,9 +171,8 @@ public class PrometheusMetadata
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
-        PrometheusTableHandle promHandle = (PrometheusTableHandle) handle;
-        promHandle = new PrometheusTableHandle(promHandle.getSchemaName(), promHandle.getTableName());
-        promHandle.setPredicate(Optional.of(constraint.getSummary()));
-        return Optional.of(new ConstraintApplicationResult<>(promHandle, constraint.getSummary()));
+        PrometheusTableHandle tableHandle = ((PrometheusTableHandle) handle)
+                .withPredicate(constraint.getSummary());
+        return Optional.of(new ConstraintApplicationResult<>(tableHandle, constraint.getSummary()));
     }
 }

@@ -17,34 +17,33 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
+import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import io.prestosql.spi.HostAddress;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
-import java.io.File;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+@DefunctConfig("kafka.connect-timeout")
 public class KafkaConfig
 {
     private static final int KAFKA_DEFAULT_PORT = 9092;
 
     private Set<HostAddress> nodes = ImmutableSet.of();
-    private Duration kafkaConnectTimeout = Duration.valueOf("10s");
     private DataSize kafkaBufferSize = DataSize.of(64, Unit.KILOBYTE);
     private String defaultSchema = "default";
-    private Set<String> tableNames = ImmutableSet.of();
-    private File tableDescriptionDir = new File("etc/kafka/");
     private boolean hideInternalColumns = true;
     private int messagesPerSplit = 100_000;
+    private boolean timestampUpperBoundPushDownEnabled;
+    private String tableDescriptionSupplier = FileTableDescriptionSupplier.NAME;
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -57,20 +56,6 @@ public class KafkaConfig
     public KafkaConfig setNodes(String nodes)
     {
         this.nodes = (nodes == null) ? null : parseNodes(nodes);
-        return this;
-    }
-
-    @MinDuration("1s")
-    public Duration getKafkaConnectTimeout()
-    {
-        return kafkaConnectTimeout;
-    }
-
-    @Config("kafka.connect-timeout")
-    @ConfigDescription("Kafka connection timeout")
-    public KafkaConfig setKafkaConnectTimeout(String kafkaConnectTimeout)
-    {
-        this.kafkaConnectTimeout = Duration.valueOf(kafkaConnectTimeout);
         return this;
     }
 
@@ -102,16 +87,16 @@ public class KafkaConfig
     }
 
     @NotNull
-    public Set<String> getTableNames()
+    public String getTableDescriptionSupplier()
     {
-        return tableNames;
+        return tableDescriptionSupplier;
     }
 
-    @Config("kafka.table-names")
-    @ConfigDescription("Set of tables known to this connector")
-    public KafkaConfig setTableNames(String tableNames)
+    @Config("kafka.table-description-supplier")
+    @ConfigDescription("The table description supplier to use, default is FILE")
+    public KafkaConfig setTableDescriptionSupplier(String tableDescriptionSupplier)
     {
-        this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
+        this.tableDescriptionSupplier = tableDescriptionSupplier;
         return this;
     }
 
@@ -125,20 +110,6 @@ public class KafkaConfig
     public KafkaConfig setHideInternalColumns(boolean hideInternalColumns)
     {
         this.hideInternalColumns = hideInternalColumns;
-        return this;
-    }
-
-    @NotNull
-    public File getTableDescriptionDir()
-    {
-        return tableDescriptionDir;
-    }
-
-    @Config("kafka.table-description-dir")
-    @ConfigDescription("Folder holding JSON description files for Kafka topics")
-    public KafkaConfig setTableDescriptionDir(File tableDescriptionDir)
-    {
-        this.tableDescriptionDir = tableDescriptionDir;
         return this;
     }
 
@@ -166,6 +137,19 @@ public class KafkaConfig
     public KafkaConfig setMessagesPerSplit(int messagesPerSplit)
     {
         this.messagesPerSplit = messagesPerSplit;
+        return this;
+    }
+
+    public boolean isTimestampUpperBoundPushDownEnabled()
+    {
+        return timestampUpperBoundPushDownEnabled;
+    }
+
+    @Config("kafka.timestamp-upper-bound-force-push-down-enabled")
+    @ConfigDescription("timestamp upper bound force pushing down enabled")
+    public KafkaConfig setTimestampUpperBoundPushDownEnabled(boolean timestampUpperBoundPushDownEnabled)
+    {
+        this.timestampUpperBoundPushDownEnabled = timestampUpperBoundPushDownEnabled;
         return this;
     }
 }

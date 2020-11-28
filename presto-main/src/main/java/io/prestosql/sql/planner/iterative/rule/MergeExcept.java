@@ -37,7 +37,7 @@ public class MergeExcept
     @Override
     public Rule.Result apply(ExceptNode node, Captures captures, Rule.Context context)
     {
-        SetOperationMerge mergeOperation = new SetOperationMerge(node, context, ExceptNode::new);
+        SetOperationMerge mergeOperation = new SetOperationMerge(node, context);
         Optional<SetOperationNode> result = mergeOperation.mergeFirstSource();
         return result.map(Result::ofPlanNode).orElseGet(Result::empty);
     }

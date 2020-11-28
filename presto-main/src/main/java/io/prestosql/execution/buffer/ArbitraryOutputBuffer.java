@@ -43,7 +43,6 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.execution.buffer.BufferState.FAILED;
 import static io.prestosql.execution.buffer.BufferState.FINISHED;
 import static io.prestosql.execution.buffer.BufferState.FLUSHING;
@@ -215,19 +214,24 @@ public class ArbitraryOutputBuffer
             return;
         }
 
+        ImmutableList.Builder<SerializedPageReference> references = ImmutableList.builderWithExpectedSize(pages.size());
+        long bytesAdded = 0;
+        long rowCount = 0;
+        for (SerializedPage page : pages) {
+            long retainedSize = page.getRetainedSizeInBytes();
+            bytesAdded += retainedSize;
+            rowCount += page.getPositionCount();
+            // create page reference counts with an initial single reference
+            references.add(new SerializedPageReference(page, 1, () -> memoryManager.updateMemoryUsage(-retainedSize)));
+        }
+        List<SerializedPageReference> serializedPageReferences = references.build();
+
         // reserve memory
-        long bytesAdded = pages.stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
         memoryManager.updateMemoryUsage(bytesAdded);
 
         // update stats
-        long rowCount = pages.stream().mapToLong(SerializedPage::getPositionCount).sum();
         totalRowsAdded.addAndGet(rowCount);
-        totalPagesAdded.addAndGet(pages.size());
-
-        // create page reference counts with an initial single reference
-        List<SerializedPageReference> serializedPageReferences = pages.stream()
-                .map(pageSplit -> new SerializedPageReference(pageSplit, 1, () -> memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes())))
-                .collect(toImmutableList());
+        totalPagesAdded.addAndGet(serializedPageReferences.size());
 
         // add pages to the buffer (this will increase the reference count by one)
         masterBuffer.addPages(serializedPageReferences);

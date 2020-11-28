@@ -35,6 +35,7 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.type.FunctionType.NAME;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 
@@ -61,6 +62,11 @@ public class InterpretedFunctionInvoker
     {
         FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
         FunctionInvoker invoker = metadata.getScalarFunctionInvoker(function, Optional.of(getInvocationConvention(function, functionMetadata)));
+        return invoke(functionMetadata, invoker, session, arguments);
+    }
+
+    public static Object invoke(FunctionMetadata functionMetadata, FunctionInvoker invoker, ConnectorSession session, List<Object> arguments)
+    {
         MethodHandle method = invoker.getMethodHandle();
 
         List<Object> actualArguments = new ArrayList<>();
@@ -80,6 +86,7 @@ public class InterpretedFunctionInvoker
             actualArguments.add(session);
         }
 
+        int lambdaArgumentIndex = 0;
         for (int i = 0; i < arguments.size(); i++) {
             Object argument = arguments.get(i);
 
@@ -88,9 +95,9 @@ public class InterpretedFunctionInvoker
                 return null;
             }
 
-            Optional<Class<?>> lambdaInterface = invoker.getLambdaInterfaces().get(i);
-            if (lambdaInterface.isPresent()) {
-                argument = asInterfaceInstance(lambdaInterface.get(), (MethodHandle) argument);
+            if (functionMetadata.getSignature().getArgumentTypes().get(i).getBase().equals(NAME)) {
+                argument = asInterfaceInstance(invoker.getLambdaInterfaces().get(lambdaArgumentIndex), (MethodHandle) argument);
+                lambdaArgumentIndex++;
             }
 
             actualArguments.add(argument);
@@ -108,7 +115,7 @@ public class InterpretedFunctionInvoker
     {
         ImmutableList.Builder<InvocationArgumentConvention> argumentConventions = ImmutableList.builder();
         for (int i = 0; i < functionMetadata.getArgumentDefinitions().size(); i++) {
-            if (function.getSignature().getArgumentTypes().get(i).getBase().equalsIgnoreCase(FunctionType.NAME)) {
+            if (function.getSignature().getArgumentTypes().get(i) instanceof FunctionType) {
                 argumentConventions.add(FUNCTION);
             }
             else if (functionMetadata.getArgumentDefinitions().get(i).isNullable()) {

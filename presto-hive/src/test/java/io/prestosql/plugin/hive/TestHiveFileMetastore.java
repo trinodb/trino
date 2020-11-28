@@ -14,7 +14,9 @@
 package io.prestosql.plugin.hive;
 
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.MetastoreConfig;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import org.testng.SkipException;
 
 import java.io.File;
@@ -28,7 +30,14 @@ public class TestHiveFileMetastore
     protected HiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
-        return new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
+        return new FileHiveMetastore(
+                new NodeVersion("test_version"),
+                HDFS_ENVIRONMENT,
+                new MetastoreConfig()
+                        .setHideDeltaLakeTables(true),
+                new FileHiveMetastoreConfig()
+                        .setCatalogDirectory(baseDir.toURI().toString())
+                        .setMetastoreUser("test"));
     }
 
     @Override

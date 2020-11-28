@@ -17,30 +17,30 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.SqlTimestamp;
 
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 
 public class TestTimestampType
         extends AbstractTestType
 {
     public TestTimestampType()
     {
-        super(TIMESTAMP, SqlTimestamp.class, createTestBlock());
+        super(TIMESTAMP_MILLIS, SqlTimestamp.class, createTestBlock());
     }
 
     public static Block createTestBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP.createBlockBuilder(null, 15);
-        TIMESTAMP.writeLong(blockBuilder, 1111);
-        TIMESTAMP.writeLong(blockBuilder, 1111);
-        TIMESTAMP.writeLong(blockBuilder, 1111);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 2222);
-        TIMESTAMP.writeLong(blockBuilder, 3333);
-        TIMESTAMP.writeLong(blockBuilder, 3333);
-        TIMESTAMP.writeLong(blockBuilder, 4444);
+        BlockBuilder blockBuilder = TIMESTAMP_MILLIS.createBlockBuilder(null, 15);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 1111_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 2222_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 3333_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 3333_000);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, 4444_000);
         return blockBuilder.build();
     }
 

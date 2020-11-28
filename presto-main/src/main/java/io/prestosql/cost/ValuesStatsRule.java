@@ -19,6 +19,8 @@ import io.prestosql.cost.ComposableStatsCalculator.Rule;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.spi.block.SingleRowBlock;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
@@ -32,8 +34,10 @@ import java.util.OptionalDouble;
 import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.cost.StatsUtil.toStatsRepresentation;
+import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.prestosql.sql.planner.plan.Patterns.values;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -61,28 +65,38 @@ public class ValuesStatsRule
     public Optional<PlanNodeStatsEstimate> calculate(ValuesNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
-        statsBuilder.setOutputRowCount(node.getRows().size());
+        statsBuilder.setOutputRowCount(node.getRowCount());
 
         for (int symbolId = 0; symbolId < node.getOutputSymbols().size(); ++symbolId) {
             Symbol symbol = node.getOutputSymbols().get(symbolId);
-            List<Object> symbolValues = getSymbolValues(node, symbolId, session, types.get(symbol));
+            List<Object> symbolValues = getSymbolValues(
+                    node,
+                    symbolId,
+                    session,
+                    RowType.anonymous(node.getOutputSymbols().stream()
+                            .map(types::get)
+                            .collect(toImmutableList())));
             statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, session, types.get(symbol)));
         }
 
         return Optional.of(statsBuilder.build());
     }
 
-    private List<Object> getSymbolValues(ValuesNode valuesNode, int symbolId, Session session, Type symbolType)
+    private List<Object> getSymbolValues(ValuesNode valuesNode, int symbolId, Session session, Type rowType)
     {
+        Type symbolType = rowType.getTypeParameters().get(symbolId);
         if (UNKNOWN.equals(symbolType)) {
             // special casing for UNKNOWN as evaluateConstantExpression does not handle that
-            return IntStream.range(0, valuesNode.getRows().size())
+            return IntStream.range(0, valuesNode.getRowCount())
                     .mapToObj(rowId -> null)
                     .collect(toList());
         }
-        return valuesNode.getRows().stream()
-                .map(row -> row.get(symbolId))
-                .map(expression -> evaluateConstantExpression(expression, symbolType, metadata, session, new AllowAllAccessControl(), ImmutableMap.of()))
+        checkState(valuesNode.getRows().isPresent(), "rows is empty");
+        return valuesNode.getRows().get().stream()
+                .map(row -> {
+                    Object rowValue = evaluateConstantExpression(row, rowType, metadata, session, new AllowAllAccessControl(), ImmutableMap.of());
+                    return readNativeValue(symbolType, (SingleRowBlock) rowValue, symbolId);
+                })
                 .collect(toList());
     }
 

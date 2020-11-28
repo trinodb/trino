@@ -128,7 +128,7 @@ public abstract class SetOperationNode
                 .inverse(), Symbol::toSymbolReference);
     }
 
-    private Function<Symbol, Symbol> outputToSourceSymbolFunction(final int sourceIndex)
+    private Function<Symbol, Symbol> outputToSourceSymbolFunction(int sourceIndex)
     {
         return outputSymbol -> outputToInputs.get(outputSymbol).get(sourceIndex);
     }

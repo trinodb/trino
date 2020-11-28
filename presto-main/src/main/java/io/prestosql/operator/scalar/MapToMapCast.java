@@ -14,22 +14,24 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -39,30 +41,33 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.prestosql.spi.block.MethodHandleUtil.nativeValueWriter;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
+import static java.util.Objects.requireNonNull;
 
 public final class MapToMapCast
         extends SqlOperator
 {
-    public static final MapToMapCast MAP_TO_MAP_CAST = new MapToMapCast();
-
     private static final MethodHandle METHOD_HANDLE = methodHandle(
             MapToMapCast.class,
             "mapCast",
             MethodHandle.class,
             MethodHandle.class,
             Type.class,
+            BlockPositionEqual.class,
+            BlockPositionHashCode.class,
             ConnectorSession.class,
             Block.class);
 
@@ -72,7 +77,9 @@ public final class MapToMapCast
     private static final MethodHandle CHECK_SLICE_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkSliceIsNotNull", Slice.class);
     private static final MethodHandle CHECK_BLOCK_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkBlockIsNotNull", Block.class);
 
-    public MapToMapCast()
+    private final BlockTypeOperators blockTypeOperators;
+
+    public MapToMapCast(BlockTypeOperators blockTypeOperators)
     {
         super(CAST,
                 ImmutableList.of(
@@ -84,55 +91,66 @@ public final class MapToMapCast
                 mapType(new TypeSignature("TK"), new TypeSignature("TV")),
                 ImmutableList.of(mapType(new TypeSignature("FK"), new TypeSignature("FV"))),
                 true);
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
-        Type fromKeyType = boundVariables.getTypeVariable("FK");
-        Type fromValueType = boundVariables.getTypeVariable("FV");
-        Type toKeyType = boundVariables.getTypeVariable("TK");
-        Type toValueType = boundVariables.getTypeVariable("TV");
-        Type toMapType = metadata.getParameterizedType(
-                "map",
-                ImmutableList.of(
-                        TypeSignatureParameter.typeParameter(toKeyType.getTypeSignature()),
-                        TypeSignatureParameter.typeParameter(toValueType.getTypeSignature())));
+        return FunctionDependencyDeclaration.builder()
+                .addCastSignature(new TypeSignature("FK"), new TypeSignature("TK"))
+                .addCastSignature(new TypeSignature("FV"), new TypeSignature("TV"))
+                .build();
+    }
 
-        MethodHandle keyProcessor = buildProcessor(metadata, fromKeyType, toKeyType, true);
-        MethodHandle valueProcessor = buildProcessor(metadata, fromValueType, toValueType, false);
-        MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
-        return new ScalarFunctionImplementation(true, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), target);
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
+        Type fromKeyType = functionBinding.getTypeVariable("FK");
+        Type fromValueType = functionBinding.getTypeVariable("FV");
+        Type toKeyType = functionBinding.getTypeVariable("TK");
+        Type toValueType = functionBinding.getTypeVariable("TV");
+        Type toMapType = functionBinding.getBoundSignature().getReturnType();
+
+        MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
+        MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
+        BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(toKeyType);
+        BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(toKeyType);
+        MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType, keyEqual, keyHashCode);
+        return new ChoicesScalarFunctionImplementation(functionBinding, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**
      * The signature of the returned MethodHandle is (Block fromMap, int position, ConnectorSession session, BlockBuilder mapBlockBuilder)void.
      * The processor will get the value from fromMap, cast it and write to toBlock.
      */
-    private MethodHandle buildProcessor(Metadata metadata, Type fromType, Type toType, boolean isKey)
+    private MethodHandle buildProcessor(FunctionDependencies functionDependencies, Type fromType, Type toType, boolean isKey)
     {
-        MethodHandle getter = nativeValueGetter(fromType);
-
-        // Adapt cast that takes ([ConnectorSession,] ?) to one that takes (?, ConnectorSession), where ? is the return type of getter.
-        ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
-        FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
-        MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
+        // Get block position cast, with optional connector session
+        FunctionMetadata functionMetadata = functionDependencies.getCastMetadata(fromType, toType);
+        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
+        MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, Optional.of(invocationConvention)).getMethodHandle();
+        // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
         }
-        cast = permuteArguments(cast, methodType(cast.type().returnType(), cast.type().parameterArray()[1], cast.type().parameterArray()[0]), 1, 0);
-        MethodHandle target = compose(cast, getter);
+        // Change cast signature to (Block.class, int.class, ConnectorSession.class):T
+        cast = permuteArguments(cast, methodType(cast.type().returnType(), Block.class, int.class, ConnectorSession.class), 2, 0, 1);
 
-        // If the key cast function is nullable, check the result is not null.
+        // If the key cast function is nullable, check the result is not null
         if (isKey && functionMetadata.isNullable()) {
-            target = compose(nullChecker(target.type().returnType()), target);
+            cast = compose(nullChecker(cast.type().returnType()), cast);
         }
 
+        // get write method with signature: (T, BlockBuilder.class):void
         MethodHandle writer = nativeValueWriter(toType);
-        writer = permuteArguments(writer, methodType(void.class, writer.type().parameterArray()[1], writer.type().parameterArray()[0]), 1, 0);
+        writer = permuteArguments(writer, methodType(void.class, writer.type().parameterArray()[1], BlockBuilder.class), 1, 0);
 
-        return compose(writer, target.asType(methodType(Primitives.unwrap(target.type().returnType()), target.type().parameterArray())));
+        // ensure cast returns type expected by the writer
+        cast = cast.asType(methodType(writer.type().parameterType(0), cast.type().parameterArray()));
+
+        return compose(writer, cast);
     }
 
     /**
@@ -219,12 +237,14 @@ public final class MapToMapCast
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
             Type toMapType,
+            BlockPositionEqual keyEqual,
+            BlockPositionHashCode keyHashCode,
             ConnectorSession session,
             Block fromMap)
     {
         checkState(toMapType.getTypeParameters().size() == 2, "Expect two type parameters for toMapType");
         Type toKeyType = toMapType.getTypeParameters().get(0);
-        TypedSet typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2, "map-to-map cast");
+        TypedSet typedSet = createEqualityTypedSet(toKeyType, keyEqual, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
         BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
             try {

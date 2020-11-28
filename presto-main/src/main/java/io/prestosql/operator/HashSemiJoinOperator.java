@@ -184,7 +184,7 @@ public class HashSemiJoinOperator
             // we know the exact size required for the block
             BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(inputPage.getPositionCount());
 
-            Page probeJoinPage = new Page(inputPage.getBlock(probeJoinChannel));
+            Page probeJoinPage = inputPage.getColumns(probeJoinChannel);
             Optional<Block> hashBlock = probeHashChannel.map(inputPage::getBlock);
 
             // update hashing strategy to use probe cursor

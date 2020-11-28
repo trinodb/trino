@@ -24,16 +24,17 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.StringLiteral;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.net.URI;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -49,7 +50,6 @@ import static org.testng.Assert.assertTrue;
 public class TestStageStateMachine
 {
     private static final StageId STAGE_ID = new StageId("query", 0);
-    private static final URI LOCATION = URI.create("fake://fake-stage");
     private static final PlanFragment PLAN_FRAGMENT = createValuesPlan();
     private static final SQLException FAILED_CAUSE;
 
@@ -58,12 +58,13 @@ public class TestStageStateMachine
         FAILED_CAUSE.setStackTrace(new StackTraceElement[0]);
     }
 
-    private final ExecutorService executor = newCachedThreadPool();
+    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
+        executor = null;
     }
 
     @Test
@@ -80,6 +81,9 @@ public class TestStageStateMachine
 
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageState.RUNNING);
+
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
 
         assertTrue(stateMachine.transitionToFinished());
         assertState(stateMachine, StageState.FINISHED);
@@ -98,6 +102,10 @@ public class TestStageStateMachine
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageState.RUNNING);
+
+        stateMachine = createStageStateMachine();
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
 
         stateMachine = createStageStateMachine();
         assertTrue(stateMachine.transitionToFinished());
@@ -136,6 +144,11 @@ public class TestStageStateMachine
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduling();
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToScheduling();
         assertTrue(stateMachine.transitionToFinished());
         assertState(stateMachine, StageState.FINISHED);
 
@@ -170,6 +183,9 @@ public class TestStageStateMachine
 
         assertTrue(stateMachine.transitionToRunning());
         assertState(stateMachine, StageState.RUNNING);
+
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToScheduled();
@@ -208,6 +224,11 @@ public class TestStageStateMachine
         assertFalse(stateMachine.transitionToRunning());
         assertState(stateMachine, StageState.RUNNING);
 
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToRunning();
         assertTrue(stateMachine.transitionToFinished());
         assertState(stateMachine, StageState.FINISHED);
 
@@ -223,6 +244,46 @@ public class TestStageStateMachine
 
         stateMachine = createStageStateMachine();
         stateMachine.transitionToRunning();
+        assertTrue(stateMachine.transitionToCanceled());
+        assertState(stateMachine, StageState.CANCELED);
+    }
+
+    @Test
+    public void testFlushing()
+    {
+        StageStateMachine stateMachine = createStageStateMachine();
+        assertTrue(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        assertFalse(stateMachine.transitionToScheduling());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        assertFalse(stateMachine.transitionToScheduled());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        assertFalse(stateMachine.transitionToRunning());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        assertFalse(stateMachine.transitionToFlushing());
+        assertState(stateMachine, StageState.FLUSHING);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToFlushing();
+        assertTrue(stateMachine.transitionToFinished());
+        assertState(stateMachine, StageState.FINISHED);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToFlushing();
+        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertState(stateMachine, StageState.FAILED);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToFlushing();
+        assertTrue(stateMachine.transitionToAborted());
+        assertState(stateMachine, StageState.ABORTED);
+
+        stateMachine = createStageStateMachine();
+        stateMachine.transitionToFlushing();
         assertTrue(stateMachine.transitionToCanceled());
         assertState(stateMachine, StageState.CANCELED);
     }
@@ -278,6 +339,9 @@ public class TestStageStateMachine
         assertFalse(stateMachine.transitionToRunning());
         assertState(stateMachine, expectedState);
 
+        assertFalse(stateMachine.transitionToFlushing());
+        assertState(stateMachine, expectedState);
+
         assertFalse(stateMachine.transitionToFinished());
         assertState(stateMachine, expectedState);
 
@@ -330,7 +394,7 @@ public class TestStageStateMachine
                 new PlanFragmentId("plan"),
                 new ValuesNode(valuesNodeId,
                         ImmutableList.of(symbol),
-                        ImmutableList.of(ImmutableList.of(new StringLiteral("foo")))),
+                        ImmutableList.of(new Row(ImmutableList.of(new StringLiteral("foo"))))),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(valuesNodeId),

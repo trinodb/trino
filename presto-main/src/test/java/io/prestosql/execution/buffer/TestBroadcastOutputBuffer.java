@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -52,11 +53,11 @@ import static io.prestosql.execution.buffer.BufferTestUtils.createPage;
 import static io.prestosql.execution.buffer.BufferTestUtils.enqueuePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.getBufferResult;
 import static io.prestosql.execution.buffer.BufferTestUtils.getFuture;
+import static io.prestosql.execution.buffer.BufferTestUtils.serializePage;
 import static io.prestosql.execution.buffer.BufferTestUtils.sizeOfPages;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
-import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -69,7 +70,6 @@ import static org.testng.Assert.fail;
 
 public class TestBroadcastOutputBuffer
 {
-    private static final PagesSerde PAGES_SERDE = testingPagesSerde();
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
     private static final ImmutableList<BigintType> TYPES = ImmutableList.of(BIGINT);
@@ -82,7 +82,7 @@ public class TestBroadcastOutputBuffer
     @BeforeClass
     public void setUp()
     {
-        stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed("test-%s"));
+        stateNotificationExecutor = newScheduledThreadPool(5, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -314,6 +314,73 @@ public class TestBroadcastOutputBuffer
 
         // third page is blocked
         enqueuePage(buffer, createPage(3));
+    }
+
+    @Test
+    public void testNotifyStatusOnBufferFull()
+    {
+        AtomicInteger notifyCount = new AtomicInteger();
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(
+                createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID),
+                sizeOfPages(1),
+                notifyCount::incrementAndGet);
+
+        // Add a page to the buffer
+        addPage(buffer, createPage(1));
+        assertTrue(buffer.isFull().isDone());
+        assertEquals(notifyCount.get(), 0);
+
+        // Add another page to block
+        ListenableFuture<?> future = enqueuePage(buffer, createPage(2));
+        assertFalse(future.isDone());
+        assertEquals(notifyCount.get(), 1);
+
+        // Set no more buffers
+        buffer.setOutputBuffers(createInitialEmptyOutputBuffers(BROADCAST).withBuffer(FIRST, BROADCAST_PARTITION_ID).withNoMoreBufferIds());
+
+        // Acknowledge both pages in the buffer to remove them
+        buffer.acknowledge(FIRST, 2);
+        assertFutureIsDone(future);
+        assertEquals(notifyCount.get(), 1);
+
+        // Add two more pages, buffer will be blocked second time
+        addPage(buffer, createPage(3));
+        future = enqueuePage(buffer, createPage(4));
+        assertFalse(future.isDone());
+        assertEquals(notifyCount.get(), 1);
+    }
+
+    @Test
+    public void testNotifyStatusOnBufferFullWithNoBufferIds()
+    {
+        AtomicInteger notifyCount = new AtomicInteger();
+        BroadcastOutputBuffer buffer = createBroadcastBuffer(
+                createInitialEmptyOutputBuffers(BROADCAST)
+                        .withBuffer(FIRST, BROADCAST_PARTITION_ID)
+                        .withNoMoreBufferIds(),
+                sizeOfPages(1),
+                notifyCount::incrementAndGet);
+
+        // Add a page to the buffer
+        addPage(buffer, createPage(1));
+        assertTrue(buffer.isFull().isDone());
+        assertEquals(notifyCount.get(), 0);
+
+        // Add another page to block
+        ListenableFuture<?> future = enqueuePage(buffer, createPage(2));
+        assertFalse(future.isDone());
+        assertEquals(notifyCount.get(), 0); // stays 0 because no new buffers will be added
+
+        // Acknowledge both pages in the buffer to remove them
+        buffer.acknowledge(FIRST, 2);
+        assertFutureIsDone(future);
+        assertEquals(notifyCount.get(), 0);
+
+        // Add two more pages, buffer will be blocked second time
+        addPage(buffer, createPage(3));
+        future = enqueuePage(buffer, createPage(4));
+        assertFalse(future.isDone());
+        assertEquals(notifyCount.get(), 0);
     }
 
     @Test
@@ -948,7 +1015,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -979,7 +1046,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1025,7 +1092,7 @@ public class TestBroadcastOutputBuffer
         AggregatedMemoryContext memoryContext = newRootAggregatedMemoryContext(reservationHandler, 0L);
 
         Page page = createPage(1);
-        long pageSize = PAGES_SERDE.serialize(page).getRetainedSizeInBytes();
+        long pageSize = serializePage(page).getRetainedSizeInBytes();
 
         // create a buffer that can only hold two pages
         BroadcastOutputBuffer buffer = createBroadcastBuffer(createInitialEmptyOutputBuffers(BROADCAST), DataSize.ofBytes(pageSize * 2), memoryContext, directExecutor());
@@ -1084,7 +1151,8 @@ public class TestBroadcastOutputBuffer
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
                 () -> memoryContext.newLocalMemoryContext("test"),
-                notificationExecutor);
+                notificationExecutor,
+                () -> {});
         buffer.setOutputBuffers(outputBuffers);
         return buffer;
     }
@@ -1139,12 +1207,18 @@ public class TestBroadcastOutputBuffer
 
     private BroadcastOutputBuffer createBroadcastBuffer(OutputBuffers outputBuffers, DataSize dataSize)
     {
+        return createBroadcastBuffer(outputBuffers, dataSize, () -> {});
+    }
+
+    private BroadcastOutputBuffer createBroadcastBuffer(OutputBuffers outputBuffers, DataSize dataSize, Runnable notifyStatusChanged)
+    {
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                stateNotificationExecutor);
+                stateNotificationExecutor,
+                notifyStatusChanged);
         buffer.setOutputBuffers(outputBuffers);
         return buffer;
     }

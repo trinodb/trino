@@ -30,6 +30,7 @@ import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 
@@ -39,7 +40,7 @@ import java.util.Set;
 
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.prestosql.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
@@ -58,6 +59,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final ConnectorAccessControl accessControl;
+    private final Set<Procedure> procedures;
 
     public IcebergConnector(
             LifeCycleManager lifeCycleManager,
@@ -71,7 +73,8 @@ public class IcebergConnector
             List<PropertyMetadata<?>> sessionProperties,
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
-            ConnectorAccessControl accessControl)
+            ConnectorAccessControl accessControl,
+            Set<Procedure> procedures)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -85,6 +88,7 @@ public class IcebergConnector
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.procedures = requireNonNull(procedures, "procedures is null");
     }
 
     @Override
@@ -143,6 +147,12 @@ public class IcebergConnector
     }
 
     @Override
+    public Set<Procedure> getProcedures()
+    {
+        return procedures;
+    }
+
+    @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
@@ -169,7 +179,7 @@ public class IcebergConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
-        checkConnectorSupports(READ_COMMITTED, isolationLevel);
+        checkConnectorSupports(SERIALIZABLE, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             transactionManager.put(transaction, metadataFactory.create());

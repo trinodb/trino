@@ -38,7 +38,7 @@ public class TestPrestoThriftEquatableValueSet
     {
         PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.all(JSON));
         assertNotNull(thriftValueSet.getEquatableValueSet());
-        assertFalse(thriftValueSet.getEquatableValueSet().isWhiteList());
+        assertFalse(thriftValueSet.getEquatableValueSet().isInclusive());
         assertTrue(thriftValueSet.getEquatableValueSet().getValues().isEmpty());
     }
 
@@ -47,7 +47,7 @@ public class TestPrestoThriftEquatableValueSet
     {
         PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.none(JSON));
         assertNotNull(thriftValueSet.getEquatableValueSet());
-        assertTrue(thriftValueSet.getEquatableValueSet().isWhiteList());
+        assertTrue(thriftValueSet.getEquatableValueSet().isInclusive());
         assertTrue(thriftValueSet.getEquatableValueSet().getValues().isEmpty());
     }
 
@@ -56,7 +56,7 @@ public class TestPrestoThriftEquatableValueSet
     {
         PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.of(JSON, utf8Slice(JSON1), utf8Slice(JSON2)));
         assertNotNull(thriftValueSet.getEquatableValueSet());
-        assertTrue(thriftValueSet.getEquatableValueSet().isWhiteList());
+        assertTrue(thriftValueSet.getEquatableValueSet().isInclusive());
         assertEquals(thriftValueSet.getEquatableValueSet().getValues(), ImmutableList.of(
                 jsonData(new PrestoThriftJson(null, new int[] {JSON1.length()}, JSON1.getBytes(UTF_8))),
                 jsonData(new PrestoThriftJson(null, new int[] {JSON2.length()}, JSON2.getBytes(UTF_8)))));

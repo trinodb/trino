@@ -25,7 +25,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
@@ -35,7 +35,7 @@ public class TestTuple
     @Test
     public void testComparableTuple()
     {
-        List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, DOUBLE, DATE, TIMESTAMP);
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, DOUBLE, DATE, TIMESTAMP_MILLIS);
 
         Tuple tuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1112));
         Tuple equalToTuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1112));

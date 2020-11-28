@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.Type;
@@ -28,11 +29,10 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SetOperationNode;
 import io.prestosql.sql.planner.plan.UnionNode;
+import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.planner.plan.WindowNode.Specification;
 import io.prestosql.sql.tree.Cast;
-import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.GenericLiteral;
-import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.concat;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -50,26 +50,29 @@ import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.prestosql.sql.tree.WindowFrame.Type.ROWS;
 import static java.util.Objects.requireNonNull;
 
 public class SetOperationNodeTranslator
 {
     private static final String MARKER = "marker";
-    private static final Literal GENERIC_LITERAL = new GenericLiteral("BIGINT", "1");
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
-    private final ResolvedFunction countAggregation;
+    private final ResolvedFunction countFunction;
+    private final ResolvedFunction rowNumberFunction;
 
     public SetOperationNodeTranslator(Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "PlanNodeIdAllocator is null");
         requireNonNull(metadata, "metadata is null");
-        this.countAggregation = metadata.resolveFunction(QualifiedName.of("count"), fromTypes(BOOLEAN));
+        this.countFunction = metadata.resolveFunction(QualifiedName.of("count"), fromTypes(BOOLEAN));
+        this.rowNumberFunction = metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of());
     }
 
-    public TranslationResult makeSetContainmentPlan(SetOperationNode node)
+    public TranslationResult makeSetContainmentPlanForDistinct(SetOperationNode node)
     {
         checkArgument(!(node instanceof UnionNode), "Cannot simplify a UnionNode");
         List<Symbol> markers = allocateSymbols(node.getSources().size(), MARKER, BOOLEAN);
@@ -81,13 +84,36 @@ public class SetOperationNodeTranslator
         List<Symbol> outputs = node.getOutputSymbols();
         UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
 
-        // add count aggregations and filter rows where any of the counts is >= 1
+        // add count aggregations
         List<Symbol> aggregationOutputs = allocateSymbols(markers.size(), "count", BIGINT);
         AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
-        List<Expression> presentExpression = aggregationOutputs.stream()
-                .map(symbol -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbol.toSymbolReference(), GENERIC_LITERAL))
-                .collect(toImmutableList());
-        return new TranslationResult(aggregation, presentExpression);
+
+        return new TranslationResult(aggregation, aggregationOutputs);
+    }
+
+    public TranslationResult makeSetContainmentPlanForAll(SetOperationNode node)
+    {
+        checkArgument(!(node instanceof UnionNode), "Cannot simplify a UnionNode");
+        List<Symbol> markers = allocateSymbols(node.getSources().size(), MARKER, BOOLEAN);
+        // identity projection for all the fields in each of the sources plus marker columns
+        List<PlanNode> withMarkers = appendMarkers(markers, node.getSources(), node);
+
+        // add a union over all the rewritten sources
+        List<Symbol> outputs = node.getOutputSymbols();
+        UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
+
+        // add counts and row number
+        List<Symbol> countOutputs = allocateSymbols(markers.size(), "count", BIGINT);
+        Symbol rowNumberSymbol = symbolAllocator.newSymbol("row_number", BIGINT);
+        WindowNode window = appendCounts(union, outputs, markers, countOutputs, rowNumberSymbol);
+
+        // prune markers
+        ProjectNode project = new ProjectNode(
+                idAllocator.getNextId(),
+                window,
+                Assignments.identity(ImmutableList.copyOf(concat(outputs, countOutputs, ImmutableList.of(rowNumberSymbol)))));
+
+        return new TranslationResult(project, countOutputs, Optional.of(rowNumberSymbol));
     }
 
     private List<Symbol> allocateSymbols(int count, String nameHint, Type type)
@@ -145,7 +171,7 @@ public class SetOperationNodeTranslator
         for (int i = 0; i < markers.size(); i++) {
             Symbol output = aggregationOutputs.get(i);
             aggregations.put(output, new AggregationNode.Aggregation(
-                    countAggregation,
+                    countFunction,
                     ImmutableList.of(markers.get(i).toSymbolReference()),
                     false,
                     Optional.empty(),
@@ -163,15 +189,52 @@ public class SetOperationNodeTranslator
                 Optional.empty());
     }
 
+    private WindowNode appendCounts(UnionNode sourceNode, List<Symbol> originalColumns, List<Symbol> markers, List<Symbol> countOutputs, Symbol rowNumberSymbol)
+    {
+        ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
+        WindowNode.Frame defaultFrame = new WindowNode.Frame(ROWS, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), UNBOUNDED_FOLLOWING, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+
+        for (int i = 0; i < markers.size(); i++) {
+            Symbol output = countOutputs.get(i);
+            functions.put(output, new WindowNode.Function(
+                    countFunction,
+                    ImmutableList.of(markers.get(i).toSymbolReference()),
+                    defaultFrame,
+                    false));
+        }
+
+        functions.put(rowNumberSymbol, new WindowNode.Function(
+                rowNumberFunction,
+                ImmutableList.of(),
+                defaultFrame,
+                false));
+
+        return new WindowNode(
+                idAllocator.getNextId(),
+                sourceNode,
+                new Specification(originalColumns, Optional.empty()),
+                functions.build(),
+                Optional.empty(),
+                ImmutableSet.of(),
+                0);
+    }
+
     public static class TranslationResult
     {
         private final PlanNode planNode;
-        private final List<Expression> presentExpressions;
+        private final List<Symbol> countSymbols;
+        private final Optional<Symbol> rowNumberSymbol;
 
-        public TranslationResult(PlanNode planNode, List<Expression> presentExpressions)
+        public TranslationResult(PlanNode planNode, List<Symbol> countSymbols)
+        {
+            this(planNode, countSymbols, Optional.empty());
+        }
+
+        public TranslationResult(PlanNode planNode, List<Symbol> countSymbols, Optional<Symbol> rowNumberSymbol)
         {
             this.planNode = requireNonNull(planNode, "AggregationNode is null");
-            this.presentExpressions = ImmutableList.copyOf(requireNonNull(presentExpressions, "AggregationOutputs is null"));
+            this.countSymbols = ImmutableList.copyOf(requireNonNull(countSymbols, "countSymbols is null"));
+            this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         }
 
         public PlanNode getPlanNode()
@@ -179,9 +242,15 @@ public class SetOperationNodeTranslator
             return this.planNode;
         }
 
-        public List<Expression> getPresentExpressions()
+        public List<Symbol> getCountSymbols()
         {
-            return presentExpressions;
+            return countSymbols;
+        }
+
+        public Symbol getRowNumberSymbol()
+        {
+            checkState(rowNumberSymbol.isPresent(), "rowNumberSymbol is empty");
+            return rowNumberSymbol.get();
         }
     }
 }

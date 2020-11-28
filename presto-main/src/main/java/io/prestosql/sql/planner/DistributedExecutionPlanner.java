@@ -23,8 +23,7 @@ import io.prestosql.metadata.TableMetadata;
 import io.prestosql.metadata.TableProperties;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.server.DynamicFilterService;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.split.SampledSplitSource;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
@@ -70,12 +69,12 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
@@ -122,7 +121,9 @@ public class DistributedExecutionPlanner
         PlanFragment currentFragment = root.getFragment();
 
         // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
-        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(new Visitor(session, currentFragment.getStageExecutionDescriptor(), allSplitSources), null);
+        Map<PlanNodeId, SplitSource> splitSources = currentFragment.getRoot().accept(
+                new Visitor(session, currentFragment.getStageExecutionDescriptor(), TypeProvider.copyOf(currentFragment.getSymbols()), allSplitSources),
+                null);
 
         // create child stages
         ImmutableList.Builder<StageExecutionPlan> dependencies = ImmutableList.builder();
@@ -157,12 +158,18 @@ public class DistributedExecutionPlanner
     {
         private final Session session;
         private final StageExecutionDescriptor stageExecutionDescriptor;
+        private final TypeProvider typeProvider;
         private final ImmutableList.Builder<SplitSource> splitSources;
 
-        private Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor, ImmutableList.Builder<SplitSource> allSplitSources)
+        private Visitor(
+                Session session,
+                StageExecutionDescriptor stageExecutionDescriptor,
+                TypeProvider typeProvider,
+                ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
             this.stageExecutionDescriptor = stageExecutionDescriptor;
+            this.typeProvider = typeProvider;
             this.splitSources = allSplitSources;
         }
 
@@ -186,10 +193,10 @@ public class DistributedExecutionPlanner
                     .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
                     .orElse(ImmutableList.of());
 
-            Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier = TupleDomain::all;
+            DynamicFilter dynamicFilter = EMPTY;
             if (!dynamicFilters.isEmpty()) {
                 log.debug("Dynamic filters: %s", dynamicFilters);
-                dynamicFilterSupplier = dynamicFilterService.createDynamicFilterSupplier(session.getQueryId(), dynamicFilters, node.getAssignments());
+                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, node.getAssignments(), typeProvider);
             }
 
             // get dataSource for table
@@ -197,7 +204,7 @@ public class DistributedExecutionPlanner
                     session,
                     node.getTable(),
                     stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING,
-                    dynamicFilterSupplier);
+                    dynamicFilter);
 
             splitSources.add(splitSource);
 

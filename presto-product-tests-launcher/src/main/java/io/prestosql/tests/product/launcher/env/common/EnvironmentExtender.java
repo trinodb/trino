@@ -13,9 +13,20 @@
  */
 package io.prestosql.tests.product.launcher.env.common;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.env.Environment;
+
+import java.util.List;
 
 public interface EnvironmentExtender
 {
     void extendEnvironment(Environment.Builder builder);
+
+    /**
+     * First dependencies extend the environment, then this {@link EnvironmentExtender} is used.
+     */
+    default List<EnvironmentExtender> getDependencies()
+    {
+        return ImmutableList.of();
+    }
 }

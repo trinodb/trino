@@ -7,9 +7,9 @@ Preliminary Steps
 Ensure Access to GCS
 ^^^^^^^^^^^^^^^^^^^^
 
-Access to `Google Cloud Storage <https://cloud.google.com/storage/>`_
-data is possible thanks to the
-`Hadoop Cloud Storage connector <https://cloud.google.com/dataproc/docs/concepts/connectors/cloud-storage>`_.
+The :doc:`hive` can access
+`Google Cloud Storage <https://cloud.google.com/storage/>`_ data using the
+`Cloud Storage connector <https://cloud.google.com/dataproc/docs/concepts/connectors/cloud-storage>`_.
 
 If your data is publicly available, you do not need to do anything here.
 However, in most cases data is not publicly available, and the Presto cluster needs to have access to it.
@@ -28,32 +28,32 @@ The connector uses Hive metastore for data discovery and is not limited to data 
 
 * URL to Hive metastore:
 
-    * New Hive metastore on GCP:
+  * New Hive metastore on GCP:
 
-        If your Presto nodes are provisioned by GCP, your Hive metastore should also be on GCP
-        to minimize latency and costs. The simplest way to create a new Hive metastore on GCP
-        is to create a small Cloud DataProc cluster (1 master, 0 workers), accessible from
-        your Presto cluster. Follow the steps for existing Hive metastore after finishing this step.
+    If your Presto nodes are provisioned by GCP, your Hive metastore should also be on GCP
+    to minimize latency and costs. The simplest way to create a new Hive metastore on GCP
+    is to create a small Cloud DataProc cluster (1 master, 0 workers), accessible from
+    your Presto cluster. Follow the steps for existing Hive metastore after finishing this step.
 
-    * Existing Hive metastore:
+  * Existing Hive metastore:
 
-        To use an existing Hive metastore with a Presto cluster, you need to set the
-        ``hive.metastore.uri`` property in your Hive catalog properties file to
-        ``thrift://${METASTORE_ADDRESS}:${METASTORE_THRIFT_PORT}``.
-        If the metastore uses authentication, please refer to :doc:`hive-security`.
+    To use an existing Hive metastore with a Presto cluster, you need to set the
+    ``hive.metastore.uri`` property in your Hive catalog properties file to
+    ``thrift://${METASTORE_ADDRESS}:${METASTORE_THRIFT_PORT}``.
+    If the metastore uses authentication, please refer to :doc:`hive-security`.
 
 * GCS access:
 
-    Here are example values for all GCS configuration properties which can be set in Hive
-    catalog properties file:
+  Here are example values for all GCS configuration properties which can be set in Hive
+  catalog properties file:
 
-    .. code-block:: properties
+  .. code-block:: properties
 
-        # JSON key file used to access Google Cloud Storage
-        hive.gcs.json-key-file-path=/path/to/gcs_keyfile.json
+      # JSON key file used to access Google Cloud Storage
+      hive.gcs.json-key-file-path=/path/to/gcs_keyfile.json
 
-        # Use client-provided OAuth token to access Google Cloud Storage
-        hive.gcs.use-access-token=false
+      # Use client-provided OAuth token to access Google Cloud Storage
+      hive.gcs.use-access-token=false
 
 Hive Metastore configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

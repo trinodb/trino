@@ -26,18 +26,22 @@ import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.orc.TupleDomainOrcPredicate;
 import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
-import io.prestosql.plugin.hive.DeleteDeltaLocations;
+import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveColumnProjectionInfo;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
-import io.prestosql.plugin.hive.ReaderProjections;
+import io.prestosql.plugin.hive.ReaderColumns;
+import io.prestosql.plugin.hive.ReaderPageSource;
+import io.prestosql.plugin.hive.acid.AcidSchema;
+import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
@@ -57,12 +61,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -77,7 +83,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections.noProjectionAdaptation;
+import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcMaxMergeDistance;
@@ -87,7 +93,7 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcTinyStripeThr
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
-import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
+import static io.prestosql.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -97,65 +103,70 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
 
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
-    // ACID format column names
-    public static final String ACID_COLUMN_OPERATION = "operation";
-    public static final String ACID_COLUMN_ORIGINAL_TRANSACTION = "originalTransaction";
-    public static final String ACID_COLUMN_BUCKET = "bucket";
-    public static final String ACID_COLUMN_ROW_ID = "rowId";
-    public static final String ACID_COLUMN_CURRENT_TRANSACTION = "currentTransaction";
-    public static final String ACID_COLUMN_ROW_STRUCT = "row";
-
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final OrcReaderOptions orcReaderOptions;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final DateTimeZone legacyTimeZone;
 
     @Inject
-    public OrcPageSourceFactory(OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public OrcPageSourceFactory(OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
     {
-        this(config.toOrcReaderOptions(), hdfsEnvironment, stats);
+        this(config.toOrcReaderOptions(), hdfsEnvironment, stats, requireNonNull(hiveConfig, "hiveConfig is null").getOrcLegacyDateTimeZone());
     }
 
     public OrcPageSourceFactory(
             OrcReaderOptions orcReaderOptions,
             HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            DateTimeZone legacyTimeZone)
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.legacyTimeZone = legacyTimeZone;
     }
 
     @Override
-    public Optional<ReaderPageSourceWithProjections> createPageSource(
+    public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
         }
 
         // per HIVE-13040 and ORC-162, empty files are allowed
-        if (fileSize == 0) {
-            ReaderPageSourceWithProjections context = noProjectionAdaptation(new FixedPageSource(ImmutableList.of()));
+        if (estimatedFileSize == 0) {
+            ReaderPageSource context = noProjectionAdaptation(new EmptyPageSource());
             return Optional.of(context);
         }
 
-        Optional<ReaderProjections> projectedReaderColumns = projectBaseColumns(columns);
+        List<HiveColumnHandle> readerColumnHandles = columns;
+
+        Optional<ReaderColumns> readerColumns = projectBaseColumns(columns);
+        if (readerColumns.isPresent()) {
+            readerColumnHandles = readerColumns.get().get().stream()
+                    .map(HiveColumnHandle.class::cast)
+                    .collect(toUnmodifiableList());
+        }
 
         ConnectorPageSource orcPageSource = createOrcPageSource(
                 hdfsEnvironment,
@@ -164,15 +175,13 @@ public class OrcPageSourceFactory
                 path,
                 start,
                 length,
-                fileSize,
-                projectedReaderColumns
-                        .map(ReaderProjections::getReaderColumns)
-                        .orElse(columns),
+                estimatedFileSize,
+                readerColumnHandles,
                 columns,
                 isUseOrcColumnNames(session),
                 isFullAcidTable(Maps.fromProperties(schema)),
                 effectivePredicate,
-                hiveStorageTimeZone,
+                legacyTimeZone,
                 orcReaderOptions
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))
                         .withMaxBufferSize(getOrcMaxBufferSize(session))
@@ -182,28 +191,34 @@ public class OrcPageSourceFactory
                         .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
                         .withNestedLazy(isOrcNestedLazy(session))
                         .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
-                deleteDeltaLocations,
+                acidInfo,
+                bucketNumber,
+                originalFile,
+                transaction,
                 stats);
 
-        return Optional.of(new ReaderPageSourceWithProjections(orcPageSource, projectedReaderColumns));
+        return Optional.of(new ReaderPageSource(orcPageSource, readerColumns));
     }
 
-    private static OrcPageSource createOrcPageSource(
+    private static ConnectorPageSource createOrcPageSource(
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
             Configuration configuration,
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             List<HiveColumnHandle> columns,
             List<HiveColumnHandle> projections,
             boolean useOrcColumnNames,
             boolean isFullAcid,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone legacyFileTimeZone,
             OrcReaderOptions options,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations,
+            Optional<AcidInfo> acidInfo,
+            OptionalInt bucketNumber,
+            boolean originalFile,
+            AcidTransaction transaction,
             FileFormatDataSourceStats stats)
     {
         for (HiveColumnHandle column : columns) {
@@ -212,12 +227,14 @@ public class OrcPageSourceFactory
         checkArgument(!effectivePredicate.isNone());
 
         OrcDataSource orcDataSource;
+
+        boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
-                    fileSize,
+                    estimatedFileSize,
                     options,
                     inputStream,
                     stats);
@@ -232,27 +249,32 @@ public class OrcPageSourceFactory
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, options);
+            Optional<OrcReader> optionalOrcReader = OrcReader.createOrcReader(orcDataSource, options);
+            if (optionalOrcReader.isEmpty()) {
+                return new EmptyPageSource();
+            }
+            OrcReader reader = optionalOrcReader.get();
 
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
-            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
-            List<Type> fileReadTypes = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
-            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
-            if (isFullAcid) {
+            int actualColumnCount = columns.size() + (isFullAcid ? 3 : 0);
+            List<OrcColumn> fileReadColumns = new ArrayList<>(actualColumnCount);
+            List<Type> fileReadTypes = new ArrayList<>(actualColumnCount);
+            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>(actualColumnCount);
+            if (isFullAcid && !originalFilesPresent) {
                 verifyAcidSchema(reader, path);
                 Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
-                fileColumns = acidColumnsByName.get(ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH)).getNestedColumns();
+                fileColumns = acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH)).getNestedColumns();
 
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)));
+                fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)));
                 fileReadTypes.add(BIGINT);
                 fileReadLayouts.add(fullyProjectedLayout());
 
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)));
+                fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
+                fileReadTypes.add(BIGINT);
+                fileReadLayouts.add(fullyProjectedLayout());
+
+                fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)));
                 fileReadTypes.add(INTEGER);
-                fileReadLayouts.add(fullyProjectedLayout());
-
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
-                fileReadTypes.add(BIGINT);
                 fileReadLayouts.add(fullyProjectedLayout());
             }
 
@@ -341,25 +363,49 @@ public class OrcPageSourceFactory
                     predicateBuilder.build(),
                     start,
                     length,
-                    hiveStorageTimeZone,
+                    legacyFileTimeZone,
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSource.getId(), exception));
 
-            Optional<OrcDeletedRows> deletedRows = deleteDeltaLocations.map(locations ->
+            Optional<OrcDeletedRows> deletedRows = acidInfo.map(info ->
                     new OrcDeletedRows(
                             path.getName(),
                             new OrcDeleteDeltaPageSourceFactory(options, sessionUser, configuration, hdfsEnvironment, stats),
                             sessionUser,
                             configuration,
                             hdfsEnvironment,
-                            locations));
+                            info));
+
+            Optional<Long> originalFileRowId = acidInfo
+                    .filter(OrcPageSourceFactory::hasOriginalFilesAndDeleteDeltas)
+                    // TODO reduce number of file footer accesses. Currently this is quadratic to the number of original files.
+                    .map(info -> OriginalFilesUtils.getPrecedingRowCount(
+                            acidInfo.get().getOriginalFiles(),
+                            path,
+                            hdfsEnvironment,
+                            sessionUser,
+                            options,
+                            configuration,
+                            stats));
+
+            if (transaction.isDelete()) {
+                if (originalFile) {
+                    int bucket = bucketNumber.orElse(0);
+                    long startingRowId = originalFileRowId.orElse(0L);
+                    columnAdaptations.add(ColumnAdaptation.originalFileRowIdColumn(startingRowId, bucket));
+                }
+                else {
+                    columnAdaptations.add(ColumnAdaptation.rowIdColumn());
+                }
+            }
 
             return new OrcPageSource(
                     recordReader,
                     columnAdaptations,
                     orcDataSource,
                     deletedRows,
+                    originalFileRowId,
                     systemMemoryUsage,
                     stats);
         }
@@ -380,6 +426,11 @@ public class OrcPageSourceFactory
         }
     }
 
+    private static boolean hasOriginalFilesAndDeleteDeltas(AcidInfo acidInfo)
+    {
+        return !acidInfo.getDeleteDeltas().isEmpty() && !acidInfo.getOriginalFiles().isEmpty();
+    }
+
     private static String splitError(Throwable t, Path path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
@@ -397,15 +448,24 @@ public class OrcPageSourceFactory
     static void verifyAcidSchema(OrcReader orcReader, Path path)
     {
         OrcColumn rootColumn = orcReader.getRootColumn();
-        if (rootColumn.getNestedColumns().size() != 6) {
-            throw new PrestoException(HIVE_BAD_DATA, "ORC ACID file should have 6 columns: " + path);
+        List<OrcColumn> nestedColumns = rootColumn.getNestedColumns();
+        if (nestedColumns.size() != 6) {
+            throw new PrestoException(
+                    HIVE_BAD_DATA,
+                    format(
+                            "ORC ACID file should have 6 columns, found %s %s in %s",
+                            nestedColumns.size(),
+                            nestedColumns.stream()
+                                    .map(column -> format("%s (%s)", column.getColumnName(), column.getColumnType()))
+                                    .collect(toImmutableList()),
+                            path));
         }
-        verifyAcidColumn(orcReader, 0, ACID_COLUMN_OPERATION, INT, path);
-        verifyAcidColumn(orcReader, 1, ACID_COLUMN_ORIGINAL_TRANSACTION, LONG, path);
-        verifyAcidColumn(orcReader, 2, ACID_COLUMN_BUCKET, INT, path);
-        verifyAcidColumn(orcReader, 3, ACID_COLUMN_ROW_ID, LONG, path);
-        verifyAcidColumn(orcReader, 4, ACID_COLUMN_CURRENT_TRANSACTION, LONG, path);
-        verifyAcidColumn(orcReader, 5, ACID_COLUMN_ROW_STRUCT, STRUCT, path);
+        verifyAcidColumn(orcReader, 0, AcidSchema.ACID_COLUMN_OPERATION, INT, path);
+        verifyAcidColumn(orcReader, 1, AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION, LONG, path);
+        verifyAcidColumn(orcReader, 2, AcidSchema.ACID_COLUMN_BUCKET, INT, path);
+        verifyAcidColumn(orcReader, 3, AcidSchema.ACID_COLUMN_ROW_ID, LONG, path);
+        verifyAcidColumn(orcReader, 4, AcidSchema.ACID_COLUMN_CURRENT_TRANSACTION, LONG, path);
+        verifyAcidColumn(orcReader, 5, AcidSchema.ACID_COLUMN_ROW_STRUCT, STRUCT, path);
     }
 
     private static void verifyAcidColumn(OrcReader orcReader, int columnIndex, String columnName, OrcTypeKind columnType, Path path)

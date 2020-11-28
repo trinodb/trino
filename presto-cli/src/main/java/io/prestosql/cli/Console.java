@@ -15,12 +15,12 @@ package io.prestosql.cli;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.airline.Command;
-import io.airlift.airline.HelpOption;
+import com.google.common.io.ByteStreams;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
 import io.prestosql.cli.ClientOptions.OutputFormat;
+import io.prestosql.cli.Presto.VersionProvider;
 import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.ClientSession;
 import io.prestosql.sql.parser.StatementSplitter;
@@ -31,8 +31,9 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedStringBuilder;
-
-import javax.inject.Inject;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,6 +45,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -58,6 +60,7 @@ import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterrup
 import static io.prestosql.cli.Completion.commandCompleter;
 import static io.prestosql.cli.Help.getHelpText;
 import static io.prestosql.cli.QueryPreprocessor.preprocessQuery;
+import static io.prestosql.cli.TerminalUtils.isRealTerminal;
 import static io.prestosql.client.ClientSession.stripTransactionId;
 import static io.prestosql.sql.parser.StatementSplitter.Statement;
 import static io.prestosql.sql.parser.StatementSplitter.isEmptyStatement;
@@ -70,22 +73,35 @@ import static org.jline.terminal.TerminalBuilder.terminal;
 import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
-@Command(name = "presto", description = "Presto command line interface")
+@Command(
+        name = "presto",
+        header = "Presto command line interface",
+        synopsisHeading = "%nUSAGE:%n%n",
+        optionListHeading = "%nOPTIONS:%n",
+        usageHelpAutoWidth = true,
+        versionProvider = VersionProvider.class)
 public class Console
+        implements Callable<Integer>
 {
     public static final Set<String> STATEMENT_DELIMITERS = ImmutableSet.of(";", "\\G");
 
     private static final String PROMPT_NAME = "presto";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
 
-    @Inject
-    public HelpOption helpOption;
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
 
-    @Inject
-    public VersionOption versionOption = new VersionOption();
+    @Option(names = "--version", versionHelp = true, description = "Print version information and exit")
+    public boolean versionInfoRequested;
 
-    @Inject
-    public ClientOptions clientOptions = new ClientOptions();
+    @Mixin
+    public ClientOptions clientOptions;
+
+    @Override
+    public Integer call()
+    {
+        return run() ? 0 : 1;
+    }
 
     public boolean run()
     {
@@ -113,6 +129,22 @@ public class Console
             }
         }
 
+        // Read queries from stdin
+        if (!hasQuery && !isRealTerminal()) {
+            try {
+                if (System.in.available() > 0) {
+                    query = new String(ByteStreams.toByteArray(System.in), terminal().encoding()) + ";";
+
+                    if (query.length() > 1) {
+                        hasQuery = true;
+                    }
+                }
+            }
+            catch (IOException e) {
+                // ignored
+            }
+        }
+
         // abort any running query if the CLI is terminated
         AtomicBoolean exiting = new AtomicBoolean();
         ThreadInterruptor interruptor = new ThreadInterruptor();
@@ -130,8 +162,10 @@ public class Console
                 Optional.ofNullable(clientOptions.httpProxy),
                 Optional.ofNullable(clientOptions.keystorePath),
                 Optional.ofNullable(clientOptions.keystorePassword),
+                Optional.ofNullable(clientOptions.keystoreType),
                 Optional.ofNullable(clientOptions.truststorePath),
                 Optional.ofNullable(clientOptions.truststorePassword),
+                Optional.ofNullable(clientOptions.truststoreType),
                 clientOptions.insecure,
                 Optional.ofNullable(clientOptions.accessToken),
                 Optional.ofNullable(clientOptions.user),

@@ -26,18 +26,16 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 
 import java.io.IOException;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.StandardTypes.JSON;
-import static io.prestosql.type.Timestamps.formatTimestamp;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.formatTimestamp;
 import static io.prestosql.util.JsonUtil.JSON_FACTORY;
 import static io.prestosql.util.JsonUtil.createJsonGenerator;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 
 @ScalarOperator(CAST)
 public final class TimestampToJsonCast
@@ -50,29 +48,14 @@ public final class TimestampToJsonCast
     @SqlType(JSON)
     public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
     {
-        long epochMicros = timestamp;
-        if (precision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(timestamp);
-        }
-
-        ZoneId zoneId = ZoneOffset.UTC;
-        if (session.isLegacyTimestamp()) {
-            zoneId = session.getTimeZoneKey().getZoneId();
-        }
-
-        return toJson(formatTimestamp((int) precision, epochMicros, 0, zoneId, TIMESTAMP_FORMATTER));
+        return toJson(formatTimestamp((int) precision, timestamp, 0, UTC, TIMESTAMP_FORMATTER));
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType(JSON)
     public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        ZoneId zoneId = ZoneOffset.UTC;
-        if (session.isLegacyTimestamp()) {
-            zoneId = session.getTimeZoneKey().getZoneId();
-        }
-
-        return toJson(formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), zoneId, TIMESTAMP_FORMATTER));
+        return toJson(formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), UTC, TIMESTAMP_FORMATTER));
     }
 
     private static Slice toJson(String formatted)
