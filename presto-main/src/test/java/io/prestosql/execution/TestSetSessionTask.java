@@ -162,9 +162,9 @@ public class TestSetSessionTask
     {
         assertThatThrownBy(() -> testSetSession("size_property", new StringLiteral("XL"), "XL"))
                 .isInstanceOf(PrestoException.class)
-                .hasMessage("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]")
-                .matches(throwable -> ((PrestoException) throwable).getErrorCode() == INVALID_SESSION_PROPERTY.toErrorCode());
+                .hasMessage("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]");
     }
+
 
     @Test
     public void testSetSessionWithParameters()
