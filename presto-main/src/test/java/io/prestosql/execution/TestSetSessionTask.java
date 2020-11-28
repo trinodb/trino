@@ -152,17 +152,20 @@ public class TestSetSessionTask
     {
         testSetSession("positive_property", new LongLiteral("0"), "0");
         testSetSession("positive_property", new LongLiteral("2"), "2");
-        assertThatThrownBy(() -> testSetSession("positive_property", new LongLiteral("-1"), "-1"))
-                .isInstanceOf(PrestoException.class)
-                .hasMessage(MUST_BE_POSITIVE);
+        assertThatThrownBy(() -> {
+            testSetSession("positive_property", new LongLiteral("-1"), "-1");
+            fail();
+        }).isInstanceOf(PrestoException.class).hasMessage(MUST_BE_POSITIVE);
     }
 
     @Test
     public void testSetSessionWithInvalidEnum()
     {
-        assertThatThrownBy(() -> testSetSession("size_property", new StringLiteral("XL"), "XL"))
-                .isInstanceOf(PrestoException.class)
-                .hasMessage("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]");
+        assertThatThrownBy(() -> {
+            testSetSession("size_property", new StringLiteral("XL"), "XL");
+            fail();
+        }).isInstanceOf(PrestoException.class).
+                hasMessage("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]");
     }
 
 
