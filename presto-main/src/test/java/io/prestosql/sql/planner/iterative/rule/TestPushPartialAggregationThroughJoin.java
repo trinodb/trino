@@ -67,7 +67,6 @@ public class TestPushPartialAggregationThroughJoin
                                 aggregation(
                                         singleGroupingSet("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_HASH"),
                                         ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("LEFT_AGGR"))),
-                                        ImmutableMap.of(),
                                         Optional.empty(),
                                         PARTIAL,
                                         values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR", "LEFT_HASH")),

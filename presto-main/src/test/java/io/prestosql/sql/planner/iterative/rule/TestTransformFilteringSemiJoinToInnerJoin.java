@@ -66,7 +66,6 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                 aggregation(
                                         singleGroupingSet("b"),
                                         ImmutableMap.of(),
-                                        ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
                                         values("b")))));
@@ -101,7 +100,6 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                                 values("a"),
                                 aggregation(
                                         singleGroupingSet("b"),
-                                        ImmutableMap.of(),
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,

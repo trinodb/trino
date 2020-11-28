@@ -115,12 +115,10 @@ public class TestSingleDistinctAggregationToGroupBy
                                 ImmutableMap.of(
                                         Optional.of("output"),
                                         functionCall("count", ImmutableList.of("input"))),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 aggregation(
                                         singleGroupingSet("input"),
-                                        ImmutableMap.of(),
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
@@ -144,12 +142,10 @@ public class TestSingleDistinctAggregationToGroupBy
                                         .put(Optional.of("output1"), functionCall("count", ImmutableList.of("input")))
                                         .put(Optional.of("output2"), functionCall("sum", ImmutableList.of("input")))
                                         .build(),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 aggregation(
                                         singleGroupingSet("input"),
-                                        ImmutableMap.of(),
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
@@ -173,12 +169,10 @@ public class TestSingleDistinctAggregationToGroupBy
                                         .put(Optional.of("output1"), functionCall("corr", ImmutableList.of("x", "y")))
                                         .put(Optional.of("output2"), functionCall("corr", ImmutableList.of("y", "x")))
                                         .build(),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 aggregation(
                                         singleGroupingSet("x", "y"),
-                                        ImmutableMap.of(),
                                         ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,

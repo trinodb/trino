@@ -72,14 +72,12 @@ public class TestAddIntermediateAggregations
                         aggregation(
                                 globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
@@ -87,14 +85,12 @@ public class TestAddIntermediateAggregations
                                                                 aggregation(
                                                                         globalAggregation(),
                                                                         ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                                        ImmutableMap.of(),
                                                                         Optional.empty(),
                                                                         INTERMEDIATE,
                                                                         exchange(LOCAL, GATHER,
                                                                                 aggregation(
                                                                                         globalAggregation(),
                                                                                         ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                                                        ImmutableMap.of(),
                                                                                         Optional.empty(),
                                                                                         PARTIAL,
                                                                                         values(ImmutableMap.of("a", 0)))))))))));
@@ -127,14 +123,12 @@ public class TestAddIntermediateAggregations
                         aggregation(
                                 globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), partialInputCount),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), partialInputCount),
-                                                ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
@@ -142,14 +136,12 @@ public class TestAddIntermediateAggregations
                                                                 aggregation(
                                                                         globalAggregation(),
                                                                         ImmutableMap.of(Optional.empty(), partialInputCount),
-                                                                        ImmutableMap.of(),
                                                                         Optional.empty(),
                                                                         INTERMEDIATE,
                                                                         exchange(LOCAL, GATHER,
                                                                                 aggregation(
                                                                                         globalAggregation(),
                                                                                         ImmutableMap.of(Optional.empty(), rawInputCount),
-                                                                                        ImmutableMap.of(),
                                                                                         Optional.empty(),
                                                                                         PARTIAL,
                                                                                         values(ImmutableMap.of("a", 0)))))))))));
@@ -182,14 +174,12 @@ public class TestAddIntermediateAggregations
                         aggregation(
                                 globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
@@ -198,14 +188,12 @@ public class TestAddIntermediateAggregations
                                                                         aggregation(
                                                                                 globalAggregation(),
                                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                                                ImmutableMap.of(),
                                                                                 Optional.empty(),
                                                                                 INTERMEDIATE,
                                                                                 exchange(LOCAL, GATHER,
                                                                                         aggregation(
                                                                                                 globalAggregation(),
                                                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                                                                ImmutableMap.of(),
                                                                                                 Optional.empty(),
                                                                                                 PARTIAL,
                                                                                                 values(ImmutableMap.of("a", 0))))))))))));
@@ -258,21 +246,18 @@ public class TestAddIntermediateAggregations
                         aggregation(
                                 globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
                                 exchange(REMOTE, GATHER,
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, GATHER,
                                                         aggregation(
                                                                 globalAggregation(),
                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                                ImmutableMap.of(),
                                                                 Optional.empty(),
                                                                 PARTIAL,
                                                                 values(ImmutableMap.of("a", 0))))))));
@@ -327,14 +312,12 @@ public class TestAddIntermediateAggregations
                         aggregation(
                                 globalAggregation(),
                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 FINAL,
                                 exchange(LOCAL, GATHER,
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                ImmutableMap.of(),
                                                 Optional.empty(),
                                                 INTERMEDIATE,
                                                 exchange(LOCAL, REPARTITION,
@@ -343,14 +326,12 @@ public class TestAddIntermediateAggregations
                                                                         aggregation(
                                                                                 globalAggregation(),
                                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                                                ImmutableMap.of(),
                                                                                 Optional.empty(),
                                                                                 INTERMEDIATE,
                                                                                 exchange(LOCAL, GATHER,
                                                                                         aggregation(
                                                                                                 globalAggregation(),
                                                                                                 ImmutableMap.of(Optional.empty(), aggregationPattern),
-                                                                                                ImmutableMap.of(),
                                                                                                 Optional.empty(),
                                                                                                 PARTIAL,
                                                                                                 values(ImmutableMap.of("a", 0))))))))))));

@@ -82,9 +82,9 @@ public class TestOptimizeMixedDistinctAggregations
         groups.add(ImmutableList.of(groupBy, aggregate));
         groups.add(ImmutableList.of(groupBy, distinctAggregation));
         PlanMatchPattern expectedPlanPattern = anyTree(
-                aggregation(singleGroupingSet(groupByKeysSecond), aggregationsSecond, ImmutableMap.of(), Optional.empty(), SINGLE,
+                aggregation(singleGroupingSet(groupByKeysSecond), aggregationsSecond, Optional.empty(), SINGLE,
                         project(
-                                aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(), SINGLE,
+                                aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, Optional.empty(), SINGLE,
                                         groupId(groups.build(), group,
                                                 tableScan)))));
 
