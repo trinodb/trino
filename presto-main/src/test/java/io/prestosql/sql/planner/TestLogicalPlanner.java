@@ -761,7 +761,6 @@ public class TestLogicalPlanner
                                 singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 node(JoinNode.class,
@@ -780,7 +779,6 @@ public class TestLogicalPlanner
                                 singleGroupingSet("n_name", "n_regionkey", "unique"),
                                 ImmutableMap.of(Optional.of("max"), functionCall("max", ImmutableList.of("r_name"))),
                                 ImmutableList.of("n_name", "n_regionkey", "unique"),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 node(JoinNode.class,
@@ -804,7 +802,6 @@ public class TestLogicalPlanner
                                 singleGroupingSet("o_orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
                                 ImmutableList.of("o_orderkey"), // streaming
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 join(INNER, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")),
@@ -820,7 +817,6 @@ public class TestLogicalPlanner
                                 singleGroupingSet("o_orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
                                 ImmutableList.of("o_orderkey"), // streaming
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 join(LEFT, ImmutableList.of(equiJoinClause("o_orderkey", "l_orderkey")),
@@ -836,7 +832,6 @@ public class TestLogicalPlanner
                                 singleGroupingSet("orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
                                 ImmutableList.of(), // not streaming
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 SINGLE,
                                 join(INNER, ImmutableList.of(),
@@ -1128,7 +1123,6 @@ public class TestLogicalPlanner
                                 project(
                                         aggregation(
                                                 singleGroupingSet("CUSTOMER_CUSTKEY"),
-                                                ImmutableMap.of(),
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 FINAL,

@@ -72,14 +72,12 @@ public class TestPushAggregationThroughOuterJoin
                                                 aggregation(
                                                         singleGroupingSet("COL2"),
                                                         ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("COL2"))),
-                                                        ImmutableMap.of(),
                                                         Optional.empty(),
                                                         SINGLE,
                                                         values(ImmutableMap.of("COL2", 0)))),
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.of("AVG_NULL"), functionCall("avg", ImmutableList.of("null_literal"))),
-                                                ImmutableMap.of(),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 values(ImmutableMap.of("null_literal", 0))))));
@@ -111,7 +109,6 @@ public class TestPushAggregationThroughOuterJoin
                                                 aggregation(
                                                         singleGroupingSet("COL2"),
                                                         ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("COL2"))),
-                                                        ImmutableMap.of(),
                                                         Optional.empty(),
                                                         SINGLE,
                                                         values(ImmutableMap.of("COL2", 0))),
@@ -120,7 +117,6 @@ public class TestPushAggregationThroughOuterJoin
                                                 globalAggregation(),
                                                 ImmutableMap.of(
                                                         Optional.of("AVG_NULL"), functionCall("avg", ImmutableList.of("null_literal"))),
-                                                ImmutableMap.of(),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 values(ImmutableMap.of("null_literal", 0))))));
@@ -154,14 +150,12 @@ public class TestPushAggregationThroughOuterJoin
                                                 aggregation(
                                                         singleGroupingSet("COL2"),
                                                         ImmutableMap.of(Optional.of("COUNT"), functionCall("count", ImmutableList.of())),
-                                                        ImmutableMap.of(),
                                                         Optional.empty(),
                                                         SINGLE,
                                                         values(ImmutableMap.of("COL2", 0)))),
                                         aggregation(
                                                 globalAggregation(),
                                                 ImmutableMap.of(Optional.of("COUNT_NULL"), functionCall("count", ImmutableList.of())),
-                                                ImmutableMap.of(),
                                                 Optional.empty(),
                                                 SINGLE,
                                                 values(ImmutableMap.of("null_literal", 0))))));

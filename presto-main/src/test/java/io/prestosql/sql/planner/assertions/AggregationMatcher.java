@@ -23,13 +23,13 @@ import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.MatchResult.match;
 
@@ -37,12 +37,12 @@ public class AggregationMatcher
         implements Matcher
 {
     private final PlanMatchPattern.GroupingSetDescriptor groupingSets;
-    private final Map<Symbol, Symbol> masks;
+    private final List<String> masks;
     private final List<String> preGroupedSymbols;
     private final Optional<Symbol> groupId;
     private final Step step;
 
-    public AggregationMatcher(PlanMatchPattern.GroupingSetDescriptor groupingSets, List<String> preGroupedSymbols, Map<Symbol, Symbol> masks, Optional<Symbol> groupId, Step step)
+    public AggregationMatcher(PlanMatchPattern.GroupingSetDescriptor groupingSets, List<String> preGroupedSymbols, List<String> masks, Optional<Symbol> groupId, Step step)
     {
         this.groupingSets = groupingSets;
         this.masks = masks;
@@ -79,21 +79,17 @@ public class AggregationMatcher
             return NO_MATCH;
         }
 
-        List<Symbol> aggregationsWithMask = aggregationNode.getAggregations()
-                .entrySet()
-                .stream()
-                .filter(entry -> entry.getValue().isDistinct())
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
+        Set<Symbol> actualMasks = aggregationNode.getAggregations().values().stream()
+                .filter(aggregation -> aggregation.getMask().isPresent())
+                .map(aggregation -> aggregation.getMask().get())
+                .collect(toImmutableSet());
 
-        if (aggregationsWithMask.size() != masks.keySet().size()) {
+        Set<Symbol> expectedMasks = masks.stream()
+                .map(name -> new Symbol(symbolAliases.get(name).getName()))
+                .collect(toImmutableSet());
+
+        if (!actualMasks.equals(expectedMasks)) {
             return NO_MATCH;
-        }
-
-        for (Symbol symbol : aggregationsWithMask) {
-            if (!masks.containsKey(symbol)) {
-                return NO_MATCH;
-            }
         }
 
         if (step != aggregationNode.getStep()) {

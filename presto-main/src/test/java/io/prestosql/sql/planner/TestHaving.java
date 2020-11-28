@@ -37,7 +37,6 @@ public class TestHaving
                         aggregation(
                                 globalAggregation(),
                                 ImmutableMap.of(),
-                                ImmutableMap.of(),
                                 Optional.empty(),
                                 AggregationNode.Step.SINGLE,
                                 values())));
