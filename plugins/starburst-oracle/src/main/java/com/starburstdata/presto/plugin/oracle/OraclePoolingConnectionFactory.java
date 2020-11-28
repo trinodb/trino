@@ -16,6 +16,7 @@ import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.plugin.oracle.OracleConfig;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolAdapter;
 import oracle.ucp.UniversalConnectionPoolException;
@@ -117,13 +118,13 @@ public class OraclePoolingConnectionFactory
     }
 
     @Override
-    public Connection openConnection(JdbcIdentity identity)
+    public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
         Connection connection;
 
         if (authenticationType == PASSWORD_PASS_THROUGH) {
-            connection = getPassThroughConnection(identity);
+            connection = getPassThroughConnection(session);
         }
         else {
             connection = dataSource.getConnection();
@@ -134,9 +135,10 @@ public class OraclePoolingConnectionFactory
         return connection;
     }
 
-    private Connection getPassThroughConnection(JdbcIdentity identity)
+    private Connection getPassThroughConnection(ConnectorSession session)
             throws SQLException
     {
+        JdbcIdentity identity = JdbcIdentity.from(session);
         String username = identity.getExtraCredentials().getOrDefault(USERNAME_PASSTHROUGH_CREDENTIAL, "");
         String password = identity.getExtraCredentials().getOrDefault(PASSWORD_PASSTHROUGH_CREDENTIAL, "");
 

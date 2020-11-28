@@ -22,7 +22,6 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
@@ -173,10 +172,10 @@ public class StarburstOracleClient
     }
 
     @Override
-    public OracleConnection getConnection(JdbcIdentity identity, JdbcSplit split)
+    public OracleConnection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException
     {
-        OracleConnection connection = (OracleConnection) super.getConnection(identity, split);
+        OracleConnection connection = (OracleConnection) super.getConnection(session, split);
         try {
             connection.setDefaultRowPrefetch(DEFAULT_ROW_FETCH_SIZE);
         }
@@ -188,13 +187,13 @@ public class StarburstOracleClient
     }
 
     @Override
-    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName().toUpperCase(ENGLISH))) {
             throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
         }
 
-        super.renameTable(identity, catalogName, schemaName, tableName, newTable);
+        super.renameTable(session, catalogName, schemaName, tableName, newTable);
     }
 
     @Override
@@ -211,7 +210,7 @@ public class StarburstOracleClient
         // this method was used when setIncludeSynonym(false) is set, then openProxySession is also working as expected
         // Forcing is done by using wildcard '%' at the end of table name. And so we have to filter rows with columns from other tables.
         // Whenever you change this method make sure TestOracleIntegrationSmokeTest.testGetColumns covers your changes.
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+        try (Connection connection = connectionFactory.openConnection(session)) {
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData(), "%")) {
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
@@ -297,7 +296,7 @@ public class StarburstOracleClient
 
     @Override
     // TODO: migrate to OSS?
-    public void dropSchema(JdbcIdentity identity, String schemaName)
+    public void dropSchema(ConnectorSession sessiony, String schemaName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
@@ -322,7 +321,7 @@ public class StarburstOracleClient
             return Optional.empty();
         }
 
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
+        try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
             StatisticsDao statisticsDao = new StatisticsDao(handle);
 

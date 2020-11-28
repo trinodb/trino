@@ -13,7 +13,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -70,12 +69,12 @@ public class AnalyzeProcedure
             throws PrestoException
     {
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
-        Optional<JdbcTableHandle> tableHandle = client.getTableHandle(JdbcIdentity.from(session), schemaTableName);
+        Optional<JdbcTableHandle> tableHandle = client.getTableHandle(session, schemaTableName);
         if (tableHandle.isEmpty()) {
             throw new TableNotFoundException(schemaTableName);
         }
 
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
+        try (Connection connection = connectionFactory.openConnection(session);
                 CallableStatement statement = connection.prepareCall("{CALL DBMS_STATS.GATHER_TABLE_STATS(?, ?)}")) {
             statement.setString(1, schemaName);
             statement.setString(2, tableName);

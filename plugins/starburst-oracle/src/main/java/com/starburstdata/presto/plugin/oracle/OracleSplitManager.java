@@ -16,7 +16,6 @@ import com.google.common.math.IntMath;
 import com.starburstdata.presto.license.LicenseManager;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -78,7 +77,7 @@ public class OracleSplitManager
             DynamicFilter dynamicFilter)
     {
         return new FixedSplitSource(listSplits(
-                JdbcIdentity.from(session),
+                session,
                 (JdbcTableHandle) table,
                 getParallelismType(session),
                 getMaxSplitsPerScan(session),
@@ -88,7 +87,7 @@ public class OracleSplitManager
     }
 
     private List<OracleSplit> listSplits(
-            JdbcIdentity identity,
+            ConnectorSession session,
             JdbcTableHandle tableHandle,
             OracleParallelismType parallelismType,
             int maxSplits,
@@ -99,7 +98,7 @@ public class OracleSplitManager
         }
 
         if (parallelismType == PARTITIONS) {
-            List<String> partitions = listPartitionsForTable(identity, tableHandle);
+            List<String> partitions = listPartitionsForTable(session, tableHandle);
 
             if (partitions.isEmpty()) {
                 // Table is not partitioned
@@ -127,9 +126,9 @@ public class OracleSplitManager
                 .collect(toImmutableList());
     }
 
-    private List<String> listPartitionsForTable(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    private List<String> listPartitionsForTable(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        try (Handle handle = Jdbi.open(() -> connectionFactory.openConnection(identity))) {
+        try (Handle handle = Jdbi.open(() -> connectionFactory.openConnection(session))) {
             return handle.createQuery("SELECT partition_name FROM all_tab_partitions WHERE table_name = :name AND table_owner = :owner")
                     .bind("name", tableHandle.getTableName())
                     .bind("owner", tableHandle.getSchemaName())
