@@ -21,6 +21,7 @@ import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
@@ -175,6 +176,7 @@ public class PrestoS3FileSystem
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
     public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
     public static final String S3_STORAGE_CLASS = "presto.s3.storage-class";
+    public static final String S3_ANONYMOUS_REQUESTS_ENABLED = "presto.s3.anonymous-requests.enabled";
 
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 
@@ -211,6 +213,7 @@ public class PrestoS3FileSystem
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
     private PrestoS3StorageClass s3StorageClass;
+    private boolean anonymousRequestsEnabled;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -255,6 +258,7 @@ public class PrestoS3FileSystem
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
+        this.anonymousRequestsEnabled = conf.getBoolean(S3_ANONYMOUS_REQUESTS_ENABLED, defaults.isAnonymousRequestsEnabled());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -887,6 +891,10 @@ public class PrestoS3FileSystem
                     .withExternalId(externalId)
                     .withLongLivedCredentialsProvider(provider)
                     .build();
+        }
+
+        if (anonymousRequestsEnabled) {
+            provider = new AWSStaticCredentialsProvider(new AnonymousAWSCredentials());
         }
 
         return provider;

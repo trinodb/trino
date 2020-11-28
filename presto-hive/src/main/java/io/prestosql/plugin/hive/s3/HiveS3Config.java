@@ -65,6 +65,7 @@ public class HiveS3Config
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
+    private boolean anonymousRequestsEnabled;
 
     public String getS3AwsAccessKey()
     {
@@ -460,6 +461,18 @@ public class HiveS3Config
     public HiveS3Config setRequesterPaysEnabled(boolean requesterPaysEnabled)
     {
         this.requesterPaysEnabled = requesterPaysEnabled;
+        return this;
+    }
+
+    public boolean isAnonymousRequestsEnabled()
+    {
+        return anonymousRequestsEnabled;
+    }
+
+    @Config("hive.s3.anonymous-requests.enabled")
+    public HiveS3Config setAnonymousRequestsEnabled(boolean anonymousRequestsEnabled)
+    {
+        this.anonymousRequestsEnabled = anonymousRequestsEnabled;
         return this;
     }
 }
