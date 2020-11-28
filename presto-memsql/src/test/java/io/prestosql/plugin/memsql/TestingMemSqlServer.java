@@ -15,6 +15,7 @@ package io.prestosql.plugin.memsql;
 
 import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.JdbcDatabaseContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -40,7 +41,7 @@ public class TestingMemSqlServer
 
     public TestingMemSqlServer(String dockerImageName)
     {
-        super(dockerImageName);
+        super(DockerImageName.parse(dockerImageName));
         start();
     }
 
