@@ -44,4 +44,5 @@ System          <connector/system>
 Thrift          <connector/thrift>
 TPCDS           <connector/tpcds>
 TPCH            <connector/tpch>
+Vertica         <connector/vertica>
 ```
