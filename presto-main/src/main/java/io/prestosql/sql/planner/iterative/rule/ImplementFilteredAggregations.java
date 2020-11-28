@@ -26,13 +26,12 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Verify.verify;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineDisjunctsWithDefault;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -42,15 +41,18 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
  * <pre>
  * - Aggregation
  *        F1(...) FILTER (WHERE C1(...)),
- *        F2(...) FILTER (WHERE C2(...))
+ *        F2(...) FILTER (WHERE C2(...)), mask (m)
  *     - X
  * </pre>
  * into
  * <pre>
  * - Aggregation
  *        F1(...) mask ($0)
- *        F2(...) mask ($1)
- *     - Filter(mask ($0) OR mask ($1))
+ *        F2(...) mask ($2)
+ *     - Filter(mask ($0) OR mask ($2))
+ *     - Project
+ *            &lt;identity projections for existing fields&gt;
+ *            $2 = m AND $1
  *     - Project
  *            &lt;identity projections for existing fields&gt;
  *            $0 = C1(...)
@@ -75,8 +77,7 @@ public class ImplementFilteredAggregations
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .anyMatch(e -> e.getFilter().isPresent() &&
-                        e.getMask().isEmpty()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
+                .anyMatch(e -> e.getFilter().isPresent());
     }
 
     @Override
@@ -91,7 +92,7 @@ public class ImplementFilteredAggregations
         Assignments.Builder newAssignments = Assignments.builder();
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         ImmutableList.Builder<Expression> maskSymbols = ImmutableList.builder();
-        boolean aggregateWithoutFilterPresent = false;
+        boolean aggregateWithoutFilterOrMaskPresent = false;
 
         for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
             Symbol output = entry.getKey();
@@ -102,15 +103,23 @@ public class ImplementFilteredAggregations
 
             if (aggregation.getFilter().isPresent()) {
                 Symbol filter = aggregation.getFilter().get();
-                Symbol symbol = context.getSymbolAllocator().newSymbol(filter.getName(), BOOLEAN);
-                verify(mask.isEmpty(), "Expected aggregation without mask symbols, see Rule pattern");
-                newAssignments.put(symbol, new SymbolReference(filter.getName()));
-                mask = Optional.of(symbol);
-
-                maskSymbols.add(symbol.toSymbolReference());
+                if (mask.isPresent()) {
+                    Symbol newMask = context.getSymbolAllocator().newSymbol("mask", BOOLEAN);
+                    Expression expression = and(mask.get().toSymbolReference(), filter.toSymbolReference());
+                    newAssignments.put(newMask, expression);
+                    mask = Optional.of(newMask);
+                    maskSymbols.add(newMask.toSymbolReference());
+                }
+                else {
+                    mask = Optional.of(filter);
+                    maskSymbols.add(filter.toSymbolReference());
+                }
+            }
+            else if (mask.isPresent()) {
+                maskSymbols.add(mask.get().toSymbolReference());
             }
             else {
-                aggregateWithoutFilterPresent = true;
+                aggregateWithoutFilterOrMaskPresent = true;
             }
 
             aggregations.put(output, new Aggregation(
@@ -123,7 +132,7 @@ public class ImplementFilteredAggregations
         }
 
         Expression predicate = TRUE_LITERAL;
-        if (!aggregationNode.hasNonEmptyGroupingSet() && !aggregateWithoutFilterPresent) {
+        if (!aggregationNode.hasNonEmptyGroupingSet() && !aggregateWithoutFilterOrMaskPresent) {
             predicate = combineDisjunctsWithDefault(metadata, maskSymbols.build(), TRUE_LITERAL);
         }
 
