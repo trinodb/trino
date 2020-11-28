@@ -13,7 +13,6 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
@@ -50,18 +49,18 @@ public class PrestoConnectorClient
                 "ALTER TABLE %s ADD COLUMN %s",
                 quoted(handle.getRemoteTableName()),
                 getColumnDefinitionSql(session, column, column.getName()));
-        execute(JdbcIdentity.from(session), sql);
+        execute(session, sql);
     }
 
     @Override
-    public void setColumnComment(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         String sql = format(
                 "COMMENT ON COLUMN %s.%s IS %s",
                 quoted(handle.getRemoteTableName()),
                 quoted(column.getColumnName()),
                 comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
-        execute(identity, sql);
+        execute(session, sql);
     }
 
     @Override
@@ -92,39 +91,39 @@ public class PrestoConnectorClient
     }
 
     @Override
-    public void dropTable(JdbcIdentity identity, JdbcTableHandle handle)
+    public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
         if (!enableWrites) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
         }
-        super.dropTable(identity, handle);
+        super.dropTable(session, handle);
     }
 
     @Override
-    public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName)
+    public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         if (!enableWrites) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
         }
-        super.renameTable(identity, handle, newTableName);
+        super.renameTable(session, handle, newTableName);
     }
 
     @Override
-    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         if (!enableWrites) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
         }
-        super.renameColumn(identity, handle, jdbcColumn, newColumnName);
+        super.renameColumn(session, handle, jdbcColumn, newColumnName);
     }
 
     @Override
-    public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
+    public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         if (!enableWrites) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns");
         }
-        super.dropColumn(identity, handle, column);
+        super.dropColumn(session, handle, column);
     }
 
     @Override
