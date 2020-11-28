@@ -12,9 +12,9 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ConnectorSession;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -42,10 +42,10 @@ public class SnowflakeConnectionManager
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
     }
 
-    synchronized SnowflakeConnectionV1 openConnection(QueryId queryId, JdbcIdentity identity)
+    synchronized SnowflakeConnectionV1 openConnection(QueryId queryId, ConnectorSession session)
     {
         try {
-            Connection connection = connectionFactory.openConnection(identity);
+            Connection connection = connectionFactory.openConnection(session);
             connections.put(queryId, connection);
             return connection.unwrap(SnowflakeConnectionV1.class);
         }

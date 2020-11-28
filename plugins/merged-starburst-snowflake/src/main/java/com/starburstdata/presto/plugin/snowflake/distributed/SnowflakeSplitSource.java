@@ -37,7 +37,6 @@ import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
@@ -218,7 +217,7 @@ public class SnowflakeSplitSource
         return toCompletableFuture(executorService.submit(() -> {
             try {
                 return Failsafe.with(retryPolicy).get(measureExportAttemptTime(() -> {
-                    SnowflakeConnectionV1 connection = connectionManager.openConnection(QueryId.valueOf(session.getQueryId()), JdbcIdentity.from(session));
+                    SnowflakeConnectionV1 connection = connectionManager.openConnection(QueryId.valueOf(session.getQueryId()), session);
                     String stageName = "export_" + randomUUID().toString().replace("-", "_");
                     execute(connection, format("CREATE TEMPORARY STAGE %s.%s FILE_FORMAT = (TYPE = PARQUET)", snowflakeConfig.getStageSchema(), stageName));
 
