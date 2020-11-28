@@ -20,6 +20,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.decoder.avro.AvroDecoderModule;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
@@ -43,6 +44,7 @@ import java.util.Optional;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
+import static io.airlift.configuration.ConfigurationModule.installModules;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
@@ -166,8 +168,9 @@ public final class KafkaQueryRunner
                     installModuleIf(
                             KafkaConfig.class,
                             kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
-                            binder -> binder.bind(TableDescriptionSupplier.class)
-                                    .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions)))));
+                            installModules(
+                                    binder -> binder.bind(TableDescriptionSupplier.class).toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions)),
+                                    new AvroDecoderModule()))));
             queryRunner.installPlugin(kafkaPlugin);
 
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
