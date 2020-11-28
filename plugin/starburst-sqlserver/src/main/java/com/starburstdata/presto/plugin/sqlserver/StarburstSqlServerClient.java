@@ -17,7 +17,6 @@ import io.airlift.log.Logger;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.sqlserver.SqlServerClient;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -86,7 +85,7 @@ public class StarburstSqlServerClient
             return Optional.empty();
         }
 
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
+        try (Connection connection = connectionFactory.openConnection(session);
                 Handle handle = Jdbi.open(connection)) {
             String catalog = table.getCatalogName();
             String schema = table.getSchemaName();
