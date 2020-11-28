@@ -57,6 +57,7 @@ import static io.prestosql.transaction.InMemoryTransactionManager.createTestTran
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -151,28 +152,22 @@ public class TestSetSessionTask
     {
         testSetSession("positive_property", new LongLiteral("0"), "0");
         testSetSession("positive_property", new LongLiteral("2"), "2");
-
-        try {
+        assertThatThrownBy(() -> {
             testSetSession("positive_property", new LongLiteral("-1"), "-1");
             fail();
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getMessage(), MUST_BE_POSITIVE);
-        }
+        }).isInstanceOf(PrestoException.class).hasMessage(MUST_BE_POSITIVE);
     }
 
     @Test
     public void testSetSessionWithInvalidEnum()
     {
-        try {
+        assertThatThrownBy(() -> {
             testSetSession("size_property", new StringLiteral("XL"), "XL");
             fail();
-        }
-        catch (PrestoException e) {
-            assertEquals(INVALID_SESSION_PROPERTY.toErrorCode(), e.getErrorCode());
-            assertEquals("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]", e.getMessage());
-        }
+        }).isInstanceOf(PrestoException.class).
+                hasMessage("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]");
     }
+
 
     @Test
     public void testSetSessionWithParameters()
