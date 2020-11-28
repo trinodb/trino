@@ -51,7 +51,6 @@ public class TestPruneAggregationColumns
                                         ImmutableMap.of(
                                                 Optional.of("b"),
                                                 functionCall("count", false, ImmutableList.of())),
-                                        ImmutableMap.of(),
                                         Optional.empty(),
                                         SINGLE,
                                         values("key"))));

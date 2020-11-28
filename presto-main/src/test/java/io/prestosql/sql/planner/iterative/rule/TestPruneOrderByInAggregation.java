@@ -54,7 +54,8 @@ public class TestPruneOrderByInAggregation
                                                 "array_agg",
                                                 ImmutableList.of("input"),
                                                 ImmutableList.of(sort("input", SortItem.Ordering.ASCENDING, SortItem.NullOrdering.UNDEFINED)))),
-                                ImmutableMap.of(),
+                                ImmutableList.of(),
+                                ImmutableList.of("mask"),
                                 Optional.empty(),
                                 SINGLE,
                                 values("input", "key", "keyHash", "mask")));

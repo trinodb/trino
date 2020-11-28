@@ -50,7 +50,8 @@ public class TestPruneAggregationSourceColumns
                                 ImmutableMap.of(
                                         Optional.of("avg"),
                                         functionCall("avg", ImmutableList.of("input"))),
-                                ImmutableMap.of(),
+                                ImmutableList.of(),
+                                ImmutableList.of("mask"),
                                 Optional.empty(),
                                 SINGLE,
                                 strictProject(

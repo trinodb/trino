@@ -186,7 +186,7 @@ public class TestWindow
                         window(pattern -> pattern
                                         .specification(specification(ImmutableList.of("custkey"), ImmutableList.of(), ImmutableMap.of()))
                                         .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
-                                project(aggregation(singleGroupingSet("custkey"), ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), FINAL,
+                                project(aggregation(singleGroupingSet("custkey"), ImmutableMap.of(), Optional.empty(), FINAL,
                                         exchange(LOCAL, GATHER,
                                                 project(exchange(REMOTE, REPARTITION,
                                                         anyTree(tableScan("orders", ImmutableMap.of("custkey", "custkey")))))))))));
@@ -199,7 +199,7 @@ public class TestWindow
                                         .addFunction(functionCall("rank", Optional.empty(), ImmutableList.of())),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
-                                                project(aggregation(singleGroupingSet("shippriority", "custkey"), ImmutableMap.of(), ImmutableMap.of(), Optional.empty(), FINAL,
+                                                project(aggregation(singleGroupingSet("shippriority", "custkey"), ImmutableMap.of(), Optional.empty(), FINAL,
                                                         exchange(LOCAL, GATHER,
                                                                 exchange(REMOTE, REPARTITION,
                                                                         anyTree(tableScan("orders", ImmutableMap.of("custkey", "custkey", "shippriority", "shippriority"))))))))))));

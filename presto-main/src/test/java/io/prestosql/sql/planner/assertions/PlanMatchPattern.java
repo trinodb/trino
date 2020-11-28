@@ -253,19 +253,29 @@ public final class PlanMatchPattern
     public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
-            Map<Symbol, Symbol> masks,
             Optional<Symbol> groupId,
             Step step,
             PlanMatchPattern source)
     {
-        return aggregation(groupingSets, aggregations, ImmutableList.of(), masks, groupId, step, source);
+        return aggregation(groupingSets, aggregations, ImmutableList.of(), groupId, step, source);
     }
 
     public static PlanMatchPattern aggregation(
             GroupingSetDescriptor groupingSets,
             Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
             List<String> preGroupedSymbols,
-            Map<Symbol, Symbol> masks,
+            Optional<Symbol> groupId,
+            Step step,
+            PlanMatchPattern source)
+    {
+        return aggregation(groupingSets, aggregations, preGroupedSymbols, ImmutableList.of(), groupId, step, source);
+    }
+
+    public static PlanMatchPattern aggregation(
+            GroupingSetDescriptor groupingSets,
+            Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregations,
+            List<String> preGroupedSymbols,
+            List<String> masks,
             Optional<Symbol> groupId,
             Step step,
             PlanMatchPattern source)
