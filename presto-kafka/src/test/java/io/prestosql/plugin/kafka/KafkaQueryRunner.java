@@ -16,6 +16,7 @@ package io.prestosql.plugin.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
@@ -23,8 +24,10 @@ import io.airlift.log.Logging;
 import io.prestosql.decoder.avro.AvroDecoderModule;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
 import io.prestosql.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
+import io.prestosql.plugin.kafka.schema.file.FileContentSchemaReader;
 import io.prestosql.plugin.kafka.util.CodecSupplier;
 import io.prestosql.plugin.kafka.util.TestUtils;
 import io.prestosql.plugin.tpch.TpchPlugin;
@@ -170,6 +173,7 @@ public final class KafkaQueryRunner
                             kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
                             installModules(
                                     binder -> binder.bind(TableDescriptionSupplier.class).toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions)),
+                                    binder -> binder.bind(ContentSchemaReader.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON),
                                     new AvroDecoderModule()))));
             queryRunner.installPlugin(kafkaPlugin);
 
@@ -208,12 +212,14 @@ public final class KafkaQueryRunner
                 .map(keyTemplate -> new KafkaTopicFieldGroup(
                         keyTemplate.getDataFormat(),
                         keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        Optional.empty(),
                         keyTemplate.getFields()));
 
         Optional<KafkaTopicFieldGroup> message = tableTemplate.getMessage()
                 .map(keyTemplate -> new KafkaTopicFieldGroup(
                         keyTemplate.getDataFormat(),
                         keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        Optional.empty(),
                         keyTemplate.getFields()));
 
         return new KafkaTopicDescription(
