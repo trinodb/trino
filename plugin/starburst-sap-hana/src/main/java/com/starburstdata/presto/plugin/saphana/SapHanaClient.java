@@ -17,7 +17,6 @@ import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongReadFunction;
@@ -198,7 +197,7 @@ public class SapHanaClient
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
-        try (Connection connection = this.connectionFactory.openConnection(JdbcIdentity.from(session))) {
+        try (Connection connection = this.connectionFactory.openConnection(session)) {
             String columnName = column.getName();
             if (connection.getMetaData().storesUpperCaseIdentifiers()) {
                 columnName = columnName.toUpperCase(ENGLISH);
@@ -215,19 +214,19 @@ public class SapHanaClient
     }
 
     @Override
-    public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
+    public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         String sql = format(
                 "ALTER TABLE %s DROP (%s)",
                 quoted(handle.getRemoteTableName()),
                 column.getColumnName());
-        execute(identity, sql);
+        execute(session, sql);
     }
 
     @Override
-    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        try (Connection connection = connectionFactory.openConnection(identity)) {
+        try (Connection connection = connectionFactory.openConnection(session)) {
             if (connection.getMetaData().storesUpperCaseIdentifiers()) {
                 newColumnName = newColumnName.toUpperCase(ENGLISH);
             }
@@ -244,9 +243,9 @@ public class SapHanaClient
     }
 
     @Override
-    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
-        try (Connection connection = connectionFactory.openConnection(identity)) {
+        try (Connection connection = connectionFactory.openConnection(session)) {
             String newSchemaName = newTable.getSchemaName();
             String newTableName = newTable.getTableName();
             if (connection.getMetaData().storesUpperCaseIdentifiers()) {
