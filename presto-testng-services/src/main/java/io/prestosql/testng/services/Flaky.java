@@ -13,6 +13,8 @@
  */
 package io.prestosql.testng.services;
 
+import org.intellij.lang.annotations.Language;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.regex.Matcher;
@@ -34,5 +36,6 @@ public @interface Flaky
      * A test is retried when it fails with a stacktrace, which string representation matches given regular expression.
      * The pattern is searched for, as if {@link Matcher#find()} was used.
      */
+    @Language("RegExp")
     String match();
 }
