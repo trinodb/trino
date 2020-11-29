@@ -42,8 +42,9 @@ class FunctionCallProvider
     private final boolean distinct;
     private final List<PlanTestSymbol> args;
     private final List<PlanMatchPattern.Ordering> orderBy;
+    private final Optional<SymbolAlias> filter;
 
-    private FunctionCallProvider(boolean isWindowFunction, QualifiedName name, Optional<WindowFrame> frame, boolean distinct, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy)
+    private FunctionCallProvider(boolean isWindowFunction, QualifiedName name, Optional<WindowFrame> frame, boolean distinct, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy, Optional<SymbolAlias> filter)
     {
         this.isWindowFunction = isWindowFunction;
         this.name = requireNonNull(name, "name is null");
@@ -51,26 +52,32 @@ class FunctionCallProvider
         this.distinct = distinct;
         this.args = requireNonNull(args, "args is null");
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
+        this.filter = requireNonNull(filter, "filter is null");
     }
 
     FunctionCallProvider(QualifiedName name, Optional<WindowFrame> frame, boolean distinct, List<PlanTestSymbol> args)
     {
-        this(true, name, frame, distinct, args, ImmutableList.of());
+        this(true, name, frame, distinct, args, ImmutableList.of(), Optional.empty());
     }
 
     FunctionCallProvider(QualifiedName name, boolean distinct, List<PlanTestSymbol> args)
     {
-        this(false, name, Optional.empty(), distinct, args, ImmutableList.of());
+        this(false, name, Optional.empty(), distinct, args, ImmutableList.of(), Optional.empty());
     }
 
     FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy)
     {
-        this(false, name, Optional.empty(), false, args, orderBy);
+        this(false, name, Optional.empty(), false, args, orderBy, Optional.empty());
     }
 
     FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args)
     {
-        this(false, name, Optional.empty(), false, args, ImmutableList.of());
+        this(false, name, Optional.empty(), false, args, ImmutableList.of(), Optional.empty());
+    }
+
+    FunctionCallProvider(QualifiedName name, List<PlanTestSymbol> args, SymbolAlias filter)
+    {
+        this(false, name, Optional.empty(), false, args, ImmutableList.of(), Optional.of(filter));
     }
 
     @Override
@@ -81,7 +88,8 @@ class FunctionCallProvider
                 name,
                 Joiner.on(", ").join(args),
                 orderBy.isEmpty() ? "" : " ORDER BY " + Joiner.on(", ").join(orderBy),
-                frame.isPresent() ? frame.get().toString() : "");
+                frame.isPresent() ? frame.get().toString() : "",
+                filter.isPresent() ? filter.get().toString() : "");
     }
 
     @Override
@@ -104,7 +112,7 @@ class FunctionCallProvider
                     .collect(Collectors.toList())));
         }
 
-        return new FunctionCall(Optional.empty(), name, Optional.empty(), Optional.empty(), orderByClause, distinct, Optional.empty(), symbolReferences);
+        return new FunctionCall(Optional.empty(), name, Optional.empty(), filter.map(symbol -> symbol.toSymbol(aliases).toSymbolReference()), orderByClause, distinct, Optional.empty(), symbolReferences);
     }
 
     private class ExpectedWindowFunctionCall
