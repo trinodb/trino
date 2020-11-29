@@ -28,6 +28,8 @@ See the :doc:`kafka-tutorial`.
 .. note::
 
     The minimum supported Kafka broker version is 0.10.0.
+    The connector is tested against Confluent Kafka versions 5.2.1 and 5.5.2,
+    but any intermediate or newer versions are expected to work.
 
 Configuration
 -------------
