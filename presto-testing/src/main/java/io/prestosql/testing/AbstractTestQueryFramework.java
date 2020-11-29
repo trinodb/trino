@@ -332,7 +332,7 @@ public abstract class AbstractTestQueryFramework
 
         // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
         // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
-        assertThat(value).containsPattern("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)");
+        assertThat(value).containsPattern("CPU:.*, Input:.*, Output");
 
         for (String expectedExplainRegExp : expectedExplainRegExps) {
             assertThat(value).containsPattern(expectedExplainRegExp);
