@@ -35,7 +35,12 @@ public class TestingKafka
 
     public TestingKafka()
     {
-        container = new KafkaContainer("5.4.1")
+        this("5.2.1");
+    }
+
+    public TestingKafka(String confluentPlatformVersion)
+    {
+        container = new KafkaContainer(confluentPlatformVersion)
                 .withNetwork(Network.SHARED)
                 .withNetworkAliases("kafka");
     }
