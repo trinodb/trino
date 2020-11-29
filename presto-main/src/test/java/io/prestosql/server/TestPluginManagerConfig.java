@@ -33,7 +33,7 @@ public class TestPluginManagerConfig
         assertRecordedDefaults(recordDefaults(PluginManagerConfig.class)
                 .setInstalledPluginsDir(new File("plugin"))
                 .setPlugins((String) null)
-                .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
+                .setMavenLocalRepository(System.getProperty("user.home") + "/.m2/personal_repository")
                 .setMavenRemoteRepository(ArtifactResolver.MAVEN_CENTRAL_URI));
     }
 

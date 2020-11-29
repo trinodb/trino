@@ -35,12 +35,14 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.prestosql.client.NodeVersion;
+import io.prestosql.connector.ConnectorManager;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.eventlistener.EventListenerModule;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.execution.warnings.WarningCollectorModule;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
+import io.prestosql.metadata.DynamicCatalogStore;
 import io.prestosql.metadata.StaticCatalogStore;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AccessControlModule;
@@ -48,6 +50,7 @@ import io.prestosql.security.GroupProviderManager;
 import io.prestosql.server.security.CertificateAuthenticatorManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.server.security.ServerSecurityModule;
+import io.prestosql.spi.connector.Connector;
 import io.prestosql.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -128,6 +131,10 @@ public class Server
             injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
+
+            Announcer announcer = injector.getInstance(Announcer.class);
+            ConnectorManager connectorManager = injector.getInstance(ConnectorManager.class);
+            DynamicCatalogStore.getInstance().init(connectorManager,announcer);
 
             injector.getInstance(Announcer.class).start();
 
