@@ -549,7 +549,7 @@ public class TestUnwrapCastInComparison
                     session,
                     output(
                             filter(format("CAST(a AS %s) %s", expectedCastType, inputPredicate),
-                                    values("A"))));
+                                    values("a"))));
         }
         catch (Throwable e) {
             e.addSuppressed(new Exception("Query: " + sql));
