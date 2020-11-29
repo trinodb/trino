@@ -127,7 +127,7 @@ public final class JdbcTypeHandle
         JdbcTypeHandle that = (JdbcTypeHandle) o;
         return jdbcType == that.jdbcType &&
                 columnSize == that.columnSize &&
-                decimalDigits == that.decimalDigits &&
+                Objects.equals(decimalDigits, that.decimalDigits) &&
                 Objects.equals(jdbcTypeName, that.jdbcTypeName) &&
                 Objects.equals(arrayDimensions, that.arrayDimensions);
     }
