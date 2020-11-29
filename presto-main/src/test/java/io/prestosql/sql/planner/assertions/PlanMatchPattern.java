@@ -988,6 +988,11 @@ public final class PlanMatchPattern
         return new FunctionCallProvider(QualifiedName.of(name), distinct, args);
     }
 
+    public static ExpectedValueProvider<FunctionCall> functionCall(String name, List<String> args, String filter)
+    {
+        return new FunctionCallProvider(QualifiedName.of(name), toSymbolAliases(args), symbol(filter));
+    }
+
     public static List<Expression> toSymbolReferences(List<PlanTestSymbol> aliases, SymbolAliases symbolAliases)
     {
         return aliases
