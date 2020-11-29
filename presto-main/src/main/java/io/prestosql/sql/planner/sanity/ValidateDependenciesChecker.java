@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.GroupReference;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
@@ -102,10 +103,31 @@ public final class ValidateDependenciesChecker
 
     public static void validate(PlanNode plan)
     {
-        plan.accept(new Visitor(), ImmutableSet.of());
+        Visitor visitor = new Visitor()
+        {
+            @Override
+            public Void visitGroupReference(GroupReference node, Set<Symbol> context)
+            {
+                throw new IllegalStateException("Unexpected GroupReference: " + node);
+            }
+        };
+        plan.accept(visitor, ImmutableSet.of());
     }
 
-    private static class Visitor
+    public static void validatePartialPlan(PlanNode plan)
+    {
+        Visitor visitor = new Visitor()
+        {
+            @Override
+            public Void visitGroupReference(GroupReference node, Set<Symbol> context)
+            {
+                return null;
+            }
+        };
+        plan.accept(visitor, ImmutableSet.of());
+    }
+
+    private abstract static class Visitor
             extends PlanVisitor<Void, Set<Symbol>>
     {
         @Override
@@ -113,6 +135,9 @@ public final class ValidateDependenciesChecker
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
+
+        @Override
+        public abstract Void visitGroupReference(GroupReference node, Set<Symbol> context);
 
         @Override
         public Void visitExplainAnalyze(ExplainAnalyzeNode node, Set<Symbol> boundSymbols)

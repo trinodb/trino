@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -34,6 +35,7 @@ import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.sanity.ValidateDependenciesChecker;
 
 import java.util.Iterator;
 import java.util.List;
@@ -143,7 +145,9 @@ public class IterativeOptimizer
                 Rule.Result result = transform(node, rule, context);
 
                 if (result.getTransformedPlan().isPresent()) {
-                    node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+                    PlanNode transformedPlan = result.getTransformedPlan().get();
+                    validateTransformedPlan(transformedPlan, rule);
+                    node = context.memo.replace(group, transformedPlan, rule.getClass().getName());
 
                     done = false;
                     progress = true;
@@ -253,6 +257,16 @@ public class IterativeOptimizer
                 return context.warningCollector;
             }
         };
+    }
+
+    private static void validateTransformedPlan(PlanNode transformedPlan, Rule<?> rule)
+    {
+        try {
+            ValidateDependenciesChecker.validatePartialPlan(transformedPlan);
+        }
+        catch (RuntimeException e) {
+            throw new VerifyException(format("Rule %s created incorrect plan", rule), e);
+        }
     }
 
     private static class Context
