@@ -424,6 +424,17 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testPushAggregationWithMaskThroughOuterJoin()
+    {
+        assertQuery(
+                "SELECT max(r.nationkey) FILTER (WHERE filter) " +
+                        "FROM (SELECT DISTINCT regionkey FROM nation) l " +
+                        "LEFT JOIN (SELECT *, nationkey > 2 AS filter FROM nation) r ON true " +
+                        "GROUP BY l.regionkey",
+                "VALUES 24, 24, 24, 24, 24");
+    }
+
+    @Test
     public void testCaseInsensitiveRowFieldReference()
     {
         assertQuery("SELECT a.Col0 FROM (VALUES row(cast(ROW(1,2) AS ROW(col0 integer, col1 integer)))) AS t (a)", "SELECT 1");
