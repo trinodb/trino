@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDistributedEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
@@ -109,24 +110,23 @@ public class TestDistributedEngineOnlyQueries
     @Test
     public void testExplainAnalyze()
     {
-        assertExplainAnalyze(
+        assertThat((String) computeScalar(
                 noJoinReordering(BROADCAST),
-                "EXPLAIN ANALYZE SELECT * FROM (SELECT nationkey, regionkey FROM nation GROUP BY nationkey, regionkey) a, nation b WHERE a.regionkey = b.regionkey");
-        assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
-                "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
-        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT * FROM (SELECT nationkey, regionkey FROM nation GROUP BY nationkey, regionkey) a, nation b WHERE a.regionkey = b.regionkey"))
+                .containsPattern("(?s:.*)CPU:.*, Input:.*, Output(?s:.*)");
+        assertThat((String) computeScalar("EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey"))
+                .containsPattern("Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*")
+                .containsPattern("Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*")
+                .containsPattern("Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+        assertThat((String) computeScalar(
                 Session.builder(getSession())
                         .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                         .build(),
-                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
-                "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
-        assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT nationkey FROM nation GROUP BY nationkey",
-                "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+                "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey"))
+                .containsPattern("Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*")
+                .containsPattern("Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*")
+                .containsPattern("Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+        assertThat((String) computeScalar("EXPLAIN ANALYZE SELECT nationkey FROM nation GROUP BY nationkey"))
+                .containsPattern("Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
     }
 }

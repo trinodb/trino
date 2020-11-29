@@ -59,6 +59,8 @@ import org.testng.annotations.BeforeClass;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
+import javax.ws.rs.HEAD;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -131,7 +133,12 @@ public abstract class AbstractTestQueryFramework
 
     protected Object computeScalar(@Language("SQL") String sql)
     {
-        return computeActual(sql).getOnlyValue();
+        return computeScalar(getSession(), sql);
+    }
+
+    protected Object computeScalar(Session session, @Language("SQL") String sql)
+    {
+        return computeActual(session, sql).getOnlyValue();
     }
 
     protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
@@ -321,22 +328,13 @@ public abstract class AbstractTestQueryFramework
         assertEquals(actual, expected);
     }
 
-    protected void assertExplainAnalyze(@Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
+    protected void assertExplainAnalyze(@Language("SQL") String query)
     {
-        assertExplainAnalyze(getSession(), query, expectedExplainRegExps);
-    }
-
-    protected void assertExplainAnalyze(Session session, @Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
-    {
-        String value = (String) computeActual(session, query).getOnlyValue();
+        String value = (String) computeActual(query).getOnlyValue();
 
         // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
         // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
         assertThat(value).containsPattern("CPU:.*, Input:.*, Output");
-
-        for (String expectedExplainRegExp : expectedExplainRegExps) {
-            assertThat(value).containsPattern(expectedExplainRegExp);
-        }
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
