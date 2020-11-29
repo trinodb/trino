@@ -328,12 +328,9 @@ public abstract class AbstractTestQueryFramework
         assertEquals(actual, expected);
     }
 
-    protected void assertExplainAnalyze(@Language("SQL") String query)
+    protected void assertExplainAnalyzeSucceeds(@Language("SQL") String query)
     {
         String value = (String) computeActual(query).getOnlyValue();
-
-        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
         assertThat(value).containsPattern("CPU:.*, Input:.*, Output");
     }
 

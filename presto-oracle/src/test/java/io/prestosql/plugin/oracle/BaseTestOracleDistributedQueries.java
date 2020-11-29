@@ -169,7 +169,7 @@ public abstract class BaseTestOracleDistributedQueries
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT count(*) + 1 FROM orders");
 
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT orderstatus FROM orders");
+        assertExplainAnalyzeSucceeds("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT orderstatus FROM orders");
         assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
         assertUpdate("DROP TABLE " + tableName);
     }

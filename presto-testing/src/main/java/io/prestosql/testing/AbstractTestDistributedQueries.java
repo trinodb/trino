@@ -265,7 +265,7 @@ public abstract class AbstractTestDistributedQueries
                         "SELECT DATE '2000-01-01', 1234567890, 1.23",
                 "SELECT count(*) + 1 FROM orders");
 
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT orderstatus FROM orders");
+        assertExplainAnalyzeSucceeds("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT orderstatus FROM orders");
         assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -750,13 +750,13 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
 
         // test EXPLAIN ANALYZE with CTAS
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
+        assertExplainAnalyzeSucceeds("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT CAST(orderstatus AS VARCHAR(15)) orderstatus FROM orders");
         assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
         // check that INSERT works also
-        assertExplainAnalyze("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk FROM orders");
+        assertExplainAnalyzeSucceeds("EXPLAIN ANALYZE INSERT INTO " + tableName + " SELECT clerk FROM orders");
         assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
         // check DELETE works with EXPLAIN ANALYZE
-        assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
+        assertExplainAnalyzeSucceeds("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
         assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
         assertUpdate("DROP TABLE " + tableName);
     }
