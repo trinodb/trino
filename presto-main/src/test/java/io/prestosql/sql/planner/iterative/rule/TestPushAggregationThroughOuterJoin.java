@@ -126,6 +126,53 @@ public class TestPushAggregationThroughOuterJoin
     }
 
     @Test
+    public void testPushesAggregationWithMask()
+    {
+        tester().assertThat(new PushAggregationThroughOuterJoin())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.join(
+                                        LEFT,
+                                        p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
+                                        p.values(p.symbol("COL2"), p.symbol("MASK")),
+                                        ImmutableList.of(new EquiJoinClause(p.symbol("COL1"), p.symbol("COL2"))),
+                                        ImmutableList.of(p.symbol("COL1")),
+                                        ImmutableList.of(p.symbol("COL2"), p.symbol("MASK")),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()))
+                        .addAggregation(
+                                p.symbol("AVG", DOUBLE),
+                                PlanBuilder.expression("avg(COL2)"),
+                                ImmutableList.of(DOUBLE),
+                                p.symbol("MASK"))
+                        .singleGroupingSet(p.symbol("COL1"))))
+                .matches(
+                        project(ImmutableMap.of(
+                                "COL1", expression("COL1"),
+                                "COALESCE", expression("coalesce(AVG, AVG_NULL)")),
+                                join(INNER, ImmutableList.of(),
+                                        join(LEFT, ImmutableList.of(equiJoinClause("COL1", "COL2")),
+                                                values(ImmutableMap.of("COL1", 0)),
+                                                aggregation(
+                                                        singleGroupingSet("COL2"),
+                                                        ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("COL2"))),
+                                                        ImmutableList.of(),
+                                                        ImmutableList.of("MASK"),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        values(ImmutableMap.of("COL2", 0, "MASK", 1)))),
+                                        aggregation(
+                                                globalAggregation(),
+                                                ImmutableMap.of(Optional.of("AVG_NULL"), functionCall("avg", ImmutableList.of("null_literal"))),
+                                                ImmutableList.of(),
+                                                ImmutableList.of("MASK_NULL"),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                values(ImmutableMap.of("null_literal", 0, "MASK_NULL", 1))))));
+    }
+
+    @Test
     public void testPushCountAllAggregation()
     {
         tester().assertThat(new PushAggregationThroughOuterJoin())

@@ -25,6 +25,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.optimizations.SymbolMapper;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -36,7 +37,6 @@ import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.Row;
-import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashSet;
 import java.util.List;
@@ -49,8 +49,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.isPushAggregationThroughOuterJoin;
 import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.prestosql.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
+import static io.prestosql.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.prestosql.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
@@ -273,37 +273,27 @@ public class PushAggregationThroughOuterJoin
         NullLiteral nullLiteral = new NullLiteral();
         ImmutableList.Builder<Symbol> nullSymbols = ImmutableList.builder();
         ImmutableList.Builder<Expression> nullLiterals = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, SymbolReference> sourcesSymbolMappingBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<Symbol, Symbol> sourcesSymbolMappingBuilder = ImmutableMap.builder();
         for (Symbol sourceSymbol : referenceAggregation.getSource().getOutputSymbols()) {
             nullLiterals.add(nullLiteral);
             Symbol nullSymbol = symbolAllocator.newSymbol(nullLiteral, symbolAllocator.getTypes().get(sourceSymbol));
             nullSymbols.add(nullSymbol);
-            sourcesSymbolMappingBuilder.put(sourceSymbol, nullSymbol.toSymbolReference());
+            sourcesSymbolMappingBuilder.put(sourceSymbol, nullSymbol);
         }
         ValuesNode nullRow = new ValuesNode(
                 idAllocator.getNextId(),
                 nullSymbols.build(),
                 ImmutableList.of(new Row(nullLiterals.build())));
-        Map<Symbol, SymbolReference> sourcesSymbolMapping = sourcesSymbolMappingBuilder.build();
 
         // For each aggregation function in the reference node, create a corresponding aggregation function
         // that points to the nullRow. Map the symbols from the aggregations in referenceAggregation to the
         // symbols in these new aggregations.
         ImmutableMap.Builder<Symbol, Symbol> aggregationsSymbolMappingBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregationsOverNullBuilder = ImmutableMap.builder();
+        SymbolMapper mapper = symbolMapper(sourcesSymbolMappingBuilder.build());
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : referenceAggregation.getAggregations().entrySet()) {
             Symbol aggregationSymbol = entry.getKey();
-            AggregationNode.Aggregation aggregation = entry.getValue();
-
-            Aggregation overNullAggregation = new Aggregation(
-                    aggregation.getResolvedFunction(),
-                    aggregation.getArguments().stream()
-                            .map(argument -> inlineSymbols(sourcesSymbolMapping, argument))
-                            .collect(toImmutableList()),
-                    aggregation.isDistinct(),
-                    aggregation.getFilter(),
-                    aggregation.getOrderingScheme(),
-                    aggregation.getMask());
+            Aggregation overNullAggregation = mapper.map(entry.getValue());
             Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getResolvedFunction().getSignature().getName(), symbolAllocator.getTypes().get(aggregationSymbol));
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);

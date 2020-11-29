@@ -152,7 +152,7 @@ public class SymbolMapper
                 node.getGroupIdSymbol().map(this::map));
     }
 
-    private Aggregation map(Aggregation aggregation)
+    public Aggregation map(Aggregation aggregation)
     {
         return new Aggregation(
                 aggregation.getResolvedFunction(),
