@@ -40,12 +40,12 @@ public final class JdbcTypeHandle
 
     @Deprecated
     public JdbcTypeHandle(
-            @JsonProperty("jdbcType") int jdbcType,
-            @JsonProperty("jdbcTypeName") Optional<String> jdbcTypeName,
-            @JsonProperty("columnSize") int columnSize,
-            @JsonProperty("decimalDigits") int decimalDigits,
-            @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions,
-            @JsonProperty("caseSensitivity") Optional<CaseSensitivity> caseSensitivity)
+            int jdbcType,
+            Optional<String> jdbcTypeName,
+            int columnSize,
+            int decimalDigits,
+            Optional<Integer> arrayDimensions,
+            Optional<CaseSensitivity> caseSensitivity)
     {
         this(jdbcType, jdbcTypeName, columnSize, Optional.of(decimalDigits), arrayDimensions, caseSensitivity);
     }
