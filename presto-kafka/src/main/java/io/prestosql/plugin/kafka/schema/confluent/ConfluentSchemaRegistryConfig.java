@@ -15,17 +15,20 @@ package io.prestosql.plugin.kafka.schema.confluent;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
 import io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
 
 import javax.validation.constraints.NotNull;
 
 import static io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ConfluentSchemaRegistryConfig
 {
     private String confluentSchemaRegistryUrl;
     private int confluentSchemaRegistryClientCacheSize = 1000;
     private EmptyFieldStrategy emptyFieldStrategy = IGNORE;
+    private Duration confluentSubjectsCacheRefreshInterval = new Duration(1, SECONDS);
 
     @NotNull
     public String getConfluentSchemaRegistryUrl()
@@ -64,6 +67,19 @@ public class ConfluentSchemaRegistryConfig
     public ConfluentSchemaRegistryConfig setEmptyFieldStrategy(EmptyFieldStrategy emptyFieldStrategy)
     {
         this.emptyFieldStrategy = emptyFieldStrategy;
+        return this;
+    }
+
+    public Duration getConfluentSubjectsCacheRefreshInterval()
+    {
+        return confluentSubjectsCacheRefreshInterval;
+    }
+
+    @Config("kafka.confluent-subjects-cache-refresh-interval")
+    @ConfigDescription("The interval that the topic to subjects cache will be refreshed")
+    public ConfluentSchemaRegistryConfig setConfluentSubjectsCacheRefreshInterval(Duration confluentSubjectsCacheRefreshInterval)
+    {
+        this.confluentSubjectsCacheRefreshInterval = confluentSubjectsCacheRefreshInterval;
         return this;
     }
 }

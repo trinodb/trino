@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.decoder.DecoderModule;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
@@ -25,18 +26,24 @@ import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetPro
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
 import io.prestosql.plugin.kafka.encoder.EncoderModule;
+import io.prestosql.plugin.kafka.schema.confluent.ConfluentModule;
+import io.prestosql.plugin.kafka.schema.confluent.ConfluentSchemaRegistryTableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplierModule;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import java.util.List;
+
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -63,6 +70,8 @@ public class KafkaConnectorModule
 
         configBinder(binder).bindConfig(KafkaConfig.class);
         bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule());
+        bindTopicSchemaProviderModule(ConfluentSchemaRegistryTableDescriptionSupplier.NAME, new ConfluentModule());
+        newSetBinder(binder, new TypeLiteral<List<PropertyMetadata<?>>>() {}, ForKafka.class);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 

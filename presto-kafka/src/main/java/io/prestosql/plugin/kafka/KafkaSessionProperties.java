@@ -20,6 +20,7 @@ import io.prestosql.spi.session.PropertyMetadata;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Set;
 
 public final class KafkaSessionProperties
 {
@@ -27,12 +28,16 @@ public final class KafkaSessionProperties
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
-    public KafkaSessionProperties(KafkaConfig kafkaConfig)
+    public KafkaSessionProperties(KafkaConfig kafkaConfig, @ForKafka Set<List<PropertyMetadata<?>>> extraProperties)
     {
-        sessionProperties = ImmutableList.of(PropertyMetadata.booleanProperty(
-                TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
-                "Enable or disable timestamp upper bound push down for topic createTime mode",
-                kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
+        ImmutableList.Builder<PropertyMetadata<?>> sessionPropertiesBuilder = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(PropertyMetadata.booleanProperty(
+                        TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
+                        "Enable or disable timestamp upper bound push down for topic createTime mode",
+                        kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
+        extraProperties.stream()
+                .forEach(sessionPropertiesBuilder::addAll);
+        sessionProperties = sessionPropertiesBuilder.build();
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

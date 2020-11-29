@@ -16,16 +16,26 @@ package io.prestosql.plugin.kafka.schema.confluent;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.prestosql.decoder.RowDecoderFactory;
 import io.prestosql.decoder.avro.AvroBytesDeserializer;
 import io.prestosql.decoder.avro.AvroDeserializer;
 import io.prestosql.decoder.avro.AvroReaderSupplier;
+import io.prestosql.decoder.avro.AvroRowDecoderFactory;
+import io.prestosql.plugin.kafka.ForKafka;
 import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
+import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
+import io.prestosql.spi.session.PropertyMetadata;
 
 import javax.inject.Singleton;
 
+import java.util.List;
+
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class ConfluentModule
@@ -38,6 +48,9 @@ public class ConfluentModule
         binder.bind(AvroReaderSupplier.Factory.class).to(ConfluentAvroReaderSupplier.Factory.class).in(Scopes.SINGLETON);
         binder.bind(AvroDeserializer.Factory.class).to(AvroBytesDeserializer.Factory.class).in(Scopes.SINGLETON);
         binder.bind(ContentSchemaReader.class).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, new TypeLiteral<List<PropertyMetadata<?>>>() {}, ForKafka.class).addBinding().toProvider(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
+        binder.bind(TableDescriptionSupplier.class).toProvider(ConfluentSchemaRegistryTableDescriptionSupplier.Factory.class).in(Scopes.SINGLETON);
+        newMapBinder(binder, String.class, RowDecoderFactory.class).addBinding(AvroRowDecoderFactory.NAME).to(AvroRowDecoderFactory.class).in(Scopes.SINGLETON);
     }
 
     @Provides
