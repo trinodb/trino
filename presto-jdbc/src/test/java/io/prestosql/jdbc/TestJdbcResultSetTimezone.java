@@ -53,6 +53,7 @@ import java.util.Set;
 import java.util.TimeZone;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.sql.JDBCType.DATE;
@@ -248,15 +249,31 @@ public class TestJdbcResultSetTimezone
     private void checkRepresentation(String expression, JDBCType type, Optional<String> sessionTimezoneId, ResultAssertion assertion)
             throws Exception
     {
+        List<String> referenceDriversExpressions = referenceDrivers.stream()
+                .map(driver -> driver.supports(type) ? expression : "")
+                .collect(toImmutableList());
+        checkRepresentation(expression, referenceDriversExpressions, type, sessionTimezoneId, assertion);
+    }
+
+    private void checkRepresentation(String prestoExpression, List<String> referenceDriversExpressions, JDBCType type, Optional<String> sessionTimezoneId, ResultAssertion assertion)
+            throws Exception
+    {
+        verify(referenceDriversExpressions.size() == referenceDrivers.size(), "Wrong referenceDriversExpressions list size");
         int tests = 0;
         List<AssertionError> failures = new ArrayList<>();
 
-        for (ReferenceDriver driver : referenceDrivers) {
-            if (driver.supports(type)) {
-                tests ++;
-                log.info("Checking behavior against %s", driver);
+        for (int i = 0; i < referenceDrivers.size(); i++) {
+            ReferenceDriver driver = referenceDrivers.get(i);
+            String referenceExpression = referenceDriversExpressions.get(i);
+            if (!driver.supports(type)) {
+                verify(referenceExpression.isEmpty(), "referenceExpression must be empty for %s so that the test code clearly indicates which cases are actually tested", driver);
+            }
+            else {
+                tests++;
+                log.info("Checking behavior against %s using expression: %s", driver, referenceExpression);
                 try {
-                    checkRepresentation(expression, sessionTimezoneId, driver, assertion);
+                    verify(!referenceExpression.isEmpty(), "referenceExpression is empty");
+                    checkRepresentation(prestoExpression, referenceExpression, sessionTimezoneId, driver, assertion);
                 }
                 catch (RuntimeException | AssertionError e) {
                     String message = format("Failure when checking behavior against %s", driver);
@@ -266,6 +283,8 @@ public class TestJdbcResultSetTimezone
                 }
             }
         }
+
+        verify(tests > 0, "No reference driver found supporting %s", type);
 
         if (!failures.isEmpty()) {
             if (failures.size() == 1 && tests == 1) {
@@ -279,10 +298,10 @@ public class TestJdbcResultSetTimezone
         }
     }
 
-    private void checkRepresentation(String expression, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
+    private void checkRepresentation(String prestoExpression, String referenceExpression, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
             throws Exception
     {
-        try (ResultSet rs = prestoQuery(expression, sessionTimezoneId); ResultSet referenceResultSet = reference.query(expression, sessionTimezoneId)) {
+        try (ResultSet rs = prestoQuery(prestoExpression, sessionTimezoneId); ResultSet referenceResultSet = reference.query(referenceExpression, sessionTimezoneId)) {
             assertTrue(rs.next());
             assertTrue(referenceResultSet.next());
             assertion.accept(rs, referenceResultSet, 1);
