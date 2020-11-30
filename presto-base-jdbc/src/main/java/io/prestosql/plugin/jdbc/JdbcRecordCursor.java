@@ -72,7 +72,7 @@ public class JdbcRecordCursor
             for (int i = 0; i < this.columnHandles.length; i++) {
                 JdbcColumnHandle columnHandle = columnHandles.get(i);
                 ColumnMapping columnMapping = jdbcClient.toPrestoType(session, connection, columnHandle.getJdbcTypeHandle())
-                        .orElseThrow(() -> new VerifyException("Unsupported column type"));
+                        .orElseThrow(() -> new VerifyException("Unsupported column type: " + columnHandle.getJdbcTypeHandle()));
                 verify(
                         columnHandle.getColumnType().equals(columnMapping.getType()),
                         "Type mismatch: column handle has type %s but %s is mapped to %s",

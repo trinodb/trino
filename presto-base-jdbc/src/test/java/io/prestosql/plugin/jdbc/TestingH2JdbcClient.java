@@ -43,7 +43,9 @@ class TestingH2JdbcClient
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
-        return new AggregateFunctionRewriter(this::quoted, ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
-                .rewrite(session, aggregate, assignments);
+        AggregateFunctionRewriter aggregateFunctionRewriter = new AggregateFunctionRewriter(this::quoted, ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)));
+        Optional<JdbcExpression> rewritten = aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+        rewritten.ifPresent(jdbcExpression -> verifyExpressionType(session, jdbcExpression, aggregate.getOutputType()));
+        return rewritten;
     }
 }

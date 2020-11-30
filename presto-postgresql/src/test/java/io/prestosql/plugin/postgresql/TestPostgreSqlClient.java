@@ -63,7 +63,7 @@ public class TestPostgreSqlClient
     private static final JdbcClient JDBC_CLIENT = new PostgreSqlClient(
             new BaseJdbcConfig(),
             new PostgreSqlConfig(),
-            session -> { throw new UnsupportedOperationException(); },
+            session -> null,
             TYPE_MANAGER);
 
     @Test

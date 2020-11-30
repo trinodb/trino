@@ -207,7 +207,9 @@ public class SqlServerClient
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         // TODO support complex ConnectorExpressions
-        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+        Optional<JdbcExpression> rewritten = aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+        rewritten.ifPresent(jdbcExpression -> verifyExpressionType(session, jdbcExpression, aggregate.getOutputType()));
+        return rewritten;
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)

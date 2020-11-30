@@ -389,6 +389,24 @@ public abstract class BaseJdbcClient
                 DISABLE_PUSHDOWN));
     }
 
+    // Type mismatch should be eventually caught by JdbcRecordCursor. Early verification helps fail fast.
+    protected void verifyExpressionType(ConnectorSession session, JdbcExpression jdbcExpression, Type expectedType)
+    {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            ColumnMapping columnMapping = toPrestoType(session, connection, jdbcExpression.getJdbcTypeHandle())
+                    .orElseThrow(() -> new VerifyException("Unsupported column type: " + jdbcExpression.getJdbcTypeHandle()));
+            verify(
+                    columnMapping.getType().equals(expectedType),
+                    "Returned JdbcExpression has different type than expected, expected %s but got %s: %s",
+                    expectedType,
+                    columnMapping.getType(),
+                    jdbcExpression);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, "Type verification failed", e);
+        }
+    }
+
     @Override
     public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
     {

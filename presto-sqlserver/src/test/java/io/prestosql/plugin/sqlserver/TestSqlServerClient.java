@@ -56,9 +56,7 @@ public class TestSqlServerClient
 
     private static final JdbcClient JDBC_CLIENT = new SqlServerClient(
             new BaseJdbcConfig(),
-            session -> {
-                throw new UnsupportedOperationException();
-            });
+            session -> null);
 
     @Test
     public void testImplementCount()
