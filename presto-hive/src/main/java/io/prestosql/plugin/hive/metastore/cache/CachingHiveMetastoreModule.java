@@ -48,22 +48,18 @@ public class CachingHiveMetastoreModule
     @Singleton
     public HiveMetastore createCachingHiveMetastore(
             @ForCachingHiveMetastore HiveMetastore delegate,
-            @ForCachingHiveMetastore Executor executor,
             CachingHiveMetastoreConfig config,
+            CatalogName catalogName,
             Optional<HiveMetastoreDecorator> hiveMetastoreDecorator)
     {
-        HiveMetastore decoratedDelegate = hiveMetastoreDecorator.map(decorator -> decorator.decorate(delegate))
+        HiveMetastore decoratedDelegate = hiveMetastoreDecorator
+                .map(decorator -> decorator.decorate(delegate))
                 .orElse(delegate);
-        return cachingHiveMetastore(decoratedDelegate, executor, config);
-    }
 
-    @Provides
-    @Singleton
-    @ForCachingHiveMetastore
-    public Executor createCachingHiveMetastoreExecutor(CatalogName catalogName, CachingHiveMetastoreConfig hiveConfig)
-    {
-        return new ReentrantBoundedExecutor(
+        Executor executor = new ReentrantBoundedExecutor(
                 newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s")),
-                hiveConfig.getMaxMetastoreRefreshThreads());
+                config.getMaxMetastoreRefreshThreads());
+
+        return cachingHiveMetastore(decoratedDelegate, executor, config);
     }
 }
