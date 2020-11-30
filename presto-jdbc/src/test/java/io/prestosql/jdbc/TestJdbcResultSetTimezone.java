@@ -139,9 +139,8 @@ public class TestJdbcResultSetTimezone
         checkRepresentation("DATE '2018-02-13'", DATE, sessionTimezoneId, (rs, reference, column) -> {
             assertEquals(rs.getDate(column), reference.getDate(column));
             assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
-        });
 
-        checkRepresentation("DATE '2018-02-13'", DATE, sessionTimezoneId, (rs, reference, column) -> {
+            // with calendar
             assertEquals(rs.getDate(column, getCalendar()), reference.getDate(column, getCalendar()));
             assertEquals(rs.getDate(column, getCalendar()), new Date(LocalDate.of(2018, 2, 13).atStartOfDay(getZoneId()).toInstant().toEpochMilli()));
         });
@@ -156,9 +155,8 @@ public class TestJdbcResultSetTimezone
             assertEquals(
                     rs.getTimestamp(column),
                     Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
-        });
 
-        checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.123'", TIMESTAMP, sessionTimezoneId, (rs, reference, column) -> {
+            // with calendar
             assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
             assertEquals(
                     rs.getTimestamp(column, getCalendar()),
@@ -173,9 +171,8 @@ public class TestJdbcResultSetTimezone
         checkRepresentation("TIME '09:39:05'", TIME, sessionTimezoneId, (rs, reference, column) -> {
             assertEquals(rs.getTime(column), reference.getTime(column));
             assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
-        });
 
-        checkRepresentation("TIME '09:39:05'", TIME, sessionTimezoneId, (rs, reference, column) -> {
+            // with calendar
             assertEquals(rs.getTime(column, getCalendar()), reference.getTime(column, getCalendar()));
             assertEquals(rs.getTime(column, getCalendar()), new Time(LocalDate.of(1970, 1, 1).atTime(LocalTime.of(9, 39, 5)).atZone(getZoneId()).toInstant().toEpochMilli()));
         });
