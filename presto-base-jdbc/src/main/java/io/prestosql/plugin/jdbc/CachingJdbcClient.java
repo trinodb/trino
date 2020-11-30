@@ -45,7 +45,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
@@ -58,7 +57,6 @@ public class CachingJdbcClient
     private final Cache<JdbcIdentity, Set<String>> schemaNamesCache;
     private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
     private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
-    private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
 
     @Inject
     public CachingJdbcClient(@StatsCollecting JdbcClient delegate, BaseJdbcConfig config)
@@ -76,7 +74,6 @@ public class CachingJdbcClient
         schemaNamesCache = cacheBuilder.build();
         tableNamesCache = cacheBuilder.build();
         tableHandleCache = cacheBuilder.build();
-        columnsCache = cacheBuilder.build();
     }
 
     @Override
@@ -106,8 +103,7 @@ public class CachingJdbcClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
-        ColumnsCacheKey key = new ColumnsCacheKey(JdbcIdentity.from(session), tableHandle.getSchemaTableName());
-        return get(columnsCache, key, () -> delegate.getColumns(session, tableHandle));
+        return delegate.getColumns(session, tableHandle);
     }
 
     @Override
@@ -272,28 +268,24 @@ public class CachingJdbcClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         delegate.setColumnComment(session, handle, column, comment);
-        invalidateColumnsCache(session, handle.getSchemaTableName());
     }
 
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);
-        invalidateColumnsCache(session, handle.getSchemaTableName());
     }
 
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         delegate.dropColumn(session, handle, column);
-        invalidateColumnsCache(session, handle.getSchemaTableName());
     }
 
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         delegate.renameColumn(session, handle, jdbcColumn, newColumnName);
-        invalidateColumnsCache(session, handle.getSchemaTableName());
     }
 
     @Override
@@ -353,60 +345,8 @@ public class CachingJdbcClient
 
     private void invalidateTablesCaches()
     {
-        columnsCache.invalidateAll();
         tableHandleCache.invalidateAll();
         tableNamesCache.invalidateAll();
-    }
-
-    private void invalidateColumnsCache(ConnectorSession session, SchemaTableName table)
-    {
-        columnsCache.invalidate(new ColumnsCacheKey(JdbcIdentity.from(session), table));
-    }
-
-    private static final class ColumnsCacheKey
-    {
-        private final JdbcIdentity identity;
-        private final SchemaTableName table;
-
-        private ColumnsCacheKey(JdbcIdentity identity, SchemaTableName table)
-        {
-            this.identity = requireNonNull(identity, "identity is null");
-            this.table = requireNonNull(table, "table is null");
-        }
-
-        public JdbcIdentity getIdentity()
-        {
-            return identity;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ColumnsCacheKey that = (ColumnsCacheKey) o;
-            return Objects.equals(identity, that.identity) &&
-                    Objects.equals(table, that.table);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(identity, table);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("identity", identity)
-                    .add("table", table)
-                    .toString();
-        }
     }
 
     private static final class TableHandleCacheKey

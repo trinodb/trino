@@ -142,7 +142,7 @@ public class TestCachingJdbcClient
     }
 
     @Test
-    public void testColumnsCached()
+    public void testColumnsNotCached()
     {
         JdbcTableHandle table = getAnyTable(schema);
 
@@ -151,7 +151,7 @@ public class TestCachingJdbcClient
         jdbcClient.dropColumn(SESSION, table, phantomColumn);
 
         assertThat(jdbcClient.getColumns(SESSION, table)).doesNotContain(phantomColumn);
-        assertThat(cachingJdbcClient.getColumns(SESSION, table)).contains(phantomColumn);
+        assertThat(cachingJdbcClient.getColumns(SESSION, table)).doesNotContain(phantomColumn);
     }
 
     private JdbcTableHandle getAnyTable(String schema)
