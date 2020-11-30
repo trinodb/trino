@@ -47,9 +47,12 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.sql.JDBCType.DATE;
@@ -101,6 +104,7 @@ public class TestJdbcResultSetTimezone
     public void setUp()
             throws Exception
     {
+        // recreate connection since tests modify connection state
         connection = DriverManager.getConnection("jdbc:presto://" + server.getAddress(), "test", null);
         statement = connection.createStatement();
         referenceDrivers.forEach(ReferenceDriver::setUp);
@@ -127,15 +131,16 @@ public class TestJdbcResultSetTimezone
     public Object[][] timeZoneIds()
     {
         return new Object[][] {
-                {"UTC"},
-                {"Europe/Warsaw"},
-                {"America/Denver"},
-                {ZoneId.systemDefault().getId()}
+                {Optional.empty()},
+                {Optional.of("UTC")},
+                {Optional.of("Europe/Warsaw")},
+                {Optional.of("America/Denver")},
+                {Optional.of(ZoneId.systemDefault().getId())}
         };
     }
 
     @Test(dataProvider = "timeZoneIds")
-    public void testDate(String sessionTimezoneId)
+    public void testDate(Optional<String> sessionTimezoneId)
             throws Exception
     {
         checkRepresentation("DATE '2018-02-13'", DATE, sessionTimezoneId, (rs, reference, column) -> {
@@ -149,7 +154,7 @@ public class TestJdbcResultSetTimezone
     }
 
     @Test(dataProvider = "timeZoneIds")
-    public void testTimestamp(String sessionTimezoneId)
+    public void testTimestamp(Optional<String> sessionTimezoneId)
             throws Exception
     {
         checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.123'", TIMESTAMP, sessionTimezoneId, (rs, reference, column) -> {
@@ -167,7 +172,7 @@ public class TestJdbcResultSetTimezone
     }
 
     @Test(dataProvider = "timeZoneIds")
-    public void testTime(String sessionTimezoneId)
+    public void testTime(Optional<String> sessionTimezoneId)
             throws Exception
     {
         checkRepresentation("TIME '09:39:05'", TIME, sessionTimezoneId, (rs, reference, column) -> {
@@ -181,7 +186,7 @@ public class TestJdbcResultSetTimezone
     }
 
     @Test(dataProvider = "timeZoneIds")
-    public void testDateRoundTrip(String sessionTimezoneId)
+    public void testDateRoundTrip(Optional<String> sessionTimezoneId)
             throws SQLException
     {
         LocalDate date = LocalDate.of(2001, 5, 6);
@@ -201,7 +206,7 @@ public class TestJdbcResultSetTimezone
     }
 
     @Test(dataProvider = "timeZoneIds")
-    public void testTimestampRoundTrip(String sessionTimezoneId)
+    public void testTimestampRoundTrip(Optional<String> sessionTimezoneId)
             throws SQLException
     {
         LocalDateTime dateTime = LocalDateTime.of(2001, 5, 6, 12, 34, 56);
@@ -224,10 +229,11 @@ public class TestJdbcResultSetTimezone
         assertParameter(sqlTimestamp, sessionTimezoneId, (ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP));
     }
 
-    private void assertParameter(Object expectedValue, String sessionTimezoneId, Binder binder)
+    private void assertParameter(Object expectedValue, Optional<String> sessionTimezoneId, Binder binder)
             throws SQLException
     {
-        connection.unwrap(PrestoConnection.class).setTimeZoneId(sessionTimezoneId);
+        // connection is recreated before each test invocation
+        sessionTimezoneId.ifPresent(connection.unwrap(PrestoConnection.class)::setTimeZoneId);
         try (PreparedStatement statement = connection.prepareStatement("SELECT ?")) {
             binder.bind(statement, 1);
 
@@ -239,7 +245,7 @@ public class TestJdbcResultSetTimezone
         }
     }
 
-    private void checkRepresentation(String expression, JDBCType type, String sessionTimezoneId, ResultAssertion assertion)
+    private void checkRepresentation(String expression, JDBCType type, Optional<String> sessionTimezoneId, ResultAssertion assertion)
             throws Exception
     {
         int tests = 0;
@@ -273,7 +279,7 @@ public class TestJdbcResultSetTimezone
         }
     }
 
-    private void checkRepresentation(String expression, String sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
+    private void checkRepresentation(String expression, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
             throws Exception
     {
         try (ResultSet rs = prestoQuery(expression, sessionTimezoneId); ResultSet referenceResultSet = reference.query(expression, sessionTimezoneId)) {
@@ -285,10 +291,11 @@ public class TestJdbcResultSetTimezone
         }
     }
 
-    private ResultSet prestoQuery(String expression, String timezoneId)
+    private ResultSet prestoQuery(String expression, Optional<String> sessionTimezoneId)
             throws Exception
     {
-        connection.unwrap(PrestoConnection.class).setTimeZoneId(timezoneId);
+        // connection is recreated before each test invocation
+        sessionTimezoneId.ifPresent(connection.unwrap(PrestoConnection.class)::setTimeZoneId);
         return statement.executeQuery("SELECT " + expression);
     }
 
@@ -305,7 +312,7 @@ public class TestJdbcResultSetTimezone
     private interface ReferenceDriver
             extends Closeable
     {
-        ResultSet query(String expression, String timezoneId)
+        ResultSet query(String expression, Optional<String> timezoneId)
                 throws Exception;
 
         boolean supports(JDBCType type);
@@ -326,6 +333,7 @@ public class TestJdbcResultSetTimezone
         private OracleContainer oracleServer;
         private Connection connection;
         private Statement statement;
+        private Optional<Optional<String>> timezoneSet = Optional.empty();
 
         OracleReferenceDriver()
         {
@@ -334,10 +342,14 @@ public class TestJdbcResultSetTimezone
         }
 
         @Override
-        public ResultSet query(String expression, String timezoneId)
+        public ResultSet query(String expression, Optional<String> timezoneId)
                 throws Exception
         {
-            statement.execute(format("ALTER SESSION SET TIME_ZONE='%s'", timezoneId));
+            verify(!timezoneSet.isPresent() || Objects.equals(timezoneSet.get(), timezoneId), "Cannot set time zone %s while %s set previously", timezoneId, timezoneSet);
+            timezoneSet = Optional.of(timezoneId);
+            if (timezoneId.isPresent()) {
+                statement.execute(format("ALTER SESSION SET TIME_ZONE='%s'", timezoneId.get()));
+            }
             return statement.executeQuery(format("SELECT %s FROM dual", expression));
         }
 
@@ -351,8 +363,10 @@ public class TestJdbcResultSetTimezone
         public void setUp()
         {
             try {
+                // recreate connection since tests modify connection state
                 connection = DriverManager.getConnection(oracleServer.getJdbcUrl(), oracleServer.getUsername(), oracleServer.getPassword());
                 statement = connection.createStatement();
+                timezoneSet = Optional.empty();
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
@@ -387,6 +401,7 @@ public class TestJdbcResultSetTimezone
         private PostgreSQLContainer<?> postgresqlContainer;
         private Connection connection;
         private Statement statement;
+        private Optional<Optional<String>> timezoneSet = Optional.empty();
 
         PostgresqlReferenceDriver()
         {
@@ -396,10 +411,14 @@ public class TestJdbcResultSetTimezone
         }
 
         @Override
-        public ResultSet query(String expression, String timezoneId)
+        public ResultSet query(String expression, Optional<String> timezoneId)
                 throws Exception
         {
-            statement.execute(format("SET SESSION TIME ZONE '%s'", timezoneId));
+            verify(!timezoneSet.isPresent() || Objects.equals(timezoneSet.get(), timezoneId), "Cannot set time zone %s while %s set previously", timezoneId, timezoneSet);
+            timezoneSet = Optional.of(timezoneId);
+            if (timezoneId.isPresent()) {
+                statement.execute(format("SET SESSION TIME ZONE '%s'", timezoneId.get()));
+            }
             return statement.executeQuery(format("SELECT %s", expression));
         }
 
@@ -413,8 +432,10 @@ public class TestJdbcResultSetTimezone
         public void setUp()
         {
             try {
+                // recreate connection since tests modify connection state
                 connection = postgresqlContainer.createConnection("");
                 statement = connection.createStatement();
+                timezoneSet = Optional.empty();
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
