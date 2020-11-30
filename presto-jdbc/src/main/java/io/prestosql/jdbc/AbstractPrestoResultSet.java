@@ -147,8 +147,8 @@ abstract class AbstractPrestoResultSet
                     .add("date", String.class, Date.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())))
                     .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
                     .add("time with time zone", String.class, Time.class, AbstractPrestoResultSet::parseTimeWithTimeZone)
-                    .add("timestamp", String.class, Timestamp.class, string -> parseTimestamp(string, ZoneId.systemDefault()))
-                    .add("timestamp with time zone", String.class, Timestamp.class, string -> parseTimestamp(string, ZoneId::of))
+                    .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
+                    .add("timestamp with time zone", String.class, Timestamp.class, AbstractPrestoResultSet::parseTimestampWithTimeZoneAsSqlTimestamp)
                     .add("interval year to month", String.class, PrestoIntervalYearMonth.class, AbstractPrestoResultSet::parseIntervalYearMonth)
                     .add("interval day to second", String.class, PrestoIntervalDayTime.class, AbstractPrestoResultSet::parseIntervalDayTime)
                     .add("array", List.class, List.class, (type, list) -> (List<?>) convertFromClientRepresentation(type, list))
@@ -398,7 +398,7 @@ abstract class AbstractPrestoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("timestamp")) {
             try {
-                return parseTimestamp((String) value, ZoneId.of(localTimeZone.getID()));
+                return parseTimestampAsSqlTimestamp((String) value, ZoneId.of(localTimeZone.getID()));
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
@@ -407,7 +407,7 @@ abstract class AbstractPrestoResultSet
 
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("timestamp with time zone")) {
             try {
-                return parseTimestamp((String) value, ZoneId::of);
+                return parseTimestampWithTimeZoneAsSqlTimestamp((String) value);
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
@@ -1917,18 +1917,27 @@ abstract class AbstractPrestoResultSet
         return list.build();
     }
 
-    private static Timestamp parseTimestamp(String value, ZoneId localTimeZone)
+    private static Timestamp parseTimestampWithTimeZoneAsSqlTimestamp(String value)
+    {
+        ParsedTimestamp parsed = parseTimestamp(value);
+        return toTimestamp(value, parsed, timezone ->
+                ZoneId.of(timezone.orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value))));
+    }
+
+    private static Timestamp parseTimestampAsSqlTimestamp(String value, ZoneId localTimeZone)
     {
         requireNonNull(localTimeZone, "localTimeZone is null");
-        return parseTimestamp(value, timezone -> {
-            if (timezone != null) {
+
+        ParsedTimestamp parsed = parseTimestamp(value);
+        return toTimestamp(value, parsed, timezone -> {
+            if (timezone.isPresent()) {
                 throw new IllegalArgumentException("Invalid timestamp: " + value);
             }
             return localTimeZone;
         });
     }
 
-    private static Timestamp parseTimestamp(String value, Function<String, ZoneId> timeZoneParser)
+    private static ParsedTimestamp parseTimestamp(String value)
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
@@ -1942,14 +1951,30 @@ abstract class AbstractPrestoResultSet
         int minute = Integer.parseInt(matcher.group("minute"));
         int second = Integer.parseInt(matcher.group("second"));
         String fraction = matcher.group("fraction");
-        ZoneId zoneId = timeZoneParser.apply(matcher.group("timezone"));
+        Optional<String> timezone = Optional.ofNullable(matcher.group("timezone"));
 
-        long fractionValue = 0;
+        long picosOfSecond = 0;
         int precision = 0;
         if (fraction != null) {
             precision = fraction.length();
-            fractionValue = Long.parseLong(fraction);
+            verify(precision <= 12, "Unsupported timestamp precision %s: %s", precision, value);
+            long fractionValue = Long.parseLong(fraction);
+            picosOfSecond = rescale(fractionValue, precision, 12);
         }
+
+        return new ParsedTimestamp(year, month, day, hour, minute, second, picosOfSecond, timezone);
+    }
+
+    private static Timestamp toTimestamp(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    {
+        int year = parsed.year;
+        int month = parsed.month;
+        int day = parsed.day;
+        int hour = parsed.hour;
+        int minute = parsed.minute;
+        int second = parsed.second;
+        long picosOfSecond = parsed.picosOfSecond;
+        ZoneId zoneId = timeZoneParser.apply(parsed.timezone);
 
         long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
                 .atZone(zoneId)
@@ -1959,11 +1984,11 @@ abstract class AbstractPrestoResultSet
             // slower path, but accurate for historical dates
             GregorianCalendar calendar = new GregorianCalendar(year, month - 1, day, hour, minute, second);
             calendar.setTimeZone(TimeZone.getTimeZone(zoneId));
-            verify(calendar.getTimeInMillis() % MILLISECONDS_PER_SECOND == 0, "Fractional second when recalculating epochSecond of a historical date: %s", value);
+            verify(calendar.getTimeInMillis() % MILLISECONDS_PER_SECOND == 0, "Fractional second when recalculating epochSecond of a historical date: %s", originalValue);
             epochSecond = calendar.getTimeInMillis() / MILLISECONDS_PER_SECOND;
         }
 
-        int nanoOfSecond = (int) rescale(fractionValue, precision, 9);
+        int nanoOfSecond = (int) rescale(picosOfSecond, 12, 9);
         if (nanoOfSecond == NANOSECONDS_PER_SECOND) {
             epochSecond++;
             nanoOfSecond = 0;
@@ -2088,5 +2113,29 @@ abstract class AbstractPrestoResultSet
     {
         return (hour == 14 && minute == 0) ||
                 (hour >= 0 && hour < 14 && minute >= 0 && minute <= 59);
+    }
+
+    private static class ParsedTimestamp
+    {
+        private final int year;
+        private final int month;
+        private final int day;
+        private final int hour;
+        private final int minute;
+        private final int second;
+        private final long picosOfSecond;
+        private final Optional<String> timezone;
+
+        public ParsedTimestamp(int year, int month, int day, int hour, int minute, int second, long picosOfSecond, Optional<String> timezone)
+        {
+            this.year = year;
+            this.month = month;
+            this.day = day;
+            this.hour = hour;
+            this.minute = minute;
+            this.second = second;
+            this.picosOfSecond = picosOfSecond;
+            this.timezone = requireNonNull(timezone, "timezone is null");
+        }
     }
 }
