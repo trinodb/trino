@@ -283,13 +283,15 @@ public class TestJdbcResultSetTimezone
     private interface ReferenceDriver
             extends Closeable
     {
-        ResultSet query(String expression, String timezoneId) throws Exception;
+        ResultSet query(String expression, String timezoneId)
+                throws Exception;
 
         boolean supports(JDBCType type);
 
         void setUp();
 
-        void tearDown() throws Exception;
+        void tearDown()
+                throws Exception;
 
         @Override
         void close();
