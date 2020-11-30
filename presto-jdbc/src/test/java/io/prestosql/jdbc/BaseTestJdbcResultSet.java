@@ -32,6 +32,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -492,7 +493,9 @@ public abstract class BaseTestJdbcResultSet
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
-                assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+                ZonedDateTime zonedDateTime = ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw"));
+                Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
+                assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.227 Europe/Warsaw");
@@ -501,52 +504,61 @@ public abstract class BaseTestJdbcResultSet
                         .hasMessage(serverSupportsVariablePrecisionTimestampWithTimeZone()
                                 ? "Expected column to be a time type but is timestamp with time zone(3)" // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
                                 : "Expected column to be a time type but is timestamp with time zone");
-                assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should fail, or represent TIMESTAMP '2018-02-13 13:14:15.227'
+                assertEquals(rs.getTimestamp(column), timestampForPointInTime);
             });
 
             // second fraction in nanoseconds overflowing to next second, minute, hour, day, month, year
             if (serverSupportsVariablePrecisionTimestampWithTimeZone()) {
                 checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
-                    assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2019, 12, 31, 17, 0, 0, 0)));  // TODO this should represent TIMESTAMP TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
+                    ZonedDateTime zonedDateTime = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneId.of("Europe/Warsaw"));
+                    Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
+                    assertEquals(rs.getObject(column), timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
                     assertThatThrownBy(() -> rs.getDate(column))
                             .isInstanceOf(SQLException.class)
                             .hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 Europe/Warsaw");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                             .hasMessage("Expected column to be a time type but is timestamp with time zone(12)"); // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
-                    assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2019, 12, 31, 17, 0, 0, 0)));
+                    assertEquals(rs.getTimestamp(column), timestampForPointInTime);
                 });
 
+                ZoneId jvmZone = ZoneId.systemDefault();
                 checkRepresentation(
                         connectedStatement.getStatement(),
-                        format("TIMESTAMP '2019-12-31 23:59:59.999999999999 %s'", ZoneId.systemDefault().getId()),
+                        format("TIMESTAMP '2019-12-31 23:59:59.999999999999 %s'", jvmZone.getId()),
                         Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */,
                         (rs, column) -> {
-                            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2020, 1, 1, 0, 0, 0, 0)));  // TODO this should represent TIMESTAMP TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
+                            ZonedDateTime zonedDateTime = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, jvmZone);
+                            Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
+                            assertEquals(rs.getObject(column), timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 JVM ZONE'
                             assertThatThrownBy(() -> rs.getDate(column))
                                     .isInstanceOf(SQLException.class)
                                     .hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 America/Bahia_Banderas");
                             assertThatThrownBy(() -> rs.getTime(column))
                                     .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                                     .hasMessage("Expected column to be a time type but is timestamp with time zone(12)"); // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
-                            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2020, 1, 1, 0, 0, 0, 0)));
+                            assertEquals(rs.getTimestamp(column), timestampForPointInTime);
                         });
 
                 // before epoch
                 checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1957-12-31 23:59:59.999999999999 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
-                    assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1957, 12, 31, 15, 0, 0, 0)));  // TODO this should represent TIMESTAMP TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
+                    ZonedDateTime zonedDateTime = ZonedDateTime.of(1958, 1, 1, 0, 0, 0, 0, ZoneId.of("Europe/Warsaw"));
+                    Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
+                    assertEquals(rs.getObject(column), timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
                     assertThatThrownBy(() -> rs.getDate(column))
                             .isInstanceOf(SQLException.class)
                             .hasMessage("Expected value to be a date but is: 1957-12-31 23:59:59.999999999999 Europe/Warsaw");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                             .hasMessage("Expected column to be a time type but is timestamp with time zone(12)"); // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
-                    assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1957, 12, 31, 15, 0, 0, 0)));
+                    assertEquals(rs.getTimestamp(column), timestampForPointInTime);
                 });
             }
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
-                assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 1, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'
+                ZonedDateTime zonedDateTime = ZonedDateTime.of(1970, 1, 1, 9, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw"));
+                Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
+                assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Expected value to be a date but is: 1970-01-01 09:14:15.227 Europe/Warsaw");
@@ -555,11 +567,13 @@ public abstract class BaseTestJdbcResultSet
                         .hasMessage(serverSupportsVariablePrecisionTimestampWithTimeZone()
                                 ? "Expected column to be a time type but is timestamp with time zone(3)" // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
                                 : "Expected column to be a time type but is timestamp with time zone");
-                assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 1, 14, 15, 227_000_000))); // TODO this should fail, or represent TIMESTAMP '1970-01-01 09:14:15.227'
+                assertEquals(rs.getTimestamp(column), timestampForPointInTime);
             });
 
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
-                assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1969, 12, 31, 15, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'
+                ZonedDateTime zonedDateTime = ZonedDateTime.of(1970, 1, 1, 0, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw"));
+                Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
+                assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.227 Europe/Warsaw");
@@ -568,8 +582,7 @@ public abstract class BaseTestJdbcResultSet
                         .hasMessage(serverSupportsVariablePrecisionTimestampWithTimeZone()
                                 ? "Expected column to be a time type but is timestamp with time zone(3)" // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
                                 : "Expected column to be a time type but is timestamp with time zone");
-                // TODO this should fail, as there no java.sql.Timestamp representation for TIMESTAMP '1970-01-01 00:14:15.227ó' in America/Bahia_Banderas
-                assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1969, 12, 31, 15, 14, 15, 227_000_000)));
+                assertEquals(rs.getTimestamp(column), timestampForPointInTime);
             });
 
             // TODO https://github.com/prestosql/presto/issues/4363
@@ -579,14 +592,16 @@ public abstract class BaseTestJdbcResultSet
 
             if (serverSupportsVariablePrecisionTimestampWithTimeZone()) {
                 checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
-                    assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789))); // TODO this should contain the zone
+                    ZonedDateTime zonedDateTime = ZonedDateTime.of(12345, 1, 23, 1, 23, 45, 123_456_789, ZoneId.of("Europe/Warsaw"));
+                    Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
+                    assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should contain the zone
                     assertThatThrownBy(() -> rs.getDate(column))
                             .isInstanceOf(SQLException.class)
                             .hasMessage("Expected value to be a date but is: +12345-01-23 01:23:45.123456789 Europe/Warsaw");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
                             .hasMessage("Expected column to be a time type but is timestamp with time zone(9)"); // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
-                    assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789)));
+                    assertEquals(rs.getTimestamp(column), timestampForPointInTime);
                 });
             }
         }
