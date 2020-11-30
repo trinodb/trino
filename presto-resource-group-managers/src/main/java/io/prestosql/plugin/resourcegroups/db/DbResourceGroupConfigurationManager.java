@@ -62,7 +62,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -117,11 +116,8 @@ public class DbResourceGroupConfigurationManager
     @Override
     protected List<ResourceGroupSpec> getRootGroups()
     {
-        if (lastRefresh.get() == 0) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Root groups cannot be fetched from database");
-        }
         if (this.selectors.get().isEmpty()) {
-            throw new PrestoException(CONFIGURATION_INVALID, "No root groups are configured");
+            throw new PrestoException(CONFIGURATION_INVALID, "Root groups cannot be fetched from database");
         }
 
         return rootGroups.get();
@@ -157,9 +153,10 @@ public class DbResourceGroupConfigurationManager
     @Override
     public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
-        if (lastRefresh.get() == 0) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
-        }
+        // Refreshed group validations ensure that a valid config is not overwritten by a new faulty one.
+        // Rather than checking lastRefresh for 0 and failing, we continue to use prior valid config.
+        // In case of a cold start where the resource groups aren't valid, dispatched queries will continue
+        // to fail with the selectors not configured error.
         if (selectors.get().isEmpty()) {
             throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
         }
@@ -174,9 +171,6 @@ public class DbResourceGroupConfigurationManager
     @VisibleForTesting
     public List<ResourceGroupSelector> getSelectors()
     {
-        if (lastRefresh.get() == 0) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
-        }
         if (selectors.get().isEmpty()) {
             throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
         }

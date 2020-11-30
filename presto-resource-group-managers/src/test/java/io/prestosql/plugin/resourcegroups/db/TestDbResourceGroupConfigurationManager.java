@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
@@ -43,6 +44,7 @@ import static io.prestosql.execution.resourcegroups.InternalResourceGroup.DEFAUL
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.FAIR;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -247,6 +249,53 @@ public class TestDbResourceGroupConfigurationManager
         assertFalse(manager.getSelectors().get(0) instanceof DbSourceExactMatchSelector);
     }
 
+    @Test(timeOut = 60_000)
+    public void testInvalidReconfig()
+            throws Exception
+    {
+        H2DaoProvider daoProvider = setup("test_invalid_reconfig");
+        H2ResourceGroupsDao dao = daoProvider.get();
+        dao.createResourceGroupsGlobalPropertiesTable();
+        dao.createResourceGroupsTable();
+        dao.createSelectorsTable();
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "sub1", "2MB", 4, 3, 3, null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertSelector(2, 1, null, null, null, null, null);
+        dao.insertResourceGroup(3, "sub2", "3MB", 3, 3, 3, null, null, null, null, null, 1L, ENVIRONMENT);
+        dao.insertSelector(3, 1, null, null, null, null, null);
+        dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
+        final DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
+        Executors.newCachedThreadPool().submit(() -> {
+            try {
+                manager.start();
+            }
+            catch (Exception e) {
+                // no-op
+            }
+        });
+        AtomicBoolean exported = new AtomicBoolean();
+        InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
+        manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
+        InternalResourceGroup globalSub1 = global.getOrCreateSubGroup("sub1");
+        manager.configure(globalSub1, new SelectionContext<>(globalSub1.getId(), new ResourceGroupIdTemplate("global.sub1")));
+        InternalResourceGroup globalSub2 = global.getOrCreateSubGroup("sub2");
+        manager.configure(globalSub2, new SelectionContext<>(globalSub2.getId(), new ResourceGroupIdTemplate("global.sub2")));
+        // Verify record exists
+        assertEqualsResourceGroup(globalSub1, "2MB", 4, 3, 3, FAIR, 1, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE));
+        assertEqualsResourceGroup(globalSub2, "3MB", 3, 3, 3, FAIR, 1, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE));
+        assertEquals(0, manager.getRefreshFailures().getTotalCount());
+        // Incorrect update of weight for only one of the subgroups
+        dao.updateResourceGroup(2, "sub1", "3MB", 2, 1, 1, null, 10, true, "1h", "1d", 1L, ENVIRONMENT);
+        dao.updateResourceGroup(3, "sub2", "3MB", 2, 1, 1, null, null, true, "1h", "1d", 1L, ENVIRONMENT);
+        do {
+            SECONDS.sleep(2);
+        } while (manager.getRefreshFailures().getTotalCount() == 0);
+        // Verify old subgroup is being used for query dispatch
+        assertEqualsResourceGroup(globalSub1, "2MB", 4, 3, 3, FAIR, 1, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE));
+        assertEqualsResourceGroup(globalSub2, "3MB", 3, 3, 3, FAIR, 1, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE));
+        assertTrue(manager.getRefreshFailures().getTotalCount() >= 1);
+    }
+
     @Test
     public void testSelectorPriority()
     {
@@ -329,10 +378,9 @@ public class TestDbResourceGroupConfigurationManager
 
         try {
             manager.getSelectors();
-            fail("Expected unavailable configuration exception");
         }
         catch (Exception e) {
-            assertEquals(e.getMessage(), "Selectors cannot be fetched from database");
+            assertEquals(e.getMessage(), "No selectors are configured");
         }
 
         try {
