@@ -49,6 +49,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.ValidReaderWriteIdList;
 import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.InputSplit;
@@ -72,6 +73,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -95,6 +97,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
+import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
 import static io.prestosql.plugin.hive.HiveStorageFormat.CSV;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
@@ -114,6 +117,8 @@ import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPresto
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
+import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -535,6 +540,7 @@ public class TestBackgroundHiveSplitLoader
                 threads,
                 false,
                 false,
+                true,
                 Optional.empty());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -742,6 +748,80 @@ public class TestBackgroundHiveSplitLoader
         BackgroundHiveSplitLoader.validateFileBuckets(bucketFiles, 30, "tableName", "partitionName");
     }
 
+    @Test
+    public void testBuildManifestFileIterator()
+            throws Exception
+    {
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of());
+        Configuration configuration = new Configuration(false);
+        Properties schema = new Properties();
+        schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
+        schema.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
+
+        Path firstFilePath = new Path("hdfs://VOL1:9000/db_name/table_name/file1");
+        Path secondFilePath = new Path("hdfs://VOL1:9000/db_name/table_name/file2");
+        List<Path> paths = ImmutableList.of(firstFilePath, secondFilePath);
+        List<LocatedFileStatus> files = paths.stream()
+                .map(TestBackgroundHiveSplitLoader::locatedFileStatus)
+                .collect(toImmutableList());
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                files,
+                directoryLister);
+        Optional<Iterator<InternalHiveSplit>> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
+                configuration,
+                "partition",
+                schema,
+                ImmutableList.of(),
+                TupleDomain.all(),
+                () -> true,
+                false,
+                TableToPartitionMapping.empty(),
+                new Path("hdfs://VOL1:9000/db_name/table_name"),
+                paths,
+                true);
+        assertTrue(splitIterator.isPresent());
+        List<InternalHiveSplit> splits = ImmutableList.copyOf(splitIterator.get());
+        assertEquals(splits.size(), 2);
+        assertEquals(splits.get(0).getPath(), firstFilePath.toString());
+        assertEquals(splits.get(1).getPath(), secondFilePath.toString());
+    }
+
+    @Test
+    public void testBuildManifestFileIteratorNestedDirectory()
+            throws Exception
+    {
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of());
+        Configuration configuration = new Configuration(false);
+        Properties schema = new Properties();
+        schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
+        schema.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
+
+        Path filePath = new Path("hdfs://VOL1:9000/db_name/table_name/file1");
+        Path directoryPath = new Path("hdfs://VOL1:9000/db_name/table_name/dir");
+        List<Path> paths = ImmutableList.of(filePath, directoryPath);
+        List<LocatedFileStatus> files = ImmutableList.of(
+                locatedFileStatus(filePath),
+                locatedDirectoryStatus(directoryPath));
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                files,
+                directoryLister);
+        Optional<Iterator<InternalHiveSplit>> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
+                configuration,
+                "partition",
+                schema,
+                ImmutableList.of(),
+                TupleDomain.all(),
+                () -> true,
+                false,
+                TableToPartitionMapping.empty(),
+                new Path("hdfs://VOL1:9000/db_name/table_name"),
+                paths,
+                false);
+        assertTrue(splitIterator.isEmpty());
+    }
+
     private static void createOrcAcidFile(File file)
             throws IOException
     {
@@ -886,6 +966,7 @@ public class TestBackgroundHiveSplitLoader
                 2,
                 false,
                 false,
+                true,
                 validWriteIds);
     }
 
@@ -917,6 +998,7 @@ public class TestBackgroundHiveSplitLoader
                 2,
                 false,
                 false,
+                true,
                 Optional.empty());
     }
 
@@ -942,6 +1024,7 @@ public class TestBackgroundHiveSplitLoader
                 2,
                 false,
                 false,
+                true,
                 Optional.empty());
     }
 
@@ -1083,6 +1166,23 @@ public class TestBackgroundHiveSplitLoader
         return new LocatedFileStatus(
                 0L,
                 false,
+                0,
+                0L,
+                0L,
+                0L,
+                null,
+                null,
+                null,
+                null,
+                path,
+                new BlockLocation[] {});
+    }
+
+    private static LocatedFileStatus locatedDirectoryStatus(Path path)
+    {
+        return new LocatedFileStatus(
+                0L,
+                true,
                 0,
                 0L,
                 0L,

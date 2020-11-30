@@ -14,8 +14,6 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.name.Named;
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
@@ -45,37 +43,16 @@ public class TestAvroSymlinkInputFormat
     @Named("databases.hive.warehouse_directory_path")
     private String warehouseDirectory;
 
-    @BeforeTestWithContext
-    public void setup()
-            throws Exception
-    {
-        hdfsClient.createDirectory(warehouseDirectory + "/TestAvroSymlinkInputFormat/data");
-        saveResourceOnHdfs("avro/original_data.avro", warehouseDirectory + "/TestAvroSymlinkInputFormat/data/original_data.avro");
-    }
-
-    @AfterTestWithContext
-    public void cleanup()
-    {
-        hdfsClient.delete(warehouseDirectory + "/TestAvroSymlinkInputFormat");
-    }
-
-    private void saveResourceOnHdfs(String resource, String location)
-            throws IOException
-    {
-        hdfsClient.delete(location);
-        try (InputStream inputStream = newInputStream(Paths.get("/docker/presto-product-tests", resource))) {
-            hdfsClient.saveFile(location, inputStream);
-        }
-    }
-
     @Test(groups = {AVRO, STORAGE_FORMATS})
     public void testSymlinkTable()
+            throws Exception
     {
-        onHive().executeQuery("DROP TABLE IF EXISTS test_avro_symlink");
+        String table = "test_avro_symlink";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + table);
 
         onHive().executeQuery("" +
-                "CREATE TABLE test_avro_symlink " +
-                "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
+                "CREATE TABLE " + table +
+                " ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                 "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
                 "\"namespace\": \"io.prestosql.tests.hive\"," +
                 "\"name\": \"test_avro_symlink\"," +
@@ -88,11 +65,93 @@ public class TestAvroSymlinkInputFormat
                 "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat' " +
                 "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
 
-        hdfsClient.delete(warehouseDirectory + "/test_avro_schema_symlink/symlink.txt");
-        hdfsClient.saveFile(warehouseDirectory + "/test_avro_symlink/symlink.txt", format("hdfs://%s/TestAvroSymlinkInputFormat/data/original_data.avro", warehouseDirectory));
+        String tableRoot = warehouseDirectory + '/' + table;
+        String dataDir = warehouseDirectory + "/data_test_avro_symlink";
 
-        assertThat(onPresto().executeQuery("SELECT * FROM test_avro_symlink"))
-                .containsExactly(row("someValue", 1));
-        onHive().executeQuery("DROP TABLE IF EXISTS test_avro_symlink");
+        saveResourceOnHdfs("avro/original_data.avro", dataDir + "/original_data.avro");
+        hdfsClient.saveFile(dataDir + "/dontread.txt", "This file will cause an error if read as avro.");
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/original_data.avro", dataDir));
+        assertThat(onPresto().executeQuery("SELECT * FROM " + table)).containsExactly(row("someValue", 1));
+
+        onHive().executeQuery("DROP TABLE " + table);
+        hdfsClient.delete(dataDir);
+    }
+
+    @Test(groups = {AVRO, STORAGE_FORMATS})
+    public void testSymlinkTableWithMultipleParentDirectories()
+            throws Exception
+    {
+        String table = "test_avro_symlink_with_multiple_parents";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + table);
+
+        onHive().executeQuery("" +
+                "CREATE TABLE " + table +
+                " ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
+                "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
+                "\"namespace\": \"io.prestosql.tests.hive\"," +
+                "\"name\": \"test_avro_symlink\"," +
+                "\"type\": \"record\"," +
+                "\"fields\": [" +
+                "{ \"name\":\"string_col\", \"type\":\"string\"}," +
+                "{ \"name\":\"int_col\", \"type\":\"int\" }" +
+                "]}') " +
+                "STORED AS " +
+                "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat' " +
+                "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
+
+        String tableRoot = warehouseDirectory + '/' + table;
+        String dataDir = warehouseDirectory + "/data_test_avro_symlink_with_multiple_parents";
+        String anotherDataDir = warehouseDirectory + "/data2_test_avro_symlink_with_multiple_parents";
+
+        saveResourceOnHdfs("avro/original_data.avro", dataDir + "/original_data.avro");
+        saveResourceOnHdfs("avro/original_data.avro", anotherDataDir + "/more_data.avro");
+        hdfsClient.saveFile(dataDir + "/dontread.txt", "This file will cause an error if read as avro.");
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs:%s/original_data.avro\nhdfs:%s/more_data.avro", dataDir, anotherDataDir));
+        assertThat(onPresto().executeQuery("SELECT COUNT(*) as cnt FROM " + table)).containsExactly(row(2));
+
+        onHive().executeQuery("DROP TABLE " + table);
+        hdfsClient.delete(dataDir);
+        hdfsClient.delete(anotherDataDir);
+    }
+
+    @Test(groups = {AVRO, STORAGE_FORMATS})
+    public void testSymlinkTableWithNestedDirectory()
+            throws Exception
+    {
+        String table = "test_avro_symlink_with_nested_directory";
+        onHive().executeQuery("DROP TABLE IF EXISTS " + table);
+
+        onHive().executeQuery("" +
+                "CREATE TABLE " + table +
+                " ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
+                "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
+                "\"namespace\": \"io.prestosql.tests.hive\"," +
+                "\"name\": \"test_avro_symlink\"," +
+                "\"type\": \"record\"," +
+                "\"fields\": [" +
+                "{ \"name\":\"string_col\", \"type\":\"string\"}," +
+                "{ \"name\":\"int_col\", \"type\":\"int\" }" +
+                "]}') " +
+                "STORED AS " +
+                "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat' " +
+                "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
+
+        String tableRoot = warehouseDirectory + '/' + table;
+        String dataDir = warehouseDirectory + "/data_test_avro_symlink_with_nested_directory";
+        saveResourceOnHdfs("avro/original_data.avro", dataDir + "/original_data.avro");
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs://%s/", dataDir));
+        assertThat(onPresto().executeQuery("SELECT * FROM " + table)).containsExactly(row("someValue", 1));
+
+        onHive().executeQuery("DROP TABLE " + table);
+        hdfsClient.delete(dataDir);
+    }
+
+    private void saveResourceOnHdfs(String resource, String location)
+            throws IOException
+    {
+        hdfsClient.delete(location);
+        try (InputStream inputStream = newInputStream(Paths.get("/docker/presto-product-tests", resource))) {
+            hdfsClient.saveFile(location, inputStream);
+        }
     }
 }
