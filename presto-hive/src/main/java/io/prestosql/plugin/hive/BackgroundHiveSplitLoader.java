@@ -365,52 +365,19 @@ public class BackgroundHiveSplitLoader
             if (tableBucketInfo.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
-
-            // TODO: This should use an iterator like the HiveFileIterator
-            ListenableFuture<?> lastResult = COMPLETED_FUTURE;
             List<Path> targetPaths = hdfsEnvironment.doAs(
                     hdfsContext.getIdentity().getUser(),
                     () -> getTargetPathsFromSymlink(fs, path));
-            for (Path targetPath : targetPaths) {
-                // The input should be in TextInputFormat.
-                TextInputFormat targetInputFormat = new TextInputFormat();
-                // the splits must be generated using the file system for the target path
-                // get the configuration for the target path -- it may be a different hdfs instance
-                FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
-                JobConf targetJob = toJobConf(targetFilesystem.getConf());
-                targetJob.setInputFormat(TextInputFormat.class);
-                Optional<Principal> principal = hdfsContext.getIdentity().getPrincipal();
-                if (principal.isPresent()) {
-                    targetJob.set(MRConfig.FRAMEWORK_NAME, MRConfig.CLASSIC_FRAMEWORK_NAME);
-                    targetJob.set(MRConfig.MASTER_USER_NAME, principal.get().getName());
-                }
-                targetInputFormat.configure(targetJob);
-                FileInputFormat.setInputPaths(targetJob, targetPath);
-                InputSplit[] targetSplits = hdfsEnvironment.doAs(
-                        hdfsContext.getIdentity().getUser(),
-                        () -> targetInputFormat.getSplits(targetJob, 0));
-
-                InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
-                        targetFilesystem,
-                        partitionName,
-                        inputFormat,
-                        schema,
-                        partitionKeys,
-                        effectivePredicate,
-                        partitionMatchSupplier,
-                        partition.getTableToPartitionMapping(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        getMaxInitialSplitSize(session),
-                        isForceLocalScheduling(session),
-                        s3SelectPushdownEnabled,
-                        transaction);
-                lastResult = addSplitsToSource(targetSplits, splitFactory);
-                if (stopped) {
-                    return COMPLETED_FUTURE;
-                }
-            }
-            return lastResult;
+            return createHiveSymlinkSplits(
+                    partitionName,
+                    inputFormat,
+                    schema,
+                    partitionKeys,
+                    effectivePredicate,
+                    partitionMatchSupplier,
+                    s3SelectPushdownEnabled,
+                    partition.getTableToPartitionMapping(),
+                    targetPaths);
         }
 
         Optional<BucketConversion> bucketConversion = Optional.empty();
@@ -577,6 +544,61 @@ public class BackgroundHiveSplitLoader
         }
 
         return COMPLETED_FUTURE;
+    }
+
+    private ListenableFuture<?> createHiveSymlinkSplits(
+            String partitionName,
+            InputFormat<?, ?> inputFormat,
+            Properties schema,
+            List<HivePartitionKey> partitionKeys,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            BooleanSupplier partitionMatchSupplier,
+            boolean s3SelectPushdownEnabled,
+            TableToPartitionMapping tableToPartitionMapping,
+            List<Path> targetPaths)
+            throws IOException
+    {
+        ListenableFuture<?> lastResult = COMPLETED_FUTURE;
+        for (Path targetPath : targetPaths) {
+            // The input should be in TextInputFormat.
+            TextInputFormat targetInputFormat = new TextInputFormat();
+            // the splits must be generated using the file system for the target path
+            // get the configuration for the target path -- it may be a different hdfs instance
+            FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
+            JobConf targetJob = toJobConf(targetFilesystem.getConf());
+            targetJob.setInputFormat(TextInputFormat.class);
+            Optional<Principal> principal = hdfsContext.getIdentity().getPrincipal();
+            if (principal.isPresent()) {
+                targetJob.set(MRConfig.FRAMEWORK_NAME, MRConfig.CLASSIC_FRAMEWORK_NAME);
+                targetJob.set(MRConfig.MASTER_USER_NAME, principal.get().getName());
+            }
+            targetInputFormat.configure(targetJob);
+            FileInputFormat.setInputPaths(targetJob, targetPath);
+            InputSplit[] targetSplits = hdfsEnvironment.doAs(
+                    hdfsContext.getIdentity().getUser(),
+                    () -> targetInputFormat.getSplits(targetJob, 0));
+
+            InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
+                    targetFilesystem,
+                    partitionName,
+                    inputFormat,
+                    schema,
+                    partitionKeys,
+                    effectivePredicate,
+                    partitionMatchSupplier,
+                    tableToPartitionMapping,
+                    Optional.empty(),
+                    Optional.empty(),
+                    getMaxInitialSplitSize(session),
+                    isForceLocalScheduling(session),
+                    s3SelectPushdownEnabled,
+                    transaction);
+            lastResult = addSplitsToSource(targetSplits, splitFactory);
+            if (stopped) {
+                return COMPLETED_FUTURE;
+            }
+        }
+        return lastResult;
     }
 
     private Iterator<InternalHiveSplit> generateOriginalFilesSplits(
