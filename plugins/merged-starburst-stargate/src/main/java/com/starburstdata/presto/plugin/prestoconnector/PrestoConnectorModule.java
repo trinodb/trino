@@ -20,12 +20,16 @@ import io.prestosql.plugin.jdbc.JdbcSplitManager;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
 public class PrestoConnectorModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     public void setup(Binder binder)
     {
+        configBinder(binder).bindConfig(PrestoConnectorConfig.class);
+
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(PrestoConnectorClient.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
