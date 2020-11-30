@@ -336,7 +336,7 @@ Property Name                                      Description                  
                                         if it is older than this but is not yet expired, allowing
                                         subsequent accesses to see fresh data.
 
-``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
+``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        10
 
 ``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
 
