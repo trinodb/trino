@@ -341,9 +341,7 @@ public abstract class BaseTestJdbcResultSet
                             .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.111111111111");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
-                            .hasMessage(serverSupportsVariablePrecisionTimestamp()
-                                    ? "Expected column to be a time type but is timestamp(12)"
-                                    : "Expected column to be a time type but is timestamp");
+                            .hasMessage("Expected column to be a time type but is timestamp(12)");
                     assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
                 });
             }
@@ -356,9 +354,7 @@ public abstract class BaseTestJdbcResultSet
                             .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.555555555555");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
-                            .hasMessage(serverSupportsVariablePrecisionTimestamp()
-                                    ? "Expected column to be a time type but is timestamp(12)"
-                                    : "Expected column to be a time type but is timestamp");
+                            .hasMessage("Expected column to be a time type but is timestamp(12)");
                     assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
                 });
             }
@@ -456,9 +452,7 @@ public abstract class BaseTestJdbcResultSet
                             .hasMessage("Expected value to be a date but is: +123456-01-23 01:23:45.123456789");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
-                            .hasMessage(serverSupportsVariablePrecisionTimestamp()
-                                    ? "Expected column to be a time type but is timestamp(9)"
-                                    : "Expected column to be a time type but is timestamp");
+                            .hasMessage("Expected column to be a time type but is timestamp(9)");
                     assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
                 });
             }
@@ -515,9 +509,7 @@ public abstract class BaseTestJdbcResultSet
                             .hasMessage("Expected value to be a date but is: +12345-01-23 01:23:45.123456789 Europe/Warsaw");
                     assertThatThrownBy(() -> rs.getTime(column))
                             .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
-                            .hasMessage(serverSupportsVariablePrecisionTimestampWithTimeZone()
-                                    ? "Expected column to be a time type but is timestamp with time zone(9)" // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
-                                    : "Expected column to be a time type but is timestamp with time zone");
+                            .hasMessage("Expected column to be a time type but is timestamp with time zone(9)"); // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
                     assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789)));
                 });
             }
