@@ -456,6 +456,14 @@ public abstract class BaseTestJdbcResultSet
                     assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
                 });
             }
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZone()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
                 assertThatThrownBy(() -> rs.getDate(column))
