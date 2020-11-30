@@ -28,7 +28,7 @@ public class CachingHiveMetastoreConfig
     private Duration metastoreCacheTtl = new Duration(0, TimeUnit.SECONDS);
     private Optional<Duration> metastoreRefreshInterval = Optional.empty();
     private long metastoreCacheMaximumSize = 10000;
-    private int maxMetastoreRefreshThreads = 100;
+    private int maxMetastoreRefreshThreads = 10;
 
     @NotNull
     public Duration getMetastoreCacheTtl()

@@ -33,7 +33,7 @@ public class TestCachingHiveMetastoreConfig
                 .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
                 .setMetastoreRefreshInterval(null)
                 .setMetastoreCacheMaximumSize(10000)
-                .setMaxMetastoreRefreshThreads(100));
+                .setMaxMetastoreRefreshThreads(10));
     }
 
     @Test
