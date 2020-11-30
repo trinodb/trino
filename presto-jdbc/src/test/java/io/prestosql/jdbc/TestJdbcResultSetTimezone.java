@@ -44,11 +44,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.TIME;
@@ -240,11 +242,34 @@ public class TestJdbcResultSetTimezone
     private void checkRepresentation(String expression, JDBCType type, String sessionTimezoneId, ResultAssertion assertion)
             throws Exception
     {
+        int tests = 0;
+        List<AssertionError> failures = new ArrayList<>();
+
         for (ReferenceDriver driver : referenceDrivers) {
             if (driver.supports(type)) {
+                tests ++;
                 log.info("Checking behavior against %s", driver);
-                checkRepresentation(expression, sessionTimezoneId, driver, assertion);
+                try {
+                    checkRepresentation(expression, sessionTimezoneId, driver, assertion);
+                }
+                catch (RuntimeException | AssertionError e) {
+                    String message = format("Failure when checking behavior against %s", driver);
+                    // log immediately since further tests may take more time; "log and rethrown" is not harmful in tests
+                    log.error(e, message);
+                    failures.add(new AssertionError(message, e));
+                }
             }
+        }
+
+        if (!failures.isEmpty()) {
+            if (failures.size() == 1 && tests == 1) {
+                // The only applicable driver failed
+                throw getOnlyElement(failures);
+            }
+
+            AssertionError error = new AssertionError(format("Test failed for %s reference drivers out of %s applicable", failures.size(), tests));
+            failures.forEach(error::addSuppressed);
+            throw error;
         }
     }
 
