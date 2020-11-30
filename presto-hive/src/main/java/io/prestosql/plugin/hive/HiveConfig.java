@@ -141,6 +141,8 @@ public class HiveConfig
 
     private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.MILLISECONDS;
 
+    private boolean optimizeSymlinkListing = true;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1007,6 +1009,19 @@ public class HiveConfig
     public HiveConfig setTimestampPrecision(HiveTimestampPrecision timestampPrecision)
     {
         this.timestampPrecision = timestampPrecision;
+        return this;
+    }
+
+    public boolean isOptimizeSymlinkListing()
+    {
+        return this.optimizeSymlinkListing;
+    }
+
+    @Config("hive.optimize-symlink-listing")
+    @ConfigDescription("Optimize listing for SymlinkTextFormat tables with files in a single directory")
+    public HiveConfig setOptimizeSymlinkListing(boolean optimizeSymlinkListing)
+    {
+        this.optimizeSymlinkListing = optimizeSymlinkListing;
         return this;
     }
 }
