@@ -185,10 +185,19 @@ public class CachingJdbcClient
             return cachedTableHandle;
         }
         Optional<JdbcTableHandle> tableHandle = delegate.getTableHandle(session, schemaTableName);
-        if (tableHandle.isPresent() || cacheMissing) {
+        if ((tableHandle.isPresent() && canBeCached(tableHandle.get())) || (tableHandle.isEmpty() && cacheMissing)) {
             tableHandleCache.put(key, tableHandle);
         }
         return tableHandle;
+    }
+
+    private static boolean canBeCached(JdbcTableHandle tableHandle)
+    {
+        // Cannot cache JdbcColumnHandle objects, since their Type may depend on session properties
+        return tableHandle.getGroupingSets().isEmpty() &&
+                tableHandle.getColumns().isEmpty() &&
+                // Synthetic column handle is not expected here, so if one is found it's safer not to cache it
+                !tableHandle.isSynthetic();
     }
 
     @Override
