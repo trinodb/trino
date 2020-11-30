@@ -44,9 +44,11 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class CachingJdbcClient
@@ -272,28 +274,28 @@ public class CachingJdbcClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         delegate.setColumnComment(session, handle, column, comment);
-        invalidateColumnsCache(session, handle.getSchemaTableName());
+        invalidateColumnsCache(handle.getSchemaTableName());
     }
 
     @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate.addColumn(session, handle, column);
-        invalidateColumnsCache(session, handle.getSchemaTableName());
+        invalidateColumnsCache(handle.getSchemaTableName());
     }
 
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         delegate.dropColumn(session, handle, column);
-        invalidateColumnsCache(session, handle.getSchemaTableName());
+        invalidateColumnsCache(handle.getSchemaTableName());
     }
 
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         delegate.renameColumn(session, handle, jdbcColumn, newColumnName);
-        invalidateColumnsCache(session, handle.getSchemaTableName());
+        invalidateColumnsCache(handle.getSchemaTableName());
     }
 
     @Override
@@ -358,9 +360,17 @@ public class CachingJdbcClient
         tableNamesCache.invalidateAll();
     }
 
-    private void invalidateColumnsCache(ConnectorSession session, SchemaTableName table)
+    private void invalidateColumnsCache(SchemaTableName table)
     {
-        columnsCache.invalidate(new ColumnsCacheKey(JdbcIdentity.from(session), table));
+        invalidate(columnsCache, columnsCacheKey -> columnsCacheKey.table.equals(table));
+    }
+
+    private static <K> void invalidate(Cache<K, ?> cache, Predicate<K> keyPredicate)
+    {
+        List<K> keys = cache.asMap().keySet().stream()
+                .filter(keyPredicate)
+                .collect(toImmutableList());
+        cache.invalidateAll(keys);
     }
 
     private static final class ColumnsCacheKey
