@@ -79,9 +79,8 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static org.joda.time.DateTimeZone.UTC;
+import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
 abstract class AbstractPrestoResultSet
         implements ResultSet
@@ -116,6 +115,7 @@ abstract class AbstractPrestoResultSet
 
     private static final int MILLISECONDS_PER_SECOND = 1000;
     private static final int MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
+    private static final long NANOSECONDS_PER_SECOND = 1_000_000_000;
 
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
@@ -123,7 +123,7 @@ abstract class AbstractPrestoResultSet
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
     // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.
-    private static final long START_OF_MODERN_ERA = new LocalDate(1901, 1, 1).toDateTimeAtStartOfDay(UTC).getMillis();
+    private static final long START_OF_MODERN_ERA_SECONDS = java.time.LocalDate.of(1901, 1, 1).toEpochDay() * SECONDS_PER_DAY;
 
     private static final TypeConversions TYPE_CONVERSIONS =
             TypeConversions.builder()
@@ -289,7 +289,7 @@ abstract class AbstractPrestoResultSet
 
         try {
             long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
-            if (millis >= START_OF_MODERN_ERA) {
+            if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
                 return new Date(millis);
             }
 
@@ -1931,19 +1931,23 @@ abstract class AbstractPrestoResultSet
         long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
                 .atZone(zoneId)
                 .toEpochSecond();
-        long epochMillis = SECONDS.toMillis(epochSecond);
 
-        Timestamp timestamp;
-        if (epochMillis >= START_OF_MODERN_ERA) {
-            timestamp = new Timestamp(epochMillis);
-        }
-        else {
+        if (epochSecond < START_OF_MODERN_ERA_SECONDS) {
             // slower path, but accurate for historical dates
             GregorianCalendar calendar = new GregorianCalendar(year, month - 1, day, hour, minute, second);
             calendar.setTimeZone(TimeZone.getTimeZone(zoneId));
-            timestamp = new Timestamp(calendar.getTimeInMillis());
+            verify(calendar.getTimeInMillis() % MILLISECONDS_PER_SECOND == 0, "Fractional second when recalculating epochSecond of a historical date: %s", value);
+            epochSecond = calendar.getTimeInMillis() / MILLISECONDS_PER_SECOND;
         }
-        timestamp.setNanos((int) rescale(fractionValue, precision, 9));
+
+        int nanoOfSecond = (int) rescale(fractionValue, precision, 9);
+        if (nanoOfSecond == NANOSECONDS_PER_SECOND) {
+            epochSecond++;
+            nanoOfSecond = 0;
+        }
+
+        Timestamp timestamp = new Timestamp(epochSecond * MILLISECONDS_PER_SECOND);
+        timestamp.setNanos(nanoOfSecond);
         return timestamp;
     }
 
