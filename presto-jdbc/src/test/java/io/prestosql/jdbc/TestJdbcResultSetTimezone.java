@@ -40,10 +40,13 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
@@ -59,6 +62,7 @@ import static java.lang.String.format;
 import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.TIME;
 import static java.sql.JDBCType.TIMESTAMP;
+import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -170,6 +174,75 @@ public class TestJdbcResultSetTimezone
                     rs.getTimestamp(column, getCalendar()),
                     new Timestamp(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000).atZone(getZoneId()).toInstant().toEpochMilli()));
         });
+    }
+
+    @Test(dataProvider = "timeZoneIds")
+    public void testTimestampWithTimeZone(Optional<String> sessionTimezoneId)
+            throws Exception
+    {
+        checkRepresentation(
+                "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", // Presto
+                ImmutableList.of(
+                        "TIMESTAMP WITH TIME ZONE '1970-01-01 00:00:00.000 +00:00'", // PostgreSQL
+                        "from_tz(TIMESTAMP '1970-01-01 00:00:00.000', '+00:00')"), // Oracle
+                TIMESTAMP_WITH_TIMEZONE,
+                sessionTimezoneId,
+                (rs, reference, column) -> {
+                    Timestamp timestampForPointInTime = Timestamp.from(Instant.EPOCH);
+
+                    assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
+                    assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
+                    assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+
+                    // with calendar
+                    assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
+                    assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
+                    assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
+                });
+
+        checkRepresentation(
+                "TIMESTAMP '2018-02-13 13:14:15.123 +03:15'", // Presto
+                ImmutableList.of(
+                        "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 +03:15'", // PostgreSQL
+                        "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', '+03:15')"), // Oracle
+                TIMESTAMP_WITH_TIMEZONE,
+                sessionTimezoneId,
+                (rs, reference, column) -> {
+                    Timestamp timestampForPointInTime = Timestamp.from(
+                            ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000, ZoneOffset.ofHoursMinutes(3, 15))
+                                    .toInstant());
+
+                    assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
+                    assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
+                    assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+
+                    // with calendar
+                    assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
+                    assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
+                    assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
+                });
+
+        checkRepresentation(
+                "TIMESTAMP '2018-02-13 13:14:15.123 Europe/Warsaw'", // Presto
+                ImmutableList.of(
+                        "TIMESTAMP WITH TIME ZONE '2018-02-13 13:14:15.123 Europe/Warsaw'", // PostgreSQL
+                        "from_tz(TIMESTAMP '2018-02-13 13:14:15.123', 'Europe/Warsaw')"), // Oracle
+                TIMESTAMP_WITH_TIMEZONE,
+                sessionTimezoneId,
+                (rs, reference, column) -> {
+                    Timestamp timestampForPointInTime = Timestamp.from(
+                            ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000, ZoneId.of("Europe/Warsaw"))
+                                    .toInstant());
+
+                    assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
+                    assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
+                    assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+
+                    // with calendar
+                    assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
+                    assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
+                    assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
+                });
     }
 
     @Test(dataProvider = "timeZoneIds")
@@ -348,7 +421,7 @@ public class TestJdbcResultSetTimezone
     private static class OracleReferenceDriver
             implements ReferenceDriver
     {
-        private static final Set<JDBCType> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIMESTAMP);
+        private static final Set<JDBCType> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIMESTAMP, TIMESTAMP_WITH_TIMEZONE);
         private OracleContainer oracleServer;
         private Connection connection;
         private Statement statement;
@@ -416,7 +489,7 @@ public class TestJdbcResultSetTimezone
     private static class PostgresqlReferenceDriver
             implements ReferenceDriver
     {
-        private static final Set<JDBCType> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIMESTAMP);
+        private static final Set<JDBCType> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIMESTAMP, TIMESTAMP_WITH_TIMEZONE);
         private PostgreSQLContainer<?> postgresqlContainer;
         private Connection connection;
         private Statement statement;
