@@ -329,7 +329,7 @@ abstract class AbstractPrestoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("time")) {
             try {
-                return parseTime(String.valueOf(value), ZoneId.of(localTimeZone.getID()));
+                return parseTime((String) value, ZoneId.of(localTimeZone.getID()));
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid time from server: " + value, e);
@@ -338,7 +338,7 @@ abstract class AbstractPrestoResultSet
 
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("time with time zone")) {
             try {
-                return parseTimeWithTimeZone(String.valueOf(value));
+                return parseTimeWithTimeZone((String) value);
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid time from server: " + value, e);
@@ -366,7 +366,7 @@ abstract class AbstractPrestoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("timestamp")) {
             try {
-                return parseTimestamp(String.valueOf(value), timezone -> {
+                return parseTimestamp((String) value, timezone -> {
                     if (timezone != null) {
                         throw new IllegalArgumentException("Invalid timestamp: " + value);
                     }
@@ -380,7 +380,7 @@ abstract class AbstractPrestoResultSet
 
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("timestamp with time zone")) {
             try {
-                return parseTimestamp(String.valueOf(value), ZoneId::of);
+                return parseTimestamp((String) value, ZoneId::of);
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
@@ -652,7 +652,7 @@ abstract class AbstractPrestoResultSet
             return null;
         }
 
-        return new PrestoIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
+        return new PrestoIntervalYearMonth(IntervalYearMonth.parseMonths((String) value));
     }
 
     private PrestoIntervalDayTime getIntervalDayTime(int columnIndex)
@@ -663,7 +663,7 @@ abstract class AbstractPrestoResultSet
             return null;
         }
 
-        return new PrestoIntervalDayTime(IntervalDayTime.parseMillis(String.valueOf(value)));
+        return new PrestoIntervalDayTime(IntervalDayTime.parseMillis((String) value));
     }
 
     @Override
