@@ -50,7 +50,7 @@ public class TestRowFilter
     private static final Session SESSION = testSessionBuilder()
             .setCatalog(CATALOG)
             .setSchema(TINY_SCHEMA_NAME)
-            .setIdentity(Identity.forUser(USER).build())
+            .setIdentity(Identity.ofUser(USER))
             .build();
 
     private QueryAssertions assertions;
@@ -98,14 +98,14 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey < 10"));
+                new ViewExpression(Identity.ofUser(USER), Optional.empty(), Optional.empty(), "orderkey < 10"));
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '7'");
 
         accessControl.reset();
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "NULL"));
+                new ViewExpression(Identity.ofUser(USER), Optional.empty(), Optional.empty(), "NULL"));
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '0'");
     }
 
@@ -116,12 +116,12 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey < 10"));
+                new ViewExpression(Identity.ofUser(USER), Optional.empty(), Optional.empty(), "orderkey < 10"));
 
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey > 5"));
+                new ViewExpression(Identity.ofUser(USER), Optional.empty(), Optional.empty(), "orderkey > 5"));
 
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '2'");
     }
@@ -133,7 +133,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "EXISTS (SELECT 1 FROM nation WHERE nationkey = orderkey)"));
+                new ViewExpression(Identity.ofUser(USER), Optional.of(CATALOG), Optional.of("tiny"), "EXISTS (SELECT 1 FROM nation WHERE nationkey = orderkey)"));
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '7'");
     }
 
@@ -145,11 +145,11 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "nation"),
                 VIEW_OWNER,
-                new ViewExpression(VIEW_OWNER, Optional.empty(), Optional.empty(), "nationkey = 1"));
+                new ViewExpression(Identity.ofUser(VIEW_OWNER), Optional.empty(), Optional.empty(), "nationkey = 1"));
 
         assertThat(assertions.query(
                 Session.builder(SESSION)
-                        .setIdentity(Identity.forUser(RUN_AS_USER).build())
+                        .setIdentity(Identity.ofUser(RUN_AS_USER))
                         .build(),
                 "SELECT name FROM mock.default.nation_view"))
                 .matches("VALUES CAST('ARGENTINA' AS VARCHAR(25))");
@@ -159,11 +159,11 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "nation"),
                 VIEW_OWNER,
-                new ViewExpression(VIEW_OWNER, Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
+                new ViewExpression(Identity.ofUser(VIEW_OWNER), Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
 
         assertThat(assertions.query(
                 Session.builder(SESSION)
-                        .setIdentity(Identity.forUser(VIEW_OWNER).build())
+                        .setIdentity(Identity.ofUser(VIEW_OWNER))
                         .build(),
                 "SELECT name FROM mock.default.nation_view"))
                 .matches("VALUES CAST('ARGENTINA' AS VARCHAR(25))");
@@ -173,10 +173,10 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "nation"),
                 RUN_AS_USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
 
         Session session = Session.builder(SESSION)
-                .setIdentity(Identity.forUser(RUN_AS_USER).build())
+                .setIdentity(Identity.ofUser(RUN_AS_USER))
                 .build();
 
         assertThat(assertions.query(session, "SELECT count(*) FROM mock.default.nation_view")).matches("VALUES BIGINT '25'");
@@ -186,7 +186,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(MOCK_CATALOG, "default", "nation_view"),
                 USER,
-                new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
+                new ViewExpression(Identity.ofUser(USER), Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
         assertThat(assertions.query("SELECT name FROM mock.default.nation_view")).matches("VALUES CAST('ARGENTINA' AS VARCHAR(25))");
     }
 
@@ -197,7 +197,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey = 1"));
+                new ViewExpression(Identity.ofUser(USER), Optional.empty(), Optional.empty(), "orderkey = 1"));
         assertThat(assertions.query("WITH t AS (SELECT count(*) FROM orders) SELECT * FROM t")).matches("VALUES BIGINT '1'");
     }
 
@@ -208,7 +208,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(USER, Optional.of(CATALOG), Optional.of("sf1"), "(SELECT count(*) FROM customer) = 150000")); // Filter is TRUE only if evaluating against sf1.customer
+                new ViewExpression(Identity.ofUser(USER), Optional.of(CATALOG), Optional.of("sf1"), "(SELECT count(*) FROM customer) = 150000")); // Filter is TRUE only if evaluating against sf1.customer
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '15000'");
     }
 
@@ -219,12 +219,12 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 RUN_AS_USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 1"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 1"));
 
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
 
         assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '1'");
     }
@@ -236,7 +236,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
+                new ViewExpression(Identity.ofUser(USER), Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
                 .hasMessageMatching(".*\\QRow filter for 'local.tiny.orders' is recursive\\E.*");
@@ -246,7 +246,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT local.tiny.orderkey FROM orders)"));
+                new ViewExpression(Identity.ofUser(USER), Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT local.tiny.orderkey FROM orders)"));
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
                 .hasMessageMatching(".*\\QRow filter for 'local.tiny.orders' is recursive\\E.*");
 
@@ -255,12 +255,12 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 RUN_AS_USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
 
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
                 .hasMessageMatching(".*\\QRow filter for 'local.tiny.orders' is recursive\\E.*");
@@ -273,7 +273,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "customer"),
                 USER,
-                new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 1"));
+                new ViewExpression(Identity.ofUser(USER), Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 1"));
         assertThatThrownBy(() -> assertions.query(
                 "SELECT (SELECT min(name) FROM customer WHERE customer.custkey = orders.custkey) FROM orders"))
                 .hasMessageMatching("\\Qline 1:31: Invalid row filter for 'local.tiny.customer': Column 'orderkey' cannot be resolved\\E");
@@ -286,7 +286,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "nation"),
                 USER,
-                new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "regionkey IN (SELECT regionkey FROM region WHERE name = 'ASIA')"));
+                new ViewExpression(Identity.ofUser(USER), Optional.of(CATALOG), Optional.of("tiny"), "regionkey IN (SELECT regionkey FROM region WHERE name = 'ASIA')"));
         assertThat(assertions.query(
                 "WITH region(regionkey, name) AS (VALUES (0, 'ASIA'), (1, 'ASIA'), (2, 'ASIA'), (3, 'ASIA'), (4, 'ASIA'))" +
                         "SELECT name FROM nation ORDER BY name LIMIT 1"))
@@ -301,7 +301,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "$$$"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "$$$"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
                 .hasMessageMatching("\\Qline 1:22: Invalid row filter for 'local.tiny.orders': mismatched input '$'. Expecting: <expression>\\E");
@@ -311,7 +311,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "unknown_column"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "unknown_column"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
                 .hasMessageMatching("\\Qline 1:22: Invalid row filter for 'local.tiny.orders': Column 'unknown_column' cannot be resolved\\E");
@@ -321,7 +321,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "1"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "1"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
                 .hasMessageMatching("\\Qline 1:22: Expected row filter for 'local.tiny.orders' to be of type BOOLEAN, but was integer\\E");
@@ -331,7 +331,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "count(*) > 0"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "count(*) > 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
                 .hasMessageMatching("\\Qline 1:10: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [count(*)]\\E");
@@ -341,7 +341,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "row_number() OVER () > 0"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "row_number() OVER () > 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
                 .hasMessageMatching("\\Qline 1:22: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]\\E");
@@ -351,7 +351,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "grouping(orderkey) = 0"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "grouping(orderkey) = 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
                 .hasMessageMatching("\\Qline 1:20: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
@@ -364,7 +364,7 @@ public class TestRowFilter
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
-                new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 0"));
+                new ViewExpression(Identity.ofUser(RUN_AS_USER), Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 0"));
 
         assertThatThrownBy(() -> assertions.query("SHOW STATS FOR (SELECT * FROM tiny.orders)"))
                 .hasMessageMatching("\\QSHOW STATS is not supported for a table with row filtering");

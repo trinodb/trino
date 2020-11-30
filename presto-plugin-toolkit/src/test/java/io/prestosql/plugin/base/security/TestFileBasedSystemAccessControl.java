@@ -1095,7 +1095,7 @@ public class TestFileBasedSystemAccessControl
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked",
                         VARCHAR),
-                new ViewExpression(CHARLIE.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask'"));
+                new ViewExpression(CHARLIE.getIdentity(), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask'"));
 
         assertViewExpressionEquals(
                 accessControl.getColumnMask(
@@ -1103,7 +1103,7 @@ public class TestFileBasedSystemAccessControl
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked_with_user",
                         VARCHAR),
-                new ViewExpression("mask-user", Optional.of("some-catalog"), Optional.of("bobschema"), "'mask-with-user'"));
+                new ViewExpression(Identity.ofUser("mask-user"), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask-with-user'"));
     }
 
     @Test
@@ -1117,11 +1117,11 @@ public class TestFileBasedSystemAccessControl
 
         assertViewExpressionEquals(
                 accessControl.getRowFilter(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns")),
-                new ViewExpression(CHARLIE.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter')"));
+                new ViewExpression(CHARLIE.getIdentity(), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter')"));
 
         assertViewExpressionEquals(
                 accessControl.getRowFilter(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant")),
-                new ViewExpression("filter-user", Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter-with-user')"));
+                new ViewExpression(Identity.ofUser("filter-user"), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter-with-user')"));
     }
 
     private static void assertViewExpressionEquals(Optional<ViewExpression> result, ViewExpression expected)

@@ -19,12 +19,12 @@ import static java.util.Objects.requireNonNull;
 
 public class ViewExpression
 {
-    private final String identity;
+    private final Identity identity;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final String expression;
 
-    public ViewExpression(String identity, Optional<String> catalog, Optional<String> schema, String expression)
+    public ViewExpression(Identity identity, Optional<String> catalog, Optional<String> schema, String expression)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -36,7 +36,7 @@ public class ViewExpression
         }
     }
 
-    public String getIdentity()
+    public Identity getIdentity()
     {
         return identity;
     }

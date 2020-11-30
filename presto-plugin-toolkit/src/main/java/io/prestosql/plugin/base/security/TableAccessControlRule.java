@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.ViewExpression;
 
 import java.util.List;
@@ -97,20 +98,20 @@ public class TableAccessControlRule
         return (privileges.contains(SELECT) || privileges.contains(GRANT_SELECT)) && restrictedColumns.stream().noneMatch(columnNames::contains);
     }
 
-    public Optional<ViewExpression> getColumnMask(String user, String catalog, String schema, String column)
+    public Optional<ViewExpression> getColumnMask(Identity identity, String catalog, String schema, String column)
     {
         return Optional.ofNullable(columnConstraints.get(column)).flatMap(constraint ->
                 constraint.getMask().map(mask -> new ViewExpression(
-                        constraint.getMaskEnvironment().flatMap(ExpressionEnvironment::getUser).orElse(user),
+                        constraint.getMaskEnvironment().flatMap(ExpressionEnvironment::getUser).map(Identity::ofUser).orElse(identity),
                         Optional.of(catalog),
                         Optional.of(schema),
                         mask)));
     }
 
-    public Optional<ViewExpression> getFilter(String user, String catalog, String schema)
+    public Optional<ViewExpression> getFilter(Identity identity, String catalog, String schema)
     {
         return filter.map(filter -> new ViewExpression(
-                filterEnvironment.flatMap(ExpressionEnvironment::getUser).orElse(user),
+                filterEnvironment.flatMap(ExpressionEnvironment::getUser).map(Identity::ofUser).orElse(identity),
                 Optional.of(catalog),
                 Optional.of(schema),
                 filter));
