@@ -20,6 +20,7 @@ import io.prestosql.Session;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
@@ -33,6 +34,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.NullLiteral;
@@ -49,6 +51,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.isPushAggregationThroughOuterJoin;
 import static io.prestosql.matching.Capture.newCapture;
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static io.prestosql.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.prestosql.sql.planner.plan.AggregationNode.globalAggregation;
@@ -270,13 +273,13 @@ public class PushAggregationThroughOuterJoin
         // Create a values node that consists of a single row of nulls.
         // Map the output symbols from the referenceAggregation's source
         // to symbol references for the new values node.
-        NullLiteral nullLiteral = new NullLiteral();
         ImmutableList.Builder<Symbol> nullSymbols = ImmutableList.builder();
         ImmutableList.Builder<Expression> nullLiterals = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, Symbol> sourcesSymbolMappingBuilder = ImmutableMap.builder();
         for (Symbol sourceSymbol : referenceAggregation.getSource().getOutputSymbols()) {
-            nullLiterals.add(nullLiteral);
-            Symbol nullSymbol = symbolAllocator.newSymbol(nullLiteral, symbolAllocator.getTypes().get(sourceSymbol));
+            Type type = symbolAllocator.getTypes().get(sourceSymbol);
+            nullLiterals.add(new Cast(new NullLiteral(), toSqlType(type)));
+            Symbol nullSymbol = symbolAllocator.newSymbol("null", type);
             nullSymbols.add(nullSymbol);
             sourcesSymbolMappingBuilder.put(sourceSymbol, nullSymbol);
         }
