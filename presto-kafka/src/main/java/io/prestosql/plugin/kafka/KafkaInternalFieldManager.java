@@ -21,9 +21,12 @@ import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
@@ -31,6 +34,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class KafkaInternalFieldManager
 {
@@ -90,7 +94,7 @@ public class KafkaInternalFieldManager
         private final String comment;
         private final Type type;
 
-        InternalField(String columnName, String comment, Type type)
+        public InternalField(String columnName, String comment, Type type)
         {
             this.columnName = requireNonNull(columnName, "columnName is null");
             this.comment = requireNonNull(comment, "comment is null");
@@ -134,10 +138,9 @@ public class KafkaInternalFieldManager
     private final Map<String, InternalField> internalFields;
 
     @Inject
-    public KafkaInternalFieldManager(TypeManager typeManager)
+    public KafkaInternalFieldManager(TypeManager typeManager, @ForKafka Set<List<InternalField>> extraInternalFields)
     {
         Type varcharMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), arrayType(VARBINARY.getTypeSignature())));
-
         internalFields = new ImmutableMap.Builder<String, InternalField>()
                 .put(PARTITION_ID_FIELD, new InternalField(
                         PARTITION_ID_FIELD,
@@ -179,6 +182,9 @@ public class KafkaInternalFieldManager
                         OFFSET_TIMESTAMP_FIELD,
                         "Message timestamp",
                         TIMESTAMP_MILLIS))
+                .putAll(extraInternalFields.stream()
+                        .flatMap(List::stream)
+                        .collect(toImmutableMap(InternalField::getColumnName, identity())))
                 .build();
     }
 

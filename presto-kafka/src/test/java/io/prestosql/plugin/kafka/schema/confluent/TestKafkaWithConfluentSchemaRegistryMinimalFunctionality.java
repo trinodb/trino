@@ -15,6 +15,9 @@ package io.prestosql.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -29,7 +32,9 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.function.Supplier;
 
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
@@ -119,6 +124,72 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .build()));
     }
 
+    @Test
+    public void testInternalMessageField()
+            throws IOException, RestClientException
+    {
+        String topic = "internal-message-topic";
+        Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier = () -> testingKafkaWithSchemaRegistry.createConfluentProducerWithLongKeys();
+        testingKafkaWithSchemaRegistry.createTopic(topic);
+        assertNotExists(topic);
+
+        List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topic, MESSAGE_COUNT, true);
+        sendMessages(messages, producerSupplier);
+
+        waitUntilTableExists(topic);
+        assertCount(topic, MESSAGE_COUNT);
+        SchemaRegistryClient schemaRegistryClient = new CachedSchemaRegistryClient(testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString(), 1000);
+        int schemaId = schemaRegistryClient.getLatestSchemaMetadata(format("%s-value", topic)).getId();
+        String initialQuery = format("SELECT _key_schema_id, _message_schema_id, col_1, col_2 FROM %s", toDoubleQuoted(topic));
+        String expectedValues = getExpectedValues(messages, INITIAL_SCHEMA, false, true, OptionalInt.empty(), OptionalInt.of(schemaId));
+        assertCount(topic, MESSAGE_COUNT);
+        assertQuery(initialQuery, expectedValues);
+
+        List<ProducerRecord<Long, GenericRecord>> newMessages = createMessages(topic, MESSAGE_COUNT, false);
+        sendMessages(newMessages, producerSupplier);
+
+        String evolvedQuery = format("SELECT _key_schema_id, _message_schema_id, col_1, col_2, col_3 FROM %s WHERE col_3 is not null", toDoubleQuoted(topic));
+        assertCount(topic, MESSAGE_COUNT * 2);
+        schemaId = schemaRegistryClient.getLatestSchemaMetadata(format("%s-value", topic)).getId();
+
+        String expectedNewValues = getExpectedValues(newMessages, EVOLVED_SCHEMA, false, true, OptionalInt.empty(), OptionalInt.of(schemaId));
+        assertQuery(evolvedQuery, expectedNewValues);
+    }
+
+    @Test
+    public void testInternalKeyAndMessageField()
+            throws IOException, RestClientException
+    {
+        String topic = "internal-key-message-topic";
+        Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier = () -> testingKafkaWithSchemaRegistry.createConfluentProducer();
+        testingKafkaWithSchemaRegistry.createTopic(topic);
+        assertNotExists(topic);
+
+        List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topic, MESSAGE_COUNT, true);
+        sendMessages(messages, producerSupplier);
+
+        waitUntilTableExists(topic);
+        assertCount(topic, MESSAGE_COUNT);
+        SchemaRegistryClient schemaRegistryClient = new CachedSchemaRegistryClient(testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString(), 1000);
+        int keySchemaId = schemaRegistryClient.getLatestSchemaMetadata(format("%s-key", topic)).getId();
+        int messageSchemaId = schemaRegistryClient.getLatestSchemaMetadata(format("%s-value", topic)).getId();
+        String initialQuery = format("SELECT _key_schema_id, _message_schema_id, \"%s-key\", col_1, col_2 FROM %s", topic, toDoubleQuoted(topic));
+        String expectedValues = getExpectedValues(messages, INITIAL_SCHEMA, true, true, OptionalInt.of(keySchemaId), OptionalInt.of(messageSchemaId));
+        assertCount(topic, MESSAGE_COUNT);
+        assertQuery(initialQuery, expectedValues);
+
+        List<ProducerRecord<Long, GenericRecord>> newMessages = createMessages(topic, MESSAGE_COUNT, false);
+        sendMessages(newMessages, producerSupplier);
+
+        String evolvedQuery = format("SELECT _key_schema_id, _message_schema_id, \"%s-key\", col_1, col_2, col_3 FROM %s WHERE col_3 is not null", topic, toDoubleQuoted(topic));
+        assertCount(topic, MESSAGE_COUNT * 2);
+        keySchemaId = schemaRegistryClient.getLatestSchemaMetadata(format("%s-key", topic)).getId();
+        messageSchemaId = schemaRegistryClient.getLatestSchemaMetadata(format("%s-value", topic)).getId();
+
+        String expectedNewValues = getExpectedValues(newMessages, EVOLVED_SCHEMA, true, true, OptionalInt.of(keySchemaId), OptionalInt.of(messageSchemaId));
+        assertQuery(evolvedQuery, expectedNewValues);
+    }
+
     private void assertTopic(String topicName, String initialQuery, String evolvedQuery, boolean isKeyIncluded, Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier)
     {
         testingKafkaWithSchemaRegistry.createTopic(topicName);
@@ -131,7 +202,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         waitUntilTableExists(topicName);
         assertCount(topicName, MESSAGE_COUNT);
 
-        assertQuery(initialQuery, getExpectedValues(messages, INITIAL_SCHEMA, isKeyIncluded));
+        assertQuery(initialQuery, getExpectedValues(messages, INITIAL_SCHEMA, isKeyIncluded, false, OptionalInt.empty(), OptionalInt.empty()));
 
         List<ProducerRecord<Long, GenericRecord>> newMessages = createMessages(topicName, MESSAGE_COUNT, false);
         sendMessages(newMessages, producerSupplier);
@@ -141,16 +212,30 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 .addAll(newMessages)
                 .build();
         assertCount(topicName, allMessages.size());
-        assertQuery(evolvedQuery, getExpectedValues(allMessages, EVOLVED_SCHEMA, isKeyIncluded));
+        assertQuery(evolvedQuery, getExpectedValues(allMessages, EVOLVED_SCHEMA, isKeyIncluded, false, OptionalInt.empty(), OptionalInt.empty()));
     }
 
-    private String getExpectedValues(List<ProducerRecord<Long, GenericRecord>> messages, Schema schema, boolean isKeyIncluded)
+    private String getExpectedValues(List<ProducerRecord<Long, GenericRecord>> messages, Schema schema, boolean isKeyIncluded, boolean isIncludeInternalFields, OptionalInt keySchemaId, OptionalInt messageSchemaId)
     {
         StringBuilder valuesBuilder = new StringBuilder("VALUES ");
         ImmutableList.Builder<String> rowsBuilder = ImmutableList.builder();
         for (ProducerRecord<Long, GenericRecord> message : messages) {
             ImmutableList.Builder<String> columnsBuilder = ImmutableList.builder();
+            if (isIncludeInternalFields) {
+                if (keySchemaId.isPresent()) {
+                    columnsBuilder.add(String.valueOf(keySchemaId.getAsInt()));
+                }
+                else {
+                    columnsBuilder.add("null");
+                }
 
+                if (messageSchemaId.isPresent()) {
+                    columnsBuilder.add(String.valueOf(messageSchemaId.getAsInt()));
+                }
+                else {
+                    columnsBuilder.add("null");
+                }
+            }
             if (isKeyIncluded) {
                 columnsBuilder.add(String.valueOf(message.key()));
             }

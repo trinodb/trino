@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.decoder.FieldValueProviders.booleanValueProvider;
 import static io.prestosql.decoder.FieldValueProviders.bytesValueProvider;
 import static io.prestosql.decoder.FieldValueProviders.longValueProvider;
@@ -74,12 +75,20 @@ public class KafkaRecordSet
     private final List<KafkaColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
+    private final Optional<RowDecoder> internalKeyFieldDecoder;
+    private final Optional<RowDecoder> internalMessageFieldDecoder;
+
+    private final KafkaInternalFieldManager internalFieldManager;
+
     KafkaRecordSet(
             KafkaSplit split,
             KafkaConsumerFactory consumerFactory,
             List<KafkaColumnHandle> columnHandles,
             RowDecoder keyDecoder,
-            RowDecoder messageDecoder)
+            RowDecoder messageDecoder,
+            Optional<RowDecoder> internalKeyFieldDecoder,
+            Optional<RowDecoder> internalMessageFieldDecoder,
+            KafkaInternalFieldManager internalFieldManager)
     {
         this.split = requireNonNull(split, "split is null");
         this.consumerFactory = requireNonNull(consumerFactory, "consumerManager is null");
@@ -96,6 +105,10 @@ public class KafkaRecordSet
         }
 
         this.columnTypes = typeBuilder.build();
+
+        this.internalKeyFieldDecoder = requireNonNull(internalKeyFieldDecoder, "internalKeyFieldDecoder is null");
+        this.internalMessageFieldDecoder = requireNonNull(internalMessageFieldDecoder, "internalMessageFieldDecoder is null");
+        this.internalFieldManager = requireNonNull(internalFieldManager, "internalFieldManager is null");
     }
 
     @Override
@@ -187,6 +200,9 @@ public class KafkaRecordSet
             Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData);
             Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData);
 
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> internalKeyFields = decodeInternalFields(internalKeyFieldDecoder, keyData);
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> internalMessageFields = decodeInternalFields(internalMessageFieldDecoder, messageData);
+
             for (DecoderColumnHandle columnHandle : columnHandles) {
                 if (columnHandle.isInternal()) {
                     switch (columnHandle.getName()) {
@@ -222,7 +238,7 @@ public class KafkaRecordSet
                             currentRowValuesMap.put(columnHandle, longValueProvider(message.partition()));
                             break;
                         default:
-                            throw new IllegalArgumentException("unknown internal field " + columnHandle.getName());
+                            checkState(internalFieldManager.getInternalFields().containsKey(columnHandle.getName()), "unknown internal field " + columnHandle.getName());
                     }
                 }
             }
@@ -230,6 +246,8 @@ public class KafkaRecordSet
             decodedKey.ifPresent(currentRowValuesMap::putAll);
             decodedValue.ifPresent(currentRowValuesMap::putAll);
 
+            internalKeyFields.ifPresent(currentRowValuesMap::putAll);
+            internalMessageFields.ifPresent(currentRowValuesMap::putAll);
             for (int i = 0; i < columnHandles.size(); i++) {
                 ColumnHandle columnHandle = columnHandles.get(i);
                 currentRowValues[i] = currentRowValuesMap.get(columnHandle);
@@ -334,5 +352,10 @@ public class KafkaRecordSet
                 return varcharMapType.getObject(mapBlockBuilder, 0);
             }
         };
+    }
+
+    private Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeInternalFields(Optional<RowDecoder> internalFieldDecoder, byte[] data)
+    {
+        return internalFieldDecoder.flatMap(decoder -> decoder.decodeRow(data));
     }
 }

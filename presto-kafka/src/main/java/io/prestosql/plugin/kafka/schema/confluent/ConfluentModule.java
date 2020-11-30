@@ -14,6 +14,7 @@
 package io.prestosql.plugin.kafka.schema.confluent;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
@@ -25,7 +26,10 @@ import io.prestosql.decoder.avro.AvroBytesDeserializer;
 import io.prestosql.decoder.avro.AvroDeserializer;
 import io.prestosql.decoder.avro.AvroReaderSupplier;
 import io.prestosql.decoder.avro.AvroRowDecoderFactory;
+import io.prestosql.plugin.kafka.ForInternalKeyField;
+import io.prestosql.plugin.kafka.ForInternalMessageField;
 import io.prestosql.plugin.kafka.ForKafka;
+import io.prestosql.plugin.kafka.KafkaInternalFieldManager;
 import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
 import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -36,6 +40,7 @@ import java.util.List;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class ConfluentModule
@@ -51,6 +56,9 @@ public class ConfluentModule
         newSetBinder(binder, new TypeLiteral<List<PropertyMetadata<?>>>() {}, ForKafka.class).addBinding().toProvider(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(TableDescriptionSupplier.class).toProvider(ConfluentSchemaRegistryTableDescriptionSupplier.Factory.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, RowDecoderFactory.class).addBinding(AvroRowDecoderFactory.NAME).to(AvroRowDecoderFactory.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, new TypeLiteral<List<KafkaInternalFieldManager.InternalField>>() {}, ForKafka.class).addBinding().toProvider(ConfluentInternalFields.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(RowDecoderFactory.class, ForInternalKeyField.class)).setBinding().to(InternalKeyFieldDecoder.Factory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(RowDecoderFactory.class, ForInternalMessageField.class)).setBinding().to(InternalMessageFieldDecoder.Factory.class).in(Scopes.SINGLETON);
     }
 
     @Provides
