@@ -13,23 +13,13 @@
  */
 package io.prestosql.util;
 
+import io.airlift.slice.SizeOf;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.HashCommon;
-import it.unimi.dsi.fastutil.longs.AbstractLong2LongMap;
-import it.unimi.dsi.fastutil.longs.AbstractLongCollection;
-import it.unimi.dsi.fastutil.longs.AbstractLongSet;
-import it.unimi.dsi.fastutil.longs.Long2LongMap;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongCollection;
-import it.unimi.dsi.fastutil.longs.LongIterator;
-import it.unimi.dsi.fastutil.longs.LongSet;
-import it.unimi.dsi.fastutil.objects.AbstractObjectSet;
-import it.unimi.dsi.fastutil.objects.ObjectIterator;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.function.Consumer;
+import java.util.function.LongBinaryOperator;
 
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.maxFill;
@@ -39,10 +29,37 @@ import static java.util.Objects.requireNonNull;
 // and mimics that code style.
 // Copyright (C) 2002-2019 Sebastiano Vigna
 public class LongLong2LongOpenCustomHashMap
-        extends AbstractLong2LongMap
-        implements java.io.Serializable, Cloneable, Hash
+        implements Cloneable, Hash
 {
-    private static final long serialVersionUID = 0L;
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongLong2LongOpenCustomHashMap.class).instanceSize();
+
+    public interface HashStrategy
+    {
+        /**
+         * Returns the hash code of the specified element with respect to this hash
+         * strategy.
+         *
+         * @param e1 first half of the element.
+         * @param e2 second half of the element.
+         * @return the hash code of the given element with respect to this hash
+         * strategy.
+         */
+        int hashCode(long e1, long e2);
+
+        /**
+         * Returns true if the given elements are equal with respect to this hash
+         * strategy.
+         *
+         * @param a1 first half of an element.
+         * @param a2 second half an element.
+         * @param b1 first half of another element.
+         * @param b2 second half of another element.
+         * @return true if the two specified elements are equal with respect to this
+         * hash strategy.
+         */
+        boolean equals(long a1, long a2, long b1, long b2);
+    }
+
     private static final boolean ASSERTS = false;
     /**
      * The array of keys.
@@ -63,7 +80,7 @@ public class LongLong2LongOpenCustomHashMap
     /**
      * The hash strategy of this custom map.
      */
-    protected it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy;
+    protected HashStrategy strategy;
     /**
      * The current table size.
      */
@@ -84,18 +101,12 @@ public class LongLong2LongOpenCustomHashMap
      * The acceptable load factor.
      */
     protected final float f;
+
     /**
-     * Cached set of entries.
+     * The default return value for {@code get()}, {@code put()} and
+     * {@code remove()}.
      */
-    protected transient FastEntrySet entries;
-    /**
-     * Cached set of keys.
-     */
-    protected transient LongSet keys;
-    /**
-     * Cached collection of values.
-     */
-    protected transient LongCollection values;
+    protected long defRetValue;
 
     /**
      * Creates a new hash map.
@@ -108,9 +119,8 @@ public class LongLong2LongOpenCustomHashMap
      * @param f the load factor.
      * @param strategy the strategy.
      */
-
     public LongLong2LongOpenCustomHashMap(final int expected, final float f,
-            final it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy)
+            final HashStrategy strategy)
     {
         this.strategy = strategy;
         if (f <= 0 || f > 1) {
@@ -124,7 +134,7 @@ public class LongLong2LongOpenCustomHashMap
         minN = n;
         mask = n - 1;
         maxFill = maxFill(n, f);
-        key = new long[n + 1];
+        key = new long[(n + 1) * 2];
         value = new long[n + 1];
     }
 
@@ -135,7 +145,7 @@ public class LongLong2LongOpenCustomHashMap
      * @param strategy the strategy.
      */
     public LongLong2LongOpenCustomHashMap(final int expected,
-            final it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy)
+            final HashStrategy strategy)
     {
         this(expected, DEFAULT_LOAD_FACTOR, strategy);
     }
@@ -147,63 +157,9 @@ public class LongLong2LongOpenCustomHashMap
      *
      * @param strategy the strategy.
      */
-    public LongLong2LongOpenCustomHashMap(final it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy)
+    public LongLong2LongOpenCustomHashMap(final HashStrategy strategy)
     {
         this(DEFAULT_INITIAL_SIZE, DEFAULT_LOAD_FACTOR, strategy);
-    }
-
-    /**
-     * Creates a new hash map copying a given one.
-     *
-     * @param m a {@link Map} to be copied into the new hash map.
-     * @param f the load factor.
-     * @param strategy the strategy.
-     */
-    public LongLong2LongOpenCustomHashMap(final Map<? extends Long, ? extends Long> m, final float f,
-            final it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy)
-    {
-        this(m.size(), f, strategy);
-        putAll(m);
-    }
-
-    /**
-     * Creates a new hash map with {@link Hash#DEFAULT_LOAD_FACTOR} as load factor
-     * copying a given one.
-     *
-     * @param m a {@link Map} to be copied into the new hash map.
-     * @param strategy the strategy.
-     */
-    public LongLong2LongOpenCustomHashMap(final Map<? extends Long, ? extends Long> m,
-            final it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy)
-    {
-        this(m, DEFAULT_LOAD_FACTOR, strategy);
-    }
-
-    /**
-     * Creates a new hash map copying a given type-specific one.
-     *
-     * @param m a type-specific map to be copied into the new hash map.
-     * @param f the load factor.
-     * @param strategy the strategy.
-     */
-    public LongLong2LongOpenCustomHashMap(final Long2LongMap m, final float f,
-            final it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy)
-    {
-        this(m.size(), f, strategy);
-        putAll(m);
-    }
-
-    /**
-     * Creates a new hash map with {@link Hash#DEFAULT_LOAD_FACTOR} as load factor
-     * copying a given type-specific one.
-     *
-     * @param m a type-specific map to be copied into the new hash map.
-     * @param strategy the strategy.
-     */
-    public LongLong2LongOpenCustomHashMap(final Long2LongMap m,
-            final it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy)
-    {
-        this(m, DEFAULT_LOAD_FACTOR, strategy);
     }
 
     /**
@@ -216,15 +172,15 @@ public class LongLong2LongOpenCustomHashMap
      * @throws IllegalArgumentException if {@code k} and {@code v} have different lengths.
      */
     public LongLong2LongOpenCustomHashMap(final long[] k, final long[] v, final float f,
-            final it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy)
+            final HashStrategy strategy)
     {
-        this(k.length, f, strategy);
-        if (k.length != v.length) {
+        this(v.length, f, strategy);
+        if (k.length != v.length * 2) {
             throw new IllegalArgumentException(
-                    "The key array and the value array have different lengths (" + k.length + " and " + v.length + ")");
+                    "The key array is not double the value array length (" + k.length + " and " + v.length + ")");
         }
-        for (int i = 0; i < k.length; i++) {
-            this.put(k[i], v[i]);
+        for (int i = 0; i < v.length; i++) {
+            this.put(k[i * 2], k[i * 2 + 1], v[i]);
         }
     }
 
@@ -238,9 +194,27 @@ public class LongLong2LongOpenCustomHashMap
      * @throws IllegalArgumentException if {@code k} and {@code v} have different lengths.
      */
     public LongLong2LongOpenCustomHashMap(final long[] k, final long[] v,
-            final it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy)
+            final HashStrategy strategy)
     {
         this(k, v, DEFAULT_LOAD_FACTOR, strategy);
+    }
+
+    public void defaultReturnValue(final long rv)
+    {
+        defRetValue = rv;
+    }
+
+    public long defaultReturnValue()
+    {
+        return defRetValue;
+    }
+
+    /**
+     * Returns the size of this hash map in bytes.
+     */
+    public long sizeOf()
+    {
+        return INSTANCE_SIZE + SizeOf.sizeOf(key) + SizeOf.sizeOf(value);
     }
 
     /**
@@ -248,7 +222,7 @@ public class LongLong2LongOpenCustomHashMap
      *
      * @return the hashing strategy of this custom hash map.
      */
-    public it.unimi.dsi.fastutil.longs.LongHash.Strategy strategy()
+    public HashStrategy strategy()
     {
         return strategy;
     }
@@ -256,23 +230,6 @@ public class LongLong2LongOpenCustomHashMap
     private int realSize()
     {
         return containsNullKey ? size - 1 : size;
-    }
-
-    private void ensureCapacity(final int capacity)
-    {
-        final int needed = arraySize(capacity, f);
-        if (needed > n) {
-            rehash(needed);
-        }
-    }
-
-    private void tryCapacity(final long capacity)
-    {
-        final int needed = (int) Math.min(1 << 30,
-                Math.max(2, HashCommon.nextPowerOfTwo((long) Math.ceil(capacity / f))));
-        if (needed > n) {
-            rehash(needed);
-        }
     }
 
     private long removeEntry(final int pos)
@@ -297,55 +254,45 @@ public class LongLong2LongOpenCustomHashMap
         return oldValue;
     }
 
-    @Override
-    public void putAll(Map<? extends Long, ? extends Long> m)
+    private int find(final long k1, final long k2)
     {
-        if (f <= .5) {
-            ensureCapacity(m.size()); // The resulting map will be sized for m.size() elements
-        }
-        else {
-            tryCapacity(size() + m.size()); // The resulting map will be tentatively sized for size() + m.size()
-        }
-        // elements
-        super.putAll(m);
-    }
-
-    private int find(final long k)
-    {
-        if ((strategy.equals((k), (0)))) {
+        if ((strategy.equals((k1), (k2), (0), (0)))) {
             return containsNullKey ? n : -(n + 1);
         }
-        long curr;
+        long curr1;
+        long curr2;
         final long[] key = this.key;
-        int pos;
         // The starting point.
-        pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-        curr = key[pos];
-        if (((curr) == (0))) {
+        int pos = HashCommon.mix(strategy.hashCode(k1, k2)) & mask;
+        curr1 = key[pos * 2];
+        curr2 = key[pos * 2 + 1];
+        if ((curr1 == (0) && curr2 == (0))) {
             return -(pos + 1);
         }
-        if ((strategy.equals((k), (curr)))) {
+        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
             return pos;
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
-            curr = key[pos];
-            if (((curr) == (0))) {
+            curr1 = key[pos * 2];
+            curr2 = key[pos * 2 + 1];
+            if ((curr1 == (0) && curr2 == (0))) {
                 return -(pos + 1);
             }
-            if ((strategy.equals((k), (curr)))) {
+            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
                 return pos;
             }
         }
     }
 
-    private void insert(final int pos, final long k, final long v)
+    private void insert(final int pos, final long k1, final long k2, final long v)
     {
         if (pos == n) {
             containsNullKey = true;
         }
-        key[pos] = k;
+        key[pos * 2] = k1;
+        key[pos * 2 + 1] = k2;
         value[pos] = v;
         if (size++ >= maxFill) {
             rehash(arraySize(size + 1, f));
@@ -355,12 +302,11 @@ public class LongLong2LongOpenCustomHashMap
         }
     }
 
-    @Override
-    public long put(final long k, final long v)
+    public long put(final long k1, final long k2, final long v)
     {
-        final int pos = find(k);
+        final int pos = find(k1, k2);
         if (pos < 0) {
-            insert(-pos - 1, k, v);
+            insert(-pos - 1, k1, k2, v);
             return defRetValue;
         }
         final long oldValue = value[pos];
@@ -384,15 +330,16 @@ public class LongLong2LongOpenCustomHashMap
      * appears in the map, the key will be associated with the default return value
      * plus the given increment.
      *
-     * @param k the key.
+     * @param k1 the first half of key.
+     * @param k2 the second half of key.
      * @param incr the increment.
      * @return the old value, or the {@linkplain #defaultReturnValue() default
      * return value} if no value was present for the given key.
      */
-    public long addTo(final long k, final long incr)
+    public long addTo(final long k1, final long k2, final long incr)
     {
         int pos;
-        if ((strategy.equals((k), (0)))) {
+        if ((strategy.equals((k1), (k2), (0), (0)))) {
             if (containsNullKey) {
                 return addToValue(n, incr);
             }
@@ -402,24 +349,28 @@ public class LongLong2LongOpenCustomHashMap
         else {
             final long[] key = this.key;
             // The starting point.
-            pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-            long curr = key[pos];
-            if (!((curr) == (0))) {
-                if ((strategy.equals((curr), (k)))) {
+            pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+            long curr1 = key[pos * 2];
+            long curr2 = key[pos * 2 + 1];
+            if (!((curr1) == (0) && (curr2) == (0))) {
+                if ((strategy.equals((curr1), (curr2), (k1), (k2)))) {
                     return addToValue(pos, incr);
                 }
                 pos = (pos + 1) & mask;
-                curr = key[pos];
-                while (!((curr) == (0))) {
-                    if ((strategy.equals((curr), (k)))) {
+                curr1 = key[pos * 2];
+                curr2 = key[pos * 2 + 1];
+                while (!((curr1) == (0) && (curr2) == (0))) {
+                    if ((strategy.equals((curr1), (curr2), (k1), (k2)))) {
                         return addToValue(pos, incr);
                     }
                     pos = (pos + 1) & mask;
-                    curr = key[pos];
+                    curr1 = key[pos * 2];
+                    curr2 = key[pos * 2 + 1];
                 }
             }
         }
-        key[pos] = k;
+        key[pos * 2] = k1;
+        key[pos * 2 + 1] = k2;
         value[pos] = defRetValue + incr;
         if (size++ >= maxFill) {
             rehash(arraySize(size + 1, f));
@@ -441,32 +392,35 @@ public class LongLong2LongOpenCustomHashMap
         // Shift entries with the same hash.
         int last;
         int slot;
-        long curr;
+        long curr1;
+        long curr2;
         final long[] key = this.key;
         for (; ; ) {
             last = pos;
             pos = ((pos) + 1) & mask;
             for (; ; ) {
-                curr = key[pos];
-                if (((curr) == (0))) {
-                    key[last] = (0);
+                curr1 = key[pos * 2];
+                curr2 = key[pos * 2 + 1];
+                if (((curr1) == (0)) && ((curr2) == (0))) {
+                    key[last * 2] = (0);
+                    key[last * 2 + 1] = (0);
                     return;
                 }
-                slot = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(curr))) & mask;
+                slot = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(curr1, curr2))) & mask;
                 if (last <= pos ? last >= slot || slot > pos : last >= slot && slot > pos) {
                     break;
                 }
                 pos = (pos + 1) & mask;
             }
-            key[last] = curr;
+            key[last * 2] = curr1;
+            key[last * 2 + 1] = curr2;
             value[last] = value[pos];
         }
     }
 
-    @Override
-    public long remove(final long k)
+    public long remove(final long k1, final long k2)
     {
-        if ((strategy.equals((k), (0)))) {
+        if ((strategy.equals((k1), (k2), (0), (0)))) {
             if (containsNullKey) {
                 return removeNullEntry();
             }
@@ -474,85 +428,88 @@ public class LongLong2LongOpenCustomHashMap
         }
         final long[] key = this.key;
         // The starting point.
-        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-        long curr = key[pos];
-        if (((curr) == (0))) {
+        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long curr1 = key[pos * 2];
+        long curr2 = key[pos * 2 + 1];
+        if (((curr1) == (0)) && ((curr2) == (0))) {
             return defRetValue;
         }
-        if ((strategy.equals((k), (curr)))) {
+        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
             return removeEntry(pos);
         }
         while (true) {
             pos = (pos + 1) & mask;
-            curr = key[pos];
-            if (((curr) == (0))) {
+            curr1 = key[pos * 2];
+            curr2 = key[pos * 2 + 1];
+            if (((curr1) == (0)) && ((curr2) == (0))) {
                 return defRetValue;
             }
-            if ((strategy.equals((k), (curr)))) {
+            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
                 return removeEntry(pos);
             }
         }
     }
 
-    @Override
-    public long get(final long k)
+    public long get(final long k1, final long k2)
     {
-        if ((strategy.equals((k), (0)))) {
+        if ((strategy.equals((k1), (k2), (0), (0)))) {
             return containsNullKey ? value[n] : defRetValue;
         }
         final long[] key = this.key;
         // The starting point.
-        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-        long curr = key[pos];
-        if (((curr) == (0))) {
+        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long curr1 = key[pos * 2];
+        long curr2 = key[pos * 2 + 1];
+        if (((curr1) == (0)) && ((curr2) == (0))) {
             return defRetValue;
         }
-        if ((strategy.equals((k), (curr)))) {
+        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
             return value[pos];
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
-            curr = key[pos];
-            if (((curr) == (0))) {
+            curr1 = key[pos * 2];
+            curr2 = key[pos * 2 + 1];
+            if (((curr1) == (0)) && ((curr2) == (0))) {
                 return defRetValue;
             }
-            if ((strategy.equals((k), (curr)))) {
+            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
                 return value[pos];
             }
         }
     }
 
-    @Override
-    public boolean containsKey(final long k)
+    public boolean containsKey(final long k1, final long k2)
     {
-        if ((strategy.equals((k), (0)))) {
+        if ((strategy.equals((k1), (k2), (0), (0)))) {
             return containsNullKey;
         }
         final long[] key = this.key;
         // The starting point.
-        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-        long curr = key[pos];
-        if (((curr) == (0))) {
+        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long curr1 = key[pos * 2];
+        long curr2 = key[pos * 2 + 1];
+        if (((curr1) == (0)) && ((curr2) == (0))) {
             return false;
         }
-        if ((strategy.equals((k), (curr)))) {
+        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
             return true;
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
-            curr = key[pos];
-            if (((curr) == (0))) {
+            curr1 = key[pos * 2];
+            curr2 = key[pos * 2 + 1];
+            if (((curr1) == (0)) && ((curr2) == (0))) {
                 return false;
             }
-            if ((strategy.equals((k), (curr)))) {
+            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
                 return true;
             }
         }
     }
 
-    @Override
     public boolean containsValue(final long v)
     {
         final long[] value = this.value;
@@ -561,66 +518,56 @@ public class LongLong2LongOpenCustomHashMap
             return true;
         }
         for (int i = n; i-- != 0; ) {
-            if (!((key[i]) == (0)) && ((value[i]) == (v))) {
+            if (!((key[i * 2]) == (0) && (key[i * 2 + 1]) == (0)) && ((value[i]) == (v))) {
                 return true;
             }
         }
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long getOrDefault(final long k, final long defaultValue)
+    public long getOrDefault(final long k1, final long k2, final long defaultValue)
     {
-        if ((strategy.equals((k), (0)))) {
+        if ((strategy.equals((k1), (k2), (0), (0)))) {
             return containsNullKey ? value[n] : defaultValue;
         }
         final long[] key = this.key;
         // The starting point.
-        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-        long curr = key[pos];
-        if (((curr) == (0))) {
+        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long curr1 = key[pos * 2];
+        long curr2 = key[pos * 2 + 1];
+        if (((curr1) == (0)) && ((curr2) == (0))) {
             return defaultValue;
         }
-        if ((strategy.equals((k), (curr)))) {
+        if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
             return value[pos];
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
-            curr = key[pos];
-            if (((curr) == (0))) {
+            curr1 = key[pos * 2];
+            curr2 = key[pos * 2 + 1];
+            if (((curr1) == (0)) && ((curr2) == (0))) {
                 return defaultValue;
             }
-            if ((strategy.equals((k), (curr)))) {
+            if ((strategy.equals((k1), (k2), (curr1), (curr2)))) {
                 return value[pos];
             }
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long putIfAbsent(final long k, final long v)
+    public long putIfAbsent(final long k1, final long k2, final long v)
     {
-        final int pos = find(k);
+        final int pos = find(k1, k2);
         if (pos >= 0) {
             return value[pos];
         }
-        insert(-pos - 1, k, v);
+        insert(-pos - 1, k1, k2, v);
         return defRetValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean remove(final long k, final long v)
+    public boolean remove(final long k1, final long k2, final long v)
     {
-        if ((strategy.equals((k), (0)))) {
+        if ((strategy.equals((k1), (k2), (0), (0)))) {
             if (containsNullKey && ((v) == (value[n]))) {
                 removeNullEntry();
                 return true;
@@ -629,35 +576,33 @@ public class LongLong2LongOpenCustomHashMap
         }
         final long[] key = this.key;
         // The starting point.
-        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-        long curr = key[pos];
-        if (((curr) == (0))) {
+        int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k1, k2))) & mask;
+        long curr1 = key[pos * 2];
+        long curr2 = key[pos * 2 + 1];
+        if (((curr1) == (0)) && ((curr2) == (0))) {
             return false;
         }
-        if ((strategy.equals((k), (curr))) && ((v) == (value[pos]))) {
+        if ((strategy.equals((k1), (k2), (curr1), (curr2))) && ((v) == (value[pos]))) {
             removeEntry(pos);
             return true;
         }
         while (true) {
             pos = (pos + 1) & mask;
-            curr = key[pos];
-            if (((curr) == (0))) {
+            curr1 = key[pos * 2];
+            curr2 = key[pos * 2 + 1];
+            if (((curr1) == (0)) && ((curr2) == (0))) {
                 return false;
             }
-            if ((strategy.equals((k), (curr))) && ((v) == (value[pos]))) {
+            if ((strategy.equals((k1), (k2), (curr1), (curr2))) && ((v) == (value[pos]))) {
                 removeEntry(pos);
                 return true;
             }
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public boolean replace(final long k, final long oldValue, final long v)
+    public boolean replace(final long k1, final long k2, final long oldValue, final long v)
     {
-        final int pos = find(k);
+        final int pos = find(k1, k2);
         if (pos < 0 || !((oldValue) == (value[pos]))) {
             return false;
         }
@@ -665,13 +610,9 @@ public class LongLong2LongOpenCustomHashMap
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long replace(final long k, final long v)
+    public long replace(final long k1, final long k2, final long v)
     {
-        final int pos = find(k);
+        final int pos = find(k1, k2);
         if (pos < 0) {
             return defRetValue;
         }
@@ -680,115 +621,30 @@ public class LongLong2LongOpenCustomHashMap
         return oldValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long computeIfAbsent(final long k, final java.util.function.LongUnaryOperator mappingFunction)
+    public long computeIfAbsent(final long k1, final long k2, final LongBinaryOperator mappingFunction)
     {
         requireNonNull(mappingFunction);
-        final int pos = find(k);
+        final int pos = find(k1, k2);
         if (pos >= 0) {
             return value[pos];
         }
-        final long newValue = mappingFunction.applyAsLong(k);
-        insert(-pos - 1, k, newValue);
+        final long newValue = mappingFunction.applyAsLong(k1, k2);
+        insert(-pos - 1, k1, k2, newValue);
         return newValue;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long computeIfAbsentNullable(final long k,
-            final java.util.function.LongFunction<? extends Long> mappingFunction)
-    {
-        requireNonNull(mappingFunction);
-        final int pos = find(k);
-        if (pos >= 0) {
-            return value[pos];
-        }
-        final Long newValue = mappingFunction.apply(k);
-        if (newValue == null) {
-            return defRetValue;
-        }
-        final long v = (newValue).longValue();
-        insert(-pos - 1, k, v);
-        return v;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long computeIfPresent(final long k,
+    public long merge(final long k1, final long k2, final long v,
             final java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
     {
         requireNonNull(remappingFunction);
-        final int pos = find(k);
+        final int pos = find(k1, k2);
         if (pos < 0) {
-            return defRetValue;
-        }
-        final Long newValue = remappingFunction.apply(Long.valueOf(k), Long.valueOf(value[pos]));
-        if (newValue == null) {
-            if ((strategy.equals((k), (0)))) {
-                removeNullEntry();
-            }
-            else {
-                removeEntry(pos);
-            }
-            return defRetValue;
-        }
-        value[pos] = (newValue).longValue();
-        return (newValue).longValue();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long compute(final long k,
-            final java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
-    {
-        requireNonNull(remappingFunction);
-        final int pos = find(k);
-        final Long newValue = remappingFunction.apply(Long.valueOf(k), pos >= 0 ? Long.valueOf(value[pos]) : null);
-        if (newValue == null) {
-            if (pos >= 0) {
-                if ((strategy.equals((k), (0)))) {
-                    removeNullEntry();
-                }
-                else {
-                    removeEntry(pos);
-                }
-            }
-            return defRetValue;
-        }
-        long newVal = (newValue).longValue();
-        if (pos < 0) {
-            insert(-pos - 1, k, newVal);
-            return newVal;
-        }
-        value[pos] = newVal;
-        return newVal;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long merge(final long k, final long v,
-            final java.util.function.BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction)
-    {
-        requireNonNull(remappingFunction);
-        final int pos = find(k);
-        if (pos < 0) {
-            insert(-pos - 1, k, v);
+            insert(-pos - 1, k1, k2, v);
             return v;
         }
         final Long newValue = remappingFunction.apply(Long.valueOf(value[pos]), Long.valueOf(v));
         if (newValue == null) {
-            if ((strategy.equals((k), (0)))) {
+            if ((strategy.equals((k1), (k2), (0), (0)))) {
                 removeNullEntry();
             }
             else {
@@ -807,7 +663,6 @@ public class LongLong2LongOpenCustomHashMap
      * you want to reduce the table size, you must use {@link #trim()}.
      *
      */
-    @Override
     public void clear()
     {
         if (size == 0) {
@@ -818,615 +673,14 @@ public class LongLong2LongOpenCustomHashMap
         Arrays.fill(key, (0));
     }
 
-    @Override
     public int size()
     {
         return size;
     }
 
-    @Override
     public boolean isEmpty()
     {
         return size == 0;
-    }
-
-    /**
-     * The entry class for a hash map does not record key and value, but rather the
-     * position in the hash table of the corresponding entry. This is necessary so
-     * that calls to {@link java.util.Map.Entry#setValue(Object)} are reflected in
-     * the map
-     */
-    final class MapEntry
-            implements Long2LongMap.Entry, Map.Entry<Long, Long>
-    {
-        // The table index this entry refers to, or -1 if this entry has been deleted.
-        int index;
-
-        MapEntry(final int index)
-        {
-            this.index = index;
-        }
-
-        MapEntry()
-        {
-        }
-
-        @Override
-        public long getLongKey()
-        {
-            return key[index];
-        }
-
-        @Override
-        public long getLongValue()
-        {
-            return value[index];
-        }
-
-        @Override
-        public long setValue(final long v)
-        {
-            final long oldValue = value[index];
-            value[index] = v;
-            return oldValue;
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * @deprecated Please use the corresponding type-specific method instead.
-         */
-        @Deprecated
-        @Override
-        public Long getKey()
-        {
-            return Long.valueOf(key[index]);
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * @deprecated Please use the corresponding type-specific method instead.
-         */
-        @Deprecated
-        @Override
-        public Long getValue()
-        {
-            return Long.valueOf(value[index]);
-        }
-
-        /**
-         * {@inheritDoc}
-         *
-         * @deprecated Please use the corresponding type-specific method instead.
-         */
-        @Deprecated
-        @Override
-        public Long setValue(final Long v)
-        {
-            return Long.valueOf(setValue((v).longValue()));
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public boolean equals(final Object o)
-        {
-            if (!(o instanceof Map.Entry)) {
-                return false;
-            }
-            Map.Entry<Long, Long> e = (Map.Entry<Long, Long>) o;
-            return (strategy.equals((key[index]), ((e.getKey()).longValue())))
-                    && ((value[index]) == ((e.getValue()).longValue()));
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return (strategy.hashCode(key[index])) ^ it.unimi.dsi.fastutil.HashCommon.long2int(value[index]);
-        }
-
-        @Override
-        public String toString()
-        {
-            return key[index] + "=>" + value[index];
-        }
-    }
-
-    /**
-     * An iterator over a hash map.
-     */
-    private class MapIterator
-    {
-        /**
-         * The index of the last entry returned, if positive or zero; initially,
-         * {@link #n}. If negative, the last entry returned was that of the key of index
-         * {@code - pos - 1} from the {@link #wrapped} list.
-         */
-        int pos = n;
-        /**
-         * The index of the last entry that has been returned (more precisely, the value
-         * of {@link #pos} if {@link #pos} is positive, or {@link Integer#MIN_VALUE} if
-         * {@link #pos} is negative). It is -1 if either we did not return an entry yet,
-         * or the last returned entry has been removed.
-         */
-        int last = -1;
-        /**
-         * A downward counter measuring how many entries must still be returned.
-         */
-        int c = size;
-        /**
-         * A boolean telling us whether we should return the entry with the null key.
-         */
-        boolean mustReturnNullKey = LongLong2LongOpenCustomHashMap.this.containsNullKey;
-        /**
-         * A lazily allocated list containing keys of entries that have wrapped around
-         * the table because of removals.
-         */
-        LongArrayList wrapped;
-
-        public boolean hasNext()
-        {
-            return c != 0;
-        }
-
-        public int nextEntry()
-        {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-            c--;
-            if (mustReturnNullKey) {
-                mustReturnNullKey = false;
-                last = n;
-                return n;
-            }
-            final long[] key = LongLong2LongOpenCustomHashMap.this.key;
-            for (; ; ) {
-                if (--pos < 0) {
-                    // We are just enumerating elements from the wrapped list.
-                    last = Integer.MIN_VALUE;
-                    final long k = wrapped.getLong(-pos - 1);
-                    int p = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-                    while (!(strategy.equals((k), (key[p])))) {
-                        p = (p + 1) & mask;
-                    }
-                    return p;
-                }
-                if (!((key[pos]) == (0))) {
-                    last = pos;
-                    return pos;
-                }
-            }
-        }
-
-        /**
-         * Shifts left entries with the specified hash code, starting at the specified
-         * position, and empties the resulting free entry.
-         *
-         * @param pos a starting position.
-         */
-        private void shiftKeys(int pos)
-        {
-            // Shift entries with the same hash.
-            int last;
-            int slot;
-            long curr;
-            final long[] key = LongLong2LongOpenCustomHashMap.this.key;
-            for (; ; ) {
-                last = pos;
-                pos = ((pos) + 1) & mask;
-                for (; ; ) {
-                    curr = key[pos];
-                    if (((curr) == (0))) {
-                        key[last] = (0);
-                        return;
-                    }
-                    slot = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(curr))) & mask;
-                    if (last <= pos ? last >= slot || slot > pos : last >= slot && slot > pos) {
-                        break;
-                    }
-                    pos = (pos + 1) & mask;
-                }
-                if (pos < last) { // Wrapped entry.
-                    if (wrapped == null) {
-                        wrapped = new LongArrayList(2);
-                    }
-                    wrapped.add(key[pos]);
-                }
-                key[last] = curr;
-                value[last] = value[pos];
-            }
-        }
-
-        public void remove()
-        {
-            if (last == -1) {
-                throw new IllegalStateException();
-            }
-            if (last == n) {
-                containsNullKey = false;
-            }
-            else if (pos >= 0) {
-                shiftKeys(last);
-            }
-            else {
-                // We're removing wrapped entries.
-                LongLong2LongOpenCustomHashMap.this.remove(wrapped.getLong(-pos - 1));
-                last = -1; // Note that we must not decrement size
-                return;
-            }
-            size--;
-            last = -1; // You can no longer remove this entry.
-            if (ASSERTS) {
-                checkTable();
-            }
-        }
-
-        public int skip(final int n)
-        {
-            int i = n;
-            while (i-- != 0 && hasNext()) {
-                nextEntry();
-            }
-            return n - i - 1;
-        }
-    }
-
-    private class EntryIterator
-            extends MapIterator
-            implements ObjectIterator<Long2LongMap.Entry>
-    {
-        private MapEntry entry;
-
-        @Override
-        public MapEntry next()
-        {
-            entry = new MapEntry(nextEntry());
-            return entry;
-        }
-
-        @Override
-        public void remove()
-        {
-            super.remove();
-            entry.index = -1; // You cannot use a deleted entry.
-        }
-    }
-
-    private class FastEntryIterator
-            extends MapIterator
-            implements ObjectIterator<Long2LongMap.Entry>
-    {
-        private final MapEntry entry = new MapEntry();
-
-        @Override
-        public MapEntry next()
-        {
-            entry.index = nextEntry();
-            return entry;
-        }
-    }
-
-    private final class MapEntrySet
-            extends AbstractObjectSet<Long2LongMap.Entry>
-            implements FastEntrySet
-    {
-        @Override
-        public ObjectIterator<Long2LongMap.Entry> iterator()
-        {
-            return new EntryIterator();
-        }
-
-        @Override
-        public ObjectIterator<Long2LongMap.Entry> fastIterator()
-        {
-            return new FastEntryIterator();
-        }
-
-        @Override
-        public boolean contains(final Object o)
-        {
-            if (!(o instanceof Map.Entry)) {
-                return false;
-            }
-            final Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
-            if (e.getKey() == null || !(e.getKey() instanceof Long)) {
-                return false;
-            }
-            if (e.getValue() == null || !(e.getValue() instanceof Long)) {
-                return false;
-            }
-            final long k = ((Long) (e.getKey())).longValue();
-            final long v = ((Long) (e.getValue())).longValue();
-            if ((strategy.equals((k), (0)))) {
-                return LongLong2LongOpenCustomHashMap.this.containsNullKey && ((value[n]) == (v));
-            }
-            final long[] key = LongLong2LongOpenCustomHashMap.this.key;
-            // The starting point.
-            int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-            long curr = key[pos];
-            if (((curr) == (0))) {
-                return false;
-            }
-            if ((strategy.equals((k), (curr)))) {
-                return ((value[pos]) == (v));
-            }
-            // There's always an unused entry.
-            while (true) {
-                pos = (pos + 1) & mask;
-                curr = key[pos];
-                if (((curr) == (0))) {
-                    return false;
-                }
-                if ((strategy.equals((k), (curr)))) {
-                    return ((value[pos]) == (v));
-                }
-            }
-        }
-
-        @Override
-        public boolean remove(final Object o)
-        {
-            if (!(o instanceof Map.Entry)) {
-                return false;
-            }
-            final Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
-            if (e.getKey() == null || !(e.getKey() instanceof Long)) {
-                return false;
-            }
-            if (e.getValue() == null || !(e.getValue() instanceof Long)) {
-                return false;
-            }
-            final long k = ((Long) (e.getKey())).longValue();
-            final long v = ((Long) (e.getValue())).longValue();
-            if ((strategy.equals((k), (0)))) {
-                if (containsNullKey && ((value[n]) == (v))) {
-                    removeNullEntry();
-                    return true;
-                }
-                return false;
-            }
-            final long[] key = LongLong2LongOpenCustomHashMap.this.key;
-            // The starting point.
-            int pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-            long curr = key[pos];
-            if (((curr) == (0))) {
-                return false;
-            }
-            if ((strategy.equals((curr), (k)))) {
-                if (((value[pos]) == (v))) {
-                    removeEntry(pos);
-                    return true;
-                }
-                return false;
-            }
-            while (true) {
-                pos = (pos + 1) & mask;
-                curr = key[pos];
-                if (((curr) == (0))) {
-                    return false;
-                }
-                if ((strategy.equals((curr), (k)))) {
-                    if (((value[pos]) == (v))) {
-                        removeEntry(pos);
-                        return true;
-                    }
-                }
-            }
-        }
-
-        @Override
-        public int size()
-        {
-            return size;
-        }
-
-        @Override
-        public void clear()
-        {
-            LongLong2LongOpenCustomHashMap.this.clear();
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void forEach(final Consumer<? super Long2LongMap.Entry> consumer)
-        {
-            if (containsNullKey) {
-                consumer.accept(new AbstractLong2LongMap.BasicEntry(key[n], value[n]));
-            }
-            for (int pos = n; pos-- != 0; ) {
-                if (!((key[pos]) == (0))) {
-                    consumer.accept(new AbstractLong2LongMap.BasicEntry(key[pos], value[pos]));
-                }
-            }
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void fastForEach(final Consumer<? super Long2LongMap.Entry> consumer)
-        {
-            if (containsNullKey) {
-                consumer.accept(new AbstractLong2LongMap.BasicEntry(key[n], value[n]));
-            }
-            for (int pos = n; pos-- != 0; ) {
-                if (!((key[pos]) == (0))) {
-                    consumer.accept(new AbstractLong2LongMap.BasicEntry(key[n], value[n]));
-                }
-            }
-        }
-    }
-
-    @Override
-    public FastEntrySet long2LongEntrySet()
-    {
-        if (entries == null) {
-            entries = new MapEntrySet();
-        }
-        return entries;
-    }
-
-    /**
-     * An iterator on keys.
-     *
-     * <p>
-     * We simply override the
-     * {@link java.util.ListIterator#next()}/{@link java.util.ListIterator#previous()}
-     * methods (and possibly their type-specific counterparts) so that they return
-     * keys instead of entries.
-     */
-    private final class KeyIterator
-            extends MapIterator
-            implements LongIterator
-    {
-        public KeyIterator()
-        {
-            super();
-        }
-
-        @Override
-        public long nextLong()
-        {
-            return key[nextEntry()];
-        }
-    }
-
-    private final class KeySet
-            extends AbstractLongSet
-    {
-        @Override
-        public LongIterator iterator()
-        {
-            return new KeyIterator();
-        }
-
-        /**
-         * {@inheritDoc}
-         */
-        @Override
-        public void forEach(final java.util.function.LongConsumer consumer)
-        {
-            if (containsNullKey) {
-                consumer.accept(key[n]);
-            }
-            for (int pos = n; pos-- != 0; ) {
-                final long k = key[pos];
-                if (!((k) == (0))) {
-                    consumer.accept(k);
-                }
-            }
-        }
-
-        @Override
-        public int size()
-        {
-            return size;
-        }
-
-        @Override
-        public boolean contains(long k)
-        {
-            return containsKey(k);
-        }
-
-        @Override
-        public boolean remove(long k)
-        {
-            final int oldSize = size;
-            LongLong2LongOpenCustomHashMap.this.remove(k);
-            return size != oldSize;
-        }
-
-        @Override
-        public void clear()
-        {
-            LongLong2LongOpenCustomHashMap.this.clear();
-        }
-    }
-
-    @Override
-    public LongSet keySet()
-    {
-        if (keys == null) {
-            keys = new KeySet();
-        }
-        return keys;
-    }
-
-    /**
-     * An iterator on values.
-     *
-     * <p>
-     * We simply override the
-     * {@link java.util.ListIterator#next()}/{@link java.util.ListIterator#previous()}
-     * methods (and possibly their type-specific counterparts) so that they return
-     * values instead of entries.
-     */
-    private final class ValueIterator
-            extends MapIterator
-            implements LongIterator
-    {
-        public ValueIterator()
-        {
-            super();
-        }
-
-        @Override
-        public long nextLong()
-        {
-            return value[nextEntry()];
-        }
-    }
-
-    @Override
-    public LongCollection values()
-    {
-        if (values == null) {
-            values = new AbstractLongCollection()
-            {
-                @Override
-                public LongIterator iterator()
-                {
-                    return new ValueIterator();
-                }
-
-                @Override
-                public int size()
-                {
-                    return size;
-                }
-
-                @Override
-                public boolean contains(long v)
-                {
-                    return containsValue(v);
-                }
-
-                @Override
-                public void clear()
-                {
-                    LongLong2LongOpenCustomHashMap.this.clear();
-                }
-
-                /** {@inheritDoc} */
-                @Override
-                public void forEach(final java.util.function.LongConsumer consumer)
-                {
-                    if (containsNullKey) {
-                        consumer.accept(value[n]);
-                    }
-                    for (int pos = n; pos-- != 0; ) {
-                        if (!((key[pos]) == (0))) {
-                            consumer.accept(value[pos]);
-                        }
-                    }
-                }
-            };
-        }
-        return values;
     }
 
     /**
@@ -1500,22 +754,24 @@ public class LongLong2LongOpenCustomHashMap
         final long[] key = this.key;
         final long[] value = this.value;
         final int mask = newN - 1; // Note that this is used by the hashing macro
-        final long[] newKey = new long[newN + 1];
+        final long[] newKey = new long[(newN + 1) * 2];
         final long[] newValue = new long[newN + 1];
         int i = n;
         int pos;
         for (int j = realSize(); j-- != 0; ) {
-            while (((key[--i]) == (0))) {
-                // Skip
+            --i;
+            while (((key[i * 2]) == (0)) && ((key[i * 2 + 1]) == (0))) {
+                --i;
             }
-            pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(key[i]))) & mask;
-            if (!((newKey[pos]) == (0))) {
+            pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(key[i * 2], key[i * 2 + 1]))) & mask;
+            if (!((newKey[pos * 2]) == (0) && (newKey[pos * 2 + 1]) == (0))) {
                 pos = (pos + 1) & mask;
-                while (!((newKey[pos]) == (0))) {
+                while (!((newKey[pos * 2]) == (0) && (newKey[pos * 2 + 1]) == (0))) {
                     pos = (pos + 1) & mask;
                 }
             }
-            newKey[pos] = key[i];
+            newKey[pos * 2] = key[i * 2];
+            newKey[pos * 2 + 1] = key[i * 2 + 1];
             newValue[pos] = value[i];
         }
         newValue[newN] = value[n];
@@ -1546,62 +802,11 @@ public class LongLong2LongOpenCustomHashMap
         catch (CloneNotSupportedException cantHappen) {
             throw new InternalError();
         }
-        c.keys = null;
-        c.values = null;
-        c.entries = null;
         c.containsNullKey = containsNullKey;
         c.key = key.clone();
         c.value = value.clone();
         c.strategy = strategy;
         return c;
-    }
-
-    private void writeObject(java.io.ObjectOutputStream s)
-            throws java.io.IOException
-    {
-        final long[] key = this.key;
-        final long[] value = this.value;
-        final MapIterator i = new MapIterator();
-        s.defaultWriteObject();
-        for (int j = size, e; j-- != 0; ) {
-            e = i.nextEntry();
-            s.writeLong(key[e]);
-            s.writeLong(value[e]);
-        }
-    }
-
-    private void readObject(java.io.ObjectInputStream s)
-            throws java.io.IOException, ClassNotFoundException
-    {
-        s.defaultReadObject();
-        n = arraySize(size, f);
-        maxFill = maxFill(n, f);
-        mask = n - 1;
-        final long[] key = new long[n + 1];
-        this.key = key;
-        final long[] value = new long[n + 1];
-        this.value = value;
-        long k;
-        long v;
-        for (int i = size, pos; i-- != 0; ) {
-            k = s.readLong();
-            v = s.readLong();
-            if ((strategy.equals((k), (0)))) {
-                pos = n;
-                containsNullKey = true;
-            }
-            else {
-                pos = (it.unimi.dsi.fastutil.HashCommon.mix(strategy.hashCode(k))) & mask;
-                while (!((key[pos]) == (0))) {
-                    pos = (pos + 1) & mask;
-                }
-            }
-            key[pos] = k;
-            value[pos] = v;
-        }
-        if (ASSERTS) {
-            checkTable();
-        }
     }
 
     private void checkTable()
