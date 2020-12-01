@@ -17,20 +17,19 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestLongLong2LongOpenCustomHashMap
+public class TestLongLong2LongOpenCustomBigHashMap
 {
-    private static final LongLong2LongOpenCustomHashMap.HashStrategy DEFAULT_STRATEGY = new LongLong2LongOpenCustomHashMap.HashStrategy()
+    private static final LongLong2LongOpenCustomBigHashMap.HashStrategy DEFAULT_STRATEGY = new LongLong2LongOpenCustomBigHashMap.HashStrategy()
     {
         @Override
-        public int hashCode(long e1, long e2)
+        public long hashCode(long e1, long e2)
         {
-            return Objects.hash(e1, e2);
+            return e1 * 31 + e2;
         }
 
         @Override
@@ -43,7 +42,8 @@ public class TestLongLong2LongOpenCustomHashMap
     @Test
     public void testBasicOps()
     {
-        LongLong2LongOpenCustomHashMap map = new LongLong2LongOpenCustomHashMap(DEFAULT_STRATEGY);
+        int expected = 100_000;
+        LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(expected, DEFAULT_STRATEGY);
         map.defaultReturnValue(-1);
 
         assertTrue(map.isEmpty());
@@ -99,10 +99,10 @@ public class TestLongLong2LongOpenCustomHashMap
     @Test
     public void testHashCollision()
     {
-        LongLong2LongOpenCustomHashMap.HashStrategy collisionHashStrategy = new LongLong2LongOpenCustomHashMap.HashStrategy()
+        LongLong2LongOpenCustomBigHashMap.HashStrategy collisionHashStrategy = new LongLong2LongOpenCustomBigHashMap.HashStrategy()
         {
             @Override
-            public int hashCode(long e1, long e2)
+            public long hashCode(long e1, long e2)
             {
                 // Force collisions
                 return 0;
@@ -115,7 +115,7 @@ public class TestLongLong2LongOpenCustomHashMap
             }
         };
 
-        LongLong2LongOpenCustomHashMap map = new LongLong2LongOpenCustomHashMap(collisionHashStrategy);
+        LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(collisionHashStrategy);
         map.defaultReturnValue(-1);
 
         List<Long> values = Arrays.asList(Long.MIN_VALUE, -10L, 0L, 10L, Long.MAX_VALUE);
@@ -167,30 +167,30 @@ public class TestLongLong2LongOpenCustomHashMap
     public void testRehash()
     {
         int initialCapacity = 1;
-        LongLong2LongOpenCustomHashMap map = new LongLong2LongOpenCustomHashMap(initialCapacity, DEFAULT_STRATEGY);
+        LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(initialCapacity, DEFAULT_STRATEGY);
         map.defaultReturnValue(-1);
 
-        // Inserting 10k elements should be enough to trigger some rehashes given an initial capacity of 1.
+        // Inserting 1M elements should be enough to trigger some rehashes given an initial capacity of 1.
 
         int count = 0;
-        for (long key1 = 0; key1 < 100; key1++) {
-            for (long key2 = 0; key2 < 100; key2++) {
+        for (long key1 = 0; key1 < 1000; key1++) {
+            for (long key2 = 0; key2 < 1000; key2++) {
                 count++;
                 assertEquals(map.put(key1, key2, count), -1);
             }
         }
 
         count = 0;
-        for (long key1 = 0; key1 < 100; key1++) {
-            for (long key2 = 0; key2 < 100; key2++) {
+        for (long key1 = 0; key1 < 1000; key1++) {
+            for (long key2 = 0; key2 < 1000; key2++) {
                 count++;
                 assertEquals(map.get(key1, key2), count);
             }
         }
 
-        // Remove 99% of the elements and force a trim()
-        for (long key1 = 1; key1 < 100; key1++) {
-            for (long key2 = 0; key2 < 100; key2++) {
+        // Remove most of the elements and force a trim()
+        for (long key1 = 1; key1 < 1000; key1++) {
+            for (long key2 = 0; key2 < 1000; key2++) {
                 map.remove(key1, key2);
             }
         }
@@ -198,7 +198,7 @@ public class TestLongLong2LongOpenCustomHashMap
 
         // Make sure we can still fetch the remaining keys
         count = 0;
-        for (long key2 = 0; key2 < 100; key2++) {
+        for (long key2 = 0; key2 < 1000; key2++) {
             count++;
             assertEquals(map.get(0, key2), count);
         }
