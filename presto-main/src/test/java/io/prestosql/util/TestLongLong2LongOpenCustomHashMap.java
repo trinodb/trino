@@ -1,0 +1,206 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.prestosql.util;
+
+import org.testng.annotations.Test;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
+public class TestLongLong2LongOpenCustomHashMap
+{
+    private static final LongLong2LongOpenCustomHashMap.HashStrategy DEFAULT_STRATEGY = new LongLong2LongOpenCustomHashMap.HashStrategy()
+    {
+        @Override
+        public int hashCode(long e1, long e2)
+        {
+            return Objects.hash(e1, e2);
+        }
+
+        @Override
+        public boolean equals(long a1, long a2, long b1, long b2)
+        {
+            return a1 == b1 && a2 == b2;
+        }
+    };
+
+    @Test
+    public void testBasicOps()
+    {
+        LongLong2LongOpenCustomHashMap map = new LongLong2LongOpenCustomHashMap(DEFAULT_STRATEGY);
+        map.defaultReturnValue(-1);
+
+        assertTrue(map.isEmpty());
+        assertEquals(map.size(), 0);
+        assertEquals(map.get(0, 0), -1);
+        assertEquals(map.get(1, -1), -1);
+
+        List<Long> values = Arrays.asList(Long.MIN_VALUE, -10L, 0L, 10L, Long.MAX_VALUE);
+
+        // Put
+        int count = 0;
+        for (long key1 : values) {
+            for (long key2 : values) {
+                count++;
+                assertEquals(map.put(key1, key2, count - 1), -1);
+                assertFalse(map.isEmpty());
+                assertEquals(map.size(), count);
+            }
+        }
+
+        // Replace
+        count = 0;
+        for (long key1 : values) {
+            for (long key2 : values) {
+                count++;
+                assertTrue(map.replace(key1, key2, count - 1, count));
+                assertFalse(map.isEmpty());
+                assertEquals(map.size(), values.size() * values.size());
+            }
+        }
+
+        // Get
+        count = 0;
+        for (long key1 : values) {
+            for (long key2 : values) {
+                count++;
+                assertTrue(map.containsKey(key1, key2));
+                assertTrue(map.containsValue(count));
+                assertEquals(map.get(key1, key2), count);
+            }
+        }
+
+        // Remove
+        count = 0;
+        for (long key1 : values) {
+            for (long key2 : values) {
+                count++;
+                assertEquals(map.remove(key1, key2), count);
+            }
+        }
+    }
+
+    @Test
+    public void testHashCollision()
+    {
+        LongLong2LongOpenCustomHashMap.HashStrategy collisionHashStrategy = new LongLong2LongOpenCustomHashMap.HashStrategy()
+        {
+            @Override
+            public int hashCode(long e1, long e2)
+            {
+                // Force collisions
+                return 0;
+            }
+
+            @Override
+            public boolean equals(long a1, long a2, long b1, long b2)
+            {
+                return a1 == b1 && a2 == b2;
+            }
+        };
+
+        LongLong2LongOpenCustomHashMap map = new LongLong2LongOpenCustomHashMap(collisionHashStrategy);
+        map.defaultReturnValue(-1);
+
+        List<Long> values = Arrays.asList(Long.MIN_VALUE, -10L, 0L, 10L, Long.MAX_VALUE);
+
+        // Put
+        int count = 0;
+        for (long key1 : values) {
+            for (long key2 : values) {
+                count++;
+                assertEquals(map.put(key1, key2, count - 1), -1);
+                assertFalse(map.isEmpty());
+                assertEquals(map.size(), count);
+            }
+        }
+
+        // Replace
+        count = 0;
+        for (long key1 : values) {
+            for (long key2 : values) {
+                count++;
+                assertTrue(map.replace(key1, key2, count - 1, count));
+                assertFalse(map.isEmpty());
+                assertEquals(map.size(), values.size() * values.size());
+            }
+        }
+
+        // Get
+        count = 0;
+        for (long key1 : values) {
+            for (long key2 : values) {
+                count++;
+                assertTrue(map.containsKey(key1, key2));
+                assertTrue(map.containsValue(count));
+                assertEquals(map.get(key1, key2), count);
+            }
+        }
+
+        // Remove
+        count = 0;
+        for (long key1 : values) {
+            for (long key2 : values) {
+                count++;
+                assertEquals(map.remove(key1, key2), count);
+            }
+        }
+    }
+
+    @Test
+    public void testRehash()
+    {
+        int initialCapacity = 1;
+        LongLong2LongOpenCustomHashMap map = new LongLong2LongOpenCustomHashMap(initialCapacity, DEFAULT_STRATEGY);
+        map.defaultReturnValue(-1);
+
+        // Inserting 10k elements should be enough to trigger some rehashes given an initial capacity of 1.
+
+        int count = 0;
+        for (long key1 = 0; key1 < 100; key1++) {
+            for (long key2 = 0; key2 < 100; key2++) {
+                count++;
+                assertEquals(map.put(key1, key2, count), -1);
+            }
+        }
+
+        count = 0;
+        for (long key1 = 0; key1 < 100; key1++) {
+            for (long key2 = 0; key2 < 100; key2++) {
+                count++;
+                assertEquals(map.get(key1, key2), count);
+            }
+        }
+
+        // Remove 99% of the elements and force a trim()
+        for (long key1 = 1; key1 < 100; key1++) {
+            for (long key2 = 0; key2 < 100; key2++) {
+                map.remove(key1, key2);
+            }
+        }
+        map.trim();
+
+        // Make sure we can still fetch the remaining keys
+        count = 0;
+        for (long key2 = 0; key2 < 100; key2++) {
+            count++;
+            assertEquals(map.get(0, key2), count);
+        }
+    }
+}
