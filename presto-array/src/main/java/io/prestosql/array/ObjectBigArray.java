@@ -95,6 +95,19 @@ public final class ObjectBigArray<T>
         grow(length);
     }
 
+    /**
+     * Fills the entire big array with the specified value.
+     */
+    public void fill(T value)
+    {
+        for (Object[] segment : array) {
+            if (segment == null) {
+                return;
+            }
+            Arrays.fill(segment, value);
+        }
+    }
+
     private void grow(long length)
     {
         // how many segments are required to get to the length?
