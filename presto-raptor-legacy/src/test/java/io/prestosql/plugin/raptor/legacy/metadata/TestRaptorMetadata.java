@@ -42,7 +42,6 @@ import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
-import io.prestosql.testng.services.Flaky;
 import io.prestosql.type.InternalTypeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -345,9 +344,6 @@ public class TestRaptorMetadata
     }
 
     @Test
-    @Flaky(
-            issue = "https://github.com/prestosql/presto/issues/1977",
-            match = "(?s).*\\QSELECT count(DISTINCT \"$shard_uuid\") FROM orders_bucketed\\E.*Actual rows.*\\[\\d\\d].*Expected rows.*\\[100].*")
     public void testCreateBucketedTable()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
