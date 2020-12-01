@@ -15,6 +15,8 @@ package io.prestosql.array;
 
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+
 import static org.testng.Assert.assertEquals;
 
 public class TestShortBigArray
@@ -37,6 +39,49 @@ public class TestShortBigArray
 
         for (int i = 0; i < capacity; i++) {
             assertEquals(array.get(i), value);
+        }
+    }
+
+    @Test
+    public void testCopyTo()
+    {
+        ShortBigArray source = new ShortBigArray();
+        ShortBigArray destination = new ShortBigArray();
+
+        for (long sourceIndex : Arrays.asList(0, 1, BigArrays.SEGMENT_SIZE, BigArrays.SEGMENT_SIZE + 1)) {
+            for (long destinationIndex : Arrays.asList(0, 1, BigArrays.SEGMENT_SIZE, BigArrays.SEGMENT_SIZE + 1)) {
+                for (long length : Arrays.asList(0, 1, BigArrays.SEGMENT_SIZE, BigArrays.SEGMENT_SIZE + 1)) {
+                    assertCopyTo(source, sourceIndex, destination, destinationIndex, length);
+                }
+            }
+        }
+    }
+
+    private static void assertCopyTo(ShortBigArray source, long sourceIndex, ShortBigArray destination, long destinationIndex, long length)
+    {
+        long sourceCapacity = sourceIndex + length;
+        source.ensureCapacity(sourceCapacity);
+        long destinationCapacity = destinationIndex + length + 1; // Add +1 to let us verify that copy does not go out of bounds
+        destination.ensureCapacity(destinationCapacity);
+
+        short destinationFillValue = -1;
+        destination.fill(destinationFillValue);
+
+        // Write indicies as values in source
+        for (long i = 0; i < sourceCapacity; i++) {
+            source.set(i, (short) i);
+        }
+
+        source.copyTo(sourceIndex, destination, destinationIndex, length);
+
+        for (long i = 0; i < destinationIndex; i++) {
+            assertEquals(destination.get(i), destinationFillValue);
+        }
+        for (long i = 0; i < length; i++) {
+            assertEquals(source.get(sourceIndex + i), destination.get(destinationIndex + i));
+        }
+        for (long i = destinationIndex + length; i < destinationCapacity; i++) {
+            assertEquals(destination.get(i), destinationFillValue);
         }
     }
 }
