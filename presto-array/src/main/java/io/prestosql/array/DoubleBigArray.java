@@ -108,6 +108,19 @@ public final class DoubleBigArray
         grow(length);
     }
 
+    /**
+     * Fills the entire big array with the specified value.
+     */
+    public void fill(double value)
+    {
+        for (double[] segment : array) {
+            if (segment == null) {
+                return;
+            }
+            Arrays.fill(segment, value);
+        }
+    }
+
     private void grow(long length)
     {
         // how many segments are required to get to the length?

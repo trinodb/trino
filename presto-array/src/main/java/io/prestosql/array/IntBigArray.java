@@ -123,13 +123,16 @@ public final class IntBigArray
         grow(length);
     }
 
+    /**
+     * Fills the entire big array with the specified value.
+     */
     public void fill(int value)
     {
-        for (int[] ints : array) {
-            if (ints == null) {
+        for (int[] segment : array) {
+            if (segment == null) {
                 return;
             }
-            Arrays.fill(ints, value);
+            Arrays.fill(segment, value);
         }
     }
 

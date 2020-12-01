@@ -118,6 +118,19 @@ public final class LongBigArray
         grow(length);
     }
 
+    /**
+     * Fills the entire big array with the specified value.
+     */
+    public void fill(long value)
+    {
+        for (long[] segment : array) {
+            if (segment == null) {
+                return;
+            }
+            Arrays.fill(segment, value);
+        }
+    }
+
     private void grow(long length)
     {
         // how many segments are required to get to the length?
