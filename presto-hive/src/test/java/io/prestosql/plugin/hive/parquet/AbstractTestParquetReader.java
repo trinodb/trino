@@ -29,6 +29,7 @@ import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
+import io.prestosql.testng.services.Flaky;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.Timestamp;
@@ -357,6 +358,8 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4984", match = ".*maxCapacityHint can't be less than initialSlabSize.*")
+    // Flaky failure comes from org.apache.hadoop.hive.ql.io.parquet.write.ParquetRecordWriterWrapper used during test initialization
     public void testArrayOfMapOfStruct()
             throws Exception
     {
@@ -1484,6 +1487,8 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/6193", match = ".*maxCapacityHint can't be less than initialSlabSize.*")
+    // Flaky failure comes from org.apache.hadoop.hive.ql.io.parquet.write.ParquetRecordWriterWrapper used during test initialization
     public void testDoubleNaNInfinity()
             throws Exception
     {
