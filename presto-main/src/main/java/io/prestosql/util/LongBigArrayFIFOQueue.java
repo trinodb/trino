@@ -13,13 +13,16 @@
  */
 package io.prestosql.util;
 
-import it.unimi.dsi.fastutil.HashCommon;
+import io.prestosql.array.BigArrays;
+import io.prestosql.array.LongBigArray;
 import it.unimi.dsi.fastutil.PriorityQueue;
 import it.unimi.dsi.fastutil.longs.LongComparator;
 import it.unimi.dsi.fastutil.longs.LongPriorityQueue;
+import org.openjdk.jol.info.ClassLayout;
 
-import java.io.Serializable;
 import java.util.NoSuchElementException;
+
+import static java.lang.Math.toIntExact;
 
 /**
  * A type-specific array-based FIFO queue, supporting also deque operations.
@@ -37,32 +40,32 @@ import java.util.NoSuchElementException;
 // and mimics that code style.
 // Copyright (C) 2010-2019 Sebastiano Vigna
 public class LongBigArrayFIFOQueue
-        implements LongPriorityQueue, Serializable
+        implements LongPriorityQueue
 {
-    private static final long serialVersionUID = 0L;
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongBigArrayFIFOQueue.class).instanceSize();
     /**
      * The standard initial capacity of a queue.
      */
-    public static final int INITIAL_CAPACITY = 4;
+    public static final long INITIAL_CAPACITY = BigArrays.SEGMENT_SIZE;
     /**
      * The backing array.
      */
-    protected transient long[] array;
+    protected LongBigArray array;
     /**
      * The current (cached) length of {@link #array}.
      */
-    protected transient int length;
+    protected long length;
     /**
      * The start position in {@link #array}. It is always strictly smaller than
      * {@link #length}.
      */
-    protected transient int start;
+    protected long start;
     /**
      * The end position in {@link #array}. It is always strictly smaller than
      * {@link #length}. Might be actually smaller than {@link #start} because
      * {@link #array} is used cyclically.
      */
-    protected transient int end;
+    protected long end;
 
     /**
      * Creates a new empty queue with given capacity.
@@ -70,13 +73,14 @@ public class LongBigArrayFIFOQueue
      * @param capacity the initial capacity of this queue.
      */
 
-    public LongBigArrayFIFOQueue(final int capacity)
+    public LongBigArrayFIFOQueue(final long capacity)
     {
         if (capacity < 0) {
             throw new IllegalArgumentException("Initial capacity (" + capacity + ") is negative");
         }
-        array = new long[Math.max(1, capacity)]; // Never build a queue with zero-sized backing array.
-        length = array.length;
+        array = new LongBigArray();
+        length = Math.max(INITIAL_CAPACITY, capacity); // Never build a queue smaller than INITIAL_CAPACITY
+        array.ensureCapacity(length);
     }
 
     /**
@@ -86,6 +90,11 @@ public class LongBigArrayFIFOQueue
     public LongBigArrayFIFOQueue()
     {
         this(INITIAL_CAPACITY);
+    }
+
+    public long sizeOf()
+    {
+        return INSTANCE_SIZE + array.sizeOf();
     }
 
     /**
@@ -105,7 +114,7 @@ public class LongBigArrayFIFOQueue
         if (start == end) {
             throw new NoSuchElementException();
         }
-        final long t = array[start];
+        final long t = array.get(start);
         if (++start == length) {
             start = 0;
         }
@@ -127,22 +136,23 @@ public class LongBigArrayFIFOQueue
         if (end == 0) {
             end = length;
         }
-        final long t = array[--end];
+        final long t = array.get(--end);
         reduce();
         return t;
     }
 
-    private final void resize(final int size, final int newLength)
+    private final void resize(final long size, final long newLength)
     {
-        final long[] newArray = new long[newLength];
+        final LongBigArray newArray = new LongBigArray();
+        newArray.ensureCapacity(newLength);
         if (start >= end) {
             if (size != 0) {
-                System.arraycopy(array, start, newArray, 0, length - start);
-                System.arraycopy(array, 0, newArray, length - start, end);
+                array.copyTo(start, newArray, 0, length - start);
+                array.copyTo(0, newArray, length - start, end);
             }
         }
         else {
-            System.arraycopy(array, start, newArray, 0, end - start);
+            array.copyTo(start, newArray, 0, end - start);
         }
         start = 0;
         end = size;
@@ -152,12 +162,12 @@ public class LongBigArrayFIFOQueue
 
     private final void expand()
     {
-        resize(length, (int) Math.min(it.unimi.dsi.fastutil.Arrays.MAX_ARRAY_SIZE, 2L * length));
+        resize(length, 2L * length);
     }
 
     private final void reduce()
     {
-        final int size = size();
+        final long size = longSize();
         if (length > INITIAL_CAPACITY && size <= length / 4) {
             resize(size, length / 2);
         }
@@ -166,7 +176,7 @@ public class LongBigArrayFIFOQueue
     @Override
     public void enqueue(long x)
     {
-        array[end++] = x;
+        array.set(end++, x);
         if (end == length) {
             end = 0;
         }
@@ -186,7 +196,7 @@ public class LongBigArrayFIFOQueue
         if (start == 0) {
             start = length;
         }
-        array[--start] = x;
+        array.set(--start, x);
         if (end == start) {
             expand();
         }
@@ -198,7 +208,7 @@ public class LongBigArrayFIFOQueue
         if (start == end) {
             throw new NoSuchElementException();
         }
-        return array[start];
+        return array.get(start);
     }
 
     @Override
@@ -207,7 +217,7 @@ public class LongBigArrayFIFOQueue
         if (start == end) {
             throw new NoSuchElementException();
         }
-        return array[(end == 0 ? length : end) - 1];
+        return array.get((end == 0 ? length : end) - 1);
     }
 
     @Override
@@ -220,17 +230,17 @@ public class LongBigArrayFIFOQueue
     /**
      * Trims the queue to the smallest possible size.
      */
-
     public void trim()
     {
-        final int size = size();
-        final long[] newArray = new long[size + 1];
+        final long size = longSize();
+        final LongBigArray newArray = new LongBigArray();
+        newArray.ensureCapacity(size + 1);
         if (start <= end) {
-            System.arraycopy(array, start, newArray, 0, end - start);
+            array.copyTo(start, newArray, 0, end - start);
         }
         else {
-            System.arraycopy(array, start, newArray, 0, length - start);
-            System.arraycopy(array, 0, newArray, length - start, end);
+            array.copyTo(start, newArray, 0, length - start);
+            array.copyTo(0, newArray, length - start, end);
         }
         start = 0;
         end = size;
@@ -241,33 +251,18 @@ public class LongBigArrayFIFOQueue
     @Override
     public int size()
     {
-        final int apparentLength = end - start;
+        return toIntExact(longSize());
+    }
+
+    public long longSize()
+    {
+        final long apparentLength = end - start;
         return apparentLength >= 0 ? apparentLength : length + apparentLength;
     }
 
-    private void writeObject(java.io.ObjectOutputStream s)
-            throws java.io.IOException
+    @Override
+    public boolean isEmpty()
     {
-        s.defaultWriteObject();
-        int size = size();
-        s.writeInt(size);
-        for (int i = start; size-- != 0; ) {
-            s.writeLong(array[i++]);
-            if (i == length) {
-                i = 0;
-            }
-        }
-    }
-
-    private void readObject(java.io.ObjectInputStream s)
-            throws java.io.IOException, ClassNotFoundException
-    {
-        s.defaultReadObject();
-        end = s.readInt();
-        length = HashCommon.nextPowerOfTwo(end + 1);
-        array = new long[length];
-        for (int i = 0; i < end; i++) {
-            array[i] = s.readLong();
-        }
+        return end == start;
     }
 }
