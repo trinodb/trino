@@ -36,7 +36,6 @@ import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -139,11 +138,11 @@ public class TestEventListenerBasic
         assertFailedQuery("You shall not parse!", "line 1:1: mismatched input 'You'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', 'INSERT', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'USE', <query>");
     }
 
-    @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/5922", match = "java.lang.IllegalArgumentException: expected one element but was: <.*>")
+    @Test(invocationCount = 1000)
     public void testPlanningFailure()
             throws Exception
     {
+        System.out.println("TEST START");
         assertFailedQuery("SELECT * FROM mock.default.tests_table", "Throw from apply projection");
     }
 

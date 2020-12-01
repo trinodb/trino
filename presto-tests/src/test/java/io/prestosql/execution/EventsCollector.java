@@ -74,6 +74,10 @@ class EventsCollector
         if (!eventFilters.queryCompletedFilter.test(event)) {
             return;
         }
+
+        System.out.println("addQueryCompleted STACK for " + event.getMetadata().getQueryId() + ":");
+        new Throwable().printStackTrace(System.out);
+
         queryCompletedEvents.add(event);
         eventsLatch.countDown();
     }
