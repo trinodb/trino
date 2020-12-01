@@ -38,6 +38,7 @@ public class SnowflakeDistributedSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
     private static final String RETRY_CANCELED_QUERIES = "retry_canceled_queries";
+    private static final String VALIDATE_BUCKETING = "validate_bucketing";
 
     private final SnowflakeDistributedConfig snowflakeConfig;
 
@@ -67,6 +68,11 @@ public class SnowflakeDistributedSessionProperties
                         "Parquet: Maximum size of a block to read",
                         snowflakeConfig.getParquetMaxReadBlockSize(),
                         false),
+                booleanProperty(
+                        RETRY_CANCELED_QUERIES,
+                        "Retry queries that failed due to being canceled",
+                        snowflakeConfig.isRetryCanceledQueries(),
+                        false),
                 // these properties are irrelevant for Snowflake connector, but are required by Hive connector code
                 booleanProperty(
                         S3_SELECT_PUSHDOWN_ENABLED,
@@ -94,10 +100,10 @@ public class SnowflakeDistributedSessionProperties
                         new Duration(0, MINUTES),
                         true),
                 booleanProperty(
-                        RETRY_CANCELED_QUERIES,
-                        "Retry queries that failed due to being canceled",
-                        snowflakeConfig.isRetryCanceledQueries(),
-                        false));
+                        VALIDATE_BUCKETING,
+                        "Internal Snowflake connector property",
+                        false,
+                        true));
     }
 
     private static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
