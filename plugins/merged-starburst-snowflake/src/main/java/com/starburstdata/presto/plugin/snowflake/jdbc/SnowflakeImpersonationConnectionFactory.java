@@ -14,6 +14,7 @@ import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
@@ -37,10 +38,11 @@ public class SnowflakeImpersonationConnectionFactory
     }
 
     @Override
-    protected void prepare(Connection connection, JdbcIdentity identity)
+    protected void prepare(Connection connection, ConnectorSession session)
             throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
+            JdbcIdentity identity = JdbcIdentity.from(session);
             statement.execute(format("USE ROLE %s", authToLocal.translate(identity)));
         }
     }
