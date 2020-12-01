@@ -70,7 +70,7 @@ public class TestStarburstOracleClient
             new JdbcStatisticsConfig(),
             new NoneRedirectionsProvider(),
             new OracleConfig(),
-            identity -> { throw new UnsupportedOperationException(); });
+            session -> { throw new UnsupportedOperationException(); });
 
     public static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()

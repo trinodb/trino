@@ -16,6 +16,7 @@ import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.spi.connector.ConnectorSession;
 import oracle.jdbc.OracleConnection;
 
 import java.sql.Connection;
@@ -39,11 +40,12 @@ public class OracleImpersonatingConnectionFactory
     }
 
     @Override
-    protected void prepare(Connection connection, JdbcIdentity identity)
+    protected void prepare(Connection connection, ConnectorSession session)
             throws SQLException
     {
         OracleConnection oracleConnection = (OracleConnection) connection;
         Properties properties = new Properties();
+        JdbcIdentity identity = JdbcIdentity.from(session);
         properties.setProperty(OracleConnection.PROXY_USER_NAME, authToLocal.translate(identity));
         // when working a pooled connection, close() will simply return it to the pool without
         // closing the proxy session; we guard against that condition by making sure that any
