@@ -427,6 +427,7 @@ public class TestRaptorIntegrationSmokeTest
             match = "(?s)AssertionError.*query.*SELECT count\\(DISTINCT \"\\$shard_uuid\"\\) FROM orders_bucketed.*Actual rows.*\\[\\d\\d\\].*Expected rows.*\\[100\\]")
     public void testCreateBucketedTable()
     {
+        assertUpdate("DROP TABLE IF EXISTS orders_bucketed");
         assertUpdate("" +
                         "CREATE TABLE orders_bucketed " +
                         "WITH (bucket_count = 50, bucketed_on = ARRAY ['orderkey']) " +
