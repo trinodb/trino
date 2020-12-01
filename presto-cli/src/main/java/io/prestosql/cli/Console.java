@@ -59,6 +59,7 @@ import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterrup
 import static io.prestosql.cli.Completion.commandCompleter;
 import static io.prestosql.cli.Help.getHelpText;
 import static io.prestosql.cli.QueryPreprocessor.preprocessQuery;
+import static io.prestosql.cli.TerminalUtils.closeTerminal;
 import static io.prestosql.cli.TerminalUtils.getTerminal;
 import static io.prestosql.cli.TerminalUtils.isRealTerminal;
 import static io.prestosql.cli.TerminalUtils.terminalEncoding;
@@ -153,6 +154,8 @@ public class Console
             exiting.set(true);
             interruptor.interrupt();
             awaitUninterruptibly(exited, EXIT_DELAY.toMillis(), MILLISECONDS);
+            // Terminal closing restores terminal settings and releases underlying system resources
+            closeTerminal();
         }));
 
         try (QueryRunner queryRunner = new QueryRunner(
