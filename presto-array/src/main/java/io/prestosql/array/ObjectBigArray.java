@@ -108,6 +108,38 @@ public final class ObjectBigArray<T>
         }
     }
 
+    /**
+     * Copies this array, beginning at the specified sourceIndex, to the specified destinationIndex of
+     * the destination array. A subsequence of this array's components are copied to the destination
+     * array referenced by {@code destination}. The number of components copied is equal to the
+     * {@code length} argument. The components at positions {@code sourceIndex} through
+     * {@code sourceIndex+length-1} in this array are copied into positions {@code destinationIndex}
+     * through {@code destinationIndex+length-1}, respectively, of the destination array.
+     */
+    public void copyTo(long sourceIndex, ObjectBigArray<T> destination, long destinationIndex, long length)
+    {
+        while (length > 0) {
+            int startSegment = segment(sourceIndex);
+            int startOffset = offset(sourceIndex);
+            int destinationStartSegment = segment(destinationIndex);
+            int destinationStartOffset = offset(destinationIndex);
+
+            int copyLength = Math.min(SEGMENT_SIZE - startOffset, SEGMENT_SIZE - destinationStartOffset);
+            copyLength = Math.min(copyLength, length > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) length);
+
+            System.arraycopy(
+                    array[startSegment],
+                    startOffset,
+                    destination.array[destinationStartSegment],
+                    destinationStartOffset,
+                    copyLength);
+
+            sourceIndex += copyLength;
+            destinationIndex += copyLength;
+            length -= copyLength;
+        }
+    }
+
     private void grow(long length)
     {
         // how many segments are required to get to the length?
