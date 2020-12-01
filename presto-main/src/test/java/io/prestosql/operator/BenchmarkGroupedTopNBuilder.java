@@ -22,6 +22,7 @@ import io.prestosql.tpch.LineItem;
 import io.prestosql.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
@@ -63,24 +64,28 @@ public class BenchmarkGroupedTopNBuilder
         private final List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE);
         private final PageWithPositionComparator comparator = new SimplePageWithPositionComparator(
                 types,
-                ImmutableList.of(0, 2),
+                ImmutableList.of(EXTENDED_PRICE, SHIP_DATE),
                 ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST),
                 new TypeOperators());
 
-        @Param({"1", "100", "10000", "1000000"})
+        @Param({"1", "10", "100"})
         private String topN = "1";
 
-        @Param({"1", "100", "10000", "1000000"})
+        @Param({"10000", "1000000"})
         private String positions = "1";
+
+        @Param({"1", "10000", "1000000"})
+        private String groupCount = "1";
 
         private Page page;
         private GroupedTopNBuilder topNBuilder;
 
-        @Setup
+        @Setup(value = Level.Invocation)
         public void setup()
         {
             page = createInputPage(Integer.valueOf(positions), types);
-            topNBuilder = new GroupedTopNBuilder(types, comparator, Integer.valueOf(topN), false, new NoChannelGroupByHash());
+
+            topNBuilder = new GroupedTopNBuilder(types, comparator, Integer.valueOf(topN), false, new CyclingGroupByHash(Integer.valueOf(groupCount)));
         }
 
         public GroupedTopNBuilder getTopNBuilder()
