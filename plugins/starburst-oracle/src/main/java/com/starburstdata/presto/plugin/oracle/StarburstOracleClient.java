@@ -130,7 +130,9 @@ public class StarburstOracleClient
         }
     }
 
-    /** @deprecated This should never be called; use {@link OracleSplitManager} to get splits. */
+    /**
+     * @deprecated This should never be called; use {@link OracleSplitManager} to get splits.
+     */
     @Deprecated
     @Override
     public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
@@ -296,7 +298,7 @@ public class StarburstOracleClient
 
     @Override
     // TODO: migrate to OSS?
-    public void dropSchema(ConnectorSession sessiony, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
