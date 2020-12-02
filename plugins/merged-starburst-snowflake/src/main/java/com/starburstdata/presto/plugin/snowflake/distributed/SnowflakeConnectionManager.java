@@ -42,9 +42,10 @@ public class SnowflakeConnectionManager
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
     }
 
-    synchronized SnowflakeConnectionV1 openConnection(QueryId queryId, ConnectorSession session)
+    synchronized SnowflakeConnectionV1 openConnection(ConnectorSession session)
     {
         try {
+            QueryId queryId = QueryId.valueOf(session.getQueryId());
             Connection connection = connectionFactory.openConnection(session);
             connections.put(queryId, connection);
             return connection.unwrap(SnowflakeConnectionV1.class);

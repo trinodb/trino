@@ -217,7 +217,7 @@ public class SnowflakeSplitSource
         return toCompletableFuture(executorService.submit(() -> {
             try {
                 return Failsafe.with(retryPolicy).get(measureExportAttemptTime(() -> {
-                    SnowflakeConnectionV1 connection = connectionManager.openConnection(QueryId.valueOf(session.getQueryId()), session);
+                    SnowflakeConnectionV1 connection = connectionManager.openConnection(session);
                     String stageName = "export_" + randomUUID().toString().replace("-", "_");
                     execute(connection, format("CREATE TEMPORARY STAGE %s.%s FILE_FORMAT = (TYPE = PARQUET)", snowflakeConfig.getStageSchema(), stageName));
 
