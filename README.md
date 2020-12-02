@@ -18,7 +18,7 @@
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 11.0.7+, 64-bit
+* Java 11.0.9+, 64-bit
 * Docker
 
 ## Building Presto

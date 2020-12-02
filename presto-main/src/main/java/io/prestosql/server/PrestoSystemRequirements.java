@@ -93,7 +93,7 @@ final class PrestoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        Version required = Version.parse("11.0.7");
+        Version required = Version.parse("11.0.9");
         if (Runtime.version().compareTo(required) < 0) {
             failRequirement("Presto requires Java %s at minimum (found %s)", required, Runtime.version());
         }
