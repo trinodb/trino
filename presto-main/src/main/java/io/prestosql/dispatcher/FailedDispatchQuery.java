@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.dispatcher.DispatchQuery.DispatchStatus.FAILED;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.util.Failures.toFailure;
@@ -104,9 +103,9 @@ public class FailedDispatchQuery
     }
 
     @Override
-    public ListenableFuture<DispatchStatus> getDispatchedFuture()
+    public ListenableFuture<?> getDispatchedFuture()
     {
-        return immediateFuture(FAILED);
+        return immediateFuture(null);
     }
 
     @Override
