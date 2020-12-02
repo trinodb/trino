@@ -653,7 +653,7 @@ Procedures
 
   Create an empty partition in the specified table.
 
-* ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
+* ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive, column_in_folder)``
 
   Check and update partitions list in metastore. There are three modes available:
 
@@ -665,6 +665,12 @@ Procedures
   with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
   file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
   not conforming to this convention are ignored, unless the argument is set to ``false``.
+
+  The ``column_in_folder`` argument is optional. The default value is ``true`` for compatibility
+  with Hive's ``MSCK REPAIR TABLE`` behavior, which expects partition column names in file system
+  paths (e.g. ``col_x=SomeValue``). Partitions on the file system not conforming to this convention
+  are ignored, unless the argument is set to ``false`` in which case partition value will be the
+  entire folder name when there is no =, or value after = regardless of value before =.
 
 * ``system.drop_stats(schema_name, table_name, partition_values)``
 
