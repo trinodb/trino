@@ -39,6 +39,7 @@ public class SnowflakeDistributedSessionProperties
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
     private static final String RETRY_CANCELED_QUERIES = "retry_canceled_queries";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
+    private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
 
     private final SnowflakeDistributedConfig snowflakeConfig;
 
@@ -101,6 +102,10 @@ public class SnowflakeDistributedSessionProperties
                         true),
                 booleanProperty(
                         VALIDATE_BUCKETING,
+                        "Internal Snowflake connector property",
+                        false,
+                        true),
+                booleanProperty(OPTIMIZE_SYMLINK_LISTING,
                         "Internal Snowflake connector property",
                         false,
                         true));
