@@ -23,8 +23,6 @@ Pushdown depends on a number of factors:
 * generic support for pushdown for that function in Presto
 * function or operation specific support for pushdown in the connector
 * query that allows the detection of the function to push down
-* function needs to exist in the underlying system so it can process the
-  pushdown
 
 The best way to analyze if pushdown for a specific query is performed is to
 take a closer look at the :doc:`EXPLAIN plan </sql/explain>` of the query. If an
