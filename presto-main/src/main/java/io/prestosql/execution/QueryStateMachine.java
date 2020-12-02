@@ -971,6 +971,7 @@ public class QueryStateMachine
     {
         AtomicBoolean done = new AtomicBoolean();
         StateChangeListener<Optional<QueryInfo>> fireOnceStateChangeListener = finalQueryInfo -> {
+            // QueryInfo.isPresent() does not mean this is a terminal state for finalQueryInfo state machine
             if (finalQueryInfo.isPresent() && done.compareAndSet(false, true)) {
                 stateChangeListener.stateChanged(finalQueryInfo.get());
             }

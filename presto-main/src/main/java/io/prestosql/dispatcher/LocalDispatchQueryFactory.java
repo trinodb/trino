@@ -38,7 +38,6 @@ import io.prestosql.util.StatementUtils;
 import javax.inject.Inject;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
@@ -110,8 +109,6 @@ public class LocalDispatchQueryFactory
                 warningCollector,
                 StatementUtils.getQueryType(preparedQuery.getStatement().getClass()));
 
-        queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
-
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
             if (queryExecutionFactory == null) {
@@ -130,6 +127,7 @@ public class LocalDispatchQueryFactory
         return new LocalDispatchQuery(
                 stateMachine,
                 queryExecutionFuture,
+                queryMonitor,
                 clusterSizeMonitor,
                 executor,
                 queryManager::createQuery);

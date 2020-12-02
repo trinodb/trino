@@ -16,7 +16,6 @@ package io.prestosql.dispatcher;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
-import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.QueryIdGenerator;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManagerConfig;
@@ -51,7 +50,6 @@ import java.util.concurrent.Executor;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
@@ -71,7 +69,6 @@ public class DispatchManager
     private final AccessControl accessControl;
     private final SessionSupplier sessionSupplier;
     private final SessionPropertyDefaults sessionPropertyDefaults;
-    private final QueryMonitor queryMonitor;
 
     private final int maxQueryLength;
 
@@ -92,7 +89,6 @@ public class DispatchManager
             AccessControl accessControl,
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
-            QueryMonitor queryMonitor,
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor)
     {
@@ -105,7 +101,6 @@ public class DispatchManager
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
-        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
 
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
@@ -247,17 +242,6 @@ public class DispatchManager
             });
             stats.trackQueryStats(dispatchQuery);
         }
-
-        // capture failures which happen before query is successfully dispatched; callback done in separate thread
-        addSuccessCallback(
-                dispatchQuery.getDispatchedFuture(),
-                dispatchStatus -> {
-                    if (dispatchStatus == DispatchQuery.DispatchStatus.FAILED) {
-                        queryMonitor.queryImmediateFailureEvent(dispatchQuery.getBasicQueryInfo(), dispatchQuery.getFullQueryInfo().getFailureInfo());
-                    }
-                    // if dispatchStatus == DISPATCHED then query termination will be handled by listener registered in SqlQueryManager.createQuery
-                },
-                dispatchExecutor);
 
         return queryAdded;
     }
