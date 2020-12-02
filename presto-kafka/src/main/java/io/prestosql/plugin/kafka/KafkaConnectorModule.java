@@ -19,7 +19,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.decoder.DecoderModule;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
@@ -66,7 +65,6 @@ public class KafkaConnectorModule
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 
-        binder.install(new DecoderModule());
         binder.install(new EncoderModule());
     }
 
