@@ -65,6 +65,7 @@ import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -163,18 +164,21 @@ public class GlueHiveMetastore
     private final Optional<String> defaultDir;
     private final String catalogId;
     private final int partitionSegments;
-    private final Executor executor;
+    private final Executor partitionsReadExecutor;
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
     private final GlueColumnStatisticsProvider columnStatisticsProvider;
     private final boolean assumeCanonicalPartitionKeys;
     private final Predicate<com.amazonaws.services.glue.model.Table> tableFilter;
+    private final boolean enableColumnStatistics;
 
     @Inject
     public GlueHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
-            GlueColumnStatisticsProvider columnStatisticsProvider,
-            @ForGlueHiveMetastore Executor executor,
+            HiveConfig hiveConfig,
+            @ForGlueHiveMetastore Executor partitionsReadExecutor,
+            @ForGlueColumnStatisticsRead Executor statisticsReadExecutor,
+            @ForGlueColumnStatisticsWrite Executor statisticsWriteExecutor,
             @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
             @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
     {
@@ -185,10 +189,16 @@ public class GlueHiveMetastore
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
         this.catalogId = glueConfig.getCatalogId().orElse(null);
         this.partitionSegments = glueConfig.getPartitionSegments();
-        this.executor = requireNonNull(executor, "executor is null");
-        this.columnStatisticsProvider = requireNonNull(columnStatisticsProvider, "columnStatisticsProvider is null");
+        this.partitionsReadExecutor = requireNonNull(partitionsReadExecutor, "executor is null");
         this.assumeCanonicalPartitionKeys = glueConfig.isAssumeCanonicalPartitionKeys();
         this.tableFilter = requireNonNull(tableFilter, "tableFilter is null");
+        this.enableColumnStatistics = hiveConfig.isTableStatisticsEnabled();
+        if (this.enableColumnStatistics) {
+            this.columnStatisticsProvider = new DefaultGlueColumnStatisticsProvider(glueClient, catalogId, statisticsReadExecutor, statisticsWriteExecutor);
+        }
+        else {
+            this.columnStatisticsProvider = new DisabledGlueColumnStatisticsProvider();
+        }
     }
 
     private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler, RequestMetricCollector metricsCollector)
@@ -358,12 +368,14 @@ public class GlueHiveMetastore
 
         try {
             TableInput tableInput = GlueInputConverter.convertTable(table);
-            tableInput.setParameters(updateStatisticsParameters(table.getParameters(), updatedStatistics.getBasicStatistics()));
-            columnStatisticsProvider.updateTableColumnStatistics(tableInput, updatedStatistics.getColumnStatistics());
+            final Map<String, String> statisticsParameters = updateStatisticsParameters(table.getParameters(), updatedStatistics.getBasicStatistics());
+            tableInput.setParameters(statisticsParameters);
+            table = Table.builder(table).setParameters(statisticsParameters).build();
             glueClient.updateTable(new UpdateTableRequest()
                     .withCatalogId(catalogId)
                     .withDatabaseName(databaseName)
                     .withTableInput(tableInput));
+            columnStatisticsProvider.updateTableColumnStatistics(table, updatedStatistics.getColumnStatistics());
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -385,14 +397,16 @@ public class GlueHiveMetastore
 
         try {
             PartitionInput partitionInput = GlueInputConverter.convertPartition(partition);
-            partitionInput.setParameters(updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics()));
-            columnStatisticsProvider.updatePartitionStatistics(partitionInput, updatedStatistics.getColumnStatistics());
+            final Map<String, String> updateStatisticsParameters = updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics());
+            partitionInput.setParameters(updateStatisticsParameters);
+            partition = Partition.builder(partition).setParameters(updateStatisticsParameters).build();
             glueClient.updatePartition(new UpdatePartitionRequest()
                     .withCatalogId(catalogId)
                     .withDatabaseName(table.getDatabaseName())
                     .withTableName(table.getTableName())
                     .withPartitionValueList(partition.getValues())
                     .withPartitionInput(partitionInput));
+            columnStatisticsProvider.updatePartitionStatistics(partition, updatedStatistics.getColumnStatistics());
         }
         catch (EntityNotFoundException e) {
             throw new PartitionNotFoundException(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionValues);
@@ -767,7 +781,7 @@ public class GlueHiveMetastore
         }
 
         // Do parallel partition fetch.
-        CompletionService<List<Partition>> completionService = new ExecutorCompletionService<>(executor);
+        CompletionService<List<Partition>> completionService = new ExecutorCompletionService<>(partitionsReadExecutor);
         for (int i = 0; i < partitionSegments; i++) {
             Segment segment = new Segment().withSegmentNumber(i).withTotalSegments(partitionSegments);
             completionService.submit(() -> getPartitions(table, expression, segment));
