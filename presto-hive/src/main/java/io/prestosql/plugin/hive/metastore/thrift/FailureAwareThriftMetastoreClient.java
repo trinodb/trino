@@ -34,7 +34,6 @@ import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -144,6 +143,13 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         runWithHandle(() -> delegate.alterTableWithEnvironmentContext(databaseName, tableName, newTable, context));
+    }
+
+    @Override
+    public void alterPartitionsWithEnvironmentContext(String dbName, String tableName, List<Partition> partitions, EnvironmentContext context)
+            throws TException
+    {
+        runWithHandle(() -> delegate.alterPartitionsWithEnvironmentContext(dbName, tableName, partitions, context));
     }
 
     @Override
@@ -410,13 +416,6 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         return runWithHandle(() -> delegate.allocateTableWriteIds(database, tableName, transactionIds));
-    }
-
-    @Override
-    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-            throws TException
-    {
-        runWithHandle(() -> delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange));
     }
 
     @Override
