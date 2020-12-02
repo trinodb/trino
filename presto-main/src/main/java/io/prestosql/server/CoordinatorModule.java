@@ -178,6 +178,7 @@ public class CoordinatorModule
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
 
         // cluster memory manager
+        configBinder(binder).bindConfig(MemoryManagerConfig.class);
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("memoryManager", ForMemoryManager.class)
