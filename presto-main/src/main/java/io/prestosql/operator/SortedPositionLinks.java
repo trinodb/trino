@@ -115,19 +115,19 @@ public final class SortedPositionLinks
 
                 sortedPositionLinks[key] = new int[positions.size()];
                 for (int i = 0; i < positions.size(); i++) {
-                    sortedPositionLinks[key][i] = positions.get(i);
+                    sortedPositionLinks[key][i] = positions.getInt(i);
                 }
 
                 // ArrayPositionsLinks.Builder::link builds position links from
                 // tail to head, so we must add them in descending order to have
                 // smallest element as a head
                 for (int i = positions.size() - 2; i >= 0; i--) {
-                    arrayPositionLinksFactoryBuilder.link(positions.get(i), positions.get(i + 1));
+                    arrayPositionLinksFactoryBuilder.link(positions.getInt(i), positions.getInt(i + 1));
                 }
 
                 // add link from starting position to position links chain
                 if (!positions.isEmpty()) {
-                    arrayPositionLinksFactoryBuilder.link(key, positions.get(0));
+                    arrayPositionLinksFactoryBuilder.link(key, positions.getInt(0));
                 }
             }
 
