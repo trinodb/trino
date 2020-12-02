@@ -11,23 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.decoder.dummy;
+package io.prestosql.decoder.avro;
 
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.decoder.RowDecoderFactory;
-
-import java.util.Map;
-import java.util.Set;
-
-public class DummyRowDecoderFactory
-        implements RowDecoderFactory
+public interface AvroDeserializer<T>
 {
-    public static final RowDecoder DECODER_INSTANCE = new DummyRowDecoder();
+    T deserialize(byte[] data);
 
-    @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    interface Factory
     {
-        return DECODER_INSTANCE;
+        <T> AvroDeserializer<T> create(AvroReaderSupplier<T> avroReaderSupplier);
     }
 }

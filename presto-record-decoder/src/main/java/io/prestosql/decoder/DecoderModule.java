@@ -16,8 +16,7 @@ package io.prestosql.decoder;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
-import io.prestosql.decoder.avro.AvroRowDecoder;
-import io.prestosql.decoder.avro.AvroRowDecoderFactory;
+import io.prestosql.decoder.avro.AvroDecoderModule;
 import io.prestosql.decoder.csv.CsvRowDecoder;
 import io.prestosql.decoder.csv.CsvRowDecoderFactory;
 import io.prestosql.decoder.dummy.DummyRowDecoder;
@@ -28,6 +27,7 @@ import io.prestosql.decoder.raw.RawRowDecoder;
 import io.prestosql.decoder.raw.RawRowDecoderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Default decoder module. Installs the registry and all known decoder submodules.
@@ -35,6 +35,18 @@ import static com.google.inject.Scopes.SINGLETON;
 public class DecoderModule
         implements Module
 {
+    private final Module extension;
+
+    public DecoderModule()
+    {
+        this(new AvroDecoderModule());
+    }
+
+    public DecoderModule(Module extension)
+    {
+        this.extension = requireNonNull(extension, "extension is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -43,8 +55,7 @@ public class DecoderModule
         decoderFactoriesByName.addBinding(CsvRowDecoder.NAME).to(CsvRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(JsonRowDecoder.NAME).to(JsonRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(RawRowDecoder.NAME).to(RawRowDecoderFactory.class).in(SINGLETON);
-        decoderFactoriesByName.addBinding(AvroRowDecoder.NAME).to(AvroRowDecoderFactory.class).in(SINGLETON);
-
+        binder.install(extension);
         binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
     }
 }
