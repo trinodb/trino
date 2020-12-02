@@ -85,7 +85,7 @@ import static org.testng.Assert.assertTrue;
 public class TestAvroDecoder
 {
     private static final String DATA_SCHEMA = "dataSchema";
-    private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory();
+    private static final AvroRowDecoderFactory DECODER_FACTORY = new AvroRowDecoderFactory(new FixedSchemaAvroReaderSupplier.Factory(), new AvroFileDeserializer.Factory());
 
     private static final Metadata METADATA = createTestMetadataManager();
     private static final Type VARCHAR_MAP_TYPE = METADATA.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));

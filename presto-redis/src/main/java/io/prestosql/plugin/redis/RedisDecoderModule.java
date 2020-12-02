@@ -18,8 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
 import io.prestosql.decoder.DispatchingRowDecoderFactory;
 import io.prestosql.decoder.RowDecoderFactory;
-import io.prestosql.decoder.avro.AvroRowDecoder;
-import io.prestosql.decoder.avro.AvroRowDecoderFactory;
+import io.prestosql.decoder.avro.AvroDecoderModule;
 import io.prestosql.decoder.csv.CsvRowDecoder;
 import io.prestosql.decoder.csv.CsvRowDecoderFactory;
 import io.prestosql.decoder.dummy.DummyRowDecoder;
@@ -51,8 +50,7 @@ public class RedisDecoderModule
         decoderFactoriesByName.addBinding(RawRowDecoder.NAME).to(RawRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(ZsetRedisRowDecoder.NAME).to(ZsetRedisRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(HashRedisRowDecoder.NAME).to(HashRedisRowDecoderFactory.class).in(SINGLETON);
-        decoderFactoriesByName.addBinding(AvroRowDecoder.NAME).to(AvroRowDecoderFactory.class).in(SINGLETON);
-
+        binder.install(new AvroDecoderModule());
         binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
     }
 }

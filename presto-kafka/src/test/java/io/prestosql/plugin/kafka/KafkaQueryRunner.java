@@ -20,6 +20,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.decoder.DecoderModule;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
@@ -167,12 +168,13 @@ public final class KafkaQueryRunner
                             KafkaConfig.class,
                             kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
                             binder -> binder.bind(TableDescriptionSupplier.class)
-                                    .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions)))));
+                                    .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
+                    new DecoderModule()));
             queryRunner.installPlugin(kafkaPlugin);
 
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
             kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
-            kafkaProperties.putIfAbsent("kafka.table-description-supplier", TEST);
+            kafkaProperties.put("kafka.table-description-supplier", TEST);
             kafkaProperties.putIfAbsent("kafka.default-schema", "default");
             kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
             queryRunner.createCatalog("kafka", "kafka", kafkaProperties);
