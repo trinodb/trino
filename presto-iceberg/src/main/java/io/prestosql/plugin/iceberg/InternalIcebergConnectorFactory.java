@@ -30,6 +30,8 @@ import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.plugin.base.security.AllowAllAccessControl;
 import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
+import io.prestosql.plugin.hive.azure.HiveAzureModule;
+import io.prestosql.plugin.hive.gcs.HiveGcsModule;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
@@ -65,6 +67,8 @@ public final class InternalIcebergConnectorFactory
                     new IcebergModule(),
                     new IcebergMetastoreModule(),
                     new HiveS3Module(),
+                    new HiveGcsModule(),
+                    new HiveAzureModule(),
                     new HiveAuthenticationModule(),
                     new HiveMetastoreModule(metastore),
                     new MBeanServerModule(),
