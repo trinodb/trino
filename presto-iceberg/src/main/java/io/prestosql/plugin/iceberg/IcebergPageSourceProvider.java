@@ -58,7 +58,6 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
@@ -94,7 +93,6 @@ import static io.prestosql.plugin.hive.parquet.ParquetColumnIOConverter.construc
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
-import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
@@ -165,6 +163,7 @@ public class IcebergPageSourceProvider
                 new Path(split.getPath()),
                 split.getStart(),
                 split.getLength(),
+                split.getFileSize(),
                 split.getFileFormat(),
                 regularColumns,
                 table.getPredicate());
@@ -178,20 +177,13 @@ public class IcebergPageSourceProvider
             Path path,
             long start,
             long length,
+            long fileSize,
             FileFormat fileFormat,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate)
     {
         switch (fileFormat) {
             case ORC:
-                FileStatus fileStatus = null;
-                try {
-                    fileStatus = hdfsEnvironment.doAs(session.getUser(), () -> hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path));
-                }
-                catch (IOException e) {
-                    throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
-                }
-                long fileSize = fileStatus.getLen();
                 return createOrcPageSource(
                         hdfsEnvironment,
                         session.getUser(),
@@ -220,6 +212,7 @@ public class IcebergPageSourceProvider
                         path,
                         start,
                         length,
+                        fileSize,
                         dataColumns,
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
@@ -346,6 +339,7 @@ public class IcebergPageSourceProvider
             Path path,
             long start,
             long length,
+            long fileSize,
             List<IcebergColumnHandle> regularColumns,
             ParquetReaderOptions options,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
@@ -356,10 +350,8 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FileStatus fileStatus = hdfsEnvironment.doAs(user, () -> fileSystem.getFileStatus(path));
-            long estimatedFileSize = fileStatus.getLen();
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
-            dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), estimatedFileSize, inputStream, fileFormatDataSourceStats, options);
+            dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, fileFormatDataSourceStats, options);
             ParquetDataSource theDataSource = dataSource; // extra variable required for lambda below
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(theDataSource));
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
