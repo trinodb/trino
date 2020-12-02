@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.ClusterSizeMonitor;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.QueryExecution;
@@ -34,6 +35,7 @@ import org.joda.time.DateTime;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
@@ -42,8 +44,6 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.prestosql.SystemSessionProperties.getRequiredWorkers;
 import static io.prestosql.SystemSessionProperties.getRequiredWorkersMaxWait;
-import static io.prestosql.dispatcher.DispatchQuery.DispatchStatus.DISPATCHED;
-import static io.prestosql.dispatcher.DispatchQuery.DispatchStatus.FAILED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -56,22 +56,27 @@ public class LocalDispatchQuery
     private final QueryStateMachine stateMachine;
     private final ListenableFuture<QueryExecution> queryExecutionFuture;
 
+    private final QueryMonitor queryMonitor;
     private final ClusterSizeMonitor clusterSizeMonitor;
 
     private final Executor queryExecutor;
 
     private final Consumer<QueryExecution> querySubmitter;
-    private final SettableFuture<DispatchStatus> submitted = SettableFuture.create();
+    private final SettableFuture<?> submitted = SettableFuture.create();
+
+    private final AtomicBoolean notificationSentOrGuaranteed = new AtomicBoolean();
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
             ListenableFuture<QueryExecution> queryExecutionFuture,
+            QueryMonitor queryMonitor,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
             Consumer<QueryExecution> querySubmitter)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
+        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
@@ -86,16 +91,16 @@ public class LocalDispatchQuery
             }
         });
 
+        queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
         stateMachine.addStateChangeListener(state -> {
             if (state == QueryState.FAILED) {
-                // if query is failed and dispatching was not finished yet, marking dispatching as failed
-                submitted.set(FAILED);
-                queryExecutionFuture.cancel(true);
+                if (notificationSentOrGuaranteed.compareAndSet(false, true)) {
+                    queryMonitor.queryImmediateFailureEvent(getBasicQueryInfo(), getFullQueryInfo().getFailureInfo());
+                }
             }
-
-            if (state.ordinal() > QueryState.DISPATCHING.ordinal()) {
-                // we went past dispatching phase; warking submitted as successful
-                submitted.set(DISPATCHED);
+            if (state.isDone()) {
+                submitted.set(null);
+                queryExecutionFuture.cancel(true);
             }
         });
     }
@@ -137,10 +142,9 @@ public class LocalDispatchQuery
             if (stateMachine.transitionToDispatching()) {
                 try {
                     querySubmitter.accept(queryExecution);
-                    // query should be already marked as dispatched by now as querySubmitter should push queryState past DISPATCHING and
-                    // trigger callback registered in LocalDispatchQuery(). Leaving submitted.set(DISPATCHED) here for extra safety in case querySubmitter
-                    // became asynchronous.
-                    submitted.set(DISPATCHED);
+                    if (notificationSentOrGuaranteed.compareAndSet(false, true)) {
+                        queryExecution.addFinalQueryInfoListener(queryMonitor::queryCompletedEvent);
+                    }
                 }
                 catch (Throwable t) {
                     // this should never happen but be safe
@@ -149,7 +153,7 @@ public class LocalDispatchQuery
                     throw t;
                 }
                 finally {
-                    submitted.set(FAILED);
+                    submitted.set(null);
                 }
             }
         });
@@ -168,7 +172,7 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public ListenableFuture<DispatchStatus> getDispatchedFuture()
+    public ListenableFuture<?> getDispatchedFuture()
     {
         return nonCancellationPropagating(submitted);
     }

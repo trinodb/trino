@@ -22,7 +22,6 @@ import io.airlift.units.Duration;
 import io.prestosql.ExceededCpuLimitException;
 import io.prestosql.ExceededScanLimitException;
 import io.prestosql.Session;
-import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.QueryExecution.QueryOutputInfo;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.memory.ClusterMemoryManager;
@@ -68,7 +67,6 @@ public class SqlQueryManager
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
     private final ClusterMemoryManager memoryManager;
-    private final QueryMonitor queryMonitor;
     private final QueryTracker<QueryExecution> queryTracker;
 
     private final Duration maxQueryCpuTime;
@@ -81,10 +79,9 @@ public class SqlQueryManager
     private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
 
     @Inject
-    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, QueryManagerConfig queryManagerConfig)
+    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryManagerConfig queryManagerConfig)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
-        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
 
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
         this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanPhysicalBytes();
@@ -233,13 +230,8 @@ public class SqlQueryManager
         }
 
         queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {
-            try {
-                queryMonitor.queryCompletedEvent(finalQueryInfo);
-            }
-            finally {
-                // execution MUST be added to the expiration queue or there will be a leak
-                queryTracker.expireQuery(queryExecution.getQueryId());
-            }
+            // execution MUST be added to the expiration queue or there will be a leak
+            queryTracker.expireQuery(queryExecution.getQueryId());
         });
 
         queryExecution.start();

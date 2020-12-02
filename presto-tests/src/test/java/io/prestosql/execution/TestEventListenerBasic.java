@@ -36,7 +36,6 @@ import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -140,7 +139,6 @@ public class TestEventListenerBasic
     }
 
     @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/5922", match = "java.lang.IllegalArgumentException: expected one element but was: <.*>")
     public void testPlanningFailure()
             throws Exception
     {
