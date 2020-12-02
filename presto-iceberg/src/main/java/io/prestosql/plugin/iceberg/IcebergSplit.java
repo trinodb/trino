@@ -34,6 +34,7 @@ public class IcebergSplit
     private final String path;
     private final long start;
     private final long length;
+    private final long fileSize;
     private final FileFormat fileFormat;
     private final List<HostAddress> addresses;
     private final Map<Integer, String> partitionKeys;
@@ -43,6 +44,7 @@ public class IcebergSplit
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
+            @JsonProperty("fileSize") long fileSize,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("partitionKeys") Map<Integer, String> partitionKeys)
@@ -50,6 +52,7 @@ public class IcebergSplit
         this.path = requireNonNull(path, "path is null");
         this.start = start;
         this.length = length;
+        this.fileSize = fileSize;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.partitionKeys = Collections.unmodifiableMap(requireNonNull(partitionKeys, "partitionKeys is null"));
@@ -84,6 +87,12 @@ public class IcebergSplit
     public long getLength()
     {
         return length;
+    }
+
+    @JsonProperty
+    public long getFileSize()
+    {
+        return fileSize;
     }
 
     @JsonProperty
