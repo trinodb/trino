@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorMaterializedViewDefinition;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.type.TypeManager;
@@ -59,12 +60,12 @@ public final class ViewReaderUtil
         ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName);
     }
 
-    public static ViewReader createViewReader(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, Table table, TypeManager typemanager)
+    public static ViewReader createViewReader(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, TypeManager typemanager)
     {
         if (isPrestoView(table)) {
             return new PrestoViewReader();
         }
-        return new HiveViewReader(new CoralSemiTransactionalHiveMSCAdapter(metastore, identity), typemanager);
+        return new HiveViewReader(new CoralSemiTransactionalHiveMSCAdapter(metastore, new HiveIdentity(session)), typemanager);
     }
 
     public static final String PRESTO_VIEW_FLAG = "presto_view";
