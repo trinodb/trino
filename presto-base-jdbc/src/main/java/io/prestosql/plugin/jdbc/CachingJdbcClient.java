@@ -13,9 +13,11 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
@@ -86,7 +88,9 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
-                .expireAfterWrite(metadataCachingTtl.toMillis(), TimeUnit.MILLISECONDS);
+                .expireAfterWrite(metadataCachingTtl.toMillis(), TimeUnit.MILLISECONDS)
+                .recordStats();
+
         schemaNamesCache = cacheBuilder.build();
         tableNamesCache = cacheBuilder.build();
         tableHandleCache = cacheBuilder.build();
@@ -388,6 +392,12 @@ public class CachingJdbcClient
     private void invalidateColumnsCache(SchemaTableName table)
     {
         invalidateCache(columnsCache, key -> key.table.equals(table));
+    }
+
+    @VisibleForTesting
+    CacheStats getColumnsCacheStats()
+    {
+        return columnsCache.stats();
     }
 
     private static <T, V> void invalidateCache(Cache<T, V> cache, Predicate<T> filterFunction)
