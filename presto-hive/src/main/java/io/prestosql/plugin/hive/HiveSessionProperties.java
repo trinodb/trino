@@ -95,6 +95,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "experimental_parquet_optimized_writer_enabled";
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
+    private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -396,6 +397,11 @@ public final class HiveSessionProperties
                         OPTIMIZE_SYMLINK_LISTING,
                         "Optimize listing for SymlinkTextFormat tables with files in a single directory",
                         hiveConfig.isOptimizeSymlinkListing(),
+                        false),
+                booleanProperty(
+                        LEGACY_HIVE_VIEW_TRANSLATION,
+                        "Use legacy Hive view translation mechanism",
+                        hiveConfig.isLegacyHiveViewTranslation(),
                         false));
     }
 
@@ -676,5 +682,10 @@ public final class HiveSessionProperties
     public static boolean isOptimizeSymlinkListing(ConnectorSession session)
     {
         return session.getProperty(OPTIMIZE_SYMLINK_LISTING, Boolean.class);
+    }
+
+    public static boolean isLegacyHiveViewTranslation(ConnectorSession session)
+    {
+        return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
     }
 }
