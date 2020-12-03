@@ -16,22 +16,55 @@ package io.prestosql.decoder.avro;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.decoder.RowDecoderFactory;
+import io.prestosql.decoder.dummy.DummyRowDecoderFactory;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
+
+import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AvroRowDecoderFactory
         implements RowDecoderFactory
 {
+    public static final String NAME = "avro";
+    public static final String DATA_SCHEMA = "dataSchema";
+
+    private final AvroReaderSupplier.Factory avroReaderSupplierFactory;
+    private final AvroDeserializer.Factory avroDeserializerFactory;
+
+    @Inject
+    public AvroRowDecoderFactory(AvroReaderSupplier.Factory avroReaderSupplierFactory, AvroDeserializer.Factory avroDeserializerFactory)
+    {
+        this.avroReaderSupplierFactory = requireNonNull(avroReaderSupplierFactory, "avroReaderSupplierFactory is null");
+        this.avroDeserializerFactory = requireNonNull(avroDeserializerFactory, "avroDeserializerFactory is null");
+    }
+
     @Override
     public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
-        String dataSchema = requireNonNull(decoderParams.get("dataSchema"), "dataSchema cannot be null");
+        requireNonNull(columns, "columns is null");
+        if (columns.isEmpty()) {
+            // For select count(*)
+            return DummyRowDecoderFactory.DECODER_INSTANCE;
+        }
+
+        String dataSchema = requireNonNull(decoderParams.get(DATA_SCHEMA), format("%s cannot be null", DATA_SCHEMA));
         Schema parsedSchema = (new Schema.Parser()).parse(dataSchema);
-        return new AvroRowDecoder(new GenericDatumReader<>(parsedSchema), columns);
+        if (parsedSchema.getType().equals(Schema.Type.RECORD)) {
+            AvroReaderSupplier<GenericRecord> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);
+            AvroDeserializer<GenericRecord> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
+            return new GenericRecordRowDecoder(dataDecoder, columns);
+        }
+        else {
+            AvroReaderSupplier<Object> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);
+            AvroDeserializer<Object> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);
+            return new SingleValueRowDecoder(dataDecoder, getOnlyElement(columns));
+        }
     }
 }

@@ -303,7 +303,7 @@ public class TestKafkaIntegrationSmokeTest
 
     private Optional<KafkaTopicFieldGroup> createFieldGroup(String dataFormat, List<KafkaTopicFieldDescription> fields)
     {
-        return Optional.of(new KafkaTopicFieldGroup(dataFormat, Optional.empty(), fields));
+        return Optional.of(new KafkaTopicFieldGroup(dataFormat, Optional.empty(), Optional.empty(), fields));
     }
 
     private KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String dataFormat, Optional<String> formatHint)
@@ -404,8 +404,8 @@ public class TestKafkaIntegrationSmokeTest
                         testCase.getTopicName(),
                         Optional.of("write_test"),
                         testCase.getTopicName(),
-                        Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), ImmutableList.of(createOneFieldDescription("key", BIGINT, "key", (String) null)))),
-                        Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), testCase.getFields().stream()
+                        Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), ImmutableList.of(createOneFieldDescription("key", BIGINT, "key", (String) null)))),
+                        Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), testCase.getFields().stream()
                                 .map(field -> createOneFieldDescription(
                                       field.getFieldName(),
                                       field.getType(),

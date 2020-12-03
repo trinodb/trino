@@ -52,6 +52,8 @@ public final class KafkaTableHandle
     private final String messageDataFormat;
     private final Optional<String> keyDataSchemaLocation;
     private final Optional<String> messageDataSchemaLocation;
+    private final Optional<String> keySubject;
+    private final Optional<String> messageSubject;
     private final List<KafkaColumnHandle> columns;
     private final TupleDomain<ColumnHandle> constraint;
 
@@ -64,6 +66,8 @@ public final class KafkaTableHandle
             @JsonProperty("messageDataFormat") String messageDataFormat,
             @JsonProperty("keyDataSchemaLocation") Optional<String> keyDataSchemaLocation,
             @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation,
+            @JsonProperty("keySubject") Optional<String> keySubject,
+            @JsonProperty("messageSubject") Optional<String> messageSubject,
             @JsonProperty("columns") List<KafkaColumnHandle> columns,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
@@ -74,6 +78,8 @@ public final class KafkaTableHandle
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
         this.keyDataSchemaLocation = requireNonNull(keyDataSchemaLocation, "keyDataSchemaLocation is null");
         this.messageDataSchemaLocation = requireNonNull(messageDataSchemaLocation, "messageDataSchemaLocation is null");
+        this.keySubject = requireNonNull(keySubject, "keySubject is null");
+        this.messageSubject = requireNonNull(messageSubject, "messageSubject is null");
         this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
     }
@@ -121,6 +127,18 @@ public final class KafkaTableHandle
     }
 
     @JsonProperty
+    public Optional<String> getKeySubject()
+    {
+        return keySubject;
+    }
+
+    @JsonProperty
+    public Optional<String> getMessageSubject()
+    {
+        return messageSubject;
+    }
+
+    @JsonProperty
     public List<KafkaColumnHandle> getColumns()
     {
         return columns;
@@ -140,7 +158,18 @@ public final class KafkaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation, columns, constraint);
+        return Objects.hash(
+                schemaName,
+                tableName,
+                topicName,
+                keyDataFormat,
+                messageDataFormat,
+                keyDataSchemaLocation,
+                messageDataSchemaLocation,
+                keySubject,
+                messageSubject,
+                columns,
+                constraint);
     }
 
     @Override
@@ -161,6 +190,8 @@ public final class KafkaTableHandle
                 && Objects.equals(this.messageDataFormat, other.messageDataFormat)
                 && Objects.equals(this.keyDataSchemaLocation, other.keyDataSchemaLocation)
                 && Objects.equals(this.messageDataSchemaLocation, other.messageDataSchemaLocation)
+                && Objects.equals(this.keySubject, other.keySubject)
+                && Objects.equals(this.messageSubject, other.messageSubject)
                 && Objects.equals(this.columns, other.columns)
                 && Objects.equals(this.constraint, other.constraint);
     }
@@ -176,6 +207,8 @@ public final class KafkaTableHandle
                 .add("messageDataFormat", messageDataFormat)
                 .add("keyDataSchemaLocation", keyDataSchemaLocation)
                 .add("messageDataSchemaLocation", messageDataSchemaLocation)
+                .add("keySubject", keySubject)
+                .add("messageSubject", messageSubject)
                 .add("columns", columns)
                 .add("constraint", constraint)
                 .toString();

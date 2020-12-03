@@ -11,19 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.decoder.avro;
 
-package io.prestosql.plugin.kafka.schema;
-
-import io.prestosql.plugin.kafka.KafkaTopicDescription;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-
-import java.util.Optional;
-import java.util.Set;
-
-public interface TableDescriptionSupplier
+public interface AvroDeserializer<T>
 {
-    Set<SchemaTableName> listTables();
+    T deserialize(byte[] data);
 
-    Optional<KafkaTopicDescription> getTopicDescription(ConnectorSession session, SchemaTableName schemaTableName);
+    interface Factory
+    {
+        <T> AvroDeserializer<T> create(AvroReaderSupplier<T> avroReaderSupplier);
+    }
 }

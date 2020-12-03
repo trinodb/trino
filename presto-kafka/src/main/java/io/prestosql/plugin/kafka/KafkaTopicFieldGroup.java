@@ -30,16 +30,19 @@ public class KafkaTopicFieldGroup
 {
     private final String dataFormat;
     private final Optional<String> dataSchema;
+    private final Optional<String> subject;
     private final List<KafkaTopicFieldDescription> fields;
 
     @JsonCreator
     public KafkaTopicFieldGroup(
             @JsonProperty("dataFormat") String dataFormat,
             @JsonProperty("dataSchema") Optional<String> dataSchema,
+            @JsonProperty("decoderParams") Optional<String> subject,
             @JsonProperty("fields") List<KafkaTopicFieldDescription> fields)
     {
         this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
         this.dataSchema = requireNonNull(dataSchema, "dataSchema is null");
+        this.subject = requireNonNull(subject, "subject is null");
         this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
     }
 
@@ -61,12 +64,19 @@ public class KafkaTopicFieldGroup
         return dataSchema;
     }
 
+    @JsonProperty
+    public Optional<String> getSubject()
+    {
+        return subject;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("dataFormat", dataFormat)
                 .add("dataSchema", dataSchema)
+                .add("subject", subject)
                 .add("fields", fields)
                 .toString();
     }

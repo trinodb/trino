@@ -11,19 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.prestosql.plugin.kafka.schema;
 
-import io.prestosql.plugin.kafka.KafkaTopicDescription;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.plugin.kafka.KafkaTableHandle;
 
 import java.util.Optional;
-import java.util.Set;
 
-public interface TableDescriptionSupplier
+public interface ContentSchemaReader
 {
-    Set<SchemaTableName> listTables();
+    String SCHEMA_READER = "schemaReader";
 
-    Optional<KafkaTopicDescription> getTopicDescription(ConnectorSession session, SchemaTableName schemaTableName);
+    Optional<String> readKeyContentSchema(KafkaTableHandle tableHandle);
+
+    Optional<String> readValueContentSchema(KafkaTableHandle tableHandle);
 }

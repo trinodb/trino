@@ -11,19 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.plugin.kafka;
 
-package io.prestosql.plugin.kafka.schema;
+import javax.inject.Qualifier;
 
-import io.prestosql.plugin.kafka.KafkaTopicDescription;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-import java.util.Optional;
-import java.util.Set;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-public interface TableDescriptionSupplier
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForKafka
 {
-    Set<SchemaTableName> listTables();
-
-    Optional<KafkaTopicDescription> getTopicDescription(ConnectorSession session, SchemaTableName schemaTableName);
 }

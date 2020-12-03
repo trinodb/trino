@@ -143,7 +143,7 @@ public class AvroColumnDecoder
         return value;
     }
 
-    private static class ObjectValueProvider
+    public static class ObjectValueProvider
             extends FieldValueProvider
     {
         private final Object value;

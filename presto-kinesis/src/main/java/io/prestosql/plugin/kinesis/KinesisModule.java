@@ -20,6 +20,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.prestosql.decoder.DecoderModule;
+import io.prestosql.decoder.avro.AvroDecoderModule;
 import io.prestosql.plugin.kinesis.s3config.S3TableConfigClient;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
@@ -54,6 +55,7 @@ public class KinesisModule
         jsonCodecBinder(binder).bindJsonCodec(KinesisStreamDescription.class);
 
         binder.install(new DecoderModule());
+        binder.install(new AvroDecoderModule());
 
         for (KinesisInternalFieldDescription internalFieldDescription : KinesisInternalFieldDescription.values()) {
             bindInternalColumn(binder, internalFieldDescription);

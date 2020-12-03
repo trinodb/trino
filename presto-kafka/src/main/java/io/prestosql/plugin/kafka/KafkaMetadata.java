@@ -84,7 +84,7 @@ public class KafkaMetadata
     @Override
     public KafkaTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getTopicDescription(schemaTableName)
+        return getTopicDescription(session, schemaTableName)
                 .map(kafkaTopicDescription -> new KafkaTableHandle(
                         schemaTableName.getSchemaName(),
                         schemaTableName.getTableName(),
@@ -93,7 +93,9 @@ public class KafkaMetadata
                         getDataFormat(kafkaTopicDescription.getMessage()),
                         kafkaTopicDescription.getKey().flatMap(KafkaTopicFieldGroup::getDataSchema),
                         kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
-                        getColumnHandles(schemaTableName).values().stream()
+                        kafkaTopicDescription.getKey().flatMap(KafkaTopicFieldGroup::getSubject),
+                        kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getSubject),
+                        getColumnHandles(session, schemaTableName).values().stream()
                                 .map(KafkaColumnHandle.class::cast)
                                 .collect(toImmutableList()),
                         TupleDomain.all()))
@@ -108,7 +110,7 @@ public class KafkaMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(convertTableHandle(tableHandle).toSchemaTableName());
+        return getTableMetadata(session, convertTableHandle(tableHandle).toSchemaTableName());
     }
 
     @Override
@@ -123,12 +125,12 @@ public class KafkaMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
-        return getColumnHandles(kafkaTableHandle.toSchemaTableName());
+        return getColumnHandles(session, kafkaTableHandle.toSchemaTableName());
     }
 
-    private Map<String, ColumnHandle> getColumnHandles(SchemaTableName schemaTableName)
+    private Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        KafkaTopicDescription kafkaTopicDescription = getRequiredTopicDescription(schemaTableName);
+        KafkaTopicDescription kafkaTopicDescription = getRequiredTopicDescription(session, schemaTableName);
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
 
@@ -176,7 +178,7 @@ public class KafkaMetadata
 
         for (SchemaTableName tableName : tableNames) {
             try {
-                columns.put(tableName, getTableMetadata(tableName).getColumns());
+                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
             }
             catch (TableNotFoundException e) {
                 // information_schema table or a system table
@@ -192,9 +194,9 @@ public class KafkaMetadata
         return convertColumnHandle(columnHandle).getColumnMetadata();
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        KafkaTopicDescription table = getRequiredTopicDescription(schemaTableName);
+        KafkaTopicDescription table = getRequiredTopicDescription(session, schemaTableName);
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
 
@@ -253,20 +255,22 @@ public class KafkaMetadata
                 handle.getMessageDataFormat(),
                 handle.getKeyDataSchemaLocation(),
                 handle.getMessageDataSchemaLocation(),
+                handle.getKeySubject(),
+                handle.getMessageSubject(),
                 handle.getColumns(),
                 newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }
 
-    private KafkaTopicDescription getRequiredTopicDescription(SchemaTableName schemaTableName)
+    private KafkaTopicDescription getRequiredTopicDescription(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getTopicDescription(schemaTableName).orElseThrow(() -> new TableNotFoundException(schemaTableName));
+        return getTopicDescription(session, schemaTableName).orElseThrow(() -> new TableNotFoundException(schemaTableName));
     }
 
-    private Optional<KafkaTopicDescription> getTopicDescription(SchemaTableName schemaTableName)
+    private Optional<KafkaTopicDescription> getTopicDescription(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return tableDescriptionSupplier.getTopicDescription(schemaTableName);
+        return tableDescriptionSupplier.getTopicDescription(session, schemaTableName);
     }
 
     @Override
@@ -288,6 +292,8 @@ public class KafkaMetadata
                 table.getMessageDataFormat(),
                 table.getKeyDataSchemaLocation(),
                 table.getMessageDataSchemaLocation(),
+                table.getKeySubject(),
+                table.getMessageSubject(),
                 actualColumns,
                 TupleDomain.none());
     }

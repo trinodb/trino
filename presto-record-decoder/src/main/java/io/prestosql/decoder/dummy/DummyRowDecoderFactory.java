@@ -23,7 +23,7 @@ import java.util.Set;
 public class DummyRowDecoderFactory
         implements RowDecoderFactory
 {
-    private static final RowDecoder DECODER_INSTANCE = new DummyRowDecoder();
+    public static final RowDecoder DECODER_INSTANCE = new DummyRowDecoder();
 
     @Override
     public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
