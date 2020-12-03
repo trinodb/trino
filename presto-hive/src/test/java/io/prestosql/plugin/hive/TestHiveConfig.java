@@ -100,7 +100,8 @@ public class TestHiveConfig
                 .setProjectionPushdownEnabled(true)
                 .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES))
                 .setTimestampPrecision(HiveTimestampPrecision.MILLISECONDS)
-                .setOptimizeSymlinkListing(true));
+                .setOptimizeSymlinkListing(true)
+                .setLegacyHiveViewTranslation(false));
     }
 
     @Test
@@ -172,6 +173,7 @@ public class TestHiveConfig
                 .put("hive.dynamic-filtering-probe-blocking-timeout", "10s")
                 .put("hive.timestamp-precision", "NANOSECONDS")
                 .put("hive.optimize-symlink-listing", "false")
+                .put("hive.legacy-hive-view-translation", "true")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -239,7 +241,8 @@ public class TestHiveConfig
                 .setProjectionPushdownEnabled(false)
                 .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS)
-                .setOptimizeSymlinkListing(false);
+                .setOptimizeSymlinkListing(false)
+                .setLegacyHiveViewTranslation(true);
 
         assertFullMapping(properties, expected);
     }

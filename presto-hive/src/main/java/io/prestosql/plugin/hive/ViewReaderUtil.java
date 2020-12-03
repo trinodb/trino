@@ -44,6 +44,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isLegacyHiveViewTranslation;
 import static io.prestosql.plugin.hive.util.HiveUtil.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -65,6 +66,10 @@ public final class ViewReaderUtil
         if (isPrestoView(table)) {
             return new PrestoViewReader();
         }
+        if (isLegacyHiveViewTranslation(session)) {
+            return new LegacyHiveViewReader();
+        }
+
         return new HiveViewReader(new CoralSemiTransactionalHiveMSCAdapter(metastore, new HiveIdentity(session)), typemanager);
     }
 

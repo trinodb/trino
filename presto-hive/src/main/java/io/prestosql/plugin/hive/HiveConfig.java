@@ -143,6 +143,8 @@ public class HiveConfig
 
     private boolean optimizeSymlinkListing = true;
 
+    private boolean legacyHiveViewTranslation;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1023,5 +1025,18 @@ public class HiveConfig
     {
         this.optimizeSymlinkListing = optimizeSymlinkListing;
         return this;
+    }
+
+    @Config("hive.legacy-hive-view-translation")
+    @ConfigDescription("Use legacy Hive view translation mechanism")
+    public HiveConfig setLegacyHiveViewTranslation(boolean legacyHiveViewTranslation)
+    {
+        this.legacyHiveViewTranslation = legacyHiveViewTranslation;
+        return this;
+    }
+
+    public Boolean isLegacyHiveViewTranslation()
+    {
+        return this.legacyHiveViewTranslation;
     }
 }
