@@ -56,7 +56,7 @@ public class TestCachingJdbcClient
 
     private CachingJdbcClient createCachingJdbcClient(boolean cacheMissing)
     {
-        return new CachingJdbcClient(database.getJdbcClient(), FOREVER, cacheMissing);
+        return new CachingJdbcClient(database.getJdbcClient(), Set.of(), FOREVER, cacheMissing);
     }
 
     @AfterMethod(alwaysRun = true)
