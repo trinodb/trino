@@ -22,6 +22,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 
 import java.util.Objects;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -33,7 +34,9 @@ public class TransactionCachingJdbcClient
 
     public TransactionCachingJdbcClient(JdbcClient delegate, Duration cachingTtl)
     {
-        super(delegate, cachingTtl, true);
+        // session stays the same per transaction, therefore session properties don't need to
+        // be a part of cache keys in CachingJdbcClient
+        super(delegate, Set.of(), cachingTtl, true);
         this.statisticsCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cachingTtl.toMillis(), MILLISECONDS)
                 .build();
