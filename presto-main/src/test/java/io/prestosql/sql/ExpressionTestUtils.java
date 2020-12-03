@@ -106,6 +106,11 @@ public final class ExpressionTestUtils
 
     public static Expression resolveFunctionCalls(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression)
     {
+        return resolveFunctionCalls(metadata, session, typeProvider, expression, Scope.builder().build());
+    }
+
+    public static Expression resolveFunctionCalls(Metadata metadata, Session session, TypeProvider typeProvider, Expression expression, Scope scope)
+    {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata,
                 new AllowAllAccessControl(),
@@ -115,7 +120,7 @@ public final class ExpressionTestUtils
                 node -> semanticException(EXPRESSION_NOT_CONSTANT, node, "Constant expression cannot contain a subquery"),
                 WarningCollector.NOOP,
                 false);
-        analyzer.analyze(expression, Scope.builder().build());
+        analyzer.analyze(expression, scope);
 
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
         {
