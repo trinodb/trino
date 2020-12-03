@@ -5,7 +5,7 @@ ALTER SCHEMA
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     ALTER SCHEMA name RENAME TO new_name
     ALTER SCHEMA name SET AUTHORIZATION ( user | USER user | ROLE role )

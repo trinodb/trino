@@ -15,7 +15,7 @@ To configure the MongoDB connector, create a catalog properties file
 ``etc/catalog/mongodb.properties`` with the following contents,
 replacing the properties as appropriate:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=mongodb
     mongodb.seeds=host1,host:port
@@ -198,7 +198,7 @@ MongoDB maintains table definitions on the special collection where ``mongodb.sc
 
 A schema collection consists of a MongoDB document for a table.
 
-.. code-block:: none
+.. code-block:: text
 
     {
         "table": ...,
@@ -220,7 +220,7 @@ Field           Required  Type           Description
 
 Each field definition:
 
-.. code-block:: none
+.. code-block:: text
 
     {
         "name": ...,
@@ -256,7 +256,7 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
     INSERT INTO orders VALUES(2, 'good', 100.0, current_date);
     SELECT _id, * FROM orders;
 
-.. code-block:: none
+.. code-block:: text
 
                      _id                 | orderkey | orderstatus | totalprice | orderdate
     -------------------------------------+----------+-------------+------------+------------
@@ -268,7 +268,7 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
 
     SELECT _id, * FROM orders WHERE _id = ObjectId('55b151633864d6438c61a9ce');
 
-.. code-block:: none
+.. code-block:: text
 
                      _id                 | orderkey | orderstatus | totalprice | orderdate
     -------------------------------------+----------+-------------+------------+------------
@@ -281,7 +281,7 @@ You can render the ``_id`` field to readable values with a cast to ``VARCHAR``:
 
     SELECT CAST(_id AS VARCHAR), * FROM orders WHERE _id = ObjectId('55b151633864d6438c61a9ce');
 
-.. code-block:: none
+.. code-block:: text
 
                _id             | orderkey | orderstatus | totalprice | orderdate
     ---------------------------+----------+-------------+------------+------------

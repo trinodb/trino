@@ -29,7 +29,7 @@ with a condition expressed using a ``WHERE`` clause. This is evaluated for each
 row before it is used in the aggregation and is supported for all aggregate
 functions.
 
-.. code-block:: none
+.. code-block:: text
 
     aggregate_function(...) FILTER (WHERE <condition>)
 
@@ -47,7 +47,7 @@ flowers, modifying the following query::
     FROM iris
     GROUP BY species;
 
-.. code-block:: none
+.. code-block:: text
 
     species    | count
     -----------+-------
@@ -63,7 +63,7 @@ If you just use a normal ``WHERE`` statement you loose information::
     WHERE petal_length_cm > 4
     GROUP BY species;
 
-.. code-block:: none
+.. code-block:: text
 
     species    | count
     -----------+-------
@@ -77,7 +77,7 @@ Using a filter you retain all information::
     FROM iris
     GROUP BY species;
 
-.. code-block:: none
+.. code-block:: text
 
     species    | count
     -----------+-------
@@ -327,7 +327,7 @@ Approximate Aggregate Functions
     for all ``value``\ s with a per-item weight of ``weight``. The algorithm
     is based loosely on:
 
-    .. code-block:: none
+    .. code-block:: text
 
         Yael Ben-Haim and Elad Tom-Tov, "A streaming parallel decision tree algorithm",
         J. Machine Learning Research 11 (2010), pp. 849--872.
@@ -379,7 +379,7 @@ Statistical Aggregate Functions
     Returns the excess kurtosis of all input values. Unbiased estimate using
     the following expression:
 
-    .. code-block:: none
+    .. code-block:: text
 
         kurtosis(x) = n(n+1)/((n-1)(n-2)(n-3))sum[(x_i-mean)^4]/stddev(x)^4-3(n-1)^2/((n-2)(n-3))
 

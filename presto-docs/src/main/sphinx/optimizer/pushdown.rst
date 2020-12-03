@@ -51,7 +51,7 @@ the ``count`` function, as this operation is now performed by the connector. You
 can see the ``count(*)`` function as part of the PostgreSQL ``TableScan``
 operator. This shows you that the pushdown was successful.
 
-.. code-block:: none
+.. code-block:: text
 
     Fragment 0 [SINGLE]
         Output layout: [regionkey_0, _presto_generated_1]
@@ -86,7 +86,7 @@ As a result, the explain plan shows the ``Aggregate`` operation being performed
 by Presto. This is a clear sign that now pushdown to the database is not
 performed, and instead Presto performs the aggregate processing.
 
-.. code-block:: none
+.. code-block:: text
 
  Fragment 0 [SINGLE]
      Output layout: [regionkey, count]

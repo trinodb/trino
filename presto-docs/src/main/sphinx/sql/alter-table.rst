@@ -5,7 +5,7 @@ ALTER TABLE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     ALTER TABLE [ IF EXISTS ] name RENAME TO new_name
     ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type

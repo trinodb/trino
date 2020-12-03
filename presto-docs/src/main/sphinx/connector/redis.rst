@@ -20,7 +20,7 @@ To configure the Redis connector, create a catalog properties file
 ``etc/catalog/redis.properties`` with the following content,
 replacing the properties as appropriate:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=redis
     redis.table-names=schema1.table1,schema1.table2
@@ -172,7 +172,7 @@ defines new columns that can be further queried from Presto.
 A table definition file consists of a JSON definition for a table. The
 name of the file can be arbitrary, but must end in ``.json``.
 
-.. code-block:: none
+.. code-block:: text
 
     {
         "tableName": ...,
@@ -204,7 +204,7 @@ Please refer to the `Kafka connector`_ page for the description of the ``dataFor
 
 In addition to the above Kafka types, the Redis connector supports ``hash`` type for the ``value`` field which represent data stored in the Redis hash.
 
-.. code-block:: none
+.. code-block:: text
 
     {
         "tableName": ...,

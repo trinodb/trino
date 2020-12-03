@@ -5,7 +5,7 @@ SHOW FUNCTIONS
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW FUNCTIONS [ LIKE pattern ]
 

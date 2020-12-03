@@ -35,7 +35,7 @@ passed as a map to ``PasswordAuthenticatorFactory.create()``.
 
 Example configuration file:
 
-.. code-block:: none
+.. code-block:: text
 
     password-authenticator.name=custom-access-control
     custom-property1=custom-value1

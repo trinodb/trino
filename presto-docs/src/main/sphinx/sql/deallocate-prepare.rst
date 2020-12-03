@@ -5,7 +5,7 @@ DEALLOCATE PREPARE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     DEALLOCATE PREPARE statement_name
 

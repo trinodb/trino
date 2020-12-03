@@ -5,7 +5,7 @@ DROP ROLE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     DROP ROLE role_name
 

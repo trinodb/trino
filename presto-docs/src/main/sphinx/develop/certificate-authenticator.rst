@@ -35,7 +35,7 @@ passed as a map to ``CertificateAuthenticatorFactory.create()``.
 
 Example configuration file:
 
-.. code-block:: none
+.. code-block:: text
 
     certificate-authenticator.name=custom
     custom-property1=custom-value1

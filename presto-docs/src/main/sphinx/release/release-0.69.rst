@@ -60,7 +60,7 @@ If you would like to experiment with the connector, create a catalog
 properties file such as ``etc/catalog/raptor.properties`` on both the
 coordinator and workers that contains the following:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=raptor
     metadata.db.type=h2

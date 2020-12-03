@@ -34,7 +34,7 @@ The remaining properties are passed as a map to
 
 Example configuration file:
 
-.. code-block:: none
+.. code-block:: text
 
     group-provider.name=custom-group-provider
     custom-property1=custom-value1

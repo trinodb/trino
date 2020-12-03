@@ -23,7 +23,7 @@ can retrieve the properties for the catalog using
 Session properties can be set using the ``--session`` command line argument to
 the Presto CLI. For example:
 
-.. code-block:: none
+.. code-block:: text
 
     presto-cli --session color=red --session size=large
 

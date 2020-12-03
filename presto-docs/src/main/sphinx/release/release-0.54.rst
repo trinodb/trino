@@ -21,7 +21,7 @@ Release 0.54
   with the following contents to mount the ``example-http`` connector as the
   ``example`` catalog:
 
-  .. code-block:: none
+  .. code-block:: text
 
       connector.name=example-http
       metadata-uri=http://s3.amazonaws.com/presto-example/v1/example-metadata.json

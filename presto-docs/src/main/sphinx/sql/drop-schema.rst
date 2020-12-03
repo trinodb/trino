@@ -5,7 +5,7 @@ DROP SCHEMA
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     DROP SCHEMA [ IF EXISTS ] schema_name
 

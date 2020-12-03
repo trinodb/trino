@@ -5,7 +5,7 @@ SHOW CATALOGS
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW CATALOGS [ LIKE pattern ]
 

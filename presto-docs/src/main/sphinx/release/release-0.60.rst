@@ -32,7 +32,7 @@ connector. To add the ``tpch`` catalog to your system, create the catalog
 property file ``etc/catalog/tpch.properties`` on both the coordinator and workers
 with the following contents:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=tpch
 

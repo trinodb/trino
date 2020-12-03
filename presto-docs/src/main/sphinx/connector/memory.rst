@@ -12,7 +12,7 @@ Configuration
 To configure the Memory connector, create a catalog properties file
 ``etc/catalog/memory.properties`` with the following contents:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=memory
     memory.max-data-per-node=128MB

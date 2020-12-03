@@ -5,7 +5,7 @@ DROP TABLE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     DROP TABLE  [ IF EXISTS ] table_name
 

@@ -5,7 +5,7 @@ SHOW ROLES
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW [CURRENT] ROLES [ FROM catalog ]
 

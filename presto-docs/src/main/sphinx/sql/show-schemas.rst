@@ -5,7 +5,7 @@ SHOW SCHEMAS
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW SCHEMAS [ FROM catalog ] [ LIKE pattern ]
 

@@ -14,7 +14,7 @@ For example, if a config file named ``rules.json``
 resides in ``etc``, add an ``etc/access-control.properties`` with the following
 contents:
 
-.. code-block:: none
+.. code-block:: text
 
    access-control.name=file
    security.config-file=etc/rules.json
@@ -30,7 +30,7 @@ By default, when a change is made to the JSON rules file, Presto must be restart
 to load the changes. There is an optional property to refresh the properties without requiring a
 Presto restart. The refresh period is specified in the ``etc/access-control.properties``:
 
-.. code-block:: none
+.. code-block:: text
 
    security.refresh-period=1s
 

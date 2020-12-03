@@ -36,7 +36,7 @@ Kerberos using `kadmin
 In addition, the Presto coordinator needs a `keytab file
 <http://web.mit.edu/kerberos/krb5-devel/doc/basic/keytab_def.html>`_. After you create the principal, you can create the keytab file using :command:`kadmin`
 
-.. code-block:: none
+.. code-block:: text
 
     kadmin
     > addprinc -randkey presto@EXAMPLE.COM
@@ -48,6 +48,7 @@ In addition, the Presto coordinator needs a `keytab file
 
 Java Keystore File for TLS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 When using Kerberos authentication, access to the Presto coordinator should be
 through HTTPS. You can do it by creating a :ref:`server_java_keystore` on the
 coordinator.
@@ -79,7 +80,7 @@ config.properties
 Kerberos authentication is configured in the coordinator node's
 :file:`config.properties` file. The entries that need to be added are listed below.
 
-.. code-block:: none
+.. code-block:: text
 
     http-server.authentication.type=KERBEROS
 
@@ -140,7 +141,7 @@ Property                                                  Description
     ``http-server.https.excluded-cipher`` property to an empty list in order to
     override the default exclusions.
 
-    .. code-block:: none
+    .. code-block:: text
 
         http-server.https.included-cipher=TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_128_CBC_SHA256
         http-server.https.excluded-cipher=
@@ -182,7 +183,7 @@ Kerberos Verification
 Ensure that you can connect to the KDC from the Presto coordinator using
 :command:`telnet`.
 
-.. code-block:: none
+.. code-block:: text
 
     $ telnet kdc.example.com 88
 
@@ -192,7 +193,7 @@ Verify that the keytab file can be used to successfully obtain a ticket using
 `klist
 <http://web.mit.edu/kerberos/krb5-1.12/doc/user/user_commands/klist.html>`_
 
-.. code-block:: none
+.. code-block:: text
 
     $ kinit -kt /etc/presto/presto.keytab presto@EXAMPLE.COM
     $ klist
@@ -210,7 +211,7 @@ You can enable additional Kerberos debugging information for the Presto
 coordinator process by adding the following lines to the Presto ``jvm.config``
 file
 
-.. code-block:: none
+.. code-block:: text
 
     -Dsun.security.krb5.debug=true
     -Dlog.enable-console=true

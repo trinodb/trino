@@ -17,7 +17,7 @@ Password Authenticator Configuration
 Enable password file authentication by creating an
 ``etc/password-authenticator.properties`` file on the coordinator:
 
-.. code-block:: none
+.. code-block:: text
 
     password-authenticator.name=file
     file.password-file=/path/to/password.db
@@ -47,14 +47,14 @@ separated by a colon. Passwords must be securely hashed using bcrypt or PBKDF2.
 
 bcrypt passwords start with ``$2y$`` and must use a minimum cost of ``8``:
 
-.. code-block:: none
+.. code-block:: text
 
     test:$2y$10$BqTb8hScP5DfcpmHo5PeyugxHz5Ky/qf3wrpD7SNm8sWuA3VlGqsa
 
 PBKDF2 passwords are composed of the iteration count, followed by the
 hex encoded salt and hash:
 
-.. code-block:: none
+.. code-block:: text
 
     test:1000:5b4240333032306164:f38d165fce8ce42f59d366139ef5d9e1ca1247f0e06e503ee1a611dd9ec40876bb5edb8409f5abe5504aab6628e70cfb3d3a18e99d70357d295002c3d0a308a0
 
@@ -69,13 +69,13 @@ than the default.
 
 Create an empty password file to get started:
 
-.. code-block:: none
+.. code-block:: text
 
     touch password.db
 
 Add or update the password for the user ``test``:
 
-.. code-block:: none
+.. code-block:: text
 
     htpasswd -B -C 10 password.db test
 

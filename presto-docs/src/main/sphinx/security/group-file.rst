@@ -12,7 +12,7 @@ Group File Configuration
 Enable group file by creating an ``etc/group-provider.properties``
 file on the coordinator:
 
-.. code-block:: none
+.. code-block:: text
 
     group-provider.name=file
     file.group-file=/path/to/group.txt
@@ -37,6 +37,6 @@ File Format
 The group file contains a list of groups and members, one per line,
 separated by a colon. Users are separated by a comma.
 
-.. code-block:: none
+.. code-block:: text
 
     group_name:user_1,user_2,user_3

@@ -5,7 +5,7 @@ SHOW STATS
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW STATS FOR table
     SHOW STATS FOR ( SELECT * FROM table [ WHERE condition ] )

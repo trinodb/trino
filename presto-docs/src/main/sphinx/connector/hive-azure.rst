@@ -19,7 +19,7 @@ All configuration for the Azure storage driver is stored in the Hadoop
 ``core-site.xml`` configuration file. The path to the file needs to be
 configured in the the catalog properties file:
 
-.. code-block:: none
+.. code-block:: text
 
     hive.config.resources=<path_to_hadoop_core-site.xml>
 
@@ -131,19 +131,19 @@ different systems.
 
 ABFS URI:
 
-.. code-block:: none
+.. code-block:: text
 
     abfs[s]://file_system@account_name.dfs.core.windows.net/<path>/<path>/<file_name>
 
 ADLS Gen1 URI:
 
-.. code-block:: none
+.. code-block:: text
 
     adl://<data_lake_storage_gen1_name>.azuredatalakestore.net/<path>/<file_name>
 
 Azure Standard Blob URI:
 
-.. code-block:: none
+.. code-block:: text
 
     wasb[s]://container@account_name.blob.core.windows.net/<path>/<path>/<file_name>
 

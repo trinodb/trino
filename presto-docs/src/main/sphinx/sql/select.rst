@@ -5,7 +5,7 @@ SELECT
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     [ WITH [ RECURSIVE ] with_query [, ...] ]
     SELECT [ ALL | DISTINCT ] select_expression [, ...]
@@ -21,18 +21,18 @@ Synopsis
 
 where ``from_item`` is one of
 
-.. code-block:: none
+.. code-block:: text
 
     table_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
 
-.. code-block:: none
+.. code-block:: text
 
     from_item join_type from_item
       [ ON join_condition | USING ( join_column [, ...] ) ]
 
 and ``join_type`` is one of
 
-.. code-block:: none
+.. code-block:: text
 
     [ INNER ] JOIN
     LEFT [ OUTER ] JOIN
@@ -42,7 +42,7 @@ and ``join_type`` is one of
 
 and ``grouping_element`` is one of
 
-.. code-block:: none
+.. code-block:: text
 
     ()
     expression
@@ -115,7 +115,7 @@ step relation.
 The following listing shows a simple example, that displays a commonly used
 form of a single query in the list:
 
-.. code-block:: none
+.. code-block:: text
 
     WITH RECURSIVE t(n) AS (
         VALUES (1)
@@ -169,7 +169,7 @@ SELECT Clause
 The ``SELECT`` clause specifies the output of the query. Each ``select_expression``
 defines a column or columns to be included in the result.
 
-.. code-block:: none
+.. code-block:: text
 
     SELECT [ ALL | DISTINCT ] select_expression [, ...]
 
@@ -185,19 +185,19 @@ Select expressions
 
 Each ``select_expression`` must be in one of the following forms:
 
-.. code-block:: none
+.. code-block:: text
 
     expression [ [ AS ] column_alias ]
 
-.. code-block:: none
+.. code-block:: text
 
     row_expression.* [ AS ( column_alias [, ...] ) ]
 
-.. code-block:: none
+.. code-block:: text
 
     relation.*
 
-.. code-block:: none
+.. code-block:: text
 
     *
 
@@ -224,7 +224,7 @@ or row field names::
 
     SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).* AS (alias1, alias2);
 
-.. code-block:: none
+.. code-block:: text
 
      alias1 | alias2
     --------+--------
@@ -235,7 +235,7 @@ Otherwise, the existing names are used::
 
     SELECT (CAST(ROW(1, true) AS ROW(field1 bigint, field2 boolean))).*;
 
-.. code-block:: none
+.. code-block:: text
 
      field1 | field2
     --------+--------
@@ -246,7 +246,7 @@ and in their absence, anonymous columns are produced::
 
     SELECT (ROW(1, true)).*;
 
-.. code-block:: none
+.. code-block:: text
 
      _col0 | _col1
     -------+-------
@@ -277,7 +277,7 @@ row counts for the ``customer`` table using the input column ``mktsegment``::
 
     SELECT count(*) FROM customer GROUP BY mktsegment;
 
-.. code-block:: none
+.. code-block:: text
 
      _col0
     -------
@@ -317,7 +317,7 @@ The columns not part of a given sublist of grouping columns are set to ``NULL``.
 
     SELECT * FROM shipping;
 
-.. code-block:: none
+.. code-block:: text
 
      origin_state | origin_zip | destination_state | destination_zip | package_weight
     --------------+------------+-------------------+-----------------+----------------
@@ -338,7 +338,7 @@ The columns not part of a given sublist of grouping columns are set to ``NULL``.
         (origin_state, origin_zip),
         (destination_state));
 
-.. code-block:: none
+.. code-block:: text
 
      origin_state | origin_zip | destination_state | _col0
     --------------+------------+-------------------+-------
@@ -397,7 +397,7 @@ is equivalent to::
         ()
     );
 
-.. code-block:: none
+.. code-block:: text
 
      origin_state | destination_state | _col0
     --------------+-------------------+-------
@@ -425,7 +425,7 @@ columns. For example, the query::
     FROM shipping
     GROUP BY ROLLUP (origin_state, origin_zip);
 
-.. code-block:: none
+.. code-block:: text
 
      origin_state | origin_zip | _col2
     --------------+------------+-------
@@ -474,7 +474,7 @@ is logically equivalent to::
         (origin_state, destination_state)
     );
 
-.. code-block:: none
+.. code-block:: text
 
      origin_state | destination_state | origin_zip | _col3
     --------------+-------------------+------------+-------
@@ -567,7 +567,7 @@ below::
         (destination_state)
     );
 
-.. code-block:: none
+.. code-block:: text
 
     origin_state | origin_zip | destination_state | _col3 | _col4
     --------------+------------+-------------------+-------+-------
@@ -606,7 +606,7 @@ with an account balance greater than the specified value::
     HAVING sum(acctbal) > 5700000
     ORDER BY totalbal DESC;
 
-.. code-block:: none
+.. code-block:: text
 
      _col0 | mktsegment | nationkey | totalbal
     -------+------------+-----------+----------
@@ -625,15 +625,15 @@ Set Operations
 ``UNION``  ``INTERSECT`` and ``EXCEPT`` are all set operations.  These clauses are used
 to combine the results of more than one select statement into a single result set:
 
-.. code-block:: none
+.. code-block:: text
 
     query UNION [ALL | DISTINCT] query
 
-.. code-block:: none
+.. code-block:: text
 
     query INTERSECT [DISTINCT] query
 
-.. code-block:: none
+.. code-block:: text
 
     query EXCEPT [DISTINCT] query
 
@@ -663,7 +663,7 @@ that selects the value ``42``::
     UNION
     SELECT 42;
 
-.. code-block:: none
+.. code-block:: text
 
      _col0
     -------
@@ -679,7 +679,7 @@ selects the values ``42`` and ``13``::
     UNION
     SELECT * FROM (VALUES 42, 13);
 
-.. code-block:: none
+.. code-block:: text
 
      _col0
     -------
@@ -693,7 +693,7 @@ selects the values ``42`` and ``13``::
     UNION ALL
     SELECT * FROM (VALUES 42, 13);
 
-.. code-block:: none
+.. code-block:: text
 
      _col0
     -------
@@ -715,7 +715,7 @@ is only in the result set of the first query, it is not included in the final re
     INTERSECT
     SELECT 13;
 
-.. code-block:: none
+.. code-block:: text
 
      _col0
     -------
@@ -735,7 +735,7 @@ is also in the result set of the second query, it is not included in the final r
     EXCEPT
     SELECT 13;
 
-.. code-block:: none
+.. code-block:: text
 
      _col0
     -------
@@ -750,7 +750,7 @@ ORDER BY Clause
 The ``ORDER BY`` clause is used to sort a result set by one or more
 output expressions:
 
-.. code-block:: none
+.. code-block:: text
 
     ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...]
 
@@ -798,7 +798,7 @@ OFFSET Clause
 The ``OFFSET`` clause is used to discard a number of leading rows
 from the result set:
 
-.. code-block:: none
+.. code-block:: text
 
     OFFSET count [ ROW | ROWS ]
 
@@ -808,7 +808,7 @@ leading rows are discarded::
 
     SELECT name FROM nation ORDER BY name OFFSET 22;
 
-.. code-block:: none
+.. code-block:: text
 
           name
     ----------------
@@ -827,11 +827,11 @@ LIMIT or FETCH FIRST Clauses
 The ``LIMIT`` or ``FETCH FIRST`` clause restricts the number of rows
 in the result set.
 
-.. code-block:: none
+.. code-block:: text
 
     LIMIT { count | ALL }
 
-.. code-block:: none
+.. code-block:: text
 
     FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES }
 
@@ -841,7 +841,7 @@ exactly which rows are returned is arbitrary)::
 
     SELECT orderdate FROM orders LIMIT 5;
 
-.. code-block:: none
+.. code-block:: text
 
      orderdate
     ------------
@@ -862,7 +862,7 @@ If the count is not specified in the ``FETCH FIRST`` clause, it defaults to ``1`
 
     SELECT orderdate FROM orders FETCH FIRST ROW ONLY;
 
-.. code-block:: none
+.. code-block:: text
 
      orderdate
     ------------
@@ -874,7 +874,7 @@ is evaluated after the ``OFFSET`` clause::
 
     SELECT * FROM (VALUES 5, 2, 4, 1, 3) t(x) ORDER BY x OFFSET 2 LIMIT 2;
 
-.. code-block:: none
+.. code-block:: text
 
      x
     ---
@@ -897,7 +897,7 @@ as established by the ordering in the ``ORDER BY`` clause. The result set is sor
     FROM nation 
     ORDER BY regionkey FETCH FIRST ROW WITH TIES;
 
-.. code-block:: none
+.. code-block:: text
 
         name    | regionkey
     ------------+-----------
@@ -984,7 +984,7 @@ Using multiple columns::
     ) AS x (numbers, animals)
     CROSS JOIN UNNEST(numbers, animals) AS t (n, a);
 
-.. code-block:: none
+.. code-block:: text
 
       numbers  |     animals      |  n   |  a
     -----------+------------------+------+------
@@ -1006,7 +1006,7 @@ Using multiple columns::
     ) AS x (numbers)
     CROSS JOIN UNNEST(numbers) WITH ORDINALITY AS t (n, a);
 
-.. code-block:: none
+.. code-block:: text
 
       numbers  | n | a
     -----------+---+---
@@ -1047,7 +1047,7 @@ so a cross join between the two tables produces 125 rows::
     CROSS JOIN region AS r
     ORDER BY 1, 2;
 
-.. code-block:: none
+.. code-block:: text
 
          nation     |   region
     ----------------+-------------

@@ -19,7 +19,7 @@ Create ``etc/catalog/prometheus.properties``
 to mount the Prometheus connector as the ``prometheus`` catalog,
 replacing the properties as appropriate:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=prometheus
     prometheus.uri=http://localhost:9090

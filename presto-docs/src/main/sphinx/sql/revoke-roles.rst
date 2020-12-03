@@ -5,7 +5,7 @@ REVOKE ROLES
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     REVOKE
     [ ADMIN OPTION FOR ]

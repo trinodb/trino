@@ -25,7 +25,7 @@ Additionally, each user needs a `keytab file
 keytab file can be created using :command:`kadmin` after you create the
 principal.
 
-.. code-block:: none
+.. code-block:: text
 
     kadmin
     > addprinc -randkey someuser@EXAMPLE.COM
@@ -49,7 +49,7 @@ coordinator, that does not require Kerberos authentication, invoking the CLI
 with Kerberos support enabled requires a number of additional command line
 options. The simplest way to invoke the CLI is with a wrapper script.
 
-.. code-block:: none
+.. code-block:: text
 
     #!/bin/bash
 
@@ -96,7 +96,7 @@ starting the CLI process. Doing so requires invoking the CLI JAR via ``java``
 instead of running the self-executable JAR directly. The self-executable jar
 file cannot pass the option to the JVM.
 
-.. code-block:: none
+.. code-block:: text
 
     #!/bin/bash
 

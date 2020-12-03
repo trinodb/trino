@@ -16,7 +16,7 @@ mount the Redshift connector as the ``redshift`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=redshift
     connection-url=jdbc:postgresql://example.net:5439/database

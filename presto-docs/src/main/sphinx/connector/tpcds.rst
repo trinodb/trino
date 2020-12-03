@@ -17,7 +17,7 @@ Configuration
 To configure the TPCDS connector, create a catalog properties file
 ``etc/catalog/tpcds.properties`` with the following contents:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=tpcds
 
@@ -28,7 +28,7 @@ The TPCDS connector supplies several schemas::
 
     SHOW SCHEMAS FROM tpcds;
 
-.. code-block:: none
+.. code-block:: text
 
            Schema
     --------------------

@@ -73,7 +73,7 @@ BigQuery connector as the ``bigquery`` catalog. Create the file with the
 following contents, replacing the connection properties as appropriate for
 your setup:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=bigquery
     bigquery.project-id=<your Google Cloud Platform project id>

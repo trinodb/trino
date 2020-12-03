@@ -10,7 +10,7 @@ characteristics. Session property managers are pluggable.
 Add an ``etc/session-property-config.properties`` file with the following contents to enable
 the built-in manager, that reads a JSON config file:
 
-.. code-block:: none
+.. code-block:: text
 
     session-property-config.configuration-manager=file
     session-property-manager.config-file=etc/session-property-config.json

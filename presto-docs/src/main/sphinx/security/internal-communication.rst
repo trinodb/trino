@@ -11,14 +11,14 @@ Internal Authentication
 Requests between Presto nodes are authenticated using a shared secret. For secure
 internal communication, the shared secret must be configured on all nodes in the cluster:
 
-.. code-block:: none
+.. code-block:: text
 
     internal-communication.shared-secret=<secret>
 
 A large random key is recommended, and can be generated with the following Linux
 command:
 
-.. code-block:: none
+.. code-block:: text
 
     openssl rand 512 | base64
 
@@ -35,7 +35,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
 
 1. Disable HTTP endpoint.
 
-   .. code-block:: none
+   .. code-block:: text
 
        http-server.http.enabled=false
 
@@ -53,7 +53,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
      introduce themselves to the coordinator using the hostname taken from
      the system configuration (``hostname --fqdn``)
 
-     .. code-block:: none
+     .. code-block:: text
 
          node.internal-address-source=FQDN
 
@@ -62,7 +62,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
      make it easy to create the correct SSL/TLS certificates.
      e.g.: ``coordinator.example.com``, ``worker1.example.com``, ``worker2.example.com``.
 
-     .. code-block:: none
+     .. code-block:: text
 
          node.internal-address=<node fqdn>
 
@@ -74,7 +74,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
    and specify it for the client (see step #8 below). In most cases it is
    simpler to use a wildcard in the certificate as shown below.
 
-   .. code-block:: none
+   .. code-block:: text
 
        keytool -genkeypair -alias example.com -keyalg RSA -keystore keystore.jks
        Enter keystore password:
@@ -103,7 +103,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
 
 5. Enable the HTTPS endpoint.
 
-   .. code-block:: none
+   .. code-block:: text
 
        http-server.https.enabled=true
        http-server.https.port=<https port>
@@ -112,19 +112,19 @@ To enable SSL/TLS for Presto internal communication, do the following:
 
 6. Change the discovery uri to HTTPS.
 
-   .. code-block:: none
+   .. code-block:: text
 
        discovery.uri=https://<coordinator fqdn>:<https port>
 
 7. Configure the internal communication to require HTTPS.
 
-   .. code-block:: none
+   .. code-block:: text
 
        internal-communication.https.required=true
 
 8. Configure the internal communication to use the Java keystore file.
 
-   .. code-block:: none
+   .. code-block:: text
 
        internal-communication.https.keystore.path=<keystore path>
        internal-communication.https.keystore.key=<keystore password>
@@ -158,7 +158,7 @@ to switch the random number generator algorithm to ``SHA1PRNG``, by setting it v
 ``http-server.https.secure-random-algorithm`` property in ``config.properties`` on the coordinator
 and all of the workers:
 
-.. code-block:: none
+.. code-block:: text
 
     http-server.https.secure-random-algorithm=SHA1PRNG
 
@@ -167,6 +167,6 @@ the blocking ``/dev/random`` device. For environments that do not have enough en
 the ``SHAPRNG`` algorithm, the source can be changed to ``/dev/urandom``
 by adding the ``java.security.egd`` property to ``jvm.config``:
 
-.. code-block:: none
+.. code-block:: text
 
     -Djava.security.egd=file:/dev/urandom

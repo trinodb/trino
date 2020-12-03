@@ -11,7 +11,7 @@ Configuration
 To configure the local file connector, create a catalog properties file
 under ``etc/catalog`` named, for example, ``localfile.properties`` with the following contents:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=localfile
 

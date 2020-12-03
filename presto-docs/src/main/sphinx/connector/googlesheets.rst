@@ -11,7 +11,7 @@ Create ``etc/catalog/sheets.properties``
 to mount the Google Sheets connector as the ``sheets`` catalog,
 replacing the properties as appropriate:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=gsheets
     credentials-path=/path/to/google-sheets-credentials.json

@@ -7,7 +7,7 @@ Presto exposes a large number of different metrics via the Java Management Exten
 You have to enable JMX by setting the ports used by the RMI registry and server
 in the :ref:`config.properties file <config_properties>`:
 
-.. code-block:: none
+.. code-block:: text
 
     jmx.rmiregistry.port=9080
     jmx.rmiserver.port=9081

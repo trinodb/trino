@@ -16,7 +16,7 @@ mount the PostgreSQL connector as the ``postgresql`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=postgresql
     connection-url=jdbc:postgresql://example.net:5432/database

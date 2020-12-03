@@ -5,7 +5,7 @@ REVOKE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     REVOKE [ GRANT OPTION FOR ]
     ( privilege [, ...] | ALL PRIVILEGES )
