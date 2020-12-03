@@ -213,7 +213,7 @@ public class CachingJdbcClient
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.commitCreateTable(session, handle);
-        invalidateTablesCaches();
+        invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
     @Override
@@ -226,14 +226,14 @@ public class CachingJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
         delegate.finishInsertTable(session, handle);
-        invalidateTablesCaches();
+        invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
     }
 
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
         delegate.dropTable(session, jdbcTableHandle);
-        invalidateTablesCaches();
+        invalidateTableCaches(jdbcTableHandle.getSchemaTableName());
     }
 
     @Override
@@ -314,14 +314,15 @@ public class CachingJdbcClient
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         delegate.renameTable(session, handle, newTableName);
-        invalidateTablesCaches();
+        invalidateTableCaches(handle.getSchemaTableName());
+        invalidateTableCaches(newTableName);
     }
 
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         delegate.createTable(session, tableMetadata);
-        invalidateTablesCaches();
+        invalidateTableCaches(tableMetadata.getTable());
     }
 
     @Override
@@ -377,11 +378,11 @@ public class CachingJdbcClient
         schemaNamesCache.invalidateAll();
     }
 
-    private void invalidateTablesCaches()
+    private void invalidateTableCaches(SchemaTableName schemaTableName)
     {
-        columnsCache.invalidateAll();
-        tableHandleCache.invalidateAll();
-        tableNamesCache.invalidateAll();
+        invalidateColumnsCache(schemaTableName);
+        invalidateCache(tableHandleCache, key -> key.tableName.equals(schemaTableName));
+        invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
     }
 
     private void invalidateColumnsCache(SchemaTableName table)
@@ -394,6 +395,7 @@ public class CachingJdbcClient
         Set<T> cacheKeys = cache.asMap().keySet().stream()
                 .filter(filterFunction)
                 .collect(toImmutableSet());
+
         cache.invalidateAll(cacheKeys);
     }
 
