@@ -1035,7 +1035,7 @@ public class HiveConfig
         return this;
     }
 
-    public Boolean isLegacyHiveViewTranslation()
+    public boolean isLegacyHiveViewTranslation()
     {
         return this.legacyHiveViewTranslation;
     }
