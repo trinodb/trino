@@ -1930,7 +1930,7 @@ public class HiveMetadata
                         throw new HiveViewNotSupportedException(viewName);
                     }
 
-                    ConnectorViewDefinition definition = createViewReader(metastore, new HiveIdentity(session), view, typeManager)
+                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager)
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
                     // use owner from table metadata if it exists
                     if (view.getOwner() != null && !definition.isRunAsInvoker()) {
