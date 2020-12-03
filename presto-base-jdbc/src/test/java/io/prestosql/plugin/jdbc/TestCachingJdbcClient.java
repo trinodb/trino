@@ -40,6 +40,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.testing.TestingConnectorSession.builder;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -48,6 +49,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestCachingJdbcClient
 {
     private static final Duration FOREVER = Duration.succinctDuration(1, DAYS);
+    private static final Duration ZERO = Duration.succinctDuration(0, MILLISECONDS);
+
     private static final ImmutableList<PropertyMetadata<?>> PROPERTY_METADATA = ImmutableList.of(
             stringProperty(
                     "session_name",
@@ -74,9 +77,14 @@ public class TestCachingJdbcClient
         schema = jdbcClient.getSchemaNames(SESSION).iterator().next();
     }
 
+    private CachingJdbcClient createCachingJdbcClient(Duration cacheTtl, boolean cacheMissing)
+    {
+        return new CachingJdbcClient(database.getJdbcClient(), Set.of(getTestSessionPropertiesProvider()), cacheTtl, cacheMissing);
+    }
+
     private CachingJdbcClient createCachingJdbcClient(boolean cacheMissing)
     {
-        return new CachingJdbcClient(database.getJdbcClient(), Set.of(getTestSessionPropertiesProvider()), FOREVER, cacheMissing);
+        return createCachingJdbcClient(FOREVER, cacheMissing);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -263,6 +271,42 @@ public class TestCachingJdbcClient
         assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad, expectedHit += 2, expectedMiss);
 
         cachingJdbcClient.dropTable(secondSession, secondTable);
+    }
+
+    @Test
+    public void testColumnsNotCachedWhenCacheDisabled()
+    {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient(ZERO, true);
+        ConnectorSession firstSession = createSession("first");
+        ConnectorSession secondSession = createSession("second");
+
+        JdbcTableHandle firstTable = createTable(new SchemaTableName(schema, "first_table"));
+        JdbcTableHandle secondTable = createTable(new SchemaTableName(schema, "second_table"));
+        JdbcColumnHandle firstColumn = addColumn(firstTable, "first_column");
+        JdbcColumnHandle secondColumn = addColumn(secondTable, "second_column");
+
+        int expectedLoad = 0, expectedHit = 0, expectedMiss = 0;
+
+        assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).containsExactly(firstColumn);
+        assertThat(cachingJdbcClient.getColumns(secondSession, firstTable)).containsExactly(firstColumn);
+        assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).containsExactly(secondColumn);
+        assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).containsExactly(secondColumn);
+        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 4, expectedHit, expectedMiss += 4);
+
+        assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).containsExactly(firstColumn);
+        assertThat(cachingJdbcClient.getColumns(secondSession, firstTable)).containsExactly(firstColumn);
+        assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).containsExactly(secondColumn);
+        assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).containsExactly(secondColumn);
+        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 4, expectedHit, expectedMiss += 4);
+
+        // Drop tables by not using caching jdbc client
+        jdbcClient.dropTable(SESSION, firstTable);
+        jdbcClient.dropTable(SESSION, secondTable);
+
+        // Columns are loaded bypassing a cache
+        assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, firstTable)).isInstanceOf(TableNotFoundException.class);
+        assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, secondTable)).isInstanceOf(TableNotFoundException.class);
+        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 2, expectedHit, expectedMiss += 2);
     }
 
     private void assertCacheLoadsHitsAndMisses(CacheStats stats, int expectedLoad, int expectedHit, int expectedMiss)
