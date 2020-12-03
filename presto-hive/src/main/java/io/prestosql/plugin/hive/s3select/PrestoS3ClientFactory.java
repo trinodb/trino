@@ -46,6 +46,7 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CONNECT_TIMEOUT;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_ERROR_RETRIES;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCESS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SOCKET_TIMEOUT;
@@ -95,6 +96,7 @@ public class PrestoS3ClientFactory
         Duration connectTimeout = Duration.valueOf(config.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
         Duration socketTimeout = Duration.valueOf(config.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
         int maxConnections = config.getInt(S3_SELECT_PUSHDOWN_MAX_CONNECTIONS, defaultMaxConnections);
+        boolean s3PathStyleAccess = config.getBoolean(S3_PATH_STYLE_ACCESS, defaults.isS3PathStyleAccess());
 
         ClientConfiguration clientConfiguration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -109,8 +111,8 @@ public class PrestoS3ClientFactory
         AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
                 .withCredentials(awsCredentialsProvider)
                 .withClientConfiguration(clientConfiguration)
-                .withMetricsCollector(new PrestoS3FileSystemMetricCollector(PrestoS3FileSystem.getFileSystemStats()))
-                .enablePathStyleAccess();
+                .withMetricsCollector(new PrestoS3FileSystemMetricCollector(PrestoS3FileSystem.getFileSystemStats()));
+        clientBuilder.setPathStyleAccessEnabled(s3PathStyleAccess);
 
         boolean regionOrEndpointSet = false;
 
