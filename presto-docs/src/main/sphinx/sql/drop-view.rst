@@ -5,7 +5,7 @@ DROP VIEW
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     DROP VIEW [ IF EXISTS ] view_name
 

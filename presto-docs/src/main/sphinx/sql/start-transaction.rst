@@ -5,13 +5,13 @@ START TRANSACTION
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     START TRANSACTION [ mode [, ...] ]
 
 where ``mode`` is one of
 
-.. code-block:: none
+.. code-block:: text
 
     ISOLATION LEVEL { READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SERIALIZABLE }
     READ { ONLY | WRITE }

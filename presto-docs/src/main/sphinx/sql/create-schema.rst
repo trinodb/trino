@@ -5,7 +5,7 @@ CREATE SCHEMA
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     CREATE SCHEMA [ IF NOT EXISTS ] schema_name
     [ AUTHORIZATION ( user | USER user | ROLE role ) ]

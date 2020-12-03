@@ -26,7 +26,7 @@ a resource file named ``io.prestosql.spi.Plugin`` in the
 ``META-INF/services`` directory. The content of this file is a
 single line listing the name of the plugin class:
 
-.. code-block:: none
+.. code-block:: text
 
     com.example.plugin.ExamplePlugin
 

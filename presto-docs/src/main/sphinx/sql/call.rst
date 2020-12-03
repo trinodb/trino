@@ -5,7 +5,7 @@ CALL
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     CALL procedure_name ( [ name => ] expression [, ...] )
 

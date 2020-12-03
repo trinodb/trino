@@ -60,7 +60,7 @@ Connecting
 When your driver is loaded, registered and configured, you are ready to connect
 to Presto from your application. The following JDBC URL formats are supported:
 
-.. code-block:: none
+.. code-block:: text
 
     jdbc:presto://host:port
     jdbc:presto://host:port/catalog
@@ -68,7 +68,7 @@ to Presto from your application. The following JDBC URL formats are supported:
 
 The following is an example of a JDBC URL used to create a connection:
 
-.. code-block:: none
+.. code-block:: text
 
     jdbc:presto://example.net:8080/hive/sales
 

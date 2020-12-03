@@ -5,7 +5,7 @@ COMMENT
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     COMMENT ON ( TABLE | COLUMN ) name IS 'comments'
 

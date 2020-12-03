@@ -5,7 +5,7 @@ ALTER VIEW
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     ALTER VIEW name RENAME TO new_name
     ALTER VIEW name SET AUTHORIZATION ( user | USER user | ROLE role )

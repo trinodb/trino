@@ -5,7 +5,7 @@ SHOW SESSION
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW SESSION [ LIKE pattern ]
 

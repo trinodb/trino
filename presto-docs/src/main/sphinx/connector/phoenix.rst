@@ -19,7 +19,7 @@ To configure the Phoenix connector, create a catalog properties file
 replacing ``host1,host2,host3`` with a comma-separated list of the ZooKeeper
 nodes used for discovery of the HBase cluster:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=phoenix
     phoenix.connection-url=jdbc:phoenix:host1,host2,host3:2181:/hbase

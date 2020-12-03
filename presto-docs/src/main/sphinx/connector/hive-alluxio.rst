@@ -22,7 +22,7 @@ so that the Alluxio properties file ``alluxio-site.properties`` can be loaded as
 a resource. Update the Presto :ref:`presto_jvm_config` file ``etc/jvm.config``
 to include the following:
 
-.. code-block:: none
+.. code-block:: text
 
   -Xbootclasspath/a:<path-to-alluxio-conf>
 
@@ -66,7 +66,7 @@ catalog, simply use the
 The appropriate Hive metastore location and Hive database name need to be
 provided.
 
-.. code-block:: none
+.. code-block:: text
 
     ./bin/alluxio table attachdb hive thrift://HOSTNAME:9083 hive_db_name
 
@@ -77,7 +77,7 @@ metastore type, and provide the location to the Alluxio cluster.
 For example, your ``etc/catalog/alluxio.properties`` should include
 the following:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=hive-hadoop2
     hive.metastore=alluxio

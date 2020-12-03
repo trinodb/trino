@@ -71,7 +71,7 @@ operator where ``df_370`` is associated with probe symbol ``ss_sold_date_sk``.
 This shows you that the planner is successful in pushing dynamic filters
 down to the connector in the query plan.
 
-.. code-block:: none
+.. code-block:: text
 
     ...
 
@@ -117,7 +117,7 @@ about dynamic filters in the QueryInfo JSON available through the
 In the ``queryStats`` section, statistics about dynamic filters collected
 by the coordinator can be found in the ``dynamicFiltersStats`` structure.
 
-.. code-block:: none
+.. code-block:: text
 
     "dynamicFiltersStats" : {
           "dynamicFilterDomainStats" : [ {
@@ -138,7 +138,7 @@ verified by looking at the operator statistics for that table scan.
 ``dynamicFilterSplitsProcessed`` records the number of splits
 processed after a dynamic filter is pushed down to the table scan.
 
-.. code-block:: none
+.. code-block:: text
 
     "operatorType" : "ScanFilterAndProjectOperator",
     "totalDrivers" : 1,

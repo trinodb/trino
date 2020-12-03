@@ -5,7 +5,7 @@ DESCRIBE OUTPUT
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     DESCRIBE OUTPUT statement_name
 
@@ -28,7 +28,7 @@ Prepare and describe a query with four output columns::
 
    DESCRIBE OUTPUT my_select1;
 
-.. code-block:: none
+.. code-block:: text
 
      Column Name | Catalog | Schema | Table  |  Type   | Type Size | Aliased
     -------------+---------+--------+--------+---------+-----------+---------
@@ -47,7 +47,7 @@ Prepare and describe a query whose output columns are expressions::
 
     DESCRIBE OUTPUT my_select2;
 
-.. code-block:: none
+.. code-block:: text
 
      Column Name | Catalog | Schema | Table |  Type  | Type Size | Aliased
     -------------+---------+--------+-------+--------+-----------+---------
@@ -64,7 +64,7 @@ Prepare and describe a row count query::
 
     DESCRIBE OUTPUT my_create;
 
-.. code-block:: none
+.. code-block:: text
 
      Column Name | Catalog | Schema | Table |  Type  | Type Size | Aliased
     -------------+---------+--------+-------+--------+-----------+---------

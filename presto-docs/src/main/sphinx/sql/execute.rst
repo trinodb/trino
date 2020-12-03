@@ -5,7 +5,7 @@ EXECUTE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     EXECUTE statement_name [ USING parameter1 [ , parameter2, ... ] ]
 

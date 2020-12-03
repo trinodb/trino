@@ -31,7 +31,7 @@ Create ``etc/catalog/accumulo.properties``
 to mount the ``accumulo`` connector as the ``accumulo`` catalog,
 replacing the ``accumulo.xxx`` properties as required:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=accumulo
     accumulo.instance=xxx
@@ -89,7 +89,7 @@ Simply issue a ``CREATE TABLE`` statement to create a new Presto/Accumulo table:
 
     DESCRIBE myschema.scientists;
 
-.. code-block:: none
+.. code-block:: text
 
       Column   |  Type   | Extra |                      Comment
     -----------+---------+-------+---------------------------------------------------
@@ -135,7 +135,7 @@ For example:
 
     DESCRIBE myschema.scientists;
 
-.. code-block:: none
+.. code-block:: text
 
       Column   |  Type   | Extra |                    Comment
     -----------+---------+-------+-----------------------------------------------
@@ -163,7 +163,7 @@ You can then issue ``INSERT`` statements to put data into Accumulo.
 
     SELECT * FROM myschema.scientists;
 
-.. code-block:: none
+.. code-block:: text
 
      recordkey |     name     | age |  birthday
     -----------+--------------+-----+------------
@@ -188,7 +188,7 @@ little younger.)
 
     SELECT * FROM myschema.scientists;
 
-.. code-block:: none
+.. code-block:: text
 
      recordkey |      name       | age |  birthday
     -----------+-----------------+-----+------------
@@ -249,7 +249,7 @@ should be using the default ``lexicoder`` serializer).
 After creating the table, we see there are an additional two Accumulo
 tables to store the index and metrics.
 
-.. code-block:: none
+.. code-block:: text
 
     root@default> tables
     accumulo.metadata
@@ -269,7 +269,7 @@ queries this index table
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09'),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23');
 
-.. code-block:: none
+.. code-block:: text
 
     root@default> scan -t myschema.scientists_idx
     -21011 metadata_date:row2 []
@@ -291,7 +291,7 @@ scans the data table.
 
     SELECT * FROM myschema.scientists WHERE age = 109;
 
-.. code-block:: none
+.. code-block:: text
 
      recordkey |     name     | age |  birthday
     -----------+--------------+-----+------------
@@ -374,7 +374,7 @@ After creating the table, usage of the table continues as usual:
 
     SELECT * FROM external_table;
 
-.. code-block:: none
+.. code-block:: text
 
      a | b |     c
     ---+---+------------
@@ -388,7 +388,7 @@ After creating the table, usage of the table continues as usual:
 
 After dropping the table, the table still exists in Accumulo because it is *external*.
 
-.. code-block:: none
+.. code-block:: text
 
     root@default> tables
     accumulo.metadata
@@ -547,7 +547,7 @@ specifying the fully-qualified Java class name in the connector configuration.
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
-.. code-block:: none
+.. code-block:: text
 
     root@default> scan -t myschema.scientists
     row1 metadata:age []    \x08\x80\x00\x00\x00\x00\x00\x00m
@@ -576,7 +576,7 @@ specifying the fully-qualified Java class name in the connector configuration.
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
-.. code-block:: none
+.. code-block:: text
 
     root@default> scan -t myschema.stringy_scientists
     row1 metadata:age []    109
@@ -611,7 +611,7 @@ the details of how it is stored.
 A root node in ZooKeeper holds all the mappings, and the format is as
 follows:
 
-.. code-block:: none
+.. code-block:: text
 
     /metadata-root/schema/table
 
@@ -656,7 +656,7 @@ when creating the external table.
 
     DESCRIBE foo.bar;
 
-.. code-block:: none
+.. code-block:: text
 
      Column |  Type   | Extra |               Comment
     --------+---------+-------+-------------------------------------
@@ -667,7 +667,7 @@ when creating the external table.
 2. Using the ZooKeeper CLI, delete the corresponding znode.  Note this uses the default ZooKeeper
 metadata root of ``/presto-accumulo``
 
-.. code-block:: none
+.. code-block:: text
 
     $ zkCli.sh
     [zk: localhost:2181(CONNECTED) 1] delete /presto-accumulo/foo/bar

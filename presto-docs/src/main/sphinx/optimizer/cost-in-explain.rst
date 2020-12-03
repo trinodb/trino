@@ -19,7 +19,7 @@ is printed.
 
 For example:
 
-.. code-block:: none
+.. code-block:: text
 
  presto:default> EXPLAIN SELECT comment FROM tpch.sf1.nation WHERE nationkey > 3;
 

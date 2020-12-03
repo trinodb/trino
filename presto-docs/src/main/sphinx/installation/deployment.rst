@@ -17,7 +17,7 @@ Linux Operating System
   depending on the workload. We recommend the following limits, which can
   typically be set in ``/etc/security/limits.conf``:
 
-  .. code-block:: none
+  .. code-block:: text
 
       presto soft nofile 131072
       presto hard nofile 131072
@@ -75,7 +75,7 @@ specific to each node. A *node* is a single installed instance of Presto
 on a machine. This file is typically created by the deployment system when
 Presto is first installed. The following is a minimal ``etc/node.properties``:
 
-.. code-block:: none
+.. code-block:: text
 
     node.environment=production
     node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
@@ -114,7 +114,7 @@ not be quoted.
 
 The following provides a good starting point for creating ``etc/jvm.config``:
 
-.. code-block:: none
+.. code-block:: text
 
     -server
     -Xmx16G
@@ -154,7 +154,7 @@ larger clusters.
 
 The following is a minimal configuration for the coordinator:
 
-.. code-block:: none
+.. code-block:: text
 
     coordinator=true
     node-scheduler.include-coordinator=false
@@ -167,7 +167,7 @@ The following is a minimal configuration for the coordinator:
 
 And this is a minimal configuration for the workers:
 
-.. code-block:: none
+.. code-block:: text
 
     coordinator=false
     http-server.http.port=8080
@@ -179,7 +179,7 @@ And this is a minimal configuration for the workers:
 Alternatively, if you are setting up a single machine for testing, that
 functions as both a coordinator and worker, use this configuration:
 
-.. code-block:: none
+.. code-block:: text
 
     coordinator=true
     node-scheduler.include-coordinator=true
@@ -245,7 +245,7 @@ which is typically the fully qualified name of the class that uses the logger.
 Loggers have a hierarchy based on the dots in the name, like Java packages.
 For example, consider the following log levels file:
 
-.. code-block:: none
+.. code-block:: text
 
     io.prestosql=INFO
 
@@ -270,7 +270,7 @@ in the ``etc/catalog`` directory.
 For example, create ``etc/catalog/jmx.properties`` with the following
 contents to mount the ``jmx`` connector as the ``jmx`` catalog:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=jmx
 
@@ -284,7 +284,7 @@ Running Presto
 The installation directory contains the launcher script in ``bin/launcher``.
 Presto can be started as a daemon by running the following:
 
-.. code-block:: none
+.. code-block:: text
 
     bin/launcher start
 
@@ -292,7 +292,7 @@ Alternatively, it can be run in the foreground, with the logs and other
 output written to stdout/stderr. Both streams should be captured
 if using a supervision system like daemontools:
 
-.. code-block:: none
+.. code-block:: text
 
     bin/launcher run
 

@@ -15,6 +15,6 @@ JVM Settings
 
 The following can be helpful for diagnosing garbage collection (GC) issues:
 
-.. code-block:: none
+.. code-block:: text
 
     -Xlog:gc*,safepoint::time,level,tags,tid

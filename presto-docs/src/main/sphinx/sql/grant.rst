@@ -5,7 +5,7 @@ GRANT
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     GRANT ( privilege [, ...] | ( ALL PRIVILEGES ) )
     ON ( table_name | TABLE table_name | SCHEMA schema_name)

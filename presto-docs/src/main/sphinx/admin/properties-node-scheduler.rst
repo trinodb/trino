@@ -111,7 +111,7 @@ must be set to ``file``. Each line contains a mapping between a host name and a
 network location, separated by whitespace. Network location must begin with a leading
 ``/`` and segments are separated by a ``/``.
 
-.. code-block:: none
+.. code-block:: text
 
     192.168.0.1 /region1/rack1/machine1
     192.168.0.2 /region1/rack1/machine2

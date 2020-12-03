@@ -13,7 +13,7 @@ The resource groups and associated selection rules are configured by a manager, 
 Add an ``etc/resource-groups.properties`` file with the following contents to enable
 the built-in manager that reads a JSON config file:
 
-.. code-block:: none
+.. code-block:: text
 
     resource-groups.configuration-manager=file
     resource-groups.config-file=etc/resource-groups.json

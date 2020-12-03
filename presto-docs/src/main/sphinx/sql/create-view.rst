@@ -5,7 +5,7 @@ CREATE VIEW
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     CREATE [ OR REPLACE ] VIEW view_name
     [ SECURITY { DEFINER | INVOKER } ]

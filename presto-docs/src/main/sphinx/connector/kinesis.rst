@@ -22,7 +22,7 @@ but cannot create streams or push data into existing streams.
 To configure the Kinesis connector, create a catalog properties file ``etc/catalog/kinesis.properties``
 with the following contents, replacing the properties as appropriate:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=kinesis
     kinesis.access-key=XXXXXX
@@ -180,7 +180,7 @@ Table Definition
 A table definition file consists of a JSON definition for a table, which corresponds to one stream in Kinesis.
 The name of the file can be arbitrary but must end in ``.json``. The structure of the table definition is as follows:
 
-.. code-block:: none
+.. code-block:: text
 
   {
         "tableName": ...,
@@ -216,7 +216,7 @@ Field           Required  Type         Description
 Each field definition is a JSON object. At a minimum, a name, type, and mapping must be provided.
 The overall structure looks like this:
 
-.. code-block:: none
+.. code-block:: text
 
     {
         "name": ...,

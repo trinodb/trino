@@ -19,7 +19,7 @@ Installation
 Download :maven_download:`cli`, rename it to ``presto``,
 make it executable with ``chmod +x``, then run it:
 
-.. code-block:: none
+.. code-block:: text
 
     ./presto --server localhost:8080 --catalog hive --schema default
 
@@ -98,13 +98,13 @@ Examples
 
 Consider the following command run as shown, or with ``--output-format CSV``:
 
-.. code-block:: none
+.. code-block:: text
 
     presto --execute 'SELECT nationkey, name, regionkey FROM tpch.sf1.nation LIMIT 3'
 
 The output is as follows:
 
-.. code-block:: none
+.. code-block:: text
 
     "0","ALGERIA","0"
     "1","ARGENTINA","1"
@@ -120,7 +120,7 @@ The output with ``--output-format JSON`` is:
 
 The output with ``--output-format ALIGNED`` is:
 
-.. code-block:: none
+.. code-block:: text
 
     nationkey |   name    | regionkey
     ----------+-----------+----------
@@ -130,7 +130,7 @@ The output with ``--output-format ALIGNED`` is:
 
 The output with ``--output-format VERTICAL`` is:
 
-.. code-block:: none
+.. code-block:: text
 
     -[ RECORD 1 ]--------
     nationkey | 0
@@ -150,7 +150,7 @@ However, if you have an error in the query, such as incorrectly using
 ``region`` instead of ``regionkey``, the command has an exit status of 1
 and displays an error message (which is unaffected by the output format):
 
-.. code-block:: none
+.. code-block:: text
 
     Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be resolved
     SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
@@ -160,7 +160,7 @@ Troubleshooting
 
 If something goes wrong, you see an error message:
 
-.. code-block:: none
+.. code-block:: text
 
     $ presto
     presto> select count(*) from tpch.tiny.nations;
@@ -170,7 +170,7 @@ If something goes wrong, you see an error message:
 To view debug information, including the stack trace for failures, use the
 ``--debug`` option:
 
-.. code-block:: none
+.. code-block:: text
 
     $ presto --debug 
     presto> select count(*) from tpch.tiny.nations;

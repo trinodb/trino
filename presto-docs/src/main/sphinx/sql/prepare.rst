@@ -5,7 +5,7 @@ PREPARE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     PREPARE statement_name FROM statement
 

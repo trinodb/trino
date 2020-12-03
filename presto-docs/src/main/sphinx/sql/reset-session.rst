@@ -5,7 +5,7 @@ RESET SESSION
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     RESET SESSION name
     RESET SESSION catalog.name

@@ -21,7 +21,7 @@ To configure the Thrift connector, create a catalog properties file
 ``etc/catalog/thrift.properties`` with the following content,
 replacing the properties as appropriate:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=presto-thrift
     presto.thrift.client.addresses=host:port,host:port
@@ -62,7 +62,7 @@ Property Name                                  Description
 
 Comma-separated list of thrift servers in the form of ``host:port``. For example:
 
-.. code-block:: none
+.. code-block:: text
 
     presto.thrift.client.addresses=192.0.2.3:7777,192.0.2.4:7779
 

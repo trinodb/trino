@@ -76,7 +76,7 @@ Configuration
 The caching feature is part of the :doc:`/connector/hive` and
 can be activated in the catalog properties file:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=hive-hadoop2
     hive.cache.enabled=true

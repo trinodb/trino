@@ -28,7 +28,7 @@ numerical values, :func:`features`::
 
     SELECT features(1.0, 2.0, 3.0) AS features;
 
-.. code-block:: none
+.. code-block:: text
 
            features
     -----------------------
@@ -55,7 +55,7 @@ The function to train a classification model looks like as follows::
 
 It returns the trained model in a serialized format.
 
-.. code-block:: none
+.. code-block:: text
 
                           model
     -------------------------------------------------
@@ -75,7 +75,7 @@ the format of a nested query::
         iris
     ) t
 
-.. code-block:: none
+.. code-block:: text
 
      predicted_label
     -----------------
@@ -110,7 +110,7 @@ The way to use the model is similar to the classification case::
       FROM iris
     ) t;
 
-.. code-block:: none
+.. code-block:: text
 
      predicted_target
     -------------------

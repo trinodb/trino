@@ -13,7 +13,7 @@ To configure the Oracle connector as the ``oracle`` catalog, create a file named
 ``oracle.properties`` in ``etc/catalog``. Include the following connection
 properties in the file:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=oracle
     connection-url=jdbc:oracle:thin:@example.net:1521/ORCLCDB
@@ -38,7 +38,7 @@ them, change the properties in the catalog configuration file:
 
 To disable connection pooling, update properties to include the following:
 
-.. code-block:: none
+.. code-block:: text
 
     oracle.connection-pool.enabled=false
 
@@ -353,7 +353,7 @@ Synonyms
 Based on performance reasons, Presto disables support for Oracle ``SYNONYM``. To
 include ``SYNONYM``, add the following configuration property:
 
-.. code-block:: none
+.. code-block:: text
 
     oracle.synonyms.enabled=true
 

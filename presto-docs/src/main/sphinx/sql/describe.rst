@@ -5,7 +5,7 @@ DESCRIBE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     DESCRIBE table_name
 

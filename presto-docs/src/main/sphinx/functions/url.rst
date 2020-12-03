@@ -9,7 +9,7 @@ The URL extraction functions extract components from HTTP URLs
 (or any valid URIs conforming to :rfc:`2396`).
 The following syntax is supported:
 
-.. code-block:: none
+.. code-block:: text
 
     [protocol:][//host[:port]][path][?query][#fragment]
 

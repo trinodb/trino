@@ -28,13 +28,13 @@ Download and extract `Apache Kafka <https://kafka.apache.org/>`_.
 
 Start ZooKeeper and the Kafka server:
 
-.. code-block:: none
+.. code-block:: text
 
     $ bin/zookeeper-server-start.sh config/zookeeper.properties
     [2013-04-22 15:01:37,495] INFO Reading configuration from: config/zookeeper.properties (org.apache.zookeeper.server.quorum.QuorumPeerConfig)
     ...
 
-.. code-block:: none
+.. code-block:: text
 
     $ bin/kafka-server-start.sh config/server.properties
     [2013-04-22 15:01:47,028] INFO Verifying properties (kafka.utils.VerifiableProperties)
@@ -48,14 +48,14 @@ Step 2: Load data
 
 Download the tpch-kafka loader from Maven Central:
 
-.. code-block:: none
+.. code-block:: text
 
     $ curl -o kafka-tpch https://repo1.maven.org/maven2/de/softwareforge/kafka_tpch_0811/1.0/kafka_tpch_0811-1.0.sh
     $ chmod 755 kafka-tpch
 
 Now run the ``kafka-tpch`` program to preload a number of topics with tpch data:
 
-.. code-block:: none
+.. code-block:: text
 
     $ ./kafka-tpch load --brokers localhost:9092 --prefix tpch. --tpch-type tiny
     2014-07-28T17:17:07.594-0700     INFO    main    io.airlift.log.Logging    Logging to stderr
@@ -94,7 +94,7 @@ In your Presto installation, add a catalog properties file
 ``etc/catalog/kafka.properties`` for the Kafka connector.
 This file lists the Kafka nodes and topics:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=kafka
     kafka.nodes=localhost:9092
@@ -103,7 +103,7 @@ This file lists the Kafka nodes and topics:
 
 Now start Presto:
 
-.. code-block:: none
+.. code-block:: text
 
     $ bin/launcher start
 
@@ -113,13 +113,13 @@ the tables are in the ``tpch`` schema. The connector is mounted into the
 
 Start the :doc:`Presto CLI </installation/cli>`:
 
-.. code-block:: none
+.. code-block:: text
 
     $ ./presto --catalog kafka --schema tpch
 
 List the tables to verify that things are working:
 
-.. code-block:: none
+.. code-block:: text
 
     presto:tpch> SHOW TABLES;
       Table
@@ -142,7 +142,7 @@ the messages. Without further configuration, the Kafka connector can access
 the data, and map it in raw form. However there are no actual columns besides the
 built-in ones:
 
-.. code-block:: none
+.. code-block:: text
 
     presto:tpch> DESCRIBE customer;
           Column       |  Type      | Extra |                   Comment
@@ -216,7 +216,7 @@ Add the following file as ``etc/kafka/tpch.customer.json`` and restart Presto:
 
 The customer table now has an additional column: ``kafka_key``.
 
-.. code-block:: none
+.. code-block:: text
 
     presto:tpch> DESCRIBE customer;
           Column       |  Type      | Extra |                   Comment
@@ -331,7 +331,7 @@ are used for the key and the message.
 Now for all the fields in the JSON of the message, columns are defined and
 the sum query from earlier can operate on the ``account_balance`` column directly:
 
-.. code-block:: none
+.. code-block:: text
 
     presto:tpch> DESCRIBE customer;
           Column       |  Type      | Extra |                   Comment
@@ -387,7 +387,7 @@ Setup a live Twitter feed
 
 * Download the twistr tool
 
-.. code-block:: none
+.. code-block:: text
 
     $ curl -o twistr https://repo1.maven.org/maven2/de/softwareforge/twistr_kafka_0811/1.2/twistr_kafka_0811-1.2.sh
     $ chmod 755 twistr
@@ -398,7 +398,7 @@ Setup a live Twitter feed
 * Create a ``twistr.properties`` file and put the access and consumer key
   and secrets into it:
 
-.. code-block:: none
+.. code-block:: text
 
     twistr.access-token-key=...
     twistr.access-token-secret=...
@@ -411,7 +411,7 @@ Create a tweets table on Presto
 
 Add the tweets table to the ``etc/catalog/kafka.properties`` file:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=kafka
     kafka.nodes=localhost:9092
@@ -503,7 +503,7 @@ Feed live data
 
 Start the twistr tool:
 
-.. code-block:: none
+.. code-block:: text
 
     $ java -Dness.config.location=file:$(pwd) -Dness.config=twistr -jar ./twistr
 
@@ -512,7 +512,7 @@ into a Kafka topic called ``twitter_feed``.
 
 Now run queries against live data:
 
-.. code-block:: none
+.. code-block:: text
 
     $ ./presto-cli --catalog kafka --schema default
 
@@ -557,7 +557,7 @@ Epilogue: Time stamps
 The tweets feed, that was set up in the last step, contains a time stamp in
 RFC 2822 format as ``created_at`` attribute in each tweet.
 
-.. code-block:: none
+.. code-block:: text
 
     presto:default> SELECT DISTINCT json_extract_scalar(_message, '$.created_at')) AS raw_date
                  -> FROM tweets LIMIT 5;
@@ -573,7 +573,7 @@ RFC 2822 format as ``created_at`` attribute in each tweet.
 The topic definition file for the tweets table contains a mapping onto a
 timestamp using the ``rfc2822`` converter:
 
-.. code-block:: none
+.. code-block:: text
 
     ...
     {
@@ -586,7 +586,7 @@ timestamp using the ``rfc2822`` converter:
 
 This allows the raw data to be mapped onto a Presto timestamp column:
 
-.. code-block:: none
+.. code-block:: text
 
     presto:default> SELECT created_at, raw_date FROM (
                  ->   SELECT created_at, json_extract_scalar(_message, '$.created_at') AS raw_date

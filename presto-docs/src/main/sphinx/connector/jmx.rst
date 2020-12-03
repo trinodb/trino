@@ -18,13 +18,13 @@ Configuration
 To configure the JMX connector, create a catalog properties file
 ``etc/catalog/jmx.properties`` with the following contents:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=jmx
 
 To enable periodical dumps, define the following properties:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=jmx
     jmx.dump-tables=java.lang:type=Runtime,presto.execution.scheduler:name=NodeScheduler
@@ -38,7 +38,7 @@ and ``max-entries`` have default values of ``10s`` and ``86400`` accordingly.
 
 Commas in MBean names should be escaped in the following manner:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=jmx
     jmx.dump-tables=presto.memory:name=general\\,type=memorypool,\
@@ -61,7 +61,7 @@ following query shows the JVM version of every node::
     SELECT node, vmname, vmversion
     FROM jmx.current."java.lang:type=runtime";
 
-.. code-block:: none
+.. code-block:: text
 
                      node                 |              vmname               | vmversion
     --------------------------------------+-----------------------------------+-----------
@@ -74,7 +74,7 @@ for each node::
     SELECT openfiledescriptorcount, maxfiledescriptorcount
     FROM jmx.current."java.lang:type=operatingsystem";
 
-.. code-block:: none
+.. code-block:: text
 
      openfiledescriptorcount | maxfiledescriptorcount
     -------------------------+------------------------
@@ -88,7 +88,7 @@ returns information from the different Presto memory pools on each node::
     SELECT freebytes, node, object_name
     FROM jmx.current."presto.memory:*type=memorypool*";
 
-.. code-block:: none
+.. code-block:: text
 
      freebytes  |  node   |                       object_name
     ------------+---------+----------------------------------------------------------
@@ -103,7 +103,7 @@ timestamp column that stores the time at which the snapshot was taken::
 
     SELECT "timestamp", "uptime" FROM jmx.history."java.lang:type=runtime";
 
-.. code-block:: none
+.. code-block:: text
 
             timestamp        | uptime
     -------------------------+--------

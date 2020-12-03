@@ -20,7 +20,7 @@ Ansible, often used for virtual machines, and Kubernetes for container usage.
 Setting an environment variable can be done manually on the command line as
 well.
 
-.. code-block:: none
+.. code-block:: text
 
     export DB_PASSWORD=my-super-secret-pwd
 

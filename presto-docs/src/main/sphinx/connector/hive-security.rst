@@ -210,7 +210,7 @@ This property is optional; no default value.
 Example configuration with ``NONE`` authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: none
+.. code-block:: text
 
     hive.metastore.authentication.type=NONE
 
@@ -221,7 +221,7 @@ metastore. Kerberos is not used.
 Example configuration with ``KERBEROS`` authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: none
+.. code-block:: text
 
     hive.metastore.authentication.type=KERBEROS
     hive.metastore.thrift.impersonation.enabled=true
@@ -321,7 +321,7 @@ may impact query execution performance.
 Example configuration with ``NONE`` authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: none
+.. code-block:: text
 
     hive.hdfs.authentication.type=NONE
 
@@ -334,7 +334,7 @@ mechanism. Kerberos is not used.
 Example configuration with ``KERBEROS`` authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: none
+.. code-block:: text
 
     hive.hdfs.authentication.type=KERBEROS
     hive.hdfs.presto.principal=hdfs@EXAMPLE.COM
@@ -371,7 +371,7 @@ HDFS Permissions and ACLs are explained in the `HDFS Permissions Guide
 ``NONE`` authentication with HDFS impersonation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: none
+.. code-block:: text
 
     hive.hdfs.authentication.type=NONE
     hive.hdfs.impersonation.enabled=true
@@ -386,7 +386,7 @@ section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 ``KERBEROS`` Authentication With HDFS Impersonation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block:: none
+.. code-block:: text
 
     hive.hdfs.authentication.type=KERBEROS
     hive.hdfs.impersonation.enabled=true
@@ -413,7 +413,7 @@ Impersonation Accessing the Hive Metastore
 Presto supports impersonating the end user when accessing the Hive metastore.
 Metastore impersonation can be enabled with
 
-.. code-block:: none
+.. code-block:: text
 
     hive.metastore.thrift.impersonation.enabled=true
 

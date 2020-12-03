@@ -5,7 +5,7 @@ DESCRIBE INPUT
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     DESCRIBE INPUT statement_name
 
@@ -30,7 +30,7 @@ Prepare and describe a query with three parameters:
 
     DESCRIBE INPUT my_select1;
 
-.. code-block:: none
+.. code-block:: text
 
      Position | Type
     --------------------
@@ -50,7 +50,7 @@ Prepare and describe a query with no parameters:
 
     DESCRIBE INPUT my_select2;
 
-.. code-block:: none
+.. code-block:: text
 
      Position | Type
     -----------------

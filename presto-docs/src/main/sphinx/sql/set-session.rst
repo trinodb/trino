@@ -5,7 +5,7 @@ SET SESSION
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SET SESSION name = expression
     SET SESSION catalog.name = expression

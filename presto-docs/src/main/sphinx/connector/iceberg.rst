@@ -35,7 +35,7 @@ Configuration
 Iceberg supports the same metastore configuration properties as the Hive connector.
 At a minimum, ``hive.metastore.uri`` must be configured:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=iceberg
     hive.metastore.uri=thrift://localhost:9083

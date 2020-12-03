@@ -34,7 +34,7 @@ All Hive connectors support reading data from
 This requires two additional catalog properties for the Hive connector
 to specify your AWS Access Key ID and Secret Access Key:
 
-.. code-block:: none
+.. code-block:: text
 
     hive.s3.aws-access-key=AKIAIOSFODNN7EXAMPLE
     hive.s3.aws-secret-key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
