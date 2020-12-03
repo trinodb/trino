@@ -6,7 +6,7 @@ to be a ``kdc`` entry in the ``[realms]`` section of the ``/etc/krb5.conf``
 file. You may also want to include an ``admin_server`` entry and ensure that
 the |subject_node| can reach the Kerberos admin server on port 749.
 
-.. code-block:: none
+.. code-block:: text
 
    [realms]
      PRESTO.EXAMPLE.COM = {

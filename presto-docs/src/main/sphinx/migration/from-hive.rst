@@ -116,7 +116,7 @@ Caution with datediff
 The Hive ``datediff`` function returns the difference between the two dates in
 days and is declared as:
 
-.. code-block:: none
+.. code-block:: text
 
     datediff(string enddate, string startdate)  -> integer
 

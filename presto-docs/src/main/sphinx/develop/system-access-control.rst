@@ -46,7 +46,7 @@ as a map to ``SystemAccessControlFactory.create()``.
 
 Example configuration file:
 
-.. code-block:: none
+.. code-block:: text
 
     access-control.name=custom-access-control
     custom-property1=custom-value1

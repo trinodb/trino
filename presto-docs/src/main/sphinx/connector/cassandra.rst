@@ -18,7 +18,7 @@ To configure the Cassandra connector, create a catalog properties file
 replacing ``host1,host2`` with a comma-separated list of the Cassandra
 nodes, used to discovery the cluster topology:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=cassandra
     cassandra.contact-points=host1,host2
@@ -167,7 +167,7 @@ keyspace using Cassandra's cqlsh (CQL interactive terminal):
 
 .. _Getting Started: https://wiki.apache.org/cassandra/GettingStarted
 
-.. code-block:: none
+.. code-block:: text
 
     cqlsh> CREATE KEYSPACE mykeyspace
        ... WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
@@ -182,7 +182,7 @@ This table can be described in Presto::
 
     DESCRIBE cassandra.mykeyspace.users;
 
-.. code-block:: none
+.. code-block:: text
 
      Column  |  Type   | Extra | Comment
     ---------+---------+-------+---------

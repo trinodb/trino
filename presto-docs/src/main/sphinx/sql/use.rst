@@ -5,7 +5,7 @@ USE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     USE catalog.schema
     USE schema

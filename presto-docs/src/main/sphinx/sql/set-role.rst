@@ -5,7 +5,7 @@ SET ROLE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SET ROLE ( role | ALL | NONE )
 

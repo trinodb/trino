@@ -5,7 +5,7 @@ EXPLAIN
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     EXPLAIN [ ( option [, ...] ) ] statement
 
@@ -49,7 +49,7 @@ EXPLAIN (TYPE LOGICAL)
 
 Logical plan:
 
-.. code-block:: none
+.. code-block:: text
 
     presto:tiny> EXPLAIN (TYPE LOGICAL) SELECT regionkey, count(*) FROM nation GROUP BY 1;
                                                        Query Plan
@@ -88,7 +88,7 @@ EXPLAIN (TYPE DISTRIBUTED)
 
 Distributed plan:
 
-.. code-block:: none
+.. code-block:: text
 
     presto:tiny> EXPLAIN (TYPE DISTRIBUTED) SELECT regionkey, count(*) FROM nation GROUP BY 1;
                                                   Query Plan
@@ -139,7 +139,7 @@ EXPLAIN (TYPE VALIDATE)
 
 Validate:
 
-.. code-block:: none
+.. code-block:: text
 
     presto:tiny> EXPLAIN (TYPE VALIDATE) SELECT regionkey, count(*) FROM nation GROUP BY 1;
      Valid
@@ -151,7 +151,7 @@ EXPLAIN (TYPE IO)
 
 IO:
 
-.. code-block:: none
+.. code-block:: text
 
 
     presto:hive> EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_lineitem SELECT * FROM lineitem WHERE shipdate = '2020-02-01' AND quantity > 10;

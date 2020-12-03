@@ -16,7 +16,7 @@ Configuration
 To configure the Pinot connector, create a catalog properties file
 e.g. ``etc/catalog/pinot.properties`` with at least the following contents:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=pinot
     pinot.controller-urls=host1:9000,host2:9000

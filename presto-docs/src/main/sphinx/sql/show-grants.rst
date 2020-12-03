@@ -5,7 +5,7 @@ SHOW GRANTS
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW GRANTS [ ON [ TABLE ] table_name ]
 

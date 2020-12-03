@@ -36,7 +36,7 @@ Server Config Properties
 The following is an example of the required properties that need to be added
 to the coordinator's ``config.properties`` file:
 
-.. code-block:: none
+.. code-block:: text
 
     http-server.authentication.type=PASSWORD
 
@@ -76,7 +76,7 @@ Password Authenticator Configuration
 Password authentication needs to be configured to use LDAP. Create an
 ``etc/password-authenticator.properties`` file on the coordinator. Example:
 
-.. code-block:: none
+.. code-block:: text
 
     password-authenticator.name=ldap
     ldap.url=ldaps://ldap-server:636
@@ -116,26 +116,26 @@ Based on the LDAP server implementation type, the property
 Active Directory
 ****************
 
-.. code-block:: none
+.. code-block:: text
 
     ldap.user-bind-pattern=${USER}@<domain_name_of_the_server>
 
 Example:
 
-.. code-block:: none
+.. code-block:: text
 
     ldap.user-bind-pattern=${USER}@corp.example.com
 
 OpenLDAP
 ********
 
-.. code-block:: none
+.. code-block:: text
 
     ldap.user-bind-pattern=uid=${USER},<distinguished_name_of_the_user>
 
 Example:
 
-.. code-block:: none
+.. code-block:: text
 
     ldap.user-bind-pattern=uid=${USER},OU=America,DC=corp,DC=example,DC=com
 
@@ -197,26 +197,26 @@ Property                                                Description
 Active Directory
 ****************
 
-.. code-block:: none
+.. code-block:: text
 
     ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(sAMAccountName=${USER})(memberof=<dn_of_the_authorized_group>))
 
 Example:
 
-.. code-block:: none
+.. code-block:: text
 
     ldap.group-auth-pattern=(&(objectClass=person)(sAMAccountName=${USER})(memberof=CN=AuthorizedGroup,OU=Asia,DC=corp,DC=example,DC=com))
 
 OpenLDAP
 ********
 
-.. code-block:: none
+.. code-block:: text
 
     ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(uid=${USER})(memberof=<dn_of_the_authorized_group>))
 
 Example:
 
-.. code-block:: none
+.. code-block:: text
 
     ldap.group-auth-pattern=(&(objectClass=inetOrgPerson)(uid=${USER})(memberof=CN=AuthorizedGroup,OU=Asia,DC=corp,DC=example,DC=com))
 
@@ -228,7 +228,7 @@ based on complex group authorization search queries. For example, if you want to
 authorize a user belonging to any one of multiple groups (in OpenLDAP), this
 property may be set as follows:
 
-.. code-block:: none
+.. code-block:: text
 
     ldap.group-auth-pattern=(&(|(memberOf=CN=normal_group,DC=corp,DC=com)(memberOf=CN=another_group,DC=com))(objectClass=inetOrgPerson)(uid=${USER}))
 
@@ -263,7 +263,7 @@ options. You can either use ``--keystore-*`` or ``--truststore-*`` properties
 to secure TLS connection. The simplest way to invoke the CLI is with a
 wrapper script.
 
-.. code-block:: none
+.. code-block:: text
 
     #!/bin/bash
 
@@ -316,7 +316,7 @@ SSL Debugging for Presto CLI
 If you encounter any SSL related errors when running Presto CLI, you can run CLI using ``-Djavax.net.debug=ssl``
 parameter for debugging. You should use the Presto CLI executable jar to enable this. E.g.:
 
-.. code-block:: none
+.. code-block:: text
 
     java -Djavax.net.debug=ssl \
     -jar \
@@ -349,7 +349,7 @@ The same LDAP server certificate on the Presto coordinator, running on JDK
 version >= 8u181, that was previously able to successfully connect to an
 LDAPS server, may now fail with the below error:
 
-.. code-block:: none
+.. code-block:: text
 
     javax.naming.CommunicationException: simple bind failed: ldapserver:636
     [Root exception is javax.net.ssl.SSLHandshakeException: java.security.cert.CertificateException: No subject alternative DNS name matching ldapserver found.]

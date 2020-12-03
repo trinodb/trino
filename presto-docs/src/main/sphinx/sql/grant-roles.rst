@@ -5,7 +5,7 @@ GRANT ROLES
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     GRANT role [, ...]
     TO ( user | USER user | ROLE role) [, ...]

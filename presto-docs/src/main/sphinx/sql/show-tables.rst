@@ -5,7 +5,7 @@ SHOW TABLES
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW TABLES [ FROM schema ] [ LIKE pattern ]
 

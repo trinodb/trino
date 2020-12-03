@@ -15,7 +15,7 @@ mount the MemSQL connector as the ``memsql`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=memsql
     connection-url=jdbc:mariadb://example.net:3306

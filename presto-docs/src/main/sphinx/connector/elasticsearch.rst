@@ -19,7 +19,7 @@ To configure the Elasticsearch connector, create a catalog properties file
 ``etc/catalog/elasticsearch.properties`` with the following contents,
 replacing the properties as appropriate:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=elasticsearch
     elasticsearch.host=localhost

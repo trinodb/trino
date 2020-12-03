@@ -5,7 +5,7 @@ ROLLBACK
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     ROLLBACK [ WORK ]
 

@@ -11,7 +11,7 @@ For example, as a top-level query::
 
    VALUES ('a', 1), ('b', 2);
 
-.. code-block:: none
+.. code-block:: text
 
     _col0 | _col1
    -------+-------
@@ -34,7 +34,7 @@ Alternatively, in the ``FROM`` clause::
     ) AS fruit (letter, fruit)
     USING (letter);
 
-.. code-block:: none
+.. code-block:: text
 
     letter | animal | letter |  fruit
    --------+--------+--------+---------

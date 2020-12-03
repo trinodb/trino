@@ -5,7 +5,7 @@ SHOW COLUMNS
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW COLUMNS FROM table [ LIKE pattern ]
 

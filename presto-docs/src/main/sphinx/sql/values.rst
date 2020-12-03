@@ -5,14 +5,14 @@ VALUES
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     VALUES row [, ...]
 
 
 where ``row`` is a single expression or
 
-.. code-block:: none
+.. code-block:: text
 
     ( column_expression [, ...] )
 

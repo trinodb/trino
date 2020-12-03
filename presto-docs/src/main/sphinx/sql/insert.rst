@@ -5,7 +5,7 @@ INSERT
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     INSERT INTO table_name [ ( column [, ... ] ) ] query
 

@@ -57,7 +57,7 @@ metadata, such as ``CREATE``, ``INSERT`` or ``DELETE``, is prohibited.
 To use this plugin, add an ``etc/access-control.properties``
 file with the following contents:
 
-.. code-block:: none
+.. code-block:: text
 
    access-control.name=read-only
 

@@ -5,7 +5,7 @@ DELETE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     DELETE FROM table_name [ WHERE condition ]
 

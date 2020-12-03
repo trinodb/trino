@@ -5,7 +5,7 @@ SHOW ROLE GRANTS
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW ROLE GRANTS [ FROM catalog ]
 

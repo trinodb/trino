@@ -5,7 +5,7 @@ CREATE TABLE AS
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     CREATE TABLE [ IF NOT EXISTS ] table_name [ ( column_alias, ... ) ]
     [ COMMENT table_comment ]

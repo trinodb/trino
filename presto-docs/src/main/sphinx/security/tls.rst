@@ -21,7 +21,7 @@ be used in the certificate. In this case, it should be the unqualified hostname
 of the Presto coordinator. In the following example, you can see this in the prompt
 that confirms the information is correct:
 
-.. code-block:: none
+.. code-block:: text
 
     keytool -genkeypair -alias presto -keyalg RSA -keystore keystore.jks
     Enter keystore password:
@@ -64,7 +64,7 @@ In the example, we are going to import ``presto_certificate.cer`` to a custom
 truststore ``presto_trust.jks``, and you get a prompt asking if the certificate
 can be trusted or not.
 
-.. code-block:: none
+.. code-block:: text
 
     $ keytool -import -v -trustcacerts -alias presto_trust -file presto_certificate.cer -keystore presto_trust.jks -keypass <truststore_pass>
 
@@ -79,6 +79,6 @@ Java Keystore File Verification
 Verify the password for a keystore file and view its contents using `keytool
 <https://docs.oracle.com/en/java/javase/11/tools/keytool.html>`_.
 
-.. code-block:: none
+.. code-block:: text
 
     $ keytool -list -v -keystore /etc/presto/presto.jks

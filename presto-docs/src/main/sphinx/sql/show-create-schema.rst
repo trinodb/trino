@@ -5,7 +5,7 @@ SHOW CREATE SCHEMA
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW CREATE SCHEMA schema_name
 

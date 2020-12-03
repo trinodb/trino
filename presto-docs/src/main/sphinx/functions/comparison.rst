@@ -142,7 +142,7 @@ Quantified Comparison Predicates: ALL, ANY and SOME
 The ``ALL``, ``ANY`` and ``SOME`` quantifiers can be used together with comparison operators in the
 following way:
 
-.. code-block:: none
+.. code-block:: text
 
     expression operator quantifier ( subquery )
 

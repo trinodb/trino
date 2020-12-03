@@ -38,7 +38,7 @@ To configure the Kafka connector, create a catalog properties file
 ``etc/catalog/kafka.properties`` with the following contents,
 replacing the properties as appropriate:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=kafka
     kafka.table-names=table1,table2
@@ -193,7 +193,7 @@ name of the file can be arbitrary but must end in ``.json``. Place the
 file in the directory configured with the ``kafka.table-description-dir``
 property. The table definition file must be accessible from all Presto nodes.
 
-.. code-block:: none
+.. code-block:: text
 
     {
         "tableName": ...,
@@ -242,7 +242,7 @@ Field           Required  Type           Description
 
 Each field definition is a JSON object:
 
-.. code-block:: none
+.. code-block:: text
 
     {
         "name": ...,

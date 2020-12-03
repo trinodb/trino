@@ -5,7 +5,7 @@ EXPLAIN ANALYZE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     EXPLAIN ANALYZE [VERBOSE] statement
 
@@ -32,7 +32,7 @@ some additional statistics (e.g: average input per node instance, average number
 relevant plan nodes). Such statistics are useful when one wants to detect data anomalies for a query
 (skewness, abnormal hash collisions).
 
-.. code-block:: none
+.. code-block:: text
 
     presto:sf1> EXPLAIN ANALYZE SELECT count(*), clerk FROM orders WHERE orderdate > date '1995-01-01' GROUP BY clerk;
 
@@ -75,7 +75,7 @@ relevant plan nodes). Such statistics are useful when one wants to detect data a
 When the ``VERBOSE`` option is used, some operators may report additional information.
 For example, the window function operator will output the following:
 
-.. code-block:: none
+.. code-block:: text
 
     EXPLAIN ANALYZE VERBOSE SELECT count(clerk) OVER() FROM orders WHERE orderdate > date '1995-01-01';
 

@@ -15,7 +15,7 @@ mount the MySQL connector as the ``mysql`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 
-.. code-block:: none
+.. code-block:: text
 
     connector.name=mysql
     connection-url=jdbc:mysql://example.net:3306

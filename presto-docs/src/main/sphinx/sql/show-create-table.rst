@@ -5,7 +5,7 @@ SHOW CREATE TABLE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     SHOW CREATE TABLE table_name
 
@@ -21,7 +21,7 @@ Show the SQL that can be run to create the ``orders`` table::
 
     SHOW CREATE TABLE sf1.orders;
 
-.. code-block:: none
+.. code-block:: text
 
                   Create Table
     -----------------------------------------

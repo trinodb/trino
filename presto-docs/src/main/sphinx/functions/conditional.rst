@@ -11,7 +11,7 @@ The standard SQL ``CASE`` expression has two forms.
 The "simple" form searches each ``value`` expression from left to right
 until it finds one that equals ``expression``:
 
-.. code-block:: none
+.. code-block:: text
 
     CASE expression
         WHEN value THEN result
@@ -33,7 +33,7 @@ returned if it exists, otherwise null is returned. Example::
 The "searched" form evaluates each boolean ``condition`` from left
 to right until one is true and returns the matching ``result``:
 
-.. code-block:: none
+.. code-block:: text
 
     CASE
         WHEN condition THEN result
@@ -59,7 +59,7 @@ IF
 The ``IF`` function is actually a language construct
 that is equivalent to the following ``CASE`` expression:
 
-.. code-block:: none
+.. code-block:: text
 
     CASE
         WHEN condition THEN true_value
@@ -127,7 +127,7 @@ Source table with some invalid data:
 
     SELECT * FROM shipping;
 
-.. code-block:: none
+.. code-block:: text
 
      origin_state | origin_zip | packages | total_cost
     --------------+------------+----------+------------
@@ -143,7 +143,7 @@ Query failure without ``TRY``:
 
     SELECT CAST(origin_zip AS BIGINT) FROM shipping;
 
-.. code-block:: none
+.. code-block:: text
 
     Query failed: Cannot cast 'P332a' to BIGINT
 
@@ -153,7 +153,7 @@ Query failure without ``TRY``:
 
     SELECT TRY(CAST(origin_zip AS BIGINT)) FROM shipping;
 
-.. code-block:: none
+.. code-block:: text
 
      origin_zip
     ------------
@@ -169,7 +169,7 @@ Query failure without ``TRY``:
 
     SELECT total_cost / packages AS per_package FROM shipping;
 
-.. code-block:: none
+.. code-block:: text
 
     Query failed: Division by zero
 
@@ -179,7 +179,7 @@ Default values with ``TRY`` and ``COALESCE``:
 
     SELECT COALESCE(TRY(total_cost / packages), 0) AS per_package FROM shipping;
 
-.. code-block:: none
+.. code-block:: text
 
      per_package
     -------------

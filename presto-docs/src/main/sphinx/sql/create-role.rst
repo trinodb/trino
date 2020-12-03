@@ -5,7 +5,7 @@ CREATE ROLE
 Synopsis
 --------
 
-.. code-block:: none
+.. code-block:: text
 
     CREATE ROLE role_name
     [ WITH ADMIN ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]

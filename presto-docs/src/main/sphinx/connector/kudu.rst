@@ -102,7 +102,7 @@ Example
 
       DESCRIBE kudu.default.users;
 
-  .. code-block:: none
+  .. code-block:: text
 
          Column   |  Type   |                      Extra                      | Comment
       ------------+---------+-------------------------------------------------+---------

@@ -41,7 +41,7 @@ as a map to ``EventListenerFactory.create()``.
 
 Example configuration file:
 
-.. code-block:: none
+.. code-block:: text
 
     event-listener.name=custom-event-listener
     custom-property1=custom-value1
