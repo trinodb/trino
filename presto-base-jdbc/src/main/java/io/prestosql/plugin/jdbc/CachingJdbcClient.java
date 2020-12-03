@@ -62,6 +62,7 @@ public class CachingJdbcClient
         implements JdbcClient
 {
     private static final Object NULL_MARKER = new Object();
+    private static final Duration CACHING_DISABLED = Duration.valueOf("0ms");
 
     private final JdbcClient delegate;
     private final boolean cacheMissing;
@@ -90,6 +91,11 @@ public class CachingJdbcClient
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(metadataCachingTtl.toMillis(), TimeUnit.MILLISECONDS)
                 .recordStats();
+
+        if (metadataCachingTtl.equals(CACHING_DISABLED)) {
+            // Disables the cache entirely
+            cacheBuilder.maximumSize(0);
+        }
 
         schemaNamesCache = cacheBuilder.build();
         tableNamesCache = cacheBuilder.build();
