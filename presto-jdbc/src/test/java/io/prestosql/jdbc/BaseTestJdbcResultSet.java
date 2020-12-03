@@ -631,7 +631,9 @@ public abstract class BaseTestJdbcResultSet
             // array or array
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[NULL, ARRAY[NULL, BIGINT '1', 2]]", Types.ARRAY, (rs, column) -> {
                 assertEquals(rs.getArray(column).getArray(), new Object[] {null, asList(null, 1L, 2L)});
-                assertEquals(((Array) rs.getObject(column)).getArray(), new Object[] {null, asList(null, 1L, 2L)}); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                assertEquals(
+                        ((Array) rs.getObject(column)).getArray(),
+                        new Object[] {null, asList(null, 1L, 2L)}); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
                 assertEquals(rs.getObject(column, List.class), asList(null, asList(null, 1L, 2L)));
             });
 
