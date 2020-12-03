@@ -31,6 +31,7 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.utils.AttributedStringBuilder;
+import org.jline.utils.AttributedStyle;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
@@ -233,12 +234,20 @@ public class Console
                 if (schema != null) {
                     prompt += ":" + schema.replace("%", "%%");
                 }
-                String commandPrompt = prompt + "> ";
+                String commandPrompt = prompt + ">";
 
                 // read a line of input from user
                 String line;
+
+                String coloredPrompt = new AttributedStringBuilder()
+                        .style(AttributedStyle.BOLD.underline().foreground(CYAN))
+                        .append(commandPrompt)
+                        .style(DEFAULT)
+                        .append(" ")
+                        .toAnsi(reader.getTerminal());
+
                 try {
-                    line = reader.readLine(commandPrompt, remaining);
+                    line = reader.readLine(coloredPrompt, remaining);
                 }
                 catch (UserInterruptException e) {
                     if (!e.getPartialLine().isEmpty()) {
