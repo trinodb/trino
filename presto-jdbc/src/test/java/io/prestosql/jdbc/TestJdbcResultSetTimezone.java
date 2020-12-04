@@ -18,6 +18,7 @@ import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.server.testing.TestingPrestoServer;
+import oracle.jdbc.OracleType;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
@@ -61,6 +62,7 @@ import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.TIME;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -344,7 +346,7 @@ public class TestJdbcResultSetTimezone
                 log.info("Checking behavior against %s using expression: %s", driver, referenceExpression);
                 try {
                     verify(!referenceExpression.isEmpty(), "referenceExpression is empty");
-                    checkRepresentation(prestoExpression, referenceExpression, sessionTimezoneId, driver, assertion);
+                    checkRepresentation(prestoExpression, referenceExpression, type, sessionTimezoneId, driver, assertion);
                 }
                 catch (RuntimeException | AssertionError e) {
                     String message = format("Failure when checking behavior against %s", driver);
@@ -369,7 +371,7 @@ public class TestJdbcResultSetTimezone
         }
     }
 
-    private void checkRepresentation(String prestoExpression, String referenceExpression, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
+    private void checkRepresentation(String prestoExpression, String referenceExpression, JDBCType type, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
             throws Exception
     {
         try (ResultSet prestoResultSet = prestoQuery(prestoExpression, sessionTimezoneId);
@@ -377,6 +379,13 @@ public class TestJdbcResultSetTimezone
             assertTrue(prestoResultSet.next());
             assertTrue(referenceResultSet.next());
             assertion.accept(prestoResultSet, referenceResultSet, 1);
+
+            assertThat(prestoResultSet.getMetaData().getColumnType(1)).as("Presto declared SQL type")
+                    .isEqualTo(type.getVendorTypeNumber());
+
+            assertThat(referenceResultSet.getMetaData().getColumnType(1)).as("Reference driver's declared SQL type for " + type)
+                    .isEqualTo(reference.expectedDeclaredJdbcType(type));
+
             assertFalse(prestoResultSet.next());
             assertFalse(referenceResultSet.next());
         }
@@ -407,6 +416,8 @@ public class TestJdbcResultSetTimezone
                 throws Exception;
 
         boolean supports(JDBCType type);
+
+        int expectedDeclaredJdbcType(JDBCType type);
 
         void setUp();
 
@@ -450,6 +461,20 @@ public class TestJdbcResultSetTimezone
                 return false;
             }
             return true;
+        }
+
+        @Override
+        public int expectedDeclaredJdbcType(JDBCType type)
+        {
+            if (type == DATE) {
+                // Oracle's DATE is actually a TIMESTAMP
+                return Types.TIMESTAMP;
+            }
+            if (type == TIMESTAMP_WITH_TIMEZONE) {
+                // Oracle declares TIMESTAMP WITH TIME ZONE using vendor-specific type number
+                return OracleType.TIMESTAMP_WITH_TIME_ZONE.getVendorTypeNumber();
+            }
+            return type.getVendorTypeNumber();
         }
 
         @Override
@@ -518,6 +543,16 @@ public class TestJdbcResultSetTimezone
         public boolean supports(JDBCType type)
         {
             return true;
+        }
+
+        @Override
+        public int expectedDeclaredJdbcType(JDBCType type)
+        {
+            if (type == TIMESTAMP_WITH_TIMEZONE) {
+                // PostgreSQL returns TIMESTAMP WITH TIME ZONE declaring it as TIMESTAMP on JDBC level
+                return Types.TIMESTAMP;
+            }
+            return type.getVendorTypeNumber();
         }
 
         @Override
