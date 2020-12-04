@@ -41,7 +41,6 @@ import com.amazonaws.services.s3.Headers;
 import com.amazonaws.services.s3.internal.Constants;
 import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
@@ -59,7 +58,6 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
-import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
 import com.amazonaws.services.s3.transfer.Transfer;
@@ -119,6 +117,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.amazonaws.services.s3.Headers.CRYPTO_KEYWRAP_ALGORITHM;
@@ -470,8 +470,8 @@ public class PrestoS3FileSystem
         String key = keyFromPath(qualifiedPath(path));
 
         if (streamingUploadEnabled) {
-            String uploadId = initMultipartUpload(bucketName, key).getUploadId();
-            return new PrestoS3StreamingOutputStream(s3, bucketName, key, uploadId, uploadExecutor, streamingUploadPartSize);
+            Supplier<String> uploadIdFactory = () -> initMultipartUpload(bucketName, key).getUploadId();
+            return new PrestoS3StreamingOutputStream(s3, bucketName, key, this::customizePutObjectRequest, uploadIdFactory, uploadExecutor, streamingUploadPartSize);
         }
 
         if (!stagingDirectory.exists()) {
@@ -481,7 +481,7 @@ public class PrestoS3FileSystem
             throw new IOException("Configured staging path is not a directory: " + stagingDirectory);
         }
         File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
-        return new PrestoS3StagingOutputStream(s3, bucketName, key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType, requesterPaysEnabled, s3StorageClass);
+        return new PrestoS3StagingOutputStream(s3, bucketName, key, tempFile, this::customizePutObjectRequest, multiPartUploadMinFileSize, multiPartUploadMinPartSize);
     }
 
     @Override
@@ -974,9 +974,30 @@ public class PrestoS3FileSystem
         return Optional.of(new BasicAWSCredentials(accessKey, secretKey));
     }
 
+    private void customizePutObjectRequest(PutObjectRequest request)
+    {
+        if (request.getMetadata() == null) {
+            request.setMetadata(new ObjectMetadata());
+        }
+        if (sseEnabled) {
+            switch (sseType) {
+                case KMS:
+                    request.setSSEAwsKeyManagementParams(getSseKeyManagementParams());
+                    break;
+                case S3:
+                    request.getMetadata().setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
+                    break;
+            }
+        }
+        request.setCannedAcl(s3AclType.getCannedACL());
+        request.setRequesterPays(requesterPaysEnabled);
+        request.setStorageClass(s3StorageClass.getS3StorageClass());
+    }
+
     private InitiateMultipartUploadResult initMultipartUpload(String bucket, String key)
     {
         InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest(bucket, key)
+                .withObjectMetadata(new ObjectMetadata())
                 .withCannedACL(s3AclType.getCannedACL())
                 .withRequesterPays(requesterPaysEnabled)
                 .withStorageClass(s3StorageClass.getS3StorageClass());
@@ -984,22 +1005,20 @@ public class PrestoS3FileSystem
         if (sseEnabled) {
             switch (sseType) {
                 case KMS:
-                    if (sseKmsKeyId != null) {
-                        request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(sseKmsKeyId));
-                    }
-                    else {
-                        request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams());
-                    }
+                    request.setSSEAwsKeyManagementParams(getSseKeyManagementParams());
                     break;
                 case S3:
-                    ObjectMetadata metadata = new ObjectMetadata();
-                    metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
-                    request.withObjectMetadata(metadata);
+                    request.getObjectMetadata().setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
                     break;
             }
         }
 
         return s3.initiateMultipartUpload(request);
+    }
+
+    private SSEAwsKeyManagementParams getSseKeyManagementParams()
+    {
+        return (sseKmsKeyId != null) ? new SSEAwsKeyManagementParams(sseKmsKeyId) : new SSEAwsKeyManagementParams();
     }
 
     private static class PrestoS3InputStream
@@ -1319,12 +1338,7 @@ public class PrestoS3FileSystem
         private final String bucket;
         private final String key;
         private final File tempFile;
-        private final boolean sseEnabled;
-        private final PrestoS3SseType sseType;
-        private final String sseKmsKeyId;
-        private final CannedAccessControlList aclType;
-        private final boolean requesterPaysEnabled;
-        private final StorageClass s3StorageClass;
+        private final Consumer<PutObjectRequest> requestCustomizer;
 
         private boolean closed;
 
@@ -1333,14 +1347,9 @@ public class PrestoS3FileSystem
                 String bucket,
                 String key,
                 File tempFile,
-                boolean sseEnabled,
-                PrestoS3SseType sseType,
-                String sseKmsKeyId,
+                Consumer<PutObjectRequest> requestCustomizer,
                 long multiPartUploadMinFileSize,
-                long multiPartUploadMinPartSize,
-                PrestoS3AclType aclType,
-                boolean requesterPaysEnabled,
-                PrestoS3StorageClass s3StorageClass)
+                long multiPartUploadMinPartSize)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -1350,17 +1359,10 @@ public class PrestoS3FileSystem
                     .withMinimumUploadPartSize(multiPartUploadMinPartSize)
                     .withMultipartUploadThreshold(multiPartUploadMinFileSize).build();
 
-            requireNonNull(aclType, "aclType is null");
-            requireNonNull(s3StorageClass, "s3StorageClass is null");
-            this.aclType = aclType.getCannedACL();
             this.bucket = requireNonNull(bucket, "bucket is null");
             this.key = requireNonNull(key, "key is null");
             this.tempFile = tempFile;
-            this.sseEnabled = sseEnabled;
-            this.sseType = requireNonNull(sseType, "sseType is null");
-            this.sseKmsKeyId = sseKmsKeyId;
-            this.requesterPaysEnabled = requesterPaysEnabled;
-            this.s3StorageClass = s3StorageClass.getS3StorageClass();
+            this.requestCustomizer = requireNonNull(requestCustomizer, "requestCustomizer is null");
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -1394,29 +1396,8 @@ public class PrestoS3FileSystem
                 log.debug("Starting upload for bucket: %s, key: %s, file: %s, size: %s", bucket, key, tempFile, tempFile.length());
                 STATS.uploadStarted();
 
-                PutObjectRequest request = new PutObjectRequest(bucket, key, tempFile)
-                        .withRequesterPays(requesterPaysEnabled);
-
-                if (sseEnabled) {
-                    switch (sseType) {
-                        case KMS:
-                            if (sseKmsKeyId != null) {
-                                request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(sseKmsKeyId));
-                            }
-                            else {
-                                request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams());
-                            }
-                            break;
-                        case S3:
-                            ObjectMetadata metadata = new ObjectMetadata();
-                            metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
-                            request.setMetadata(metadata);
-                            break;
-                    }
-                }
-                request.withStorageClass(s3StorageClass);
-
-                request.withCannedAcl(aclType);
+                PutObjectRequest request = new PutObjectRequest(bucket, key, tempFile);
+                requestCustomizer.accept(request);
 
                 Upload upload = transferManager.upload(request);
 
@@ -1471,14 +1452,16 @@ public class PrestoS3FileSystem
         private final AmazonS3 s3;
         private final String bucketName;
         private final String key;
-        private final String uploadId;
-
+        private final Consumer<PutObjectRequest> requestCustomizer;
+        private final Supplier<String> uploadIdFactory;
         private final ExecutorService uploadExecutor;
 
         private int currentPartNumber;
         private byte[] buffer;
         private int bufferSize;
 
+        private boolean failed;
+        private Optional<String> uploadId = Optional.empty();
         private Future<UploadPartResult> inProgressUploadFuture;
         private final List<UploadPartResult> parts = new ArrayList<>();
 
@@ -1486,7 +1469,8 @@ public class PrestoS3FileSystem
                 AmazonS3 s3,
                 String bucketName,
                 String key,
-                String uploadId,
+                Consumer<PutObjectRequest> requestCustomizer,
+                Supplier<String> uploadIdFactory,
                 ExecutorService uploadExecutor,
                 int partSize)
         {
@@ -1498,8 +1482,8 @@ public class PrestoS3FileSystem
 
             this.bucketName = requireNonNull(bucketName, "bucketName is null");
             this.key = requireNonNull(key, "key is null");
-            this.uploadId = requireNonNull(uploadId, "uploadId is null");
-
+            this.requestCustomizer = requireNonNull(requestCustomizer, "requestCustomizer is null");
+            this.uploadIdFactory = requireNonNull(uploadIdFactory, "uploadIdFactory is null");
             this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         }
 
@@ -1539,40 +1523,72 @@ public class PrestoS3FileSystem
         public void close()
                 throws IOException
         {
+            if (failed) {
+                try {
+                    abortUpload();
+                    return;
+                }
+                catch (RuntimeException e) {
+                    throw new IOException(e);
+                }
+            }
+
             try {
                 flushBuffer(true);
                 waitForPreviousUploadFinish();
             }
             catch (IOException | RuntimeException e) {
-                abortUpload(true);
+                abortUploadSuppressed(e);
                 throw e;
             }
 
-            if (!parts.isEmpty()) {
-                try {
-                    finishUpload(parts);
-                }
-                catch (RuntimeException e) {
-                    abortUpload(true);
-                    throw new IOException(e);
-                }
+            try {
+                uploadId.ifPresent(this::finishUpload);
             }
-            else {
-                abortUpload(false);
+            catch (RuntimeException e) {
+                abortUploadSuppressed(e);
+                throw new IOException(e);
             }
         }
 
         private void flushBuffer(boolean finished)
                 throws IOException
         {
+            try {
+                waitForPreviousUploadFinish();
+            }
+            catch (IOException e) {
+                failed = true;
+                abortUploadSuppressed(e);
+                throw e;
+            }
+
+            // skip multipart upload if there would only be one part
+            if (finished && uploadId.isEmpty()) {
+                InputStream in = new ByteArrayInputStream(buffer, 0, bufferSize);
+
+                ObjectMetadata metadata = new ObjectMetadata();
+                metadata.setContentLength(bufferSize);
+                metadata.setContentMD5(getMd5AsBase64(buffer, 0, bufferSize));
+
+                PutObjectRequest request = new PutObjectRequest(bucketName, key, in, metadata);
+                requestCustomizer.accept(request);
+
+                try {
+                    s3.putObject(request);
+                    return;
+                }
+                catch (AmazonServiceException e) {
+                    throw new IOException(e);
+                }
+            }
+
             // The multipart upload API only accept the last part to be less than 5MB
             if (bufferSize == buffer.length || (finished && bufferSize > 0)) {
                 byte[] data = buffer;
                 int length = bufferSize;
                 this.buffer = new byte[buffer.length];
                 bufferSize = 0;
-
-                waitForPreviousUploadFinish();
 
                 inProgressUploadFuture = uploadExecutor.submit(() -> uploadPage(data, length));
             }
@@ -1599,11 +1615,15 @@ public class PrestoS3FileSystem
 
         private UploadPartResult uploadPage(byte[] data, int length)
         {
+            if (uploadId.isEmpty()) {
+                uploadId = Optional.of(uploadIdFactory.get());
+            }
+
             currentPartNumber++;
             UploadPartRequest uploadRequest = new UploadPartRequest()
                     .withBucketName(bucketName)
                     .withKey(key)
-                    .withUploadId(uploadId)
+                    .withUploadId(uploadId.get())
                     .withPartNumber(currentPartNumber)
                     .withInputStream(new ByteArrayInputStream(data, 0, length))
                     .withPartSize(length)
@@ -1614,9 +1634,9 @@ public class PrestoS3FileSystem
             return partResult;
         }
 
-        private void finishUpload(List<UploadPartResult> result)
+        private void finishUpload(String uploadId)
         {
-            List<PartETag> etags = result.stream()
+            List<PartETag> etags = parts.stream()
                     .map(UploadPartResult::getPartETag)
                     .collect(toList());
             s3.completeMultipartUpload(new CompleteMultipartUploadRequest(bucketName, key, uploadId, etags));
@@ -1624,17 +1644,22 @@ public class PrestoS3FileSystem
             STATS.uploadSuccessful();
         }
 
-        private void abortUpload(boolean silent)
-                throws IOException
+        private void abortUpload()
         {
             STATS.uploadFailed();
 
+            uploadId.ifPresent(id -> s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucketName, key, id)));
+        }
+
+        @SuppressWarnings("ObjectEquality")
+        private void abortUploadSuppressed(Throwable throwable)
+        {
             try {
-                s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucketName, key, uploadId));
+                abortUpload();
             }
-            catch (AmazonClientException e) {
-                if (!silent) {
-                    throw new IOException(e);
+            catch (Throwable t) {
+                if (throwable != t) {
+                    throwable.addSuppressed(t);
                 }
             }
         }
