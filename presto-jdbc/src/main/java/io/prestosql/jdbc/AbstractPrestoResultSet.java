@@ -16,6 +16,7 @@ package io.prestosql.jdbc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.ClientTypeSignatureParameter;
 import io.prestosql.client.Column;
@@ -76,10 +77,10 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
 abstract class AbstractPrestoResultSet
@@ -600,6 +601,7 @@ abstract class AbstractPrestoResultSet
 
     @javax.annotation.Nullable
     private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @javax.annotation.Nullable Object value)
+            throws SQLException
     {
         requireNonNull(columnType, "columnType is null");
 
@@ -610,9 +612,11 @@ abstract class AbstractPrestoResultSet
         switch (columnType.getRawType()) {
             case "array": {
                 ClientTypeSignature elementType = getOnlyElement(columnType.getArgumentsAsTypeSignatures());
-                return ((List<?>) value).stream()
-                        .map(element -> convertFromClientRepresentation(elementType, element))
-                        .collect(toList());
+                List<Object> converted = Lists.newArrayListWithExpectedSize(((List<?>) value).size());
+                for (Object element : (List<?>) value) {
+                    converted.add(convertFromClientRepresentation(elementType, element));
+                }
+                return unmodifiableList(converted);
             }
 
             case "map": {
@@ -620,11 +624,10 @@ abstract class AbstractPrestoResultSet
                 verify(typeSignatures.size() == 2, "Unexpected map parameters: %s", typeSignatures);
                 ClientTypeSignature keyType = typeSignatures.get(0);
                 ClientTypeSignature valueType = typeSignatures.get(1);
-                // Cannot use toMap() on nullable elements
                 Map<Object, Object> converted = new HashMap<>();
-                ((Map<?, ?>) value).forEach((key, element) -> {
-                    converted.put(convertFromClientRepresentation(keyType, key), convertFromClientRepresentation(valueType, element));
-                });
+                for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                    converted.put(convertFromClientRepresentation(keyType, entry.getKey()), convertFromClientRepresentation(valueType, entry.getValue()));
+                }
                 return unmodifiableMap(converted);
             }
 
