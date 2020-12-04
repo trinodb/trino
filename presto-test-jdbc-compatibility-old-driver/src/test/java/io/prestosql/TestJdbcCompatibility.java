@@ -13,7 +13,6 @@
  */
 package io.prestosql;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
@@ -26,7 +25,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -35,21 +33,19 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Strings.repeat;
-import static com.google.common.base.Verify.verify;
 import static io.prestosql.JdbcDriverCapabilities.driverVersion;
 import static io.prestosql.JdbcDriverCapabilities.hasBrokenParametricTimestampWithTimeZoneSupport;
 import static io.prestosql.JdbcDriverCapabilities.supportsParametricTimestamp;
 import static io.prestosql.JdbcDriverCapabilities.supportsParametricTimestampWithTimeZone;
 import static io.prestosql.JdbcDriverCapabilities.supportsSessionPropertiesViaConnectionUri;
 import static io.prestosql.JdbcDriverCapabilities.testedVersion;
-import static java.lang.Integer.min;
 import static java.lang.String.format;
 import static java.sql.Types.ARRAY;
 import static java.sql.Types.JAVA_OBJECT;
@@ -69,9 +65,6 @@ public class TestJdbcCompatibility
 {
     private static final Optional<Integer> VERSION_UNDER_TEST = testedVersion();
     private static final int TIMESTAMP_DEFAULT_PRECISION = 3;
-    private static final int TIMESTAMP_JDBC_MAX_PRECISION = 9; // nanoseconds
-    private static final int TIMESTAMP_MAX_PRECISION = 12; // picoseconds
-    private static final String TESTED_TZ = "Australia/Eucla"; // GMT+8:45
 
     private TestingPrestoServer server;
     private String serverUrl;
@@ -146,27 +139,53 @@ public class TestJdbcCompatibility
             throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
-        String query = format("SELECT timestamp '2012-10-31 01:00 %s'", TESTED_TZ);
+        String query = "SELECT timestamp '2012-10-31 01:00 Australia/Eucla'";
         checkRepresentation(query, Timestamp.valueOf("2012-10-30 10:15:00.000"), TIMESTAMP, ResultSet::getTimestamp);
     }
 
     @Test
     public void testSelectParametricTimestamp()
     {
-        String timestamp = "2421-01-19 15:55:23.393456298901";
-
-        for (int precision = 0; precision <= TIMESTAMP_MAX_PRECISION; precision++) {
-            String query = format("SELECT cast(TIMESTAMP '%s' as TIMESTAMP(%d))", timestamp, precision);
-            Timestamp expectedTimestamp = roundedSqlTimestamp(timestamp, precision, TIMESTAMP_JDBC_MAX_PRECISION, false);
-
-            int currentPrecision = precision;
-
-            checkRepresentation(query, TIMESTAMP, (resultSet, columnIndex) -> {
-                assertThat(resultSet.getTimestamp(columnIndex)).isEqualTo(expectedTimestamp);
-                assertThat(resultSet.getObject(columnIndex)).isEqualTo(expectedTimestamp);
-                assertThat(resultSet.getString(columnIndex)).isEqualTo(roundedTimestamp(timestamp, currentPrecision, TIMESTAMP_MAX_PRECISION, false));
-            });
+        if (!supportsParametricTimestamp()) {
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23")), "2004-08-24 23:55:23.000");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.1'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.1")), "2004-08-24 23:55:23.100");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.12'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.12")), "2004-08-24 23:55:23.120");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.123'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.1234'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.12345'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.123456'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.1234567'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.12345678'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.123456789'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.1234567890'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.12345678901'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.123456789012'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+            return;
         }
+
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23")), "2004-08-24 23:55:23");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.1'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.1")), "2004-08-24 23:55:23.1");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.12'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.12")), "2004-08-24 23:55:23.12");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.123'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123")), "2004-08-24 23:55:23.123");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.1234'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.1234")), "2004-08-24 23:55:23.1234");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.12345'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.12345")), "2004-08-24 23:55:23.12345");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.123456'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123456")), "2004-08-24 23:55:23.123456");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.1234567'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.1234567")), "2004-08-24 23:55:23.1234567");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.12345678'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.12345678")), "2004-08-24 23:55:23.12345678");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.123456789'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123456789")), "2004-08-24 23:55:23.123456789");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.1234567890'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123456789")), "2004-08-24 23:55:23.1234567890");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.12345678901'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123456789")), "2004-08-24 23:55:23.12345678901");
+        testSelectParametricTimestamp("TIMESTAMP '2004-08-24 23:55:23.123456789012'", Timestamp.valueOf(LocalDateTime.parse("2004-08-24T23:55:23.123456789")), "2004-08-24 23:55:23.123456789012");
+    }
+
+    private void testSelectParametricTimestamp(String expression, Object expectedValue, String expectedString)
+    {
+        String query = "SELECT " + expression;
+        checkRepresentation(query, TIMESTAMP, (resultSet, columnIndex) -> {
+            assertThat(resultSet.getTimestamp(columnIndex)).isEqualTo(expectedValue);
+            assertThat(resultSet.getObject(columnIndex)).isEqualTo(expectedValue);
+            assertThat(resultSet.getString(columnIndex)).isEqualTo(expectedString);
+        });
     }
 
     @Test
@@ -176,37 +195,89 @@ public class TestJdbcCompatibility
             throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
-        String timestamp = "2020-07-16 15:55:23.383345789012";
-        String localTimestamp = "2020-07-16 02:10:23.383345789012";
-
-        for (int precision = 0; precision <= TIMESTAMP_MAX_PRECISION; precision++) {
-            String query = format("SELECT cast(TIMESTAMP '%s %s' as TIMESTAMP(%d) WITH TIME ZONE)", timestamp, TESTED_TZ, precision);
-            String expectedTimestamp = roundedTimestamp(timestamp, precision, TIMESTAMP_MAX_PRECISION, true);
-
-            int currentPrecision = precision;
-
-            checkRepresentation(query, TIMESTAMP, (resultSet, columnIndex) -> {
-                assertThat(resultSet.getString(columnIndex)).isEqualTo(expectedTimestamp + " " + TESTED_TZ);
-                assertThat(resultSet.getTimestamp(columnIndex)).isEqualTo(roundedSqlTimestamp(localTimestamp, currentPrecision, TIMESTAMP_JDBC_MAX_PRECISION, true));
-                assertThat(resultSet.getObject(columnIndex)).isEqualTo(roundedSqlTimestamp(localTimestamp, currentPrecision, TIMESTAMP_JDBC_MAX_PRECISION, true));
-            });
-
-            checkDescribeTimestampType(query, "%s", precision, true);
+        if (!supportsParametricTimestampWithTimeZone()) {
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23 Australia/Eucla'", 0, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23")), "2004-08-24 23:55:23.000 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.1 Australia/Eucla'", 1, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.1")), "2004-08-24 23:55:23.100 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.12 Australia/Eucla'", 2, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.12")), "2004-08-24 23:55:23.120 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.123 Australia/Eucla'", 3, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.1234 Australia/Eucla'", 4, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.12345 Australia/Eucla'", 5, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.123456 Australia/Eucla'", 6, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.1234567 Australia/Eucla'", 7, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.12345678 Australia/Eucla'", 8, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.123456789 Australia/Eucla'", 9, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.1234567890 Australia/Eucla'", 10, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.12345678901 Australia/Eucla'", 11, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.123456789012 Australia/Eucla'", 12, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+            return;
         }
+
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23 Australia/Eucla'", 0, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23")), "2004-08-24 23:55:23 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.1 Australia/Eucla'", 1, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.1")), "2004-08-24 23:55:23.1 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.12 Australia/Eucla'", 2, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.12")), "2004-08-24 23:55:23.12 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.123 Australia/Eucla'", 3, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123")), "2004-08-24 23:55:23.123 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.1234 Australia/Eucla'", 4, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.1234")), "2004-08-24 23:55:23.1234 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.12345 Australia/Eucla'", 5, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.12345")), "2004-08-24 23:55:23.12345 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.123456 Australia/Eucla'", 6, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123456")), "2004-08-24 23:55:23.123456 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.1234567 Australia/Eucla'", 7, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.1234567")), "2004-08-24 23:55:23.1234567 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.12345678 Australia/Eucla'", 8, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.12345678")), "2004-08-24 23:55:23.12345678 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.123456789 Australia/Eucla'", 9, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123456789")), "2004-08-24 23:55:23.123456789 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.1234567890 Australia/Eucla'", 10, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123456789")), "2004-08-24 23:55:23.1234567890 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.12345678901 Australia/Eucla'", 11, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123456789")), "2004-08-24 23:55:23.12345678901 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZone("TIMESTAMP '2004-08-24 23:55:23.123456789012 Australia/Eucla'", 12, Timestamp.valueOf(LocalDateTime.parse("2004-08-24T09:10:23.123456789")), "2004-08-24 23:55:23.123456789012 Australia/Eucla");
+    }
+
+    private void testSelectParametricTimestampWithTimeZone(String expression, int expectedPrecision, Object expectedValue, String expectedString)
+    {
+        String query = "SELECT " + expression;
+        checkRepresentation(query, TIMESTAMP, (resultSet, columnIndex) -> {
+            assertThat(resultSet.getTimestamp(columnIndex)).isEqualTo(expectedValue);
+            assertThat(resultSet.getObject(columnIndex)).isEqualTo(expectedValue);
+            assertThat(resultSet.getString(columnIndex)).isEqualTo(expectedString);
+        });
+        checkDescribeTimestampType(query, "%s", expectedPrecision, true);
     }
 
     @Test
     public void testSelectParametricTimestampInMap()
     {
-        String timestamp = "2004-08-24 23:55:23.383345789012";
-
-        for (int precision = 0; precision <= TIMESTAMP_MAX_PRECISION; precision++) {
-            String query = format("SELECT map_from_entries(ARRAY[('timestamp', cast(TIMESTAMP '%s' as TIMESTAMP(%d)))])", timestamp, precision);
-            String expectedTimestamp = roundedTimestamp(timestamp, precision, TIMESTAMP_MAX_PRECISION, false);
-
-            checkRepresentation(query, expectedTimestamp, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromMap);
-            checkDescribeTimestampType(query, "map(varchar(9), %s)", precision, false);
+        if (!supportsParametricTimestamp()) {
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23'", 0, "2004-08-24 23:55:23.000");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.1'", 1, "2004-08-24 23:55:23.100");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.12'", 2, "2004-08-24 23:55:23.120");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.123'", 3, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.1234'", 4, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.12345'", 5, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.123456'", 6, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.1234567'", 7, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.12345678'", 8, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.123456789'", 9, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.1234567890'", 10, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.12345678901'", 11, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.123456789012'", 12, "2004-08-24 23:55:23.123");
+            return;
         }
+
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23'", 0, "2004-08-24 23:55:23");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.1'", 1, "2004-08-24 23:55:23.1");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.12'", 2, "2004-08-24 23:55:23.12");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.123'", 3, "2004-08-24 23:55:23.123");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.1234'", 4, "2004-08-24 23:55:23.1234");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.12345'", 5, "2004-08-24 23:55:23.12345");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.123456'", 6, "2004-08-24 23:55:23.123456");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.1234567'", 7, "2004-08-24 23:55:23.1234567");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.12345678'", 8, "2004-08-24 23:55:23.12345678");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.123456789'", 9, "2004-08-24 23:55:23.123456789");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.1234567890'", 10, "2004-08-24 23:55:23.1234567890");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.12345678901'", 11, "2004-08-24 23:55:23.12345678901");
+        testSelectParametricTimestampInMap("TIMESTAMP '2004-08-24 23:55:23.123456789012'", 12, "2004-08-24 23:55:23.123456789012");
+    }
+
+    private void testSelectParametricTimestampInMap(String elementExpression, int expectedPrecision, Object expectedValue)
+    {
+        String query = format("SELECT map_from_entries(ARRAY[('timestamp', %s)])", elementExpression);
+        checkRepresentation(query, expectedValue, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromMap);
+        checkDescribeTimestampType(query, "map(varchar(9), %s)", expectedPrecision, false);
     }
 
     @Test
@@ -216,29 +287,86 @@ public class TestJdbcCompatibility
             throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
-        String timestamp = "2004-08-24 23:55:23.383345789012";
-
-        for (int precision = 0; precision <= TIMESTAMP_MAX_PRECISION; precision++) {
-            String query = format("SELECT map_from_entries(ARRAY[('timestamp', cast(TIMESTAMP '%s %s' as TIMESTAMP(%d) WITH TIME ZONE))])", timestamp, TESTED_TZ, precision);
-            String expectedTimestamp = roundedTimestamp(timestamp, precision, TIMESTAMP_MAX_PRECISION, true);
-
-            checkRepresentation(query, expectedTimestamp + " " + TESTED_TZ, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromMap);
-            checkDescribeTimestampType(query, "map(varchar(9), %s)", precision, true);
+        if (!supportsParametricTimestampWithTimeZone()) {
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23 Australia/Eucla'", 0, "2004-08-24 23:55:23.000 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.1 Australia/Eucla'", 1, "2004-08-24 23:55:23.100 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.12 Australia/Eucla'", 2, "2004-08-24 23:55:23.120 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.123 Australia/Eucla'", 3, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.1234 Australia/Eucla'", 4, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.12345 Australia/Eucla'", 5, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.123456 Australia/Eucla'", 6, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.1234567 Australia/Eucla'", 7, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.12345678 Australia/Eucla'", 8, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.123456789 Australia/Eucla'", 9, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.1234567890 Australia/Eucla'", 10, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.12345678901 Australia/Eucla'", 11, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.123456789012 Australia/Eucla'", 12, "2004-08-24 23:55:23.123 Australia/Eucla");
+            return;
         }
+
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23 Australia/Eucla'", 0, "2004-08-24 23:55:23 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.1 Australia/Eucla'", 1, "2004-08-24 23:55:23.1 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.12 Australia/Eucla'", 2, "2004-08-24 23:55:23.12 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.123 Australia/Eucla'", 3, "2004-08-24 23:55:23.123 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.1234 Australia/Eucla'", 4, "2004-08-24 23:55:23.1234 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.12345 Australia/Eucla'", 5, "2004-08-24 23:55:23.12345 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.123456 Australia/Eucla'", 6, "2004-08-24 23:55:23.123456 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.1234567 Australia/Eucla'", 7, "2004-08-24 23:55:23.1234567 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.12345678 Australia/Eucla'", 8, "2004-08-24 23:55:23.12345678 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.123456789 Australia/Eucla'", 9, "2004-08-24 23:55:23.123456789 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.1234567890 Australia/Eucla'", 10, "2004-08-24 23:55:23.1234567890 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.12345678901 Australia/Eucla'", 11, "2004-08-24 23:55:23.12345678901 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInMap("TIMESTAMP '2004-08-24 23:55:23.123456789012 Australia/Eucla'", 12, "2004-08-24 23:55:23.123456789012 Australia/Eucla");
+    }
+
+    private void testSelectParametricTimestampWithTimeZoneInMap(String elementExpression, int expectedPrecision, Object expectedValue)
+    {
+        String query = format("SELECT map_from_entries(ARRAY[('timestamp', %s)])", elementExpression);
+
+        checkRepresentation(query, expectedValue, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromMap);
+        checkDescribeTimestampType(query, "map(varchar(9), %s)", expectedPrecision, true);
     }
 
     @Test
     public void testSelectParametricTimestampInArray()
     {
-        String timestamp = "2004-08-24 23:55:23.383345789012";
-
-        for (int precision = 0; precision <= TIMESTAMP_MAX_PRECISION; precision++) {
-            String query = format("SELECT ARRAY[cast(TIMESTAMP '%s' as TIMESTAMP(%d))]", timestamp, precision);
-            String expectedTimestamp = roundedTimestamp(timestamp, precision, TIMESTAMP_MAX_PRECISION, false);
-
-            checkRepresentation(query, expectedTimestamp, ARRAY, TestJdbcCompatibility::getSingleElementFromArray);
-            checkDescribeTimestampType(query, "array(%s)", precision, false);
+        if (!supportsParametricTimestamp()) {
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23'", 0, "2004-08-24 23:55:23.000");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.1'", 1, "2004-08-24 23:55:23.100");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.12'", 2, "2004-08-24 23:55:23.120");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.123'", 3, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.1234'", 4, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.12345'", 5, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.123456'", 6, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.1234567'", 7, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.12345678'", 8, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.123456789'", 9, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.1234567890'", 10, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.12345678901'", 11, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.123456789012'", 12, "2004-08-24 23:55:23.123");
+            return;
         }
+
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23'", 0, "2004-08-24 23:55:23");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.1'", 1, "2004-08-24 23:55:23.1");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.12'", 2, "2004-08-24 23:55:23.12");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.123'", 3, "2004-08-24 23:55:23.123");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.1234'", 4, "2004-08-24 23:55:23.1234");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.12345'", 5, "2004-08-24 23:55:23.12345");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.123456'", 6, "2004-08-24 23:55:23.123456");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.1234567'", 7, "2004-08-24 23:55:23.1234567");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.12345678'", 8, "2004-08-24 23:55:23.12345678");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.123456789'", 9, "2004-08-24 23:55:23.123456789");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.1234567890'", 10, "2004-08-24 23:55:23.1234567890");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.12345678901'", 11, "2004-08-24 23:55:23.12345678901");
+        testSelectParametricTimestampInArray("TIMESTAMP '2004-08-24 23:55:23.123456789012'", 12, "2004-08-24 23:55:23.123456789012");
+    }
+
+    private void testSelectParametricTimestampInArray(String elementExpression, int expectedPrecision, Object expectedValue)
+    {
+        String query = format("SELECT ARRAY[%s]", elementExpression);
+        checkRepresentation(query, expectedValue, ARRAY, TestJdbcCompatibility::getSingleElementFromArray);
+        checkDescribeTimestampType(query, "array(%s)", expectedPrecision, false);
     }
 
     @Test
@@ -248,29 +376,85 @@ public class TestJdbcCompatibility
             throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
-        String timestamp = "1984-08-24 23:55:23.383345789012";
-
-        for (int precision = 0; precision <= TIMESTAMP_MAX_PRECISION; precision++) {
-            String query = format("SELECT ARRAY[cast(TIMESTAMP '%s %s' as TIMESTAMP(%d) WITH TIME ZONE)]", timestamp, TESTED_TZ, precision);
-            String expectedTimestamp = roundedTimestamp(timestamp, precision, TIMESTAMP_MAX_PRECISION, true);
-
-            checkRepresentation(query, expectedTimestamp + " " + TESTED_TZ, ARRAY, TestJdbcCompatibility::getSingleElementFromArray);
-            checkDescribeTimestampType(query, "array(%s)", precision, true);
+        if (!supportsParametricTimestampWithTimeZone()) {
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23 Australia/Eucla'", 0, "2004-08-24 23:55:23.000 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.1 Australia/Eucla'", 1, "2004-08-24 23:55:23.100 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.12 Australia/Eucla'", 2, "2004-08-24 23:55:23.120 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.123 Australia/Eucla'", 3, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.1234 Australia/Eucla'", 4, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.12345 Australia/Eucla'", 5, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.123456 Australia/Eucla'", 6, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.1234567 Australia/Eucla'", 7, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.12345678 Australia/Eucla'", 8, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.123456789 Australia/Eucla'", 9, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.1234567890 Australia/Eucla'", 10, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.12345678901 Australia/Eucla'", 11, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.123456789012 Australia/Eucla'", 12, "2004-08-24 23:55:23.123 Australia/Eucla");
+            return;
         }
+
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23 Australia/Eucla'", 0, "2004-08-24 23:55:23 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.1 Australia/Eucla'", 1, "2004-08-24 23:55:23.1 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.12 Australia/Eucla'", 2, "2004-08-24 23:55:23.12 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.123 Australia/Eucla'", 3, "2004-08-24 23:55:23.123 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.1234 Australia/Eucla'", 4, "2004-08-24 23:55:23.1234 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.12345 Australia/Eucla'", 5, "2004-08-24 23:55:23.12345 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.123456 Australia/Eucla'", 6, "2004-08-24 23:55:23.123456 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.1234567 Australia/Eucla'", 7, "2004-08-24 23:55:23.1234567 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.12345678 Australia/Eucla'", 8, "2004-08-24 23:55:23.12345678 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.123456789 Australia/Eucla'", 9, "2004-08-24 23:55:23.123456789 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.1234567890 Australia/Eucla'", 10, "2004-08-24 23:55:23.1234567890 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.12345678901 Australia/Eucla'", 11, "2004-08-24 23:55:23.12345678901 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInArray("TIMESTAMP '2004-08-24 23:55:23.123456789012 Australia/Eucla'", 12, "2004-08-24 23:55:23.123456789012 Australia/Eucla");
+    }
+
+    private void testSelectParametricTimestampWithTimeZoneInArray(String elementExpression, int expectedPrecision, Object expectedValue)
+    {
+        String query = format("SELECT ARRAY[%s]", elementExpression);
+        checkRepresentation(query, expectedValue, ARRAY, TestJdbcCompatibility::getSingleElementFromArray);
+        checkDescribeTimestampType(query, "array(%s)", expectedPrecision, true);
     }
 
     @Test
     public void testSelectParametricTimestampInRow()
     {
-        String timestamp = "2014-08-24 23:55:23.383345789012";
-
-        for (int precision = 0; precision <= TIMESTAMP_MAX_PRECISION; precision++) {
-            String query = format("SELECT CAST(ROW(TIMESTAMP '%s') AS ROW(timestamp TIMESTAMP(%d)))", timestamp, precision);
-            String expectedTimestamp = roundedTimestamp(timestamp, precision, TIMESTAMP_MAX_PRECISION, false);
-
-            checkRepresentation(query, expectedTimestamp, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromRow);
-            checkDescribeTimestampType(query, "row(timestamp %s)", precision, false);
+        if (!supportsParametricTimestamp()) {
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23'", 0, "2004-08-24 23:55:23.000");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.1'", 1, "2004-08-24 23:55:23.100");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.12'", 2, "2004-08-24 23:55:23.120");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.123'", 3, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.1234'", 4, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.12345'", 5, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.123456'", 6, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.1234567'", 7, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.12345678'", 8, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.123456789'", 9, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.1234567890'", 10, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.12345678901'", 11, "2004-08-24 23:55:23.123");
+            testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.123456789012'", 12, "2004-08-24 23:55:23.123");
+            return;
         }
+
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23'", 0, "2004-08-24 23:55:23");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.1'", 1, "2004-08-24 23:55:23.1");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.12'", 2, "2004-08-24 23:55:23.12");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.123'", 3, "2004-08-24 23:55:23.123");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.1234'", 4, "2004-08-24 23:55:23.1234");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.12345'", 5, "2004-08-24 23:55:23.12345");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.123456'", 6, "2004-08-24 23:55:23.123456");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.1234567'", 7, "2004-08-24 23:55:23.1234567");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.12345678'", 8, "2004-08-24 23:55:23.12345678");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.123456789'", 9, "2004-08-24 23:55:23.123456789");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.1234567890'", 10, "2004-08-24 23:55:23.1234567890");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.12345678901'", 11, "2004-08-24 23:55:23.12345678901");
+        testSelectParametricTimestampInRow("TIMESTAMP '2004-08-24 23:55:23.123456789012'", 12, "2004-08-24 23:55:23.123456789012");
+    }
+
+    private void testSelectParametricTimestampInRow(String elementExpression, int precision, Object expectedValue)
+    {
+        String query = format("SELECT CAST(ROW(%s) AS row(timestamp timestamp(%d)))", elementExpression, precision);
+        checkRepresentation(query, expectedValue, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromRow);
+        checkDescribeTimestampType(query, "row(timestamp %s)", precision, false);
     }
 
     @Test
@@ -280,15 +464,43 @@ public class TestJdbcCompatibility
             throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
 
-        String timestamp = "2004-08-24 23:55:23.383345789012";
-
-        for (int precision = 0; precision <= TIMESTAMP_MAX_PRECISION; precision++) {
-            String query = format("SELECT CAST(ROW(TIMESTAMP '%s %s') AS ROW(timestamp TIMESTAMP(%d) WITH TIME ZONE))", timestamp, TESTED_TZ, precision);
-            String expectedTimestamp = roundedTimestamp(timestamp, precision, TIMESTAMP_MAX_PRECISION, true);
-
-            checkRepresentation(query, expectedTimestamp + " " + TESTED_TZ, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromRow);
-            checkDescribeTimestampType(query, "row(timestamp %s)", precision, true);
+        if (!supportsParametricTimestampWithTimeZone()) {
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23 Australia/Eucla'", 0, "2004-08-24 23:55:23.000 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.1 Australia/Eucla'", 1, "2004-08-24 23:55:23.100 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.12 Australia/Eucla'", 2, "2004-08-24 23:55:23.120 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.123 Australia/Eucla'", 3, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.1234 Australia/Eucla'", 4, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.12345 Australia/Eucla'", 5, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.123456 Australia/Eucla'", 6, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.1234567 Australia/Eucla'", 7, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.12345678 Australia/Eucla'", 8, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.123456789 Australia/Eucla'", 9, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.1234567890 Australia/Eucla'", 10, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.12345678901 Australia/Eucla'", 11, "2004-08-24 23:55:23.123 Australia/Eucla");
+            testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.123456789012 Australia/Eucla'", 12, "2004-08-24 23:55:23.123 Australia/Eucla");
+            return;
         }
+
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23 Australia/Eucla'", 0, "2004-08-24 23:55:23 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.1 Australia/Eucla'", 1, "2004-08-24 23:55:23.1 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.12 Australia/Eucla'", 2, "2004-08-24 23:55:23.12 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.123 Australia/Eucla'", 3, "2004-08-24 23:55:23.123 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.1234 Australia/Eucla'", 4, "2004-08-24 23:55:23.1234 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.12345 Australia/Eucla'", 5, "2004-08-24 23:55:23.12345 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.123456 Australia/Eucla'", 6, "2004-08-24 23:55:23.123456 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.1234567 Australia/Eucla'", 7, "2004-08-24 23:55:23.1234567 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.12345678 Australia/Eucla'", 8, "2004-08-24 23:55:23.12345678 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.123456789 Australia/Eucla'", 9, "2004-08-24 23:55:23.123456789 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.1234567890 Australia/Eucla'", 10, "2004-08-24 23:55:23.1234567890 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.12345678901 Australia/Eucla'", 11, "2004-08-24 23:55:23.12345678901 Australia/Eucla");
+        testSelectParametricTimestampWithTimeZoneInRow("TIMESTAMP '2004-08-24 23:55:23.123456789012 Australia/Eucla'", 12, "2004-08-24 23:55:23.123456789012 Australia/Eucla");
+    }
+
+    private void testSelectParametricTimestampWithTimeZoneInRow(String elementExpression, int precision, Object expectedValue)
+    {
+        String query = format("SELECT CAST(ROW(%s) AS row(timestamp timestamp(%d) with time zone))", elementExpression, precision);
+        checkRepresentation(query, expectedValue, JAVA_OBJECT, TestJdbcCompatibility::getSingleElementFromRow);
+        checkDescribeTimestampType(query, "row(timestamp %s)", precision, true);
     }
 
     @Test
@@ -441,11 +653,6 @@ public class TestJdbcCompatibility
         return format("timestamp(%d)", precision);
     }
 
-    private static Timestamp roundedSqlTimestamp(String timestamp, int precision, int maxPrecision, boolean withTz)
-    {
-        return Timestamp.valueOf(roundedTimestamp(timestamp, precision, maxPrecision, withTz));
-    }
-
     private static Object getSingleElementFromArray(ResultSet resultSet, int columnIndex)
             throws SQLException
     {
@@ -453,7 +660,6 @@ public class TestJdbcCompatibility
         return ((Object[]) array.getArray(1, 1))[0];
     }
 
-    @SuppressWarnings("unchecked")
     private static Object getSingleElementFromRow(ResultSet resultSet, int columnIndex)
             throws SQLException
     {
@@ -477,42 +683,6 @@ public class TestJdbcCompatibility
     {
         Map map = (Map<String, Object>) resultSet.getObject(columnIndex);
         return map.get("timestamp");
-    }
-
-    private static String roundedTimestamp(String timestamp, int precision, int maxPrecision, boolean withTz)
-    {
-        List<String> parts = Splitter.on('.').splitToList(timestamp);
-        verify(parts.size() == 2);
-
-        BigDecimal fractional = new BigDecimal(format("0.%s", parts.get(1)));
-
-        int supportedPrecision = determineSupportedPrecision(precision, maxPrecision, withTz);
-
-        if (supportedPrecision == 0) {
-            return parts.get(0);
-        }
-
-        int timestampPrecision = min(precision, maxPrecision);
-
-        BigDecimal scaledFractional = fractional
-                .setScale(timestampPrecision, RoundingMode.HALF_EVEN)
-                .setScale(supportedPrecision, RoundingMode.HALF_EVEN);
-
-        return format("%s.%s", parts.get(0), scaledFractional.toString().substring(2));
-    }
-
-    private static int determineSupportedPrecision(int precision, int maxPrecision, boolean withTz)
-    {
-        if (!withTz && supportsParametricTimestamp()) {
-            return min(precision, maxPrecision);
-        }
-
-        if (withTz && supportsParametricTimestampWithTimeZone()) {
-            return min(precision, maxPrecision);
-        }
-
-        // Before parametric timestamps were introduced, timestamp had precision = 3
-        return TIMESTAMP_DEFAULT_PRECISION;
     }
 
     private ResultSet runQuery(String query)
