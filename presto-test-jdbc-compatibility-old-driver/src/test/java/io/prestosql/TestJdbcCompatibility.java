@@ -40,6 +40,7 @@ import java.util.Properties;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Strings.repeat;
+import static io.prestosql.JdbcDriverCapabilities.correctlyReportsTimestampWithTimeZone;
 import static io.prestosql.JdbcDriverCapabilities.driverVersion;
 import static io.prestosql.JdbcDriverCapabilities.hasBrokenParametricTimestampWithTimeZoneSupport;
 import static io.prestosql.JdbcDriverCapabilities.supportsParametricTimestamp;
@@ -50,6 +51,7 @@ import static java.lang.String.format;
 import static java.sql.Types.ARRAY;
 import static java.sql.Types.JAVA_OBJECT;
 import static java.sql.Types.TIMESTAMP;
+import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -140,7 +142,7 @@ public class TestJdbcCompatibility
         }
 
         String query = "SELECT timestamp '2012-10-31 01:00 Australia/Eucla'";
-        checkRepresentation(query, Timestamp.valueOf("2012-10-30 10:15:00.000"), TIMESTAMP, ResultSet::getTimestamp);
+        checkRepresentation(query, Timestamp.valueOf("2012-10-30 10:15:00.000"), correctlyReportsTimestampWithTimeZone() ? TIMESTAMP_WITH_TIMEZONE : TIMESTAMP, ResultSet::getTimestamp);
     }
 
     @Test
@@ -230,7 +232,7 @@ public class TestJdbcCompatibility
     private void testSelectParametricTimestampWithTimeZone(String expression, int expectedPrecision, Object expectedValue, String expectedString)
     {
         String query = "SELECT " + expression;
-        checkRepresentation(query, TIMESTAMP, (resultSet, columnIndex) -> {
+        checkRepresentation(query, correctlyReportsTimestampWithTimeZone() ? TIMESTAMP_WITH_TIMEZONE : TIMESTAMP, (resultSet, columnIndex) -> {
             assertThat(resultSet.getTimestamp(columnIndex)).isEqualTo(expectedValue);
             assertThat(resultSet.getObject(columnIndex)).isEqualTo(expectedValue);
             assertThat(resultSet.getString(columnIndex)).isEqualTo(expectedString);
