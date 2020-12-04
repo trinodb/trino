@@ -22,7 +22,7 @@ import static io.prestosql.tests.TestGroups.JDBC;
 import static io.prestosql.tests.TestGroups.SYSTEM_CONNECTOR;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
-import static java.sql.JDBCType.TIMESTAMP;
+import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.JDBCType.VARCHAR;
 
 public class TestSystemConnector
@@ -58,7 +58,8 @@ public class TestSystemConnector
                 "FROM system.runtime.queries";
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, ARRAY,
-                        BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, VARCHAR, VARCHAR)
+                        BIGINT, BIGINT, BIGINT, TIMESTAMP_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE,
+                        TIMESTAMP_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE, VARCHAR, VARCHAR)
                 .hasAnyRows();
     }
 
@@ -94,7 +95,8 @@ public class TestSystemConnector
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
                         BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
-                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP)
+                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
+                        TIMESTAMP_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE, TIMESTAMP_WITH_TIMEZONE)
                 .hasAnyRows();
     }
 

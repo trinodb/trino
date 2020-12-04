@@ -50,6 +50,11 @@ public final class JdbcDriverCapabilities
         return driverVersion() == VERSION_HEAD || driverVersion() >= 337;
     }
 
+    public static boolean correctlyReportsTimestampWithTimeZone()
+    {
+        return driverVersion() == VERSION_HEAD || driverVersion() >= 348;
+    }
+
     public static boolean hasBrokenParametricTimestampWithTimeZoneSupport()
     {
         // Since 335 JDBC client reports ClientCapabilities.PARAMETRIC_DATETIME which is used server side to determine whether
