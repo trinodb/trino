@@ -22,9 +22,9 @@ import static java.util.Objects.requireNonNull;
 
 final class TypeConversions
 {
-    private final Table<Class<?>, Class<?>, TypeConversion<Object, Object>> conversions;
+    private final Table<String, Class<?>, TypeConversion<Object, Object>> conversions;
 
-    private TypeConversions(Table<Class<?>, Class<?>, TypeConversion<Object, Object>> conversions)
+    private TypeConversions(Table<String, Class<?>, TypeConversion<Object, Object>> conversions)
     {
         this.conversions = ImmutableTable.copyOf(requireNonNull(conversions, "conversions is null"));
     }
@@ -32,14 +32,14 @@ final class TypeConversions
     /**
      * @throws NoConversionRegisteredException when conversion is not registered
      */
-    public <T> T convert(Object value, Class<T> target)
+    public <T> T convert(String sourceRawType, Object value, Class<T> target)
             throws SQLException
     {
         if (value == null) {
             return null;
         }
 
-        TypeConversion<Object, Object> conversion = conversions.get(value.getClass(), target);
+        TypeConversion<Object, Object> conversion = conversions.get(sourceRawType, target);
         if (conversion == null) {
             throw new NoConversionRegisteredException();
         }
@@ -56,14 +56,14 @@ final class TypeConversions
 
     public static class Builder
     {
-        private final ImmutableTable.Builder<Class<?>, Class<?>, TypeConversion<Object, Object>> conversions = ImmutableTable.builder();
+        private final ImmutableTable.Builder<String, Class<?>, TypeConversion<Object, Object>> conversions = ImmutableTable.builder();
 
         private Builder() {}
 
         @SuppressWarnings("unchecked")
-        public <S, T> Builder add(Class<S> source, Class<T> target, TypeConversion<S, T> conversion)
+        public <S, T> Builder add(String sourceRawType, @SuppressWarnings("unused") Class<S> sourceClass, Class<T> target, TypeConversion<S, T> conversion)
         {
-            conversions.put(source, target, (TypeConversion<Object, Object>) conversion);
+            conversions.put(sourceRawType, target, (TypeConversion<Object, Object>) conversion);
             return this;
         }
 

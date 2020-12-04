@@ -127,8 +127,8 @@ abstract class AbstractPrestoResultSet
 
     private static final TypeConversions TYPE_CONVERSIONS =
             TypeConversions.builder()
-                    .add(PrestoArray.class, List.class, array -> asList((Object[]) array.getArray()))
-                    .add(Row.class, Map.class, row -> {
+                    .add("array", PrestoArray.class, List.class, array -> asList((Object[]) array.getArray()))
+                    .add("row", Row.class, Map.class, row -> {
                         Map<String, Object> result = new HashMap<>();
                         for (RowField field : row.getFields()) {
                             String name = field.getName()
@@ -1750,7 +1750,7 @@ abstract class AbstractPrestoResultSet
             return (T) object;
         }
         try {
-            T converted = TYPE_CONVERSIONS.convert(object, type);
+            T converted = TYPE_CONVERSIONS.convert(columnInfo(columnIndex).getColumnTypeSignature().getRawType(), object, type);
             verify(converted != null, "Conversion cannot return null for non-null input, as this breaks wasNull()");
             return converted;
         }
