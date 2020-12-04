@@ -631,24 +631,46 @@ public abstract class BaseTestJdbcResultSet
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[1, 2]", Types.ARRAY, (rs, column) -> {
-                assertEquals(rs.getArray(column).getArray(), new int[] {1, 2});
-                assertEquals(((Array) rs.getObject(column)).getArray(), new int[] {1, 2}); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                Array array = rs.getArray(column);
+                assertEquals(array.getArray(), new int[] {1, 2});
+                assertEquals(array.getBaseType(), Types.INTEGER);
+                assertEquals(array.getBaseTypeName(), "integer");
+
+                array = (Array) rs.getObject(column); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                assertEquals(array.getArray(), new int[] {1, 2});
+                assertEquals(array.getBaseType(), Types.INTEGER);
+                assertEquals(array.getBaseTypeName(), "integer");
+
                 assertEquals(rs.getObject(column, List.class), ImmutableList.of(1, 2));
             });
 
             // array of bigint, and with NULL
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[NULL, BIGINT '1', 2]", Types.ARRAY, (rs, column) -> {
-                assertEquals(rs.getArray(column).getArray(), new Long[] {null, 1L, 2L});
-                assertEquals(((Array) rs.getObject(column)).getArray(), new Long[] {null, 1L, 2L}); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                Array array = rs.getArray(column);
+                assertEquals(array.getArray(), new Long[] {null, 1L, 2L});
+                assertEquals(array.getBaseType(), Types.BIGINT);
+                assertEquals(array.getBaseTypeName(), "bigint");
+
+                array = (Array) rs.getObject(column); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                assertEquals(array.getArray(), new Long[] {null, 1L, 2L});
+                assertEquals(array.getBaseType(), Types.BIGINT);
+                assertEquals(array.getBaseTypeName(), "bigint");
+
                 assertEquals(rs.getObject(column, List.class), asList(null, 1L, 2L));
             });
 
             // array or array
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[NULL, ARRAY[NULL, BIGINT '1', 2]]", Types.ARRAY, (rs, column) -> {
-                assertEquals(rs.getArray(column).getArray(), new Object[] {null, asList(null, 1L, 2L)});
-                assertEquals(
-                        ((Array) rs.getObject(column)).getArray(),
-                        new Object[] {null, asList(null, 1L, 2L)}); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                Array array = rs.getArray(column);
+                assertEquals(array.getArray(), new Object[] {null, asList(null, 1L, 2L)});
+                assertEquals(array.getBaseType(), Types.ARRAY);
+                assertEquals(array.getBaseTypeName(), "array(bigint)");
+
+                array = (Array) rs.getObject(column); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+                assertEquals(array.getArray(), new Object[] {null, asList(null, 1L, 2L)});
+                assertEquals(array.getBaseType(), Types.ARRAY);
+                assertEquals(array.getBaseTypeName(), "array(bigint)");
+
                 assertEquals(rs.getObject(column, List.class), asList(null, asList(null, 1L, 2L)));
             });
 
@@ -658,8 +680,16 @@ public abstract class BaseTestJdbcResultSet
                 element.put("k1", 42);
                 element.put("k2", null);
 
-                assertEquals(rs.getArray(column).getArray(), new Object[] {element});
-                assertEquals(((Array) rs.getObject(column)).getArray(), new Object[] {element});
+                Array array = rs.getArray(column);
+                assertEquals(array.getArray(), new Object[] {element});
+                assertEquals(array.getBaseType(), Types.JAVA_OBJECT);
+                assertEquals(array.getBaseTypeName(), "map(varchar(2),integer)");
+
+                array = (Array) rs.getObject(column);
+                assertEquals(array.getArray(), new Object[] {element});
+                assertEquals(array.getBaseType(), Types.JAVA_OBJECT);
+                assertEquals(array.getBaseTypeName(), "map(varchar(2),integer)");
+
                 assertEquals(rs.getObject(column, List.class), ImmutableList.of(element));
             });
 
@@ -669,8 +699,17 @@ public abstract class BaseTestJdbcResultSet
                         .addField("a_bigint", 42L)
                         .addField("a_varchar", "Presto")
                         .build();
-                assertEquals(rs.getArray(column).getArray(), new Object[] {element});
-                assertEquals(((Array) rs.getObject(column)).getArray(), new Object[] {element});
+
+                Array array = rs.getArray(column);
+                assertEquals(array.getArray(), new Object[] {element});
+                assertEquals(array.getBaseType(), Types.JAVA_OBJECT);
+                assertEquals(array.getBaseTypeName(), "row(a_bigint bigint,a_varchar varchar(17))");
+
+                array = (Array) rs.getObject(column);
+                assertEquals(array.getArray(), new Object[] {element});
+                assertEquals(array.getBaseType(), Types.JAVA_OBJECT);
+                assertEquals(array.getBaseTypeName(), "row(a_bigint bigint,a_varchar varchar(17))");
+
                 assertEquals(rs.getObject(column, List.class), ImmutableList.of(element));
             });
         }
