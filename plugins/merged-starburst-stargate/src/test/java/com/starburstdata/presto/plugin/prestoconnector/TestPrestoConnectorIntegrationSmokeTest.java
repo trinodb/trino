@@ -129,8 +129,7 @@ public class TestPrestoConnectorIntegrationSmokeTest
         assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
 
         // approx_set returns HyperLogLog, which is not supported
-        // TODO enable after https://github.com/prestosql/presto/pull/6203
-        // assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
     }
 
     @Test
