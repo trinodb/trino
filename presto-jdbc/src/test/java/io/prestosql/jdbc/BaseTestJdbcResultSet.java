@@ -260,7 +260,14 @@ public abstract class BaseTestJdbcResultSet
 //        checkRepresentation(statementWrapper.getStatement(), "TIME '00:39:05'", Types.TIME, (rs, column) -> {
 //            ...
 //        });
+        }
+    }
 
+    @Test
+    public void testTimeWithTimeZone()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "TIME '09:39:07 +01:00'", Types.TIME_WITH_TIMEZONE, (rs, column) -> {
                 assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should represent TIME '09:39:07 +01:00'
                 assertThatThrownBy(() -> rs.getDate(column))
