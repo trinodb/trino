@@ -649,7 +649,10 @@ abstract class AbstractPrestoResultSet
             }
         }
 
-        // TODO (https://github.com/prestosql/presto/issues/6048) add conversions for decimal, date, time, timestamp, interval
+        Class<?> defaultRepresentation = DEFAULT_OBJECT_REPRESENTATION.get(columnType.getRawType());
+        if (defaultRepresentation != null) {
+            return TYPE_CONVERSIONS.convert(columnType, value, defaultRepresentation);
+        }
 
         return value;
     }
