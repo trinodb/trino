@@ -591,7 +591,8 @@ public class PrestoS3FileSystem
      * Enum representing the valid listing modes. This could be two booleans (recursive, filesOnly) except
      * that (recursive=true, filesOnly=false) can't be translated directly to a natively supported behavior
      */
-    private enum ListingMode {
+    private enum ListingMode
+    {
         SHALLOW_ALL,
         SHALLOW_FILES_ONLY,
         RECURSIVE_FILES_ONLY;

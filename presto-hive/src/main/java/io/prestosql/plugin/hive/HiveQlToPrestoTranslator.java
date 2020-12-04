@@ -23,7 +23,7 @@ import static org.apache.hadoop.hive.ql.parse.BaseSemanticAnalyzer.unescapeSQLSt
 
 /**
  * Translate statements in Hive QL to Presto SQL.
- *
+ * <p>
  * Only translation of quoted literals is currently included.
  */
 public final class HiveQlToPrestoTranslator

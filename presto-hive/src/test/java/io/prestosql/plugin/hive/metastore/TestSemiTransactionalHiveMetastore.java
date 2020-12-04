@@ -131,17 +131,17 @@ public class TestSemiTransactionalHiveMetastore
         {
             if (databaseName.equals("database")) {
                 return Optional.of(new Table(
-                    "database",
-                    tableName,
-                    "owner",
-                    "table_type",
-                    TABLE_STORAGE,
-                    ImmutableList.of(TABLE_COLUMN),
-                    ImmutableList.of(TABLE_COLUMN),
-                    ImmutableMap.of("param", "value3"),
-                    Optional.of("original_text"),
-                    Optional.of("expanded_text"),
-                    OptionalLong.empty()));
+                        "database",
+                        tableName,
+                        "owner",
+                        "table_type",
+                        TABLE_STORAGE,
+                        ImmutableList.of(TABLE_COLUMN),
+                        ImmutableList.of(TABLE_COLUMN),
+                        ImmutableMap.of("param", "value3"),
+                        Optional.of("original_text"),
+                        Optional.of("expanded_text"),
+                        OptionalLong.empty()));
             }
             return Optional.empty();
         }

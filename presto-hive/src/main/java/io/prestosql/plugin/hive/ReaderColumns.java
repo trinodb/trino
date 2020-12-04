@@ -23,9 +23,9 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Stores a mapping between
- *  - the projected columns required by a connector level pagesource and
- *  -  the columns supplied by format-specific page source
- *
+ * - the projected columns required by a connector level pagesource and
+ * -  the columns supplied by format-specific page source
+ * <p>
  * Currently used in {@link HivePageSource}.
  */
 public class ReaderColumns
