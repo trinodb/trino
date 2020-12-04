@@ -60,10 +60,10 @@ final class TypeConversions
 
         private Builder() {}
 
-        @SuppressWarnings("unchecked")
-        public <S, T> Builder add(String sourceRawType, @SuppressWarnings("unused") Class<S> sourceClass, Class<T> target, TypeConversion<S, T> conversion)
+        public <S, T> Builder add(String sourceRawType, Class<S> sourceClass, Class<T> target, TypeConversion<S, T> conversion)
         {
-            conversions.put(sourceRawType, target, (TypeConversion<Object, Object>) conversion);
+            requireNonNull(conversion, "conversion is null");
+            conversions.put(sourceRawType, target, value -> conversion.apply(sourceClass.cast(value)));
             return this;
         }
 
