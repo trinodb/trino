@@ -459,7 +459,7 @@ public class PrestoS3FileSystem
             throws IOException
     {
         // Ignore the overwrite flag, since Presto always writes to unique file names.
-        // Checking for file existence can break read-after-write consistency.
+        // Checking for file existence is thus an unnecessary, expensive operation.
 
         if (!stagingDirectory.exists()) {
             createDirectories(stagingDirectory.toPath());
