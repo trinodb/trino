@@ -176,11 +176,12 @@ public class ParquetWriter
             return;
         }
         closed = true;
-        columnWriters.forEach(ColumnWriter::close);
 
-        flush();
-        writeFooter();
-        outputStream.close();
+        try (outputStream) {
+            columnWriters.forEach(ColumnWriter::close);
+            flush();
+            writeFooter();
+        }
     }
 
     // Parquet File Layout:
