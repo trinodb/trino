@@ -15,6 +15,7 @@ package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
+import io.prestosql.client.ClientTypeSignature;
 
 import java.sql.SQLException;
 
@@ -32,21 +33,26 @@ final class TypeConversions
     /**
      * @throws NoConversionRegisteredException when conversion is not registered
      */
-    public <T> T convert(String sourceRawType, Object value, Class<T> target)
+    public <T> T convert(ClientTypeSignature type, Object value, Class<T> target)
             throws SQLException
     {
         if (value == null) {
             return null;
         }
 
-        TypeConversion<Object, Object> conversion = conversions.get(sourceRawType, target);
+        TypeConversion<Object, Object> conversion = conversions.get(type.getRawType(), target);
         if (conversion == null) {
             throw new NoConversionRegisteredException();
         }
 
         @SuppressWarnings("unchecked")
-        T converted = (T) conversion.apply(value);
+        T converted = (T) conversion.apply(type, value);
         return converted;
+    }
+
+    public boolean hasConversion(String sourceRawType, Class<?> target)
+    {
+        return conversions.contains(sourceRawType, target);
     }
 
     public static Builder builder()
@@ -60,10 +66,20 @@ final class TypeConversions
 
         private Builder() {}
 
+        public <S, T> Builder add(String sourceRawType, Class<S> sourceClass, Class<T> target, SimpleTypeConversion<S, T> conversion)
+        {
+            requireNonNull(conversion, "conversion is null");
+            return add(sourceRawType, sourceClass, target, ((type, value) -> conversion.apply(value)));
+        }
+
         public <S, T> Builder add(String sourceRawType, Class<S> sourceClass, Class<T> target, TypeConversion<S, T> conversion)
         {
             requireNonNull(conversion, "conversion is null");
-            conversions.put(sourceRawType, target, value -> conversion.apply(sourceClass.cast(value)));
+            conversions.put(sourceRawType, target, (type, value) -> {
+                S valueAsSourceType = sourceClass.cast(value);
+                T result = conversion.apply(type, valueAsSourceType);
+                return target.cast(result);
+            });
             return this;
         }
 
@@ -75,6 +91,16 @@ final class TypeConversions
 
     @FunctionalInterface
     public interface TypeConversion<S, T>
+    {
+        /**
+         * Convert a non-null value.
+         */
+        T apply(ClientTypeSignature type, S value)
+                throws SQLException;
+    }
+
+    @FunctionalInterface
+    public interface SimpleTypeConversion<S, T>
     {
         /**
          * Convert a non-null value.

@@ -13,6 +13,7 @@
  */
 package io.prestosql.jdbc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.client.ClientTypeSignature;
@@ -75,7 +76,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
-import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -125,10 +125,36 @@ abstract class AbstractPrestoResultSet
     // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.
     private static final long START_OF_MODERN_ERA_SECONDS = java.time.LocalDate.of(1901, 1, 1).toEpochDay() * SECONDS_PER_DAY;
 
-    private static final TypeConversions TYPE_CONVERSIONS =
+    @VisibleForTesting
+    static final Map<String, Class<?>> DEFAULT_OBJECT_REPRESENTATION = ImmutableMap.<String, Class<?>>builder()
+            .put("decimal", BigDecimal.class)
+            .put("date", java.sql.Date.class)
+            .put("time", java.sql.Time.class)
+            .put("time with time zone", java.sql.Time.class)
+            .put("timestamp", java.sql.Timestamp.class)
+            .put("timestamp with time zone", java.sql.Timestamp.class)
+            .put("interval year to month", PrestoIntervalYearMonth.class)
+            .put("interval day to second", PrestoIntervalDayTime.class)
+            .put("map", Map.class)
+            .put("row", Row.class)
+            .build();
+
+    @VisibleForTesting
+    static final TypeConversions TYPE_CONVERSIONS =
             TypeConversions.builder()
-                    .add("array", PrestoArray.class, List.class, array -> asList((Object[]) array.getArray()))
-                    .add("row", Row.class, Map.class, row -> {
+                    .add("decimal", String.class, BigDecimal.class, AbstractPrestoResultSet::parseBigDecimal)
+                    .add("date", String.class, Date.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())))
+                    .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
+                    .add("time with time zone", String.class, Time.class, AbstractPrestoResultSet::parseTimeWithTimeZone)
+                    .add("timestamp", String.class, Timestamp.class, string -> parseTimestamp(string, ZoneId.systemDefault()))
+                    .add("timestamp with time zone", String.class, Timestamp.class, string -> parseTimestamp(string, ZoneId::of))
+                    .add("interval year to month", String.class, PrestoIntervalYearMonth.class, AbstractPrestoResultSet::parseIntervalYearMonth)
+                    .add("interval day to second", String.class, PrestoIntervalDayTime.class, AbstractPrestoResultSet::parseIntervalDayTime)
+                    .add("array", List.class, List.class, (type, list) -> (List<?>) convertFromClientRepresentation(type, list))
+                    .add("map", Map.class, Map.class, (type, map) -> (Map<?, ?>) convertFromClientRepresentation(type, map))
+                    .add("row", io.prestosql.client.Row.class, Row.class, (type, clientRow) -> (Row) convertFromClientRepresentation(type, clientRow))
+                    .add("row", io.prestosql.client.Row.class, Map.class, (type, clientRow) -> {
+                        Row row = (Row) convertFromClientRepresentation(type, clientRow);
                         Map<String, Object> result = new HashMap<>();
                         for (RowField field : row.getFields()) {
                             String name = field.getName()
@@ -288,27 +314,32 @@ abstract class AbstractPrestoResultSet
         }
 
         try {
-            long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
-            if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
-                return new Date(millis);
-            }
-
-            // The chronology used by default by Joda is not historically accurate for dates
-            // preceding the introduction of the Gregorian calendar and is not consistent with
-            // java.sql.Date (the same millisecond value represents a different year/month/day)
-            // before the 20th century. For such dates we are falling back to using the more
-            // expensive GregorianCalendar; note that Joda also has a chronology that works for
-            // older dates, but it uses a slightly different algorithm and yields results that
-            // are not compatible with java.sql.Date.
-            LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
-            Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
-            calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
-
-            return new Date(calendar.getTimeInMillis());
+            return parseDate(String.valueOf(value), localTimeZone);
         }
         catch (IllegalArgumentException e) {
             throw new SQLException("Expected value to be a date but is: " + value);
         }
+    }
+
+    private static Date parseDate(String value, DateTimeZone localTimeZone)
+    {
+        long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
+        if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
+            return new Date(millis);
+        }
+
+        // The chronology used by default by Joda is not historically accurate for dates
+        // preceding the introduction of the Gregorian calendar and is not consistent with
+        // java.sql.Date (the same millisecond value represents a different year/month/day)
+        // before the 20th century. For such dates we are falling back to using the more
+        // expensive GregorianCalendar; note that Joda also has a chronology that works for
+        // older dates, but it uses a slightly different algorithm and yields results that
+        // are not compatible with java.sql.Date.
+        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
+        calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
+
+        return new Date(calendar.getTimeInMillis());
     }
 
     @Override
@@ -366,12 +397,7 @@ abstract class AbstractPrestoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("timestamp")) {
             try {
-                return parseTimestamp((String) value, timezone -> {
-                    if (timezone != null) {
-                        throw new IllegalArgumentException("Invalid timestamp: " + value);
-                    }
-                    return ZoneId.of(localTimeZone.getID());
-                });
+                return parseTimestamp((String) value, ZoneId.of(localTimeZone.getID()));
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
@@ -557,44 +583,23 @@ abstract class AbstractPrestoResultSet
             throws SQLException
     {
         ColumnInfo columnInfo = columnInfo(columnIndex);
-        switch (columnInfo.getColumnType()) {
-            case Types.DATE:
-                // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
-                return getDate(columnIndex);
-            case Types.TIME:
-            case Types.TIME_WITH_TIMEZONE:
-                // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
-                return getTime(columnIndex);
-            case Types.TIMESTAMP:
-            case Types.TIMESTAMP_WITH_TIMEZONE:
-                // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
-                return getTimestamp(columnIndex);
-            case Types.ARRAY:
-                // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
-                return getArray(columnIndex);
-            case Types.DECIMAL:
-                // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
-                return getBigDecimal(columnIndex);
-            case Types.JAVA_OBJECT:
-                if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval year to month")) {
-                    // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
-                    return getIntervalYearMonth(columnIndex);
-                }
-                if (columnInfo.getColumnTypeName().equalsIgnoreCase("interval day to second")) {
-                    // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
-                    return getIntervalDayTime(columnIndex);
-                }
-                switch (columnInfo.getColumnTypeSignature().getRawType()) {
-                    case "map":
-                    case "row":
-                        return convertFromClientRepresentation(columnInfo.getColumnTypeSignature(), column(columnIndex));
-                }
+
+        if (columnInfo.getColumnType() == Types.ARRAY) {
+            // Array requires special treatment due to element metadata provided by the Array object
+            // TODO (https://github.com/prestosql/presto/issues/6049) consider returning List instead
+            return getArray(columnIndex);
         }
+
+        Class<?> defaultRepresentation = DEFAULT_OBJECT_REPRESENTATION.get(columnInfo.getColumnTypeSignature().getRawType());
+        if (defaultRepresentation != null) {
+            return getObject(columnIndex, defaultRepresentation);
+        }
+
         return column(columnIndex);
     }
 
     @javax.annotation.Nullable
-    private Object convertFromClientRepresentation(ClientTypeSignature columnType, @javax.annotation.Nullable Object value)
+    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @javax.annotation.Nullable Object value)
     {
         requireNonNull(columnType, "columnType is null");
 
@@ -646,26 +651,14 @@ abstract class AbstractPrestoResultSet
         return value;
     }
 
-    private PrestoIntervalYearMonth getIntervalYearMonth(int columnIndex)
-            throws SQLException
+    private static PrestoIntervalYearMonth parseIntervalYearMonth(String value)
     {
-        Object value = column(columnIndex);
-        if (value == null) {
-            return null;
-        }
-
-        return new PrestoIntervalYearMonth(IntervalYearMonth.parseMonths((String) value));
+        return new PrestoIntervalYearMonth(IntervalYearMonth.parseMonths(value));
     }
 
-    private PrestoIntervalDayTime getIntervalDayTime(int columnIndex)
-            throws SQLException
+    private static PrestoIntervalDayTime parseIntervalDayTime(String value)
     {
-        Object value = column(columnIndex);
-        if (value == null) {
-            return null;
-        }
-
-        return new PrestoIntervalDayTime(IntervalDayTime.parseMillis((String) value));
+        return new PrestoIntervalDayTime(IntervalDayTime.parseMillis(value));
     }
 
     @Override
@@ -706,6 +699,12 @@ abstract class AbstractPrestoResultSet
             return null;
         }
 
+        return parseBigDecimal(String.valueOf(value));
+    }
+
+    private static BigDecimal parseBigDecimal(String value)
+            throws SQLException
+    {
         return toBigDecimal(String.valueOf(value))
                 .orElseThrow(() -> new SQLException("Value is not a number: " + value));
     }
@@ -1744,18 +1743,23 @@ abstract class AbstractPrestoResultSet
         if (type == null) {
             throw new SQLException("type is null");
         }
-        Object object = getObject(columnIndex);
-        if (object == null || type.isInstance(object)) {
-            //noinspection unchecked
-            return (T) object;
+        Object object = column(columnIndex);
+        if (object == null) {
+            return null;
         }
+
+        ClientTypeSignature columnTypeSignature = columnInfo(columnIndex).getColumnTypeSignature();
+        if (type.isInstance(object) && !TYPE_CONVERSIONS.hasConversion(columnTypeSignature.getRawType(), type)) {
+            return type.cast(object);
+        }
+
         try {
-            T converted = TYPE_CONVERSIONS.convert(columnInfo(columnIndex).getColumnTypeSignature().getRawType(), object, type);
+            T converted = TYPE_CONVERSIONS.convert(columnTypeSignature, object, type);
             verify(converted != null, "Conversion cannot return null for non-null input, as this breaks wasNull()");
             return converted;
         }
         catch (NoConversionRegisteredException e) {
-            throw new SQLException(format("Cannot convert an instance of %s to %s", object.getClass(), type));
+            throw new SQLException(format("Cannot convert from %s to %s", columnTypeSignature, type));
         }
     }
 
@@ -1905,6 +1909,17 @@ abstract class AbstractPrestoResultSet
             list.add(builder.build());
         }
         return list.build();
+    }
+
+    private static Timestamp parseTimestamp(String value, ZoneId localTimeZone)
+    {
+        requireNonNull(localTimeZone, "localTimeZone is null");
+        return parseTimestamp(value, timezone -> {
+            if (timezone != null) {
+                throw new IllegalArgumentException("Invalid timestamp: " + value);
+            }
+            return localTimeZone;
+        });
     }
 
     private static Timestamp parseTimestamp(String value, Function<String, ZoneId> timeZoneParser)
