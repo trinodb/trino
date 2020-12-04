@@ -45,6 +45,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -632,12 +633,12 @@ public abstract class BaseTestJdbcResultSet
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[1, 2]", Types.ARRAY, (rs, column) -> {
                 Array array = rs.getArray(column);
-                assertEquals(array.getArray(), new int[] {1, 2});
+                assertThat(array.getArray()).isEqualTo(new int[] {1, 2});
                 assertEquals(array.getBaseType(), Types.INTEGER);
                 assertEquals(array.getBaseTypeName(), "integer");
 
                 array = (Array) rs.getObject(column); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
-                assertEquals(array.getArray(), new int[] {1, 2});
+                assertThat(array.getArray()).isEqualTo(new int[] {1, 2});
                 assertEquals(array.getBaseType(), Types.INTEGER);
                 assertEquals(array.getBaseTypeName(), "integer");
 
@@ -647,12 +648,12 @@ public abstract class BaseTestJdbcResultSet
             // array of bigint, and with NULL
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[NULL, BIGINT '1', 2]", Types.ARRAY, (rs, column) -> {
                 Array array = rs.getArray(column);
-                assertEquals(array.getArray(), new Long[] {null, 1L, 2L});
+                assertThat(array.getArray()).isEqualTo(new Long[] {null, 1L, 2L});
                 assertEquals(array.getBaseType(), Types.BIGINT);
                 assertEquals(array.getBaseTypeName(), "bigint");
 
                 array = (Array) rs.getObject(column); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
-                assertEquals(array.getArray(), new Long[] {null, 1L, 2L});
+                assertThat(array.getArray()).isEqualTo(new Long[] {null, 1L, 2L});
                 assertEquals(array.getBaseType(), Types.BIGINT);
                 assertEquals(array.getBaseTypeName(), "bigint");
 
@@ -662,12 +663,12 @@ public abstract class BaseTestJdbcResultSet
             // array or array
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[NULL, ARRAY[NULL, BIGINT '1', 2]]", Types.ARRAY, (rs, column) -> {
                 Array array = rs.getArray(column);
-                assertEquals(array.getArray(), new Object[] {null, asList(null, 1L, 2L)});
+                assertThat(array.getArray()).isEqualTo(new Object[] {null, asList(null, 1L, 2L)});
                 assertEquals(array.getBaseType(), Types.ARRAY);
                 assertEquals(array.getBaseTypeName(), "array(bigint)");
 
                 array = (Array) rs.getObject(column); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
-                assertEquals(array.getArray(), new Object[] {null, asList(null, 1L, 2L)});
+                assertThat(array.getArray()).isEqualTo(new Object[] {null, asList(null, 1L, 2L)});
                 assertEquals(array.getBaseType(), Types.ARRAY);
                 assertEquals(array.getBaseTypeName(), "array(bigint)");
 
@@ -681,12 +682,12 @@ public abstract class BaseTestJdbcResultSet
                 element.put("k2", null);
 
                 Array array = rs.getArray(column);
-                assertEquals(array.getArray(), new Object[] {element});
+                assertThat(array.getArray()).isEqualTo(new Object[] {element});
                 assertEquals(array.getBaseType(), Types.JAVA_OBJECT);
                 assertEquals(array.getBaseTypeName(), "map(varchar(2),integer)");
 
                 array = (Array) rs.getObject(column);
-                assertEquals(array.getArray(), new Object[] {element});
+                assertThat(array.getArray()).isEqualTo(new Object[] {element});
                 assertEquals(array.getBaseType(), Types.JAVA_OBJECT);
                 assertEquals(array.getBaseTypeName(), "map(varchar(2),integer)");
 
@@ -701,12 +702,12 @@ public abstract class BaseTestJdbcResultSet
                         .build();
 
                 Array array = rs.getArray(column);
-                assertEquals(array.getArray(), new Object[] {element});
+                assertThat(array.getArray()).isEqualTo(new Object[] {element});
                 assertEquals(array.getBaseType(), Types.JAVA_OBJECT);
                 assertEquals(array.getBaseTypeName(), "row(a_bigint bigint,a_varchar varchar(17))");
 
                 array = (Array) rs.getObject(column);
-                assertEquals(array.getArray(), new Object[] {element});
+                assertThat(array.getArray()).isEqualTo(new Object[] {element});
                 assertEquals(array.getBaseType(), Types.JAVA_OBJECT);
                 assertEquals(array.getBaseTypeName(), "row(a_bigint bigint,a_varchar varchar(17))");
 
