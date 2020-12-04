@@ -372,11 +372,12 @@ public class TestJdbcResultSetTimezone
     private void checkRepresentation(String prestoExpression, String referenceExpression, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
             throws Exception
     {
-        try (ResultSet rs = prestoQuery(prestoExpression, sessionTimezoneId); ResultSet referenceResultSet = reference.query(referenceExpression, sessionTimezoneId)) {
-            assertTrue(rs.next());
+        try (ResultSet prestoResultSet = prestoQuery(prestoExpression, sessionTimezoneId);
+                ResultSet referenceResultSet = reference.query(referenceExpression, sessionTimezoneId)) {
+            assertTrue(prestoResultSet.next());
             assertTrue(referenceResultSet.next());
-            assertion.accept(rs, referenceResultSet, 1);
-            assertFalse(rs.next());
+            assertion.accept(prestoResultSet, referenceResultSet, 1);
+            assertFalse(prestoResultSet.next());
             assertFalse(referenceResultSet.next());
         }
     }
