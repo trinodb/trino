@@ -460,6 +460,19 @@ public class PrestoS3FileSystem
     {
         // Ignore the overwrite flag, since Presto always writes to unique file names.
         // Checking for file existence is thus an unnecessary, expensive operation.
+        return new FSDataOutputStream(createOutputStream(path), statistics);
+    }
+
+    private OutputStream createOutputStream(Path path)
+            throws IOException
+    {
+        String bucketName = getBucketName(uri);
+        String key = keyFromPath(qualifiedPath(path));
+
+        if (streamingUploadEnabled) {
+            String uploadId = initMultipartUpload(bucketName, key).getUploadId();
+            return new PrestoS3StreamingOutputStream(s3, bucketName, key, uploadId, uploadExecutor, streamingUploadPartSize);
+        }
 
         if (!stagingDirectory.exists()) {
             createDirectories(stagingDirectory.toPath());
@@ -467,19 +480,8 @@ public class PrestoS3FileSystem
         if (!stagingDirectory.isDirectory()) {
             throw new IOException("Configured staging path is not a directory: " + stagingDirectory);
         }
-
-        String bucketName = getBucketName(uri);
-        String key = keyFromPath(qualifiedPath(path));
-        OutputStream out;
-        if (streamingUploadEnabled) {
-            String uploadId = initMultipartUpload(bucketName, key).getUploadId();
-            out = new PrestoS3StreamingOutputStream(s3, bucketName, key, uploadId, uploadExecutor, streamingUploadPartSize);
-        }
-        else {
-            File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
-            out = new PrestoS3StagingOutputStream(s3, bucketName, key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType, requesterPaysEnabled, s3StorageClass);
-        }
-        return new FSDataOutputStream(out, statistics);
+        File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
+        return new PrestoS3StagingOutputStream(s3, bucketName, key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType, requesterPaysEnabled, s3StorageClass);
     }
 
     @Override
