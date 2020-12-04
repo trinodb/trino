@@ -15,6 +15,7 @@ package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.math.IntMath;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -40,7 +41,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
@@ -242,8 +245,8 @@ public abstract class BaseTestJdbcResultSet
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "TIME '09:39:05.000'", Types.TIME, (rs, column) -> {
-                assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(9, 39, 5)));
-                assertEquals(rs.getObject(column, Time.class), Time.valueOf(LocalTime.of(9, 39, 5)));
+                assertEquals(rs.getObject(column), toSqlTime(LocalTime.of(9, 39, 5)));
+                assertEquals(rs.getObject(column, Time.class), toSqlTime(LocalTime.of(9, 39, 5)));
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Expected value to be a date but is: 09:39:05.000");
@@ -260,6 +263,49 @@ public abstract class BaseTestJdbcResultSet
 //        checkRepresentation(statementWrapper.getStatement(), "TIME '00:39:05'", Types.TIME, (rs, column) -> {
 //            ...
 //        });
+
+            if (serverSupportsVariablePrecisionTime()) {
+                // second fraction could be overflowing to next millisecond
+                checkRepresentation(connectedStatement.getStatement(), "TIME '10:11:12.1235'", Types.TIME, (rs, column) -> {
+                    // TODO (https://github.com/prestosql/presto/issues/6205) maybe should round to 124 ms instead
+                    assertEquals(rs.getObject(column), toSqlTime(LocalTime.of(10, 11, 12, 123_000_000)));
+                    assertThatThrownBy(() -> rs.getDate(column))
+                            .isInstanceOf(SQLException.class)
+                            .hasMessage("Expected value to be a date but is: 10:11:12.1235");
+                    assertEquals(rs.getTime(column), toSqlTime(LocalTime.of(10, 11, 12, 123_000_000)));
+                    assertThatThrownBy(() -> rs.getTimestamp(column))
+                            .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
+                            .hasMessage("Expected column to be a timestamp type but is time(4)");
+                });
+
+                // second fraction could be overflowing to next nanosecond, second, minute and hour
+                checkRepresentation(connectedStatement.getStatement(), "TIME '10:59:59.999999999999'", Types.TIME, (rs, column) -> {
+                    // TODO (https://github.com/prestosql/presto/issues/6205) maybe result should be 11:00:00
+                    assertEquals(rs.getObject(column), toSqlTime(LocalTime.of(10, 59, 59, 999_000_000)));
+                    assertThatThrownBy(() -> rs.getDate(column))
+                            .isInstanceOf(SQLException.class)
+                            .hasMessage("Expected value to be a date but is: 10:59:59.999999999999");
+                    // TODO (https://github.com/prestosql/presto/issues/6205) maybe result should be 11:00:00
+                    assertEquals(rs.getTime(column), toSqlTime(LocalTime.of(10, 59, 59, 999_000_000)));
+                    assertThatThrownBy(() -> rs.getTimestamp(column))
+                            .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
+                            .hasMessage("Expected column to be a timestamp type but is time(12)");
+                });
+
+                // second fraction could be overflowing to next day
+                checkRepresentation(connectedStatement.getStatement(), "TIME '23:59:59.999999999999'", Types.TIME, (rs, column) -> {
+                    // TODO (https://github.com/prestosql/presto/issues/6205) maybe result should be 01:00:00 (shifted from 00:00:00 as test JVM has gap in 1970-01-01)
+                    assertEquals(rs.getObject(column), toSqlTime(LocalTime.of(23, 59, 59, 999_000_000)));
+                    assertThatThrownBy(() -> rs.getDate(column))
+                            .isInstanceOf(SQLException.class)
+                            .hasMessage("Expected value to be a date but is: 23:59:59.999999999999");
+                    // TODO (https://github.com/prestosql/presto/issues/6205) maybe result should be 01:00:00 (shifted from 00:00:00 as test JVM has gap in 1970-01-01)
+                    assertEquals(rs.getTime(column), toSqlTime(LocalTime.of(23, 59, 59, 999_000_000)));
+                    assertThatThrownBy(() -> rs.getTimestamp(column))
+                            .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
+                            .hasMessage("Expected column to be a timestamp type but is time(12)");
+                });
+            }
         }
     }
 
@@ -1149,6 +1195,13 @@ public abstract class BaseTestJdbcResultSet
         {
             return statement;
         }
+    }
+
+    private static Time toSqlTime(LocalTime localTime)
+    {
+        // Time.valueOf does not preserve second fraction.
+        // Expect no rounding, since this is used to create tests' expected values.
+        return new Time(Time.valueOf(localTime).getTime() + IntMath.divide(localTime.getNano(), NANOSECONDS_PER_MILLISECOND, UNNECESSARY));
     }
 
     private boolean serverSupportsVariablePrecisionTime()
