@@ -54,7 +54,7 @@ public class TestJdbcResultSet
     @Override
     protected int getTestedPrestoServerVersion()
     {
-        // Lastest version
+        // Latest version
         return Integer.MAX_VALUE;
     }
 }
