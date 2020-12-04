@@ -75,6 +75,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.util.Collections.unmodifiableList;
@@ -117,6 +118,7 @@ abstract class AbstractPrestoResultSet
     private static final int MILLISECONDS_PER_SECOND = 1000;
     private static final int MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
     private static final long NANOSECONDS_PER_SECOND = 1_000_000_000;
+    private static final int PICOSECONDS_PER_NANOSECOND = 1_000;
 
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
@@ -2048,7 +2050,10 @@ abstract class AbstractPrestoResultSet
             fractionValue = Long.parseLong(fraction);
         }
 
-        long epochMilli = ZonedDateTime.of(1970, 1, 1, hour, minute, second, (int) rescale(fractionValue, precision, 9), localTimeZone)
+        long picosOfSecond = rescale(fractionValue, precision, 12); // maximum precision
+        // We eventually truncate to millis, so truncate picos to nanos for consistency TODO (https://github.com/prestosql/presto/issues/6205) reconsider
+        int nanosOfSecond = toIntExact(picosOfSecond / PICOSECONDS_PER_NANOSECOND);
+        long epochMilli = ZonedDateTime.of(1970, 1, 1, hour, minute, second, nanosOfSecond, localTimeZone)
                 .toInstant()
                 .toEpochMilli();
 
