@@ -1749,7 +1749,7 @@ abstract class AbstractPrestoResultSet
         }
         try {
             T converted = TYPE_CONVERSIONS.convert(object, type);
-            verify(converted != null, "Conversion cannot return null for non-null input, as this breask wasNull()");
+            verify(converted != null, "Conversion cannot return null for non-null input, as this breaks wasNull()");
             return converted;
         }
         catch (NoConversionRegisteredException e) {
