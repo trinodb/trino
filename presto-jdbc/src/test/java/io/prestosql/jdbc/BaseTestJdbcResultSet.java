@@ -631,6 +631,7 @@ public abstract class BaseTestJdbcResultSet
             throws Exception
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
+            // no NULL elements
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[1, 2]", Types.ARRAY, (rs, column) -> {
                 Array array = rs.getArray(column);
                 assertThat(array.getArray()).isEqualTo(new int[] {1, 2});
@@ -645,20 +646,27 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column, List.class), ImmutableList.of(1, 2));
             });
 
-            // array of bigint, and with NULL
-            checkRepresentation(connectedStatement.getStatement(), "ARRAY[NULL, BIGINT '1', 2]", Types.ARRAY, (rs, column) -> {
-                Array array = rs.getArray(column);
-                assertThat(array.getArray()).isEqualTo(new Long[] {null, 1L, 2L});
-                assertEquals(array.getBaseType(), Types.BIGINT);
-                assertEquals(array.getBaseTypeName(), "bigint");
+            checkArrayRepresentation(connectedStatement.getStatement(), "1", Types.INTEGER, "integer");
+            checkArrayRepresentation(connectedStatement.getStatement(), "BIGINT '1'", Types.BIGINT, "bigint");
+            checkArrayRepresentation(connectedStatement.getStatement(), "REAL '42.123'", Types.REAL, "real");
+            checkArrayRepresentation(connectedStatement.getStatement(), "DOUBLE '42.123'", Types.DOUBLE, "double");
+            checkArrayRepresentation(connectedStatement.getStatement(), "42.123", Types.DECIMAL, "decimal(5,3)");
 
-                array = (Array) rs.getObject(column); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
-                assertThat(array.getArray()).isEqualTo(new Long[] {null, 1L, 2L});
-                assertEquals(array.getBaseType(), Types.BIGINT);
-                assertEquals(array.getBaseTypeName(), "bigint");
+            if (serverSupportsVariablePrecisionTimestamp()) {
+                checkArrayRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2017-01-02 09:00:00.123'", Types.TIMESTAMP, "timestamp(3)");
+                checkArrayRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2017-01-02 09:00:00.123456789'", Types.TIMESTAMP, "timestamp(9)");
+            }
+            else {
+                checkArrayRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2017-01-02 09:00:00.123'", Types.TIMESTAMP, "timestamp");
+            }
 
-                assertEquals(rs.getObject(column, List.class), asList(null, 1L, 2L));
-            });
+            if (serverSupportsVariablePrecisionTimestampWithTimeZone()) {
+                checkArrayRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2017-01-02 09:00:00.123 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, "timestamp with time zone(3)");
+                checkArrayRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2017-01-02 09:00:00.123456789 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, "timestamp with time zone(9)");
+            }
+            else {
+                checkArrayRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2017-01-02 09:00:00.123 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, "timestamp with time zone");
+            }
 
             // array or array
             checkRepresentation(connectedStatement.getStatement(), "ARRAY[NULL, ARRAY[NULL, BIGINT '1', 2]]", Types.ARRAY, (rs, column) -> {
@@ -714,6 +722,25 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getObject(column, List.class), ImmutableList.of(element));
             });
         }
+    }
+
+    private void checkArrayRepresentation(Statement statement, String elementExpression, int elementSqlType, String elementTypeName)
+            throws Exception
+    {
+        Object element = getObjectRepresentation(statement.getConnection(), elementExpression);
+        checkRepresentation(statement, format("ARRAY[NULL, %s]", elementExpression), Types.ARRAY, (rs, column) -> {
+            Array array = rs.getArray(column);
+            assertThat(array.getArray()).isEqualTo(new Object[] {null, element});
+            assertEquals(array.getBaseType(), elementSqlType);
+            assertEquals(array.getBaseTypeName(), elementTypeName);
+
+            array = (Array) rs.getObject(column); // TODO (https://github.com/prestosql/presto/issues/6049) subject to change
+            assertThat(array.getArray()).isEqualTo(new Object[] {null, element});
+            assertEquals(array.getBaseType(), elementSqlType);
+            assertEquals(array.getBaseTypeName(), elementTypeName);
+
+            assertEquals(rs.getObject(column, List.class), asList(null, element));
+        });
     }
 
     @Test
@@ -861,6 +888,20 @@ public abstract class BaseTestJdbcResultSet
             assertTrue(rs.next());
             assertion.accept(rs, 1);
             assertFalse(rs.next());
+        }
+    }
+
+    private Object getObjectRepresentation(Connection connection, String expression)
+            throws SQLException
+    {
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery("SELECT " + expression)) {
+            ResultSetMetaData metadata = rs.getMetaData();
+            assertEquals(metadata.getColumnCount(), 1);
+            assertTrue(rs.next());
+            Object object = rs.getObject(1);
+            assertFalse(rs.next());
+            return object;
         }
     }
 
