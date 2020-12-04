@@ -14,7 +14,6 @@
 package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -52,7 +51,6 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.TimeZone;
 
 import static com.google.common.base.Verify.verify;
@@ -421,7 +419,6 @@ public class TestJdbcResultSetTimezone
     private static class OracleReferenceDriver
             implements ReferenceDriver
     {
-        private static final Set<JDBCType> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIMESTAMP, TIMESTAMP_WITH_TIMEZONE);
         private OracleContainer oracleServer;
         private Connection connection;
         private Statement statement;
@@ -448,7 +445,10 @@ public class TestJdbcResultSetTimezone
         @Override
         public boolean supports(JDBCType type)
         {
-            return SUPPORTED_TYPES.contains(type);
+            if (type == TIME) {
+                return false;
+            }
+            return true;
         }
 
         @Override
@@ -489,7 +489,6 @@ public class TestJdbcResultSetTimezone
     private static class PostgresqlReferenceDriver
             implements ReferenceDriver
     {
-        private static final Set<JDBCType> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIMESTAMP, TIMESTAMP_WITH_TIMEZONE);
         private PostgreSQLContainer<?> postgresqlContainer;
         private Connection connection;
         private Statement statement;
@@ -517,7 +516,7 @@ public class TestJdbcResultSetTimezone
         @Override
         public boolean supports(JDBCType type)
         {
-            return SUPPORTED_TYPES.contains(type);
+            return true;
         }
 
         @Override
