@@ -104,7 +104,9 @@ public class TestHiveQlTranslation
                             "'double: two singles'''''")
                     .build();
 
-    /** Prepare all combinations of {@code n} of the given columns. */
+    /**
+     * Prepare all combinations of {@code n} of the given columns.
+     */
     private static Iterator<Object[]> getNColumns(int n, Map<String, String> columns)
     {
         Stream<String> hiveNames =
@@ -115,7 +117,7 @@ public class TestHiveQlTranslation
                 Lists.cartesianProduct(nCopies(n, List.copyOf(columns.values()))).stream()
                         .map(names -> join(", ", names));
 
-        return Streams.zip(hiveNames, prestoNames, (h, p) -> new Object[]{h, p}).iterator();
+        return Streams.zip(hiveNames, prestoNames, (h, p) -> new Object[] {h, p}).iterator();
     }
 
     @DataProvider(name = "simple_hive_translation_columns")

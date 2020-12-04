@@ -140,7 +140,7 @@ public class TestHiveBucketing
         for (BucketingVersion version : BucketingVersion.values()) {
             List<TypeInfo> typeInfos = ImmutableList.of(timestampTypeInfo);
 
-            assertThatThrownBy(() -> version.getBucketHashCode(typeInfos, new Object[]{0}))
+            assertThatThrownBy(() -> version.getBucketHashCode(typeInfos, new Object[] {0}))
                     .hasMessage("Computation of Hive bucket hashCode is not supported for Hive primitive category: TIMESTAMP");
 
             TimestampType timestampType = createTimestampType(3);

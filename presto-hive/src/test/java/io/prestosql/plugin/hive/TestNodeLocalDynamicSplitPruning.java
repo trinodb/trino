@@ -163,7 +163,8 @@ public class TestNodeLocalDynamicSplitPruning
 
     private static DynamicFilter getDynamicFilter(TupleDomain<ColumnHandle> tupleDomain)
     {
-        return new DynamicFilter() {
+        return new DynamicFilter()
+        {
             @Override
             public CompletableFuture<?> isBlocked()
             {
