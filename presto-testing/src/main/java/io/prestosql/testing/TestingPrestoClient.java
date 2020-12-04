@@ -261,6 +261,9 @@ public class TestingPrestoClient
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
         }
+        else if (type.getBaseName().equals("HyperLogLog")) {
+            return value;
+        }
         else if (type.getBaseName().equals("ObjectId")) {
             return value;
         }
