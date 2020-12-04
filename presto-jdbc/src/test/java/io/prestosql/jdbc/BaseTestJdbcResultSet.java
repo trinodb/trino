@@ -259,7 +259,7 @@ public abstract class BaseTestJdbcResultSet
 //            ...
 //        });
 
-            checkRepresentation(connectedStatement.getStatement(), "TIME '09:39:07 +01:00'", Types.TIME /* TODO TIME_WITH_TIMEZONE */, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "TIME '09:39:07 +01:00'", Types.TIME_WITH_TIMEZONE, (rs, column) -> {
                 assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(1, 39, 7))); // TODO this should represent TIME '09:39:07 +01:00'
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
@@ -274,7 +274,7 @@ public abstract class BaseTestJdbcResultSet
                                 : "Expected column to be a timestamp type but is time with time zone");
             });
 
-            checkRepresentation(connectedStatement.getStatement(), "TIME '01:39:07 +01:00'", Types.TIME /* TODO TIME_WITH_TIMEZONE */, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "TIME '01:39:07 +01:00'", Types.TIME_WITH_TIMEZONE, (rs, column) -> {
                 Time someBogusValue = new Time(
                         Time.valueOf(
                                 LocalTime.of(16, 39, 7)).getTime() /* 16:39:07 = 01:39:07 - +01:00 shift + Bahia_Banderas's shift (-8) (modulo 24h which we "un-modulo" below) */
@@ -294,7 +294,7 @@ public abstract class BaseTestJdbcResultSet
                                 : "Expected column to be a timestamp type but is time with time zone");
             });
 
-            checkRepresentation(connectedStatement.getStatement(), "TIME '00:39:07 +01:00'", Types.TIME /* TODO TIME_WITH_TIMEZONE */, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "TIME '00:39:07 +01:00'", Types.TIME_WITH_TIMEZONE, (rs, column) -> {
                 Time someBogusValue = new Time(
                         Time.valueOf(
                                 LocalTime.of(15, 39, 7)).getTime() /* 15:39:07 = 00:39:07 - +01:00 shift + Bahia_Banderas's shift (-8) (modulo 24h which we "un-modulo" below) */
@@ -492,7 +492,7 @@ public abstract class BaseTestJdbcResultSet
             throws Exception
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
-            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
                 ZonedDateTime zonedDateTime = ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw"));
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
@@ -509,7 +509,7 @@ public abstract class BaseTestJdbcResultSet
 
             // second fraction in nanoseconds overflowing to next second, minute, hour, day, month, year
             if (serverSupportsVariablePrecisionTimestampWithTimeZone()) {
-                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
                     ZonedDateTime zonedDateTime = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneId.of("Europe/Warsaw"));
                     Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                     assertEquals(rs.getObject(column), timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
@@ -526,7 +526,7 @@ public abstract class BaseTestJdbcResultSet
                 checkRepresentation(
                         connectedStatement.getStatement(),
                         format("TIMESTAMP '2019-12-31 23:59:59.999999999999 %s'", jvmZone.getId()),
-                        Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */,
+                        Types.TIMESTAMP_WITH_TIMEZONE,
                         (rs, column) -> {
                             ZonedDateTime zonedDateTime = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, jvmZone);
                             Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
@@ -541,7 +541,7 @@ public abstract class BaseTestJdbcResultSet
                         });
 
                 // before epoch
-                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1957-12-31 23:59:59.999999999999 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1957-12-31 23:59:59.999999999999 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
                     ZonedDateTime zonedDateTime = ZonedDateTime.of(1958, 1, 1, 0, 0, 0, 0, ZoneId.of("Europe/Warsaw"));
                     Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                     assertEquals(rs.getObject(column), timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
@@ -555,7 +555,7 @@ public abstract class BaseTestJdbcResultSet
                 });
             }
 
-            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
                 ZonedDateTime zonedDateTime = ZonedDateTime.of(1970, 1, 1, 9, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw"));
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'
@@ -570,7 +570,7 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getTimestamp(column), timestampForPointInTime);
             });
 
-            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
                 ZonedDateTime zonedDateTime = ZonedDateTime.of(1970, 1, 1, 0, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw"));
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'
@@ -586,12 +586,12 @@ public abstract class BaseTestJdbcResultSet
             });
 
             // TODO https://github.com/prestosql/presto/issues/4363
-//        checkRepresentation(statementWrapper.getStatement(), "TIMESTAMP '-12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+//        checkRepresentation(statementWrapper.getStatement(), "TIMESTAMP '-12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
 //            ...
 //        });
 
             if (serverSupportsVariablePrecisionTimestampWithTimeZone()) {
-                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
                     ZonedDateTime zonedDateTime = ZonedDateTime.of(12345, 1, 23, 1, 23, 45, 123_456_789, ZoneId.of("Europe/Warsaw"));
                     Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                     assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should contain the zone

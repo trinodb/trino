@@ -232,11 +232,11 @@ class ColumnInfo
             case "time":
                 return Types.TIME;
             case "time with time zone":
-                return Types.TIME;
+                return Types.TIME_WITH_TIMEZONE;
             case "timestamp":
                 return Types.TIMESTAMP;
             case "timestamp with time zone":
-                return Types.TIMESTAMP;
+                return Types.TIMESTAMP_WITH_TIMEZONE;
             case "date":
                 return Types.DATE;
             case "decimal":

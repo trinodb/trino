@@ -52,7 +52,7 @@ import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
-import static java.sql.JDBCType.TIMESTAMP;
+import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.JDBCType.TINYINT;
 import static java.sql.JDBCType.VARBINARY;
 import static java.sql.JDBCType.VARCHAR;
@@ -182,7 +182,7 @@ public class TestSelect
 
         assertThat(query)
                 .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, VARCHAR,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP, VARCHAR, VARCHAR,
+                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0",
@@ -296,7 +296,7 @@ public class TestSelect
 
         assertThat(query)
                 .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, VARCHAR,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP, VARCHAR, VARCHAR,
+                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(
                         row("\0",

@@ -562,9 +562,11 @@ abstract class AbstractPrestoResultSet
                 // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
                 return getDate(columnIndex);
             case Types.TIME:
+            case Types.TIME_WITH_TIMEZONE:
                 // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
                 return getTime(columnIndex);
             case Types.TIMESTAMP:
+            case Types.TIMESTAMP_WITH_TIMEZONE:
                 // TODO (https://github.com/prestosql/presto/issues/6048) move to convertFromClientRepresentation
                 return getTimestamp(columnIndex);
             case Types.ARRAY:
