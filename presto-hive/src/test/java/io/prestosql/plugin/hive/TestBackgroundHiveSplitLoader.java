@@ -50,6 +50,7 @@ import org.apache.hadoop.hive.common.ValidReaderWriteIdList;
 import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.InputSplit;
@@ -753,7 +754,6 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of());
-        Configuration configuration = new Configuration(false);
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
@@ -769,7 +769,7 @@ public class TestBackgroundHiveSplitLoader
                 files,
                 directoryLister);
         Optional<Iterator<InternalHiveSplit>> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
-                configuration,
+                new AvroContainerInputFormat(),
                 "partition",
                 schema,
                 ImmutableList.of(),
@@ -792,7 +792,6 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of());
-        Configuration configuration = new Configuration(false);
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
@@ -808,7 +807,7 @@ public class TestBackgroundHiveSplitLoader
                 files,
                 directoryLister);
         Optional<Iterator<InternalHiveSplit>> splitIterator = backgroundHiveSplitLoader.buildManifestFileIterator(
-                configuration,
+                new AvroContainerInputFormat(),
                 "partition",
                 schema,
                 ImmutableList.of(),

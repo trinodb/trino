@@ -56,6 +56,7 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.JobConfigurable;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.mapreduce.MRConfig;
 
@@ -379,6 +380,7 @@ public class BackgroundHiveSplitLoader
             if (tableBucketInfo.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
+            InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema, true);
             List<Path> targetPaths = hdfsEnvironment.doAs(
                     hdfsContext.getIdentity().getUser(),
                     () -> getTargetPathsFromSymlink(fs, path));
@@ -388,7 +390,7 @@ public class BackgroundHiveSplitLoader
                     .collect(toImmutableSet());
             if (optimizeSymlinkListing && parents.size() == 1 && !recursiveDirWalkerEnabled) {
                 Optional<Iterator<InternalHiveSplit>> manifestFileIterator = buildManifestFileIterator(
-                        configuration,
+                        targetInputFormat,
                         partitionName,
                         schema,
                         partitionKeys,
@@ -406,7 +408,7 @@ public class BackgroundHiveSplitLoader
             }
             return createHiveSymlinkSplits(
                     partitionName,
-                    inputFormat,
+                    targetInputFormat,
                     schema,
                     partitionKeys,
                     effectivePredicate,
@@ -578,7 +580,7 @@ public class BackgroundHiveSplitLoader
 
     private ListenableFuture<?> createHiveSymlinkSplits(
             String partitionName,
-            InputFormat<?, ?> inputFormat,
+            InputFormat<?, ?> targetInputFormat,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -590,8 +592,6 @@ public class BackgroundHiveSplitLoader
     {
         ListenableFuture<?> lastResult = COMPLETED_FUTURE;
         for (Path targetPath : targetPaths) {
-            // The input should be in TextInputFormat.
-            TextInputFormat targetInputFormat = new TextInputFormat();
             // the splits must be generated using the file system for the target path
             // get the configuration for the target path -- it may be a different hdfs instance
             FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
@@ -602,7 +602,9 @@ public class BackgroundHiveSplitLoader
                 targetJob.set(MRConfig.FRAMEWORK_NAME, MRConfig.CLASSIC_FRAMEWORK_NAME);
                 targetJob.set(MRConfig.MASTER_USER_NAME, principal.get().getName());
             }
-            targetInputFormat.configure(targetJob);
+            if (targetInputFormat instanceof JobConfigurable) {
+                ((JobConfigurable) targetInputFormat).configure(targetJob);
+            }
             FileInputFormat.setInputPaths(targetJob, targetPath);
             InputSplit[] targetSplits = hdfsEnvironment.doAs(
                     hdfsContext.getIdentity().getUser(),
@@ -611,7 +613,7 @@ public class BackgroundHiveSplitLoader
             InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                     targetFilesystem,
                     partitionName,
-                    inputFormat,
+                    targetInputFormat,
                     schema,
                     partitionKeys,
                     effectivePredicate,
@@ -633,7 +635,7 @@ public class BackgroundHiveSplitLoader
 
     @VisibleForTesting
     Optional<Iterator<InternalHiveSplit>> buildManifestFileIterator(
-            Configuration configuration,
+            InputFormat<?, ?> targetInputFormat,
             String partitionName,
             Properties schema,
             List<HivePartitionKey> partitionKeys,
@@ -664,7 +666,6 @@ public class BackgroundHiveSplitLoader
             locatedFileStatuses.add(status);
         }
 
-        InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema, true);
         InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(
                 targetFilesystem,
                 partitionName,
