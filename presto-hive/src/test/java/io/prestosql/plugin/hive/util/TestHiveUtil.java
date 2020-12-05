@@ -16,6 +16,9 @@ package io.prestosql.plugin.hive.util;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
+import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
 import org.apache.hadoop.hive.serde2.thrift.test.IntString;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -30,10 +33,14 @@ import java.util.List;
 import java.util.Properties;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
+import static io.prestosql.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializer;
+import static io.prestosql.plugin.hive.util.HiveUtil.getInputFormat;
 import static io.prestosql.plugin.hive.util.HiveUtil.parseHiveTimestamp;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -73,6 +80,34 @@ public class TestHiveUtil
         assertToPartitionValues("a=1");
         assertToPartitionValues("pk=!@%23$%25%5E&%2A()%2F%3D");
         assertToPartitionValues("pk=__HIVE_DEFAULT_PARTITION__");
+    }
+
+    @Test
+    public void testGetInputFormat()
+    {
+        Configuration configuration = new Configuration(false);
+
+        Properties avroSymlinkSchema = new Properties();
+        avroSymlinkSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
+        avroSymlinkSchema.setProperty(SERIALIZATION_LIB, AVRO.getSerDe());
+        assertInstanceOf(getInputFormat(configuration, avroSymlinkSchema, false), SymlinkTextInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, avroSymlinkSchema, true), AvroContainerInputFormat.class);
+
+        Properties parquetSymlinkSchema = new Properties();
+        parquetSymlinkSchema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
+        parquetSymlinkSchema.setProperty(SERIALIZATION_LIB, PARQUET.getSerDe());
+        assertInstanceOf(getInputFormat(configuration, parquetSymlinkSchema, false), SymlinkTextInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, parquetSymlinkSchema, true), MapredParquetInputFormat.class);
+
+        Properties parquetSchema = new Properties();
+        parquetSchema.setProperty(FILE_INPUT_FORMAT, PARQUET.getInputFormat());
+        assertInstanceOf(getInputFormat(configuration, parquetSchema, false), MapredParquetInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, parquetSchema, true), MapredParquetInputFormat.class);
+
+        Properties legacyParquetSchema = new Properties();
+        legacyParquetSchema.setProperty(FILE_INPUT_FORMAT, "parquet.hive.MapredParquetInputFormat");
+        assertInstanceOf(getInputFormat(configuration, legacyParquetSchema, false), MapredParquetInputFormat.class);
+        assertInstanceOf(getInputFormat(configuration, legacyParquetSchema, true), MapredParquetInputFormat.class);
     }
 
     private static void assertToPartitionValues(String partitionName)
