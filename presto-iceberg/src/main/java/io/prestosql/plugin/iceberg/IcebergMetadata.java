@@ -693,10 +693,10 @@ public class IcebergMetadata
         TupleDomain<IcebergColumnHandle> newUnenforcedConstraint = constraint.getSummary()
                 .transform(IcebergColumnHandle.class::cast)
                 .filter(isIdentityPartition.negate())
-                .intersect(table.getPredicate());
+                .intersect(table.getUnenforcedPredicate());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
-                && newUnenforcedConstraint.equals(table.getPredicate())) {
+                && newUnenforcedConstraint.equals(table.getUnenforcedPredicate())) {
             return Optional.empty();
         }
 

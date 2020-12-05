@@ -1290,7 +1290,7 @@ public abstract class AbstractTestIcebergSmoke
             QualifiedObjectName tableName,
             Map<String, Domain> filter,
             Map<String, Domain> expectedEnforcedPredicate,
-            Map<String, Domain> expectedPredicate)
+            Map<String, Domain> expectedUnenforcedPredicate)
     {
         Metadata metadata = getQueryRunner().getMetadata();
 
@@ -1305,7 +1305,7 @@ public abstract class AbstractTestIcebergSmoke
 
             Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, table, new Constraint(domains));
 
-            assertTrue(result.isEmpty() == (expectedPredicate == null && expectedEnforcedPredicate == null));
+            assertTrue(result.isEmpty() == (expectedUnenforcedPredicate == null && expectedEnforcedPredicate == null));
 
             if (!result.isEmpty()) {
                 IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().getConnectorHandle();
@@ -1314,8 +1314,8 @@ public abstract class AbstractTestIcebergSmoke
                         TupleDomain.withColumnDomains(expectedEnforcedPredicate.entrySet().stream()
                                 .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
 
-                assertEquals(newTable.getPredicate(),
-                        TupleDomain.withColumnDomains(expectedPredicate.entrySet().stream()
+                assertEquals(newTable.getUnenforcedPredicate(),
+                        TupleDomain.withColumnDomains(expectedUnenforcedPredicate.entrySet().stream()
                                 .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
             }
         });
