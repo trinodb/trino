@@ -128,13 +128,13 @@ and each type can be run individually with the following commands:
 presto-product-tests-launcher/bin/run-launcher test run \
             --environment <environment> \
             [--config <environment config>] \
-            -t io.prestosql.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
+            -- -t io.prestosql.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
 
 # Run single convention based test
 presto-product-tests-launcher/bin/run-launcher test run \
             --environment <environment> \
             [--config <environment config>] \
-            -t sql_tests.testcases.system.selectInformationSchemaTables
+            -- -t sql_tests.testcases.system.selectInformationSchemaTables
 ```
 
 ### Running groups of tests
@@ -151,7 +151,7 @@ particular group, use the `-g` argument as shown:
 presto-product-tests-launcher/bin/run-launcher test run \
             --environment <environment> \
             [--config <environment config>] \
-            -g string_functions,create_tables
+            -- -g string_functions,create_tables
 ```
 
 Some groups of tests can only be run with certain profiles. Incorrect use of profile
