@@ -623,10 +623,13 @@ export class StageDetail extends React.Component {
             );
         }
 
-        if (!this.state.query.outputStage) {
+        if (this.state.query && !this.state.query.outputStage) {
             return (
-                <div className="row error-message">
-                    <div className="col-xs-12"><h4>Query does not have an output stage</h4></div>
+                <div>
+                    <QueryHeader query={this.state.query} />
+                    <div className="row error-message">
+                        <div className="col-xs-12"><h4>Query does not have an output stage</h4></div>
+                    </div>
                 </div>
             );
         }
