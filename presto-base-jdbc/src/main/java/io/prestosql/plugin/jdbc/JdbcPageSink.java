@@ -165,6 +165,14 @@ public class JdbcPageSink
             throw new PrestoException(JDBC_NON_TRANSIENT_ERROR, e);
         }
         catch (SQLException e) {
+            // Convert chained SQLExceptions to suppressed exceptions so they are visible in the stack trace
+            SQLException nextException = e.getNextException();
+            while (nextException != null) {
+                if (e != nextException) {
+                    e.addSuppressed(new Exception("Next SQLException", nextException));
+                }
+                nextException = nextException.getNextException();
+            }
             throw new PrestoException(JDBC_ERROR, "Failed to insert data: " + firstNonNull(e.getMessage(), e), e);
         }
         // the committer does not need any additional info
