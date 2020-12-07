@@ -248,7 +248,7 @@ public class PrestoConnectorClient
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
-            return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.empty(), decimalType.getPrecision(), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+            return Optional.of(new JdbcTypeHandle(Types.DECIMAL, Optional.empty(), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
         }
 
         if (type instanceof CharType) {
@@ -345,16 +345,16 @@ public class PrestoConnectorClient
 
     private static JdbcTypeHandle jdbcTypeHandle(int jdbcType)
     {
-        return new JdbcTypeHandle(jdbcType, Optional.empty(), 0, Optional.empty(), Optional.empty(), Optional.empty());
+        return new JdbcTypeHandle(jdbcType, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private static JdbcTypeHandle jdbcTypeHandleWithColumnSize(int jdbcType, int columnSize)
     {
-        return new JdbcTypeHandle(jdbcType, Optional.empty(), columnSize, Optional.empty(), Optional.empty(), Optional.empty());
+        return new JdbcTypeHandle(jdbcType, Optional.empty(), Optional.of(columnSize), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private static JdbcTypeHandle jdbcTypeHandleWithDecimalDigits(int jdbcType, int decimalDigits)
     {
-        return new JdbcTypeHandle(jdbcType, Optional.empty(), 0, Optional.of(decimalDigits), Optional.empty(), Optional.empty());
+        return new JdbcTypeHandle(jdbcType, Optional.empty(), Optional.empty(), Optional.of(decimalDigits), Optional.empty(), Optional.empty());
     }
 }
