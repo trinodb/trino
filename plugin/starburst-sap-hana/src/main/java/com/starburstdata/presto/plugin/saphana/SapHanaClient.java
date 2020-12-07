@@ -76,10 +76,12 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.TimeZone;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -641,10 +643,14 @@ public class SapHanaClient
                 return Optional.of(tableStatistics.build());
             }
 
-            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(schemaName, tableName).stream()
+            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(schemaName, tableName, "SIMPLE", StatisticsDao::toColumnStatisticsResult).stream()
+                    .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
+            Map<String, ColumnStatisticsResult> columnStatisticsFromHistograms = statisticsDao.getColumnStatistics(schemaName, tableName, "HISTOGRAM", StatisticsDao::toColumnStatisticsResultFromHistogram).stream()
+                    .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
+            Map<String, ColumnStatisticsResult> columnStatisticsFromTopK = statisticsDao.getColumnStatistics(schemaName, tableName, "TOPK", StatisticsDao::toColumnStatisticsResult).stream()
                     .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
 
-            if (columnStatistics.isEmpty()) {
+            if (columnStatistics.isEmpty() && columnStatisticsFromHistograms.isEmpty() && columnStatisticsFromTopK.isEmpty()) {
                 // No more information to work on
                 return Optional.of(tableStatistics.build());
             }
@@ -652,7 +658,14 @@ public class SapHanaClient
             for (JdbcColumnHandle column : getColumns(session, table)) {
                 ColumnStatistics.Builder builder = ColumnStatistics.builder();
 
-                ColumnStatisticsResult columnStatisticsResult = columnStatistics.get(column.getColumnName());
+                ColumnStatisticsResult columnStatisticsResult = Stream
+                        .of(columnStatistics.get(column.getColumnName()),
+                                columnStatisticsFromHistograms.get(column.getColumnName()),
+                                columnStatisticsFromTopK.get(column.getColumnName()))
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse(null);
+
                 if (columnStatisticsResult != null) {
                     builder.setDistinctValuesCount(columnStatisticsResult.getDistinctValuesCount().map(Estimate::of).orElseGet(Estimate::unknown));
                     Estimate nullsFraction = columnStatisticsResult.getNullsFraction().map(Estimate::of).orElseGet(Estimate::unknown);
@@ -684,6 +697,12 @@ public class SapHanaClient
 
     private static class StatisticsDao
     {
+        private static final String STATS_QUERY = "SELECT DATA_SOURCE_COLUMN_NAMES AS COLUMN_NAME, DATA_STATISTICS_CONTENT AS STATISTICS " +
+                "FROM SYS.M_DATA_STATISTICS " +
+                "WHERE DATA_STATISTICS_TYPE = :statistics_type " +
+                "  AND DATA_SOURCE_SCHEMA_NAME = :schema " +
+                "  AND DATA_SOURCE_OBJECT_NAME = :table_name";
+
         private final Handle handle;
 
         public StatisticsDao(Handle handle)
@@ -708,21 +727,17 @@ public class SapHanaClient
             return null;
         }
 
-        List<ColumnStatisticsResult> getColumnStatistics(String schema, String tableName)
+        List<ColumnStatisticsResult> getColumnStatistics(String schema, String tableName, String statisticsType, BiFunction<String, String, ColumnStatisticsResult> statsJsonToColumnStatisticsResult)
         {
-            return handle.createQuery("" +
-                    "SELECT DATA_SOURCE_COLUMN_NAMES AS COLUMN_NAME, DATA_STATISTICS_CONTENT AS STATISTICS " +
-                    "FROM SYS.M_DATA_STATISTICS " +
-                    "WHERE DATA_STATISTICS_TYPE = 'SIMPLE' " +
-                    "  AND DATA_SOURCE_SCHEMA_NAME = :schema " +
-                    "  AND DATA_SOURCE_OBJECT_NAME = :table_name")
+            return handle.createQuery(STATS_QUERY)
+                    .bind("statistics_type", statisticsType)
                     .bind("schema", schema)
                     .bind("table_name", tableName)
                     .map((rs, ctx) -> {
                         String columnName = requireNonNull(rs.getString("COLUMN_NAME"), "COLUMN_NAME is null");
                         String statsJson = rs.getString("STATISTICS");
 
-                        return toColumnStatisticsResult(columnName, statsJson);
+                        return statsJsonToColumnStatisticsResult.apply(columnName, statsJson);
                     })
                     .list();
         }
@@ -746,6 +761,47 @@ public class SapHanaClient
             return new ColumnStatisticsResult(columnName, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         }
 
+        private static ColumnStatisticsResult toColumnStatisticsResultFromHistogram(String columnName, String statsJson)
+        {
+            Optional<DataStatisticsContent> stats = Optional.empty();
+            try {
+                stats = Optional.of(STATISTICS_CONTENT_JSON_CODEC.fromJson(statsJson));
+            }
+            catch (RuntimeException e) {
+                log.warn(e, "Failed to parse column statistics histogram: %s", statsJson);
+            }
+
+            Optional<Float> nullFraction = Optional.empty();
+            Optional<Long> distinctCount = Optional.empty();
+            Optional<String> min = Optional.empty();
+            Optional<String> max = Optional.empty();
+
+            if (stats.isPresent() && stats.get().lastRefreshProperties.isPresent()) {
+                LastRefreshProperties props = stats.get().lastRefreshProperties.get();
+                nullFraction = calculateNullFraction(props.nullCount, props.count);
+                distinctCount = props.distinctCount;
+            }
+
+            if (stats.isPresent() && stats.get().statisticsContent.isPresent()) {
+                StatisticsContent content = stats.get().statisticsContent.get();
+                min = content.histogram.flatMap(histogram -> histogram.minValue);
+                max = content.histogram.flatMap(histogram -> histogram.buckets.stream()
+                        .map(bucket -> {
+                            try {
+                                return bucket.maxValue.map(BigDecimal::new).orElse(null);
+                            }
+                            catch (NumberFormatException ignored) {
+                            }
+                            return null;
+                        })
+                        .filter(Objects::nonNull)
+                        .max(BigDecimal::compareTo)
+                        .map(BigDecimal::toPlainString));
+            }
+
+            return new ColumnStatisticsResult(columnName, distinctCount, nullFraction, min, max);
+        }
+
         private static Optional<Float> calculateNullFraction(Optional<Long> nullCount, Optional<Long> rowCount)
         {
             if (nullCount.isEmpty() || rowCount.isEmpty() || rowCount.get() == 0) {
@@ -764,12 +820,15 @@ public class SapHanaClient
     public static class DataStatisticsContent
     {
         private final Optional<LastRefreshProperties> lastRefreshProperties;
+        private final Optional<StatisticsContent> statisticsContent;
 
         @JsonCreator
         public DataStatisticsContent(
-                @JsonProperty("LastRefreshProperties") Optional<LastRefreshProperties> lastRefreshProperties)
+                @JsonProperty("LastRefreshProperties") Optional<LastRefreshProperties> lastRefreshProperties,
+                @JsonProperty("StatisticsContent") Optional<StatisticsContent> statisticsContent)
         {
             this.lastRefreshProperties = requireNonNull(lastRefreshProperties, "lastRefreshProperties is null");
+            this.statisticsContent = requireNonNull(statisticsContent, "statisticsContent is null");
         }
     }
 
@@ -814,6 +873,45 @@ public class SapHanaClient
                 this.minValue = Optional.empty();
                 this.maxValue = Optional.empty();
             }
+        }
+    }
+
+    public static class StatisticsContent
+    {
+        private final Optional<Histogram> histogram;
+
+        @JsonCreator
+        public StatisticsContent(
+                @JsonProperty("Histogram") Optional<Histogram> histogram)
+        {
+            this.histogram = requireNonNull(histogram, "histogram is null");
+        }
+    }
+
+    public static class Histogram
+    {
+        private final Optional<String> minValue;
+        private final List<Bucket> buckets;
+
+        @JsonCreator
+        public Histogram(
+                @JsonProperty("MIN_VALUE") Optional<String> minValue,
+                @JsonProperty("buckets") List<Bucket> buckets)
+        {
+            this.minValue = requireNonNull(minValue, "minValue is null");
+            this.buckets = requireNonNull(buckets, "buckets is null");
+        }
+    }
+
+    public static class Bucket
+    {
+        private final Optional<String> maxValue;
+
+        @JsonCreator
+        public Bucket(
+                @JsonProperty("MAX_VALUE") Optional<String> maxValue)
+        {
+            this.maxValue = requireNonNull(maxValue, "maxValue is null");
         }
     }
 

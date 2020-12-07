@@ -22,10 +22,10 @@ import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createS
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
-public class TestSapHanaTableStatistics
+public abstract class AbstractTestSapHanaTableStatistics
         extends AbstractTestQueryFramework
 {
-    private TestingSapHanaServer sapHanaServer;
+    protected TestingSapHanaServer sapHanaServer;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -81,7 +81,7 @@ public class TestSapHanaTableStatistics
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
-            gatherSimpleStats(tableName);
+            gatherStats(tableName);
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
@@ -108,7 +108,7 @@ public class TestSapHanaTableStatistics
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
-            gatherSimpleStats(tableName);
+            gatherStats(tableName);
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
@@ -131,7 +131,7 @@ public class TestSapHanaTableStatistics
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
             computeActual(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL", tableName));
-            gatherSimpleStats(tableName);
+            gatherStats(tableName);
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
@@ -160,7 +160,7 @@ public class TestSapHanaTableStatistics
                         "FROM tpch.tiny.orders",
                 15000);
         try {
-            gatherSimpleStats(tableName);
+            gatherStats(tableName);
             assertQuery("SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, 1, 60000)," +
@@ -220,7 +220,7 @@ public class TestSapHanaTableStatistics
                 "  orderpriority AS \"CasE_QuoTeD_miXED\" " +
                 "FROM " + format("%s.orders", schemaName) + ")"));
         try {
-            gatherSimpleStats(tableName);
+            gatherStats(tableName);
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
@@ -250,13 +250,5 @@ public class TestSapHanaTableStatistics
         };
     }
 
-    private void gatherSimpleStats(String tableName)
-    {
-        String schemaTableName = format("%s.%s", getSession().getSchema().orElseThrow(), tableName);
-        sapHanaServer.execute("CREATE STATISTICS ON " + schemaTableName + " TYPE SIMPLE");
-        // MERGE DELTA is required to force a stats refresh and ensure stats are up to date.
-        // If not invoked explicitly, MERGE DELTA happens periodically about every 2 minutes, unless disabled for a table.
-        // If disabled, stats are never updated automatically.
-        sapHanaServer.execute("MERGE DELTA OF " + schemaTableName + " WITH PARAMETERS ('FORCED_MERGE' = 'ON')");
-    }
+    protected abstract void gatherStats(String tableName);
 }
