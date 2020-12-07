@@ -287,7 +287,7 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testPostgresSqlCreatedDecimal()
+    public void testPostgreSqlCreatedDecimal()
     {
         decimalTests()
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_decimal"));
