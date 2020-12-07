@@ -148,7 +148,7 @@ public class SnowflakeClient
         this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
         this.tableScanRedirection = new TableScanRedirection(redirectionsProvider);
         this.distributedConnector = distributedConnector;
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, Optional.empty(), Optional.empty(), Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
                 ImmutableSet.of(
@@ -166,7 +166,7 @@ public class SnowflakeClient
                 new JdbcTypeHandle(
                         Types.NUMERIC,
                         Optional.of("NUMBER"),
-                        decimalType.getPrecision(),
+                        Optional.of(decimalType.getPrecision()),
                         Optional.of(decimalType.getScale()),
                         Optional.empty(),
                         Optional.empty()));
@@ -219,11 +219,10 @@ public class SnowflakeClient
     {
         String typeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
-        int columnSize = typeHandle.getColumnSize();
 
         if (typeName.equals("NUMBER")) {
             int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
-            int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+            int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
             if (precision > Decimals.MAX_PRECISION) {
                 return Optional.empty();
             }
@@ -251,7 +250,8 @@ public class SnowflakeClient
         }
 
         if (typeHandle.getJdbcType() == VARCHAR && distributedConnector) {
-            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createVarcharType(min(columnSize, HiveVarchar.MAX_VARCHAR_LENGTH)))));
+            // TODO test varchar values exceeding HiveVarchar.MAX_VARCHAR_LENGTH (65535)
+            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createVarcharType(min(typeHandle.getRequiredColumnSize(), HiveVarchar.MAX_VARCHAR_LENGTH)))));
         }
 
         if (typeHandle.getJdbcType() == VARBINARY || typeHandle.getJdbcType() == BINARY || typeHandle.getJdbcType() == LONGVARBINARY) {
