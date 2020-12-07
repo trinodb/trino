@@ -91,7 +91,6 @@ public class LocalDispatchQuery
             }
         });
 
-        queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
         stateMachine.addStateChangeListener(state -> {
             if (state == QueryState.FAILED) {
                 if (notificationSentOrGuaranteed.compareAndSet(false, true)) {

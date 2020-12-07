@@ -38,6 +38,7 @@ import io.prestosql.util.StatementUtils;
 import javax.inject.Inject;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
@@ -108,6 +109,15 @@ public class LocalDispatchQueryFactory
                 metadata,
                 warningCollector,
                 StatementUtils.getQueryType(preparedQuery.getStatement().getClass()));
+
+        // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below
+        // can result in delivering query-created event after query analysis has already started.
+        // That can result in misbehaviour of plugins called during analysis phase (e.g. access control auditing)
+        // which depend on the contract that event was already delivered.
+        //
+        // Note that for immediate and in-order delivery of query events we depend on synchronous nature of
+        // QueryMonitor and EventListenerManager.
+        queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
