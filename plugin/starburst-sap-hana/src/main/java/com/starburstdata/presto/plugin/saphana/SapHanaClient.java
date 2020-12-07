@@ -95,6 +95,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
@@ -109,7 +110,6 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintColumnMappi
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
@@ -141,7 +141,6 @@ import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -294,7 +293,6 @@ public class SapHanaClient
             return mapping;
         }
 
-        int columnSize = typeHandle.getColumnSize();
         switch (typeHandle.getJdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
@@ -329,7 +327,7 @@ public class SapHanaClient
                     return Optional.of(doubleColumnMapping());
                 }
 
-                int precision = columnSize;
+                int precision = typeHandle.getRequiredColumnSize();
                 int scale = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
                 if (precision < 1 || precision > Decimals.MAX_PRECISION || scale < 0 || scale > precision) {
                     // SAP HANA supports precision [1, 38], and scale [0, precision]
@@ -340,15 +338,12 @@ public class SapHanaClient
 
             case Types.CHAR:
             case Types.NCHAR:
-                verify(columnSize < CharType.MAX_LENGTH, "Unexpected type: %s", typeHandle); // SAP HANA char is shorter than Presto's
-                return Optional.of(charColumnMapping(createCharType(columnSize)));
+                verify(typeHandle.getRequiredColumnSize() < CharType.MAX_LENGTH, "Unexpected type: %s", typeHandle); // SAP HANA char is shorter than Presto's
+                return Optional.of(charColumnMapping(createCharType(typeHandle.getRequiredColumnSize())));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
-                if (columnSize > VarcharType.MAX_LENGTH) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
-                }
-                return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.CLOB:
             case Types.NCLOB:
