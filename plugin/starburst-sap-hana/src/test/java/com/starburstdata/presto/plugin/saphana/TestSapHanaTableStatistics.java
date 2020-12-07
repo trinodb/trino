@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import org.testng.SkipException;
@@ -22,7 +21,6 @@ import org.testng.annotations.Test;
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestSapHanaTableStatistics
         extends AbstractTestQueryFramework
@@ -165,15 +163,12 @@ public class TestSapHanaTableStatistics
                 15000);
         try {
             gatherSimpleStats(tableName);
-            // NOTE: The stats collector runs once every 60 seconds so we try for 2 minutes to make sure stats are collected
-            assertQueryEventually(getSession(),
-                    "SHOW STATS FOR " + tableName,
+            assertQuery("SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, 1, 60000)," +
                             "('custkey', null, 1000, 0.3333333432674408, null, 1, 1499)," +
                             "('orderpriority', null, 5, 0.20000000298023224, null, null, null)," +
-                            "(null, null, null, null, 15000, null, null)",
-                    Duration.succinctDuration(2, MINUTES));
+                            "(null, null, null, null, 15000, null, null)");
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -259,6 +254,11 @@ public class TestSapHanaTableStatistics
 
     private void gatherSimpleStats(String tableName)
     {
-        sapHanaServer.execute(format("CREATE STATISTICS ON %s.%s TYPE SIMPLE", getSession().getSchema().orElseThrow(), tableName));
+        String schemaTableName = format("%s.%s", getSession().getSchema().orElseThrow(), tableName);
+        sapHanaServer.execute("CREATE STATISTICS ON " + schemaTableName + " TYPE SIMPLE");
+        // MERGE DELTA is required to force a stats refresh and ensure stats are up to date.
+        // If not invoked explicitly, MERGE DELTA happens periodically about every 2 minutes, unless disabled for a table.
+        // If disabled, stats are never updated automatically.
+        sapHanaServer.execute("MERGE DELTA OF " + schemaTableName + " WITH PARAMETERS ('FORCED_MERGE' = 'ON')");
     }
 }
