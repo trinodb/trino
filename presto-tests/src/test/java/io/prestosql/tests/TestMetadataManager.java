@@ -16,13 +16,16 @@ package io.prestosql.tests;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.connector.MockConnectorFactory;
+import io.prestosql.connector.MockConnectorTableHandle;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.TestingSessionContext;
@@ -34,10 +37,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -64,11 +69,20 @@ public class TestMetadataManager
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
+                SchemaTableName viewTableName = new SchemaTableName("UPPER_CASE_SCHEMA", "test_view");
+
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                         .withListSchemaNames(session -> ImmutableList.of("UPPER_CASE_SCHEMA"))
+                        .withGetTableHandle((session, schemaTableName) -> {
+                            if (schemaTableName.equals(viewTableName)) {
+                                return null;
+                            }
+
+                            return new MockConnectorTableHandle(schemaTableName);
+                        })
                         .withListTables((session, schemaNameOrNull) ->
                                 ImmutableList.of(new SchemaTableName("UPPER_CASE_SCHEMA", "UPPER_CASE_TABLE")))
-                        .withGetViews((session, prefix) -> ImmutableMap.of())
+                        .withGetViews((session, prefix) -> ImmutableMap.of(viewTableName, getConnectorViewDefinition()))
                         .build();
                 return ImmutableList.of(connectorFactory);
             }
@@ -107,6 +121,18 @@ public class TestMetadataManager
         }
 
         assertEquals(metadataManager.getActiveQueryIds().size(), 0);
+    }
+
+    @Test
+    public void testMetadataListTablesReturnsQualifiedView()
+    {
+        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .execute(
+                        TEST_SESSION,
+                        transactionSession -> {
+                            QualifiedTablePrefix viewName = new QualifiedTablePrefix("upper_case_schema_catalog", "upper_case_schema", "test_view");
+                            assertThat(metadataManager.listTables(transactionSession, viewName)).containsExactly(viewName.asQualifiedObjectName().get());
+                        });
     }
 
     @Test
@@ -165,5 +191,17 @@ public class TestMetadataManager
         // TODO (https://github.com/prestosql/presto/issues/17) this should return 1 row
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_NAME = 'UPPER_CASE_TABLE'"))
                 .isEmpty();
+    }
+
+    private static ConnectorViewDefinition getConnectorViewDefinition()
+    {
+        return new ConnectorViewDefinition(
+            "test view SQL",
+            Optional.of("upper_case_schema_catalog"),
+            Optional.of("upper_case_schema"),
+            ImmutableList.of(new ConnectorViewDefinition.ViewColumn("col", BIGINT.getTypeId())),
+            Optional.of("comment"),
+            Optional.of("test_owner"),
+            false);
     }
 }

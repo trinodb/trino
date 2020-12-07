@@ -554,9 +554,10 @@ public final class MetadataManager
 
         Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
         if (objectName.isPresent()) {
-            return getTableHandle(session, objectName.get())
-                    .map(handle -> ImmutableList.of(objectName.get()))
-                    .orElseGet(ImmutableList::of);
+            if (isExistingRelation(session, objectName.get())) {
+                return ImmutableList.of(objectName.get());
+            }
+            return ImmutableList.of();
         }
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
@@ -574,6 +575,15 @@ public final class MetadataManager
             }
         }
         return ImmutableList.copyOf(tables);
+    }
+
+    private boolean isExistingRelation(Session session, QualifiedObjectName name)
+    {
+        if (getTableHandle(session, name).isPresent()) {
+            return true;
+        }
+
+        return getView(session, name).isPresent();
     }
 
     @Override
