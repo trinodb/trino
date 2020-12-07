@@ -33,7 +33,7 @@ import static org.testng.Assert.fail;
  * Integration tests against Prometheus container
  */
 @Test(priority = 1, singleThreaded = true)
-public class TestPrometheusIntegrationTests3
+public class TestPrometheusIntegrationStatus
         extends AbstractTestQueryFramework
 {
     private PrometheusServer server;
@@ -68,7 +68,7 @@ public class TestPrometheusIntegrationTests3
         while (tries < maxTries) {
             responseBody = httpClient.newCall(request).execute().body().string();
             if (responseBody.contains("values")) {
-                Logger log = Logger.get(TestPrometheusIntegrationTests3.class);
+                Logger log = Logger.get(TestPrometheusIntegrationStatus.class);
                 log.info("prometheus response: %s", responseBody);
                 break;
             }
