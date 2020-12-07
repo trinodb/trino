@@ -39,7 +39,7 @@ public class TestSapHanaTableStatistics
                 ImmutableMap.<String, String>builder()
                         .put("case-insensitive-name-matching", "true")
                         .build(),
-                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
                 ImmutableList.of(ORDERS));
     }
 
