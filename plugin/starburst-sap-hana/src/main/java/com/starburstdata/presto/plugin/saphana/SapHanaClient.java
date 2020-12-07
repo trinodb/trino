@@ -654,18 +654,19 @@ public class SapHanaClient
 
                 ColumnStatisticsResult columnStatisticsResult = columnStatistics.get(column.getColumnName());
                 if (columnStatisticsResult != null) {
-                    if (columnStatisticsResult.getDistinctValuesCount().orElse(0L) == 1) {
-                        // SAP HANA returns NDV = 1 even if all values are NULL so we skip this column to avoid passing misleading stats to optimizer
-                        continue;
-                    }
-
-                    builder.setNullsFraction(columnStatisticsResult.getNullsFraction().map(Estimate::of).orElseGet(Estimate::unknown));
                     builder.setDistinctValuesCount(columnStatisticsResult.getDistinctValuesCount().map(Estimate::of).orElseGet(Estimate::unknown));
+                    Estimate nullsFraction = columnStatisticsResult.getNullsFraction().map(Estimate::of).orElseGet(Estimate::unknown);
+                    builder.setNullsFraction(nullsFraction);
                     // set range statistics only for numeric columns
                     if (isNumericType(column.getColumnType()) && (columnStatisticsResult.getMin().isPresent() || columnStatisticsResult.getMax().isPresent())) {
                         builder.setRange(new DoubleRange(
                                 columnStatisticsResult.getMin().map(BigDecimal::new).map(BigDecimal::doubleValue).orElse(Double.NEGATIVE_INFINITY),
                                 columnStatisticsResult.getMax().map(BigDecimal::new).map(BigDecimal::doubleValue).orElse(Double.POSITIVE_INFINITY)));
+                    }
+
+                    // SAP HANA returns incorrect NDV if all values are NULL, so we correct the NDV if nulls fraction is 1.0
+                    if (nullsFraction.equals(Estimate.of(1.0f))) {
+                        builder.setDistinctValuesCount(Estimate.zero());
                     }
 
                     tableStatistics.setColumnStatistics(column, builder.build());
@@ -738,14 +739,25 @@ public class SapHanaClient
 
             if (stats.isPresent() && stats.get().lastRefreshProperties.isPresent()) {
                 LastRefreshProperties props = stats.get().lastRefreshProperties.get();
-                Optional<Float> nullFraction = Optional.empty();
-                if (props.count.isPresent() && props.nullCount.isPresent() && props.count.get() != 0) {
-                    nullFraction = Optional.of((float) props.nullCount.get() / props.count.get());
-                }
+                Optional<Float> nullFraction = calculateNullFraction(props.nullCount, props.count);
                 return new ColumnStatisticsResult(columnName, props.distinctCount, nullFraction, props.minValue, props.maxValue);
             }
 
             return new ColumnStatisticsResult(columnName, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        }
+
+        private static Optional<Float> calculateNullFraction(Optional<Long> nullCount, Optional<Long> rowCount)
+        {
+            if (nullCount.isEmpty() || rowCount.isEmpty() || rowCount.get() == 0) {
+                return Optional.empty();
+            }
+
+            // avoid (inexact) division so that an all nulls column can be detected by comparing against 1.0f
+            if (nullCount.get().equals(rowCount.get())) {
+                return Optional.of(1.0f);
+            }
+
+            return Optional.of((float) nullCount.get() / rowCount.get());
         }
     }
 

@@ -92,8 +92,7 @@ public class TestSapHanaTableStatistics
                             "('orderdate', null, 2401, 0, null, null, null)," +
                             "('orderpriority', null, 5, 0, null, null, null)," +
                             "('clerk', null, 1000, 0, null, null, null)," +
-                            // NOTE: We skip stats for columns with NDV = 1
-                            "('shippriority', null, null, null, null, null, null)," +
+                            "('shippriority', null, 1, 0, null, 0, 0)," +
                             "('comment', null, 14995, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
@@ -133,14 +132,13 @@ public class TestSapHanaTableStatistics
         try {
             computeActual(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL", tableName));
             gatherSimpleStats(tableName);
-            // NOTE: SAP HANA returns NDV = 1 for an all NULLs column and we skip stats for columns with NDV = 1 leading to empty stats
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', null, null, null, null, null, null)," +
-                            "('custkey', null, null, null, null, null, null)," +
-                            "('orderpriority', null, null, null, null, null, null)," +
-                            "('comment', null, null, null, null, null, null)," +
+                            "('orderkey', null, 0, 1, null, null, null)," +
+                            "('custkey', null, 0, 1, null, null, null)," +
+                            "('orderpriority', null, 0, 1, null, null, null)," +
+                            "('comment', null, 0, 1, null, null, null)," +
                             "(null, null, null, null, 3, null, null)");
         }
         finally {
