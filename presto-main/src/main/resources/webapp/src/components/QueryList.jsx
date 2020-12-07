@@ -31,6 +31,7 @@ import {
 
 export class QueryListItem extends React.Component {
     static stripQueryTextWhitespace(queryText) {
+        const maxLines = 6;
         const lines = queryText.split("\n");
         let minLeadingWhitespace = -1;
         for (let i = 0; i < lines.length; i++) {
@@ -56,9 +57,12 @@ export class QueryListItem extends React.Component {
 
             if (trimmedLine.length > 0) {
                 formattedQueryText += trimmedLine;
-
-                if (i < (lines.length - 1)) {
+                if (i < (maxLines - 1)) {
                     formattedQueryText += "\n";
+                }
+                else {
+                    formattedQueryText += "\n...";
+                    break;
                 }
             }
         }
