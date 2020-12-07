@@ -757,7 +757,7 @@ public class SapHanaClient
         public DataStatisticsContent(
                 @JsonProperty("LastRefreshProperties") Optional<LastRefreshProperties> lastRefreshProperties)
         {
-            this.lastRefreshProperties = lastRefreshProperties;
+            this.lastRefreshProperties = requireNonNull(lastRefreshProperties, "lastRefreshProperties is null");
         }
     }
 
@@ -782,12 +782,17 @@ public class SapHanaClient
                 @JsonProperty("COUNT") Optional<String> count,
                 @JsonProperty("MIN MAX IS VALID") Optional<String> minMaxIsValid)
         {
+            requireNonNull(distinctCount, "distinctCount is null");
+            requireNonNull(nullCount, "nullCount is null");
+            requireNonNull(minValue, "minValue is null");
+            requireNonNull(maxValue, "maxValue is null");
+            requireNonNull(count, "count is null");
+            requireNonNull(minMaxIsValid, "minMaxIsValid is null");
+
             this.distinctCount = distinctCount.map(Long::valueOf);
             this.nullCount = nullCount.map(Long::valueOf);
             this.count = count.map(Long::valueOf);
 
-            requireNonNull(minValue, "minValue is null");
-            requireNonNull(maxValue, "maxValue is null");
             boolean isValid = minMaxIsValid.isPresent() && minMaxIsValid.get().equals("1");
             if (isValid) {
                 this.minValue = minValue;
