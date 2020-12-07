@@ -40,7 +40,12 @@ public final class PrestoConnectorQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
+            Session session = testSessionBuilder()
+                    // Require explicit table qualification or custom session.
+                    .setCatalog("unspecified_catalog")
+                    .setSchema("unspecified_schema")
+                    .build();
+            queryRunner = DistributedQueryRunner.builder(session)
                     .setNodeCount(1) // 1 is perfectly enough until we do parallel Presto Connector
                     .setExtraProperties(extraProperties)
                     .build();

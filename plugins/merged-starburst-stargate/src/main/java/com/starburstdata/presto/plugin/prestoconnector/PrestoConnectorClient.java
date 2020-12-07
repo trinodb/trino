@@ -23,6 +23,7 @@ import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.LongReadFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.prestosql.spi.PrestoException;
@@ -48,6 +49,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,10 +58,37 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -186,13 +215,13 @@ public class PrestoConnectorClient
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        Optional<ColumnMapping> columnMapping = convertToPrestoType(session, connection, typeHandle);
+        Optional<ColumnMapping> columnMapping = convertToPrestoType(session, typeHandle);
         columnMapping.ifPresent(mapping -> {
             // Ensure toTypeHandle stays up to date when we add new type mappings
             Type type = mapping.getType();
             JdbcTypeHandle syntheticTypeHandle = toTypeHandle(type)
                     .orElseThrow(() -> new VerifyException(format("Cannot convert type %s [%s] back to JdbcTypeHandle", type, typeHandle)));
-            ColumnMapping mappingForSyntheticHandle = convertToPrestoType(session, connection, typeHandle)
+            ColumnMapping mappingForSyntheticHandle = convertToPrestoType(session, syntheticTypeHandle)
                     .orElseThrow(() -> new VerifyException(format("JdbcTypeHandle %s constructed for %s [%s] cannot be converted to type", syntheticTypeHandle, type, typeHandle)));
             verify(
                     mappingForSyntheticHandle.getType().equals(type),
@@ -205,17 +234,67 @@ public class PrestoConnectorClient
         return columnMapping;
     }
 
-    private Optional<ColumnMapping> convertToPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    private Optional<ColumnMapping> convertToPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
-        // TODO
-        return super.toPrestoType(session, connection, typeHandle);
-    }
+        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
+        if (mapping.isPresent()) {
+            return mapping;
+        }
 
-    @Override
-    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
-    {
-        // TODO
-        return super.toWriteMapping(session, type);
+        switch (typeHandle.getJdbcType()) {
+            case Types.BOOLEAN:
+                return Optional.of(booleanColumnMapping());
+
+            case Types.TINYINT:
+                return Optional.of(tinyintColumnMapping());
+
+            case Types.SMALLINT:
+                return Optional.of(smallintColumnMapping());
+
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+
+            case Types.BIGINT:
+                return Optional.of(bigintColumnMapping());
+
+            case Types.REAL:
+                return Optional.of(realColumnMapping());
+
+            case Types.DOUBLE:
+                return Optional.of(doubleColumnMapping());
+
+            case Types.DECIMAL:
+                return Optional.of(decimalColumnMapping(createDecimalType(typeHandle.getRequiredColumnSize(), typeHandle.getRequiredDecimalDigits())));
+
+            case Types.CHAR:
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
+
+            case Types.VARCHAR:
+                // Presto JDBC reports column size of VarcharType.UNBOUNDED_LENGTH for an unbounded varchar, and so it will be mapped to unbounded varchar here too
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
+
+            case Types.VARBINARY:
+                return Optional.of(varbinaryColumnMapping());
+
+            case Types.DATE:
+                return Optional.of(prestoDateColumnMapping());
+
+// TODO
+//            case Types.TIME:
+//                // TODO default to `timeColumnMapping`
+//                return Optional.of(timeColumnMappingUsingSqlTime());
+//
+//            case Types.TIMESTAMP:
+//                // TODO default to `timestampColumnMapping`
+//                return Optional.of(timestampColumnMappingUsingSqlTimestamp(TIMESTAMP_MILLIS));
+        }
+
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(typeHandle);
+        }
+
+        log.debug("Unsupported type: %s", typeHandle);
+        return Optional.empty();
     }
 
     private Optional<JdbcTypeHandle> toTypeHandle(Type type)
@@ -229,12 +308,15 @@ public class PrestoConnectorClient
         if (type == TINYINT) {
             return Optional.of(jdbcTypeHandle(Types.TINYINT));
         }
+
         if (type == SMALLINT) {
             return Optional.of(jdbcTypeHandle(Types.SMALLINT));
         }
+
         if (type == INTEGER) {
             return Optional.of(jdbcTypeHandle(Types.INTEGER));
         }
+
         if (type == BIGINT) {
             return Optional.of(jdbcTypeHandle(Types.BIGINT));
         }
@@ -242,6 +324,7 @@ public class PrestoConnectorClient
         if (type == REAL) {
             return Optional.of(jdbcTypeHandle(Types.REAL));
         }
+
         if (type == DOUBLE) {
             return Optional.of(jdbcTypeHandle(Types.DOUBLE));
         }
@@ -254,6 +337,7 @@ public class PrestoConnectorClient
         if (type instanceof CharType) {
             return Optional.of(jdbcTypeHandleWithColumnSize(Types.CHAR, ((CharType) type).getLength()));
         }
+
         if (type instanceof VarcharType) {
             // See io.prestosql.connector.system.jdbc.ColumnJdbcTable#columnSize
             int columnSize = ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
@@ -271,6 +355,7 @@ public class PrestoConnectorClient
         if (type instanceof TimeType) {
             return Optional.of(jdbcTypeHandleWithDecimalDigits(Types.TIME, ((TimeType) type).getPrecision()));
         }
+
         if (type instanceof TimeWithTimeZoneType) {
             return Optional.of(jdbcTypeHandleWithDecimalDigits(Types.TIME_WITH_TIMEZONE, ((TimeWithTimeZoneType) type).getPrecision()));
         }
@@ -278,12 +363,74 @@ public class PrestoConnectorClient
         if (type instanceof TimestampType) {
             return Optional.of(jdbcTypeHandleWithDecimalDigits(Types.TIME, ((TimestampType) type).getPrecision()));
         }
+
         if (type instanceof TimestampWithTimeZoneType) {
             return Optional.of(jdbcTypeHandleWithDecimalDigits(Types.TIME_WITH_TIMEZONE, ((TimestampWithTimeZoneType) type).getPrecision()));
         }
 
         log.debug("Type cannot be converted to JdbcTypeHandle: %s", type);
         return Optional.empty();
+    }
+
+    @Override
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
+    {
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+        }
+
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        }
+        if (type == SMALLINT) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+        }
+
+        if (type == REAL) {
+            return WriteMapping.longMapping("real", realWriteFunction());
+        }
+        if (type == DOUBLE) {
+            return WriteMapping.doubleMapping("double", doubleWriteFunction());
+        }
+
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+        }
+
+        if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            String dataType = format("char(%s)", charType.getLength());
+            return WriteMapping.sliceMapping(dataType, charWriteFunction());
+        }
+
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            String dataType = varcharType.isUnbounded()
+                    ? "varchar"
+                    : format("varchar(%s)", varcharType.getBoundedLength());
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
+
+        if (type == VARBINARY) {
+            return WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction());
+        }
+
+        if (type == DATE) {
+            return WriteMapping.longMapping("date", dateWriteFunction());
+        }
+
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override
@@ -341,6 +488,33 @@ public class PrestoConnectorClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
+    }
+
+    private ColumnMapping prestoDateColumnMapping()
+    {
+        return ColumnMapping.longMapping(
+                DATE,
+                new LongReadFunction()
+                {
+                    @Override
+                    public boolean isNull(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        // resultSet.getObject fails for certain dates
+                        // TODO simplify this read function once https://github.com/prestosql/presto/issues/6242 is fixed
+                        resultSet.getString(columnIndex);
+                        return resultSet.wasNull();
+                    }
+
+                    @Override
+                    public long readLong(ResultSet resultSet, int columnIndex)
+                            throws SQLException
+                    {
+                        LocalDate localDate = LocalDate.parse(resultSet.getString(columnIndex));
+                        return localDate.toEpochDay();
+                    }
+                },
+                dateWriteFunction());
     }
 
     private static JdbcTypeHandle jdbcTypeHandle(int jdbcType)
