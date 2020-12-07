@@ -46,7 +46,7 @@ public class BaseJdbcConfig
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
-    private LegacyGenericColumnMapping legacyGenericColumnMapping = LegacyGenericColumnMapping.ENABLE; // TODO change to THROW
+    private LegacyGenericColumnMapping legacyGenericColumnMapping = LegacyGenericColumnMapping.THROW;
     private Duration metadataCacheTtl = new Duration(0, MINUTES);
     private boolean cacheMissing;
 

@@ -19,12 +19,15 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.BaseJdbcConfig.LegacyGenericColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import org.postgresql.Driver;
+
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class RedshiftClientModule
         implements Module
@@ -33,6 +36,9 @@ public class RedshiftClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(RedshiftClient.class).in(Scopes.SINGLETON);
+
+        // TODO implement correct type mapping for Redshift connector
+        configBinder(binder).bindConfigDefaults(BaseJdbcConfig.class, config -> config.setLegacyGenericColumnMapping(LegacyGenericColumnMapping.ENABLE));
     }
 
     @Singleton

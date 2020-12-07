@@ -38,7 +38,7 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setJdbcTypesMappedToVarchar("")
-                .setLegacyGenericColumnMapping(LegacyGenericColumnMapping.ENABLE)
+                .setLegacyGenericColumnMapping(LegacyGenericColumnMapping.THROW)
                 .setMetadataCacheTtl(Duration.valueOf("0m"))
                 .setCacheMissing(false));
     }

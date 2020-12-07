@@ -21,6 +21,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.BaseJdbcConfig.LegacyGenericColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
@@ -29,6 +30,7 @@ import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
 
 public class SqlServerClientModule
@@ -39,6 +41,9 @@ public class SqlServerClientModule
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SqlServerClient.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
+
+        // TODO (https://github.com/prestosql/presto/issues/565) Implement correct type mapping for SQL Server connector
+        configBinder(binder).bindConfigDefaults(BaseJdbcConfig.class, config -> config.setLegacyGenericColumnMapping(LegacyGenericColumnMapping.ENABLE));
     }
 
     @Provides
