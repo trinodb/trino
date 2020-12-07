@@ -340,12 +340,12 @@ public class TestPostgreSqlTypeMapping
                     "VALUES ('[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")','172.0.0.1',ARRAY['[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'])");
 
             // test predicate pushdown to column that has forced varchar mapping
-            assertQuery(
-                    "SELECT 1 FROM tpch.test_forced_varchar_mapping WHERE tsrange_col = '[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'",
-                    "VALUES 1");
-            assertQuery(
-                    "SELECT 1 FROM tpch.test_forced_varchar_mapping WHERE tsrange_col = 'some value'",
-                    "SELECT 1 WHERE false");
+            assertThat(query("SELECT 1 FROM tpch.test_forced_varchar_mapping WHERE tsrange_col = '[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'"))
+                    .matches("VALUES 1")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT 1 FROM tpch.test_forced_varchar_mapping WHERE tsrange_col = 'some value'"))
+                    .returnsEmptyResult()
+                    .isNotFullyPushedDown(FilterNode.class);
 
             // test insert into column that has forced varchar mapping
             assertQueryFails(
