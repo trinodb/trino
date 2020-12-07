@@ -76,7 +76,7 @@ public class TestPostgreSqlDistributedQueries
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()),
+                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()),
                 "tpch.table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +

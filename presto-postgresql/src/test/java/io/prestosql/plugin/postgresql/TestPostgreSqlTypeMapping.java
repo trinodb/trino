@@ -175,7 +175,7 @@ public class TestPostgreSqlTypeMapping
 
         checkIsGap(kathmandu, timeGapInKathmandu);
 
-        JdbcSqlExecutor executor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor executor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
         executor.execute("CREATE EXTENSION hstore");
     }
 
@@ -324,7 +324,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testForcedMappingToVarchar()
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
         jdbcSqlExecutor.execute("CREATE TABLE tpch.test_forced_varchar_mapping(tsrange_col tsrange, inet_col inet, tsrange_arr_col tsrange[], unsupported_nonforced_column tstzrange)");
         jdbcSqlExecutor.execute("INSERT INTO tpch.test_forced_varchar_mapping(tsrange_col, inet_col, tsrange_arr_col, unsupported_nonforced_column) " +
                 "VALUES ('[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange, '172.0.0.1'::inet, array['[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange], '[2010-01-01 14:30, 2010-01-01 15:30)'::tstzrange)");
@@ -377,7 +377,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
 
         try (TestTable testTable = new TestTable(
                 jdbcSqlExecutor,
@@ -410,7 +410,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testDecimalExceedingPrecisionMaxWithNonExceedingIntegerValues()
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
 
         try (TestTable testTable = new TestTable(
                 jdbcSqlExecutor,
@@ -467,7 +467,7 @@ public class TestPostgreSqlTypeMapping
     @Test(dataProvider = "testDecimalExceedingPrecisionMaxProvider")
     public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
 
         try (TestTable testTable = new TestTable(
                 jdbcSqlExecutor,
@@ -529,7 +529,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testDecimalUnspecifiedPrecisionWithSupportedValues()
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
 
         try (TestTable testTable = new TestTable(
                 jdbcSqlExecutor,
@@ -582,7 +582,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testDecimalUnspecifiedPrecisionWithExceedingValue()
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
         try (TestTable testTable = new TestTable(
                 jdbcSqlExecutor,
                 "tpch.test_var_decimal_with_exceeding_value",
@@ -958,7 +958,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testEnum()
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
         jdbcSqlExecutor.execute("CREATE TYPE enum_t AS ENUM ('a','b','c')");
         jdbcSqlExecutor.execute("CREATE TABLE tpch.test_enum(id int, enum_column enum_t)");
         jdbcSqlExecutor.execute("INSERT INTO tpch.test_enum(id,enum_column) values (1,'a'::enum_t),(2,'b'::enum_t)");
@@ -1104,7 +1104,7 @@ public class TestPostgreSqlTypeMapping
     public void testTime24()
     {
         try (TestTable testTable = new TestTable(
-                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()),
+                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()),
                 "tpch.test_time_24",
                 "(a time(0), b time(3), c time(6))",
                 List.of(
@@ -1599,7 +1599,7 @@ public class TestPostgreSqlTypeMapping
 
     private void testUnsupportedDataTypeAsIgnored(Session session, String dataTypeName, String databaseValue)
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
         try (TestTable table = new TestTable(
                 jdbcSqlExecutor,
                 "tpch.unsupported_type",
@@ -1620,7 +1620,7 @@ public class TestPostgreSqlTypeMapping
 
     private void testUnsupportedDataTypeConvertedToVarchar(Session session, String dataTypeName, String internalDataTypeName, String databaseValue, String prestoValue)
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
         try (TestTable table = new TestTable(
                 jdbcSqlExecutor,
                 "tpch.unsupported_type",
@@ -1856,12 +1856,12 @@ public class TestPostgreSqlTypeMapping
 
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), tableNamePrefix);
     }
 
     private DataSetup postgresCreatePrestoInsert(String tableNamePrefix)
     {
-        return new CreateAndPrestoInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()), new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return new CreateAndPrestoInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
