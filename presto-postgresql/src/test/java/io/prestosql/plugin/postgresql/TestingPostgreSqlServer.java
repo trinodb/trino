@@ -20,6 +20,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 
 import static java.lang.String.format;
 import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
@@ -46,22 +47,39 @@ public class TestingPostgreSqlServer
     public void execute(String sql)
             throws SQLException
     {
-        execute(getJdbcUrl(), sql);
+        execute(getJdbcUrl(), getProperties(), sql);
     }
 
-    private static void execute(String url, String sql)
+    private static void execute(String url, Properties properties, String sql)
             throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(url);
+        try (Connection connection = DriverManager.getConnection(url, properties);
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }
 
+    public String getUser()
+    {
+        return USER;
+    }
+
+    public String getPassword()
+    {
+        return PASSWORD;
+    }
+
+    public Properties getProperties()
+    {
+        Properties properties = new Properties();
+        properties.setProperty("user", USER);
+        properties.setProperty("password", PASSWORD);
+        return properties;
+    }
+
     public String getJdbcUrl()
     {
-        // TODO we should not encode user and password in JDBC url, instead connection-user and connection-password catalog properties should be used
-        return format("jdbc:postgresql://%s:%s/%s?user=%s&password=%s", dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE, USER, PASSWORD);
+        return format("jdbc:postgresql://%s:%s/%s", dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
     }
 
     @Override
