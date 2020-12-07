@@ -515,9 +515,9 @@ public final class StandardColumnMappings
      * @deprecated Each connector should provide its own explicit type mapping, along with respective tests.
      */
     @Deprecated
-    public static Optional<ColumnMapping> jdbcTypeToPrestoType(JdbcTypeHandle type)
+    public static Optional<ColumnMapping> jdbcTypeToPrestoType(JdbcTypeHandle typeHandle)
     {
-        switch (type.getJdbcType()) {
+        switch (typeHandle.getJdbcType()) {
             case Types.BIT:
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
@@ -543,8 +543,8 @@ public final class StandardColumnMappings
 
             case Types.NUMERIC:
             case Types.DECIMAL:
-                int decimalDigits = type.getRequiredDecimalDigits();
-                int precision = type.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                int decimalDigits = typeHandle.getRequiredDecimalDigits();
+                int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
                     return Optional.empty();
                 }
@@ -552,13 +552,13 @@ public final class StandardColumnMappings
 
             case Types.CHAR:
             case Types.NCHAR:
-                return Optional.of(defaultCharColumnMapping(type.getRequiredColumnSize()));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(type.getRequiredColumnSize()));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
 
             case Types.BINARY:
             case Types.VARBINARY:
