@@ -49,7 +49,7 @@ import static org.testng.Assert.fail;
  * Integration tests against Prometheus container
  */
 @Test(singleThreaded = true)
-public class TestPrometheusIntegrationTests2
+public class TestPrometheusIntegrationSchema
 {
     private static final PrometheusTableHandle RUNTIME_DETERMINED_TABLE_HANDLE = new PrometheusTableHandle("default", "up");
 
