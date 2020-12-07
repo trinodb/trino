@@ -58,7 +58,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertFalse;
@@ -73,7 +73,7 @@ public class TestSqlStageExecution
     @BeforeClass
     public void setUp()
     {
-        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+        executor = newFixedThreadPool(100, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
