@@ -516,7 +516,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     private void execute(String sql)
             throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
