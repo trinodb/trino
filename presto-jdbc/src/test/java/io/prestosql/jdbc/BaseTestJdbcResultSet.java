@@ -190,8 +190,7 @@ public abstract class BaseTestJdbcResultSet
                         .isInstanceOf(SQLException.class)
                         .hasMessageStartingWith("Value is not a number: [B@");
 
-                assertThat(rs.getString(column))
-                        .startsWith("[B@");
+                assertEquals(rs.getString(column), "0x12345678");
             });
         }
     }

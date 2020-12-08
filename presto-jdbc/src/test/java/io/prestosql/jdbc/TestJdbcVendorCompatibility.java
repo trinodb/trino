@@ -62,6 +62,7 @@ import static java.sql.JDBCType.DATE;
 import static java.sql.JDBCType.TIME;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;
+import static java.sql.JDBCType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -138,6 +139,30 @@ public class TestJdbcVendorCompatibility
                 {Optional.of("America/Denver")},
                 {Optional.of(ZoneId.systemDefault().getId())}
         };
+    }
+
+    @Test
+    public void testVarbinary()
+            throws Exception
+    {
+        checkRepresentation(
+                "X'12345678'",
+                ImmutableList.of(
+                        "bytea E'\\\\x12345678'", // PostgreSQL
+                        "hextoraw('12345678')"), // Oracle
+                VARBINARY,
+                Optional.empty(),
+                (rs, reference, column) -> {
+                    assertThat(rs.getBytes(column)).isEqualTo(new byte[] {0x12, 0x34, 0x56, 0x78});
+                    assertThat(rs.getBytes(column)).isEqualTo(reference.getBytes(column));
+                    assertThat(rs.getObject(column)).isEqualTo(reference.getObject(column));
+
+                    // Presto returns "0x<hex>"
+                    // PostgreSQL returns "\x<hex>"
+                    // Oracle returns "<hex>"
+                    assertThat(rs.getString(column).replaceFirst("^0x", ""))
+                            .isEqualTo(reference.getString(column).replaceFirst("^\\\\x", ""));
+                });
     }
 
     @Test(dataProvider = "timeZoneIds")
@@ -547,6 +572,9 @@ public class TestJdbcVendorCompatibility
             if (type == TIMESTAMP_WITH_TIMEZONE) {
                 // PostgreSQL returns TIMESTAMP WITH TIME ZONE declaring it as TIMESTAMP on JDBC level
                 return Types.TIMESTAMP;
+            }
+            if (type == VARBINARY) {
+                return Types.BINARY;
             }
             return type.getVendorTypeNumber();
         }
