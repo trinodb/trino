@@ -25,7 +25,6 @@ import org.testng.ITestResult;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.lang.management.ThreadInfo;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -145,8 +144,7 @@ public class LogTestDurationListener
     {
         LOG.warn("%s\n\nFull Thread Dump:\n%s", message,
                 Arrays.stream(getThreadMXBean().dumpAllThreads(true, true))
-                        // TODO ThreadInfo.toString truncates stacktrace to java.lang.management.ThreadInfo#MAX_FRAMES
-                        .map(ThreadInfo::toString)
+                        .map(StackTraceUtil::getFullStackTrace)
                         .collect(joining("\n")));
     }
 
