@@ -321,7 +321,7 @@ abstract class AbstractPrestoResultSet
             return parseDate(String.valueOf(value), localTimeZone);
         }
         catch (IllegalArgumentException e) {
-            throw new SQLException("Expected value to be a date but is: " + value);
+            throw new SQLException("Expected value to be a date but is: " + value, e);
         }
     }
 
