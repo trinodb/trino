@@ -24,7 +24,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class TypeSignatureProvider
+public final class TypeSignatureProvider
 {
     // hasDependency field exists primarily to make manipulating types without dependencies easy,
     // and to make toString more friendly.
@@ -34,6 +34,7 @@ public class TypeSignatureProvider
     public TypeSignatureProvider(TypeSignature typeSignature)
     {
         this.hasDependency = false;
+        requireNonNull(typeSignature, "typeSignature is null");
         this.typeSignatureResolver = ignored -> typeSignature;
     }
 
