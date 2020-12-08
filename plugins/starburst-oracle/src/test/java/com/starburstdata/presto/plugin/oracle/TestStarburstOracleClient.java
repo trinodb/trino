@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.plugin.jdbc.redirection.NoneRedirectionsProvider;
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
@@ -68,7 +69,7 @@ public class TestStarburstOracleClient
             new BaseJdbcConfig(),
             new JdbcMetadataConfig().setAggregationPushdownEnabled(true),
             new JdbcStatisticsConfig(),
-            new NoneRedirectionsProvider(),
+            new TableScanRedirection(new NoneRedirectionsProvider()),
             new OracleConfig(),
             session -> { throw new UnsupportedOperationException(); });
 

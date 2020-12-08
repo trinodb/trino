@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.plugin.jdbc.redirection.RedirectionsProvider;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
@@ -100,7 +99,7 @@ public class StarburstOracleClient
             BaseJdbcConfig config,
             JdbcMetadataConfig jdbcMetadataConfig,
             JdbcStatisticsConfig statisticsConfig,
-            RedirectionsProvider redirectionsProvider,
+            TableScanRedirection tableScanRedirection,
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory)
     {
@@ -123,7 +122,7 @@ public class StarburstOracleClient
                         .add(new ImplementOracleVariancePop())
                         .build());
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
-        tableScanRedirection = new TableScanRedirection(redirectionsProvider);
+        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
 
         if (jdbcMetadataConfig.isAggregationPushdownEnabled()) {
             licenseManager.checkFeature(ORACLE_EXTENSIONS);
