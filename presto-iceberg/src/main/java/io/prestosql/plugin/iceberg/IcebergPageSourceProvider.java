@@ -52,6 +52,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.StandardTypes;
@@ -140,7 +141,7 @@ public class IcebergPageSourceProvider
             ConnectorSplit connectorSplit,
             ConnectorTableHandle connectorTable,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         IcebergSplit split = (IcebergSplit) connectorSplit;
         IcebergTableHandle table = (IcebergTableHandle) connectorTable;
@@ -166,7 +167,7 @@ public class IcebergPageSourceProvider
                 split.getFileSize(),
                 split.getFileFormat(),
                 regularColumns,
-                table.getPredicate());
+                table.getPredicate().intersect(dynamicFilter.getCurrentPredicate().transform(IcebergColumnHandle.class::cast).simplify(100)));
 
         return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
     }
