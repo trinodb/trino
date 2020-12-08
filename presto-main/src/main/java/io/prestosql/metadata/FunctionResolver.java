@@ -116,7 +116,7 @@ public class FunctionResolver
 
         List<FunctionMetadata> exactCandidates = allCandidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
         Optional<FunctionBinding> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
@@ -125,7 +125,7 @@ public class FunctionResolver
 
         List<FunctionMetadata> genericCandidates = allCandidates.stream()
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
         match = matchFunctionExact(genericCandidates, parameterTypes);
         if (match.isPresent()) {
