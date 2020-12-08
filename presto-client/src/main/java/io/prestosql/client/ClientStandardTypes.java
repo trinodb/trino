@@ -43,6 +43,7 @@ public final class ClientStandardTypes
     public static final String IPADDRESS = "ipaddress";
     public static final String UUID = "uuid";
     public static final String GEOMETRY = "Geometry";
+    public static final String SPHERICAL_GEOGRAPHY = "SphericalGeography";
     public static final String BING_TILE = "BingTile";
 
     private ClientStandardTypes() {}
