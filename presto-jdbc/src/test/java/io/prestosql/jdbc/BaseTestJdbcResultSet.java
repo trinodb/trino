@@ -192,6 +192,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
+
+                assertEquals(rs.getString(column), localDate.toString());
             });
 
             // distant past, but apparently not an uncommon value in practice
@@ -210,6 +212,37 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
+
+                assertEquals(rs.getString(column), localDate.toString());
+            });
+
+            // date which midnight does not exist in test JVM zone
+            checkRepresentation(connectedStatement.getStatement(), "DATE '1970-01-01'", Types.DATE, (rs, column) -> {
+                LocalDate localDate = LocalDate.of(1970, 1, 1);
+
+                // TODO (https://github.com/prestosql/presto/issues/6242) this should not fail
+                assertThatThrownBy(() -> rs.getObject(column))
+                        .isInstanceOf(RuntimeException.class)
+                        .hasMessage("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
+                // TODO (https://github.com/prestosql/presto/issues/6242) this should not fail
+                assertThatThrownBy(() -> rs.getObject(column, Date.class))
+                        .isInstanceOf(RuntimeException.class)
+                        .hasMessage("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
+                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+
+                // TODO (https://github.com/prestosql/presto/issues/6242) this should not fail
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Expected value to be a date but is: 1970-01-01")
+                        .hasStackTraceContaining("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
+                assertThatThrownBy(() -> rs.getTime(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a time type but is date");
+                assertThatThrownBy(() -> rs.getTimestamp(column))
+                        .isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Expected column to be a timestamp type but is date");
+
+                assertEquals(rs.getString(column), localDate.toString());
             });
 
             // the Julian-Gregorian calendar "default cut-over"
@@ -228,6 +261,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
+
+                assertEquals(rs.getString(column), localDate.toString());
             });
 
             // after the Julian-Gregorian calendar "default cut-over", but before the Gregorian calendar start
@@ -246,6 +281,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
+
+                assertEquals(rs.getString(column), localDate.toString());
             });
 
             // the Gregorian calendar start
@@ -264,6 +301,8 @@ public abstract class BaseTestJdbcResultSet
                 assertThatThrownBy(() -> rs.getTimestamp(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a timestamp type but is date");
+
+                assertEquals(rs.getString(column), localDate.toString());
             });
         }
     }
