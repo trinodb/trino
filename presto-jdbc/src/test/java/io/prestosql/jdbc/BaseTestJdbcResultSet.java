@@ -173,6 +173,30 @@ public abstract class BaseTestJdbcResultSet
     }
 
     @Test
+    public void testVarbinary()
+            throws Exception
+    {
+        try (ConnectedStatement connectedStatement = newStatement()) {
+            checkRepresentation(connectedStatement.getStatement(), "X'12345678'", Types.VARBINARY, (rs, column) -> {
+                byte[] bytes = {0x12, 0x34, 0x56, 0x78};
+                assertThat(rs.getObject(column)).isEqualTo(bytes);
+                assertThat(rs.getObject(column, byte[].class)).isEqualTo(bytes);
+                assertThat(rs.getBytes(column)).isEqualTo(bytes);
+
+                assertThatThrownBy(() -> rs.getLong(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessageStartingWith("Value is not a number: [B@");
+                assertThatThrownBy(() -> rs.getBigDecimal(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessageStartingWith("Value is not a number: [B@");
+
+                assertThat(rs.getString(column))
+                        .startsWith("[B@");
+            });
+        }
+    }
+
+    @Test
     public void testDate()
             throws Exception
     {
