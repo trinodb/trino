@@ -617,7 +617,12 @@ public class LogicalPlanner
                 new Cast(
                         new FunctionCall(
                                 fail.toQualifiedName(),
-                                ImmutableList.of(new Cast(new StringLiteral("Cannot truncate non-space characters on INSERT"), toSqlType(VARCHAR)))),
+                                ImmutableList.of(new Cast(
+                                        new StringLiteral(format(
+                                                "Cannot truncate non-space characters when casting from %s to %s on INSERT",
+                                                fromType.getDisplayName(),
+                                                toType.getDisplayName())),
+                                        toSqlType(VARCHAR)))),
                         toSqlType(toType)));
     }
 
