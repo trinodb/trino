@@ -581,8 +581,8 @@ public abstract class AbstractTestDistributedQueries
                         "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, DATE '2019-11-18')");
 
         assertQueryFails("INSERT INTO " + tableName + " (integer_column) VALUES (3e9)", "Out of range for integer: 3.0E9");
-        assertQueryFails("INSERT INTO " + tableName + " (char_column) VALUES ('abcd')", "Cannot truncate non-space characters on INSERT");
-        assertQueryFails("INSERT INTO " + tableName + " (bounded_varchar_column) VALUES ('abcd')", "Cannot truncate non-space characters on INSERT");
+        assertQueryFails("INSERT INTO " + tableName + " (char_column) VALUES ('abcd')", "\\QCannot truncate non-space characters when casting from varchar(4) to char(3) on INSERT");
+        assertQueryFails("INSERT INTO " + tableName + " (bounded_varchar_column) VALUES ('abcd')", "\\QCannot truncate non-space characters when casting from varchar(4) to varchar(3) on INSERT");
 
         assertUpdate("DROP TABLE " + tableName);
     }
