@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.io.BaseEncoding;
 import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.ClientTypeSignatureParameter;
 import io.prestosql.client.Column;
@@ -146,6 +147,7 @@ abstract class AbstractPrestoResultSet
     static final TypeConversions TYPE_CONVERSIONS =
             TypeConversions.builder()
                     .add("decimal", String.class, BigDecimal.class, AbstractPrestoResultSet::parseBigDecimal)
+                    .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
                     .add("date", String.class, Date.class, string -> {
                         try {
                             return parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId()));
@@ -239,7 +241,14 @@ abstract class AbstractPrestoResultSet
             throws SQLException
     {
         Object value = column(columnIndex);
-        return (value != null) ? value.toString() : null;
+        if (value == null) {
+            return null;
+        }
+        ClientTypeSignature columnTypeSignature = columnInfo(columnIndex).getColumnTypeSignature();
+        if (TYPE_CONVERSIONS.hasConversion(columnTypeSignature.getRawType(), String.class)) {
+            return TYPE_CONVERSIONS.convert(columnTypeSignature, value, String.class);
+        }
+        return value.toString();
     }
 
     @Override
