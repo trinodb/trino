@@ -369,6 +369,7 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeConvertedToVarchar(
                 getSession(),
                 "decimal(50,0)",
+                "numeric",
                 "12345678901234567890123456789012345678901234567890",
                 "'12345678901234567890123456789012345678901234567890'");
     }
@@ -622,10 +623,10 @@ public class TestPostgreSqlTypeMapping
                 .build();
 
         testUnsupportedDataTypeAsIgnored(session, "bigint[]", "ARRAY[42]");
-        testUnsupportedDataTypeConvertedToVarchar(session, "bigint[]", "ARRAY[42]", "'{42}'");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bigint[]", "_int8", "ARRAY[42]", "'{42}'");
 
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary'::bytea]");
-        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "ARRAY['binary'::bytea]", "'{\"\\\\x62696e617279\"}'");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "_bytea", "ARRAY['binary'::bytea]", "'{\"\\\\x62696e617279\"}'");
     }
 
     @Test
@@ -662,7 +663,7 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY['binary value'::bytea]]");
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY[ARRAY['binary value'::bytea]]]");
         testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
-        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "_bytea", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
 
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
                 .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_parameterized_char_unicode"));
@@ -850,7 +851,7 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY['binary value'::bytea]]");
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY[ARRAY['binary value'::bytea]]]");
         testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
-        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "_bytea", "ARRAY['binary value'::bytea]", " '{\"\\\\x62696e6172792076616c7565\"}' ");
 
         DataTypeTest.create()
                 .addRoundTrip(arrayAsJsonDataType("date[]"), null)
@@ -1617,7 +1618,7 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    private void testUnsupportedDataTypeConvertedToVarchar(Session session, String dataTypeName, String databaseValue, String prestoValue)
+    private void testUnsupportedDataTypeConvertedToVarchar(Session session, String dataTypeName, String internalDataTypeName, String databaseValue, String prestoValue)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         try (TestTable table = new TestTable(
@@ -1644,14 +1645,14 @@ public class TestPostgreSqlTypeMapping
                     "VALUES " +
                             "('key', 'varchar(5)', '', ''), " +
                             "('unsupported_column', 'varchar', '', '')");
+            assertUpdate(
+                    convertToVarchar,
+                    format("INSERT INTO %s (key, unsupported_column) VALUES ('3', NULL)", table.getName()),
+                    1);
             assertQueryFails(
                     convertToVarchar,
-                    format("INSERT INTO %s (key, unsupported_column) VALUES (3, NULL)", table.getName()),
-                    "Insert query has mismatched column types: Table: \\[varchar\\(5\\), varchar\\], Query: \\[integer, unknown\\]");
-            assertQueryFails(
-                    convertToVarchar,
-                    format("INSERT INTO %s (key, unsupported_column) VALUES (4, %s)", table.getName(), prestoValue),
-                    "Insert query has mismatched column types: Table: \\[varchar\\(5\\), varchar\\], Query: \\[integer, varchar\\(\\d+\\)\\]");
+                    format("INSERT INTO %s (key, unsupported_column) VALUES ('4', %s)", table.getName(), prestoValue),
+                    "\\QUnderlying type that is mapped to VARCHAR is not supported for INSERT: " + internalDataTypeName);
             assertUpdate(
                     convertToVarchar,
                     format("INSERT INTO %s (key) VALUES '5'", table.getName()),
@@ -1659,7 +1660,7 @@ public class TestPostgreSqlTypeMapping
             assertQuery(
                     convertToVarchar,
                     "SELECT * FROM " + table.getName(),
-                    format("VALUES ('1', NULL), ('2', %s), ('5', NULL)", prestoValue));
+                    format("VALUES ('1', NULL), ('2', %s), ('3', NULL), ('5', NULL)", prestoValue));
         }
     }
 
