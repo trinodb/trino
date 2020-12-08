@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTestTableScanRedirection;
+import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTableScanRedirectionTest;
 import io.prestosql.plugin.sqlserver.TestingSqlServer;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
@@ -18,7 +18,7 @@ import org.testng.annotations.AfterClass;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 
 public class TestStarburstSqlServerTableScanRedirection
-        extends AbstractTestTableScanRedirection
+        extends AbstractTableScanRedirectionTest
 {
     private TestingSqlServer sqlServer;
 
