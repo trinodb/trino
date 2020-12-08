@@ -17,6 +17,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.spi.session.PropertyMetadata;
 
+import java.util.function.Consumer;
+
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public final class PropertyMetadataUtil
@@ -25,6 +27,11 @@ public final class PropertyMetadataUtil
 
     public static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
     {
+        return dataSizeProperty(name, description, defaultValue, value -> {}, hidden);
+    }
+
+    public static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, Consumer<DataSize> validation, boolean hidden)
+    {
         return new PropertyMetadata<>(
                 name,
                 description,
@@ -32,11 +39,20 @@ public final class PropertyMetadataUtil
                 DataSize.class,
                 defaultValue,
                 hidden,
-                value -> DataSize.valueOf((String) value),
+                object -> {
+                    DataSize value = DataSize.valueOf((String) object);
+                    validation.accept(value);
+                    return value;
+                },
                 DataSize::toString);
     }
 
     public static PropertyMetadata<Duration> durationProperty(String name, String description, Duration defaultValue, boolean hidden)
+    {
+        return durationProperty(name, description, defaultValue, value -> {}, hidden);
+    }
+
+    public static PropertyMetadata<Duration> durationProperty(String name, String description, Duration defaultValue, Consumer<Duration> validation, boolean hidden)
     {
         return new PropertyMetadata<>(
                 name,
@@ -45,7 +61,11 @@ public final class PropertyMetadataUtil
                 Duration.class,
                 defaultValue,
                 hidden,
-                value -> Duration.valueOf((String) value),
+                object -> {
+                    Duration value = Duration.valueOf((String) object);
+                    validation.accept(value);
+                    return value;
+                },
                 Duration::toString);
     }
 }
