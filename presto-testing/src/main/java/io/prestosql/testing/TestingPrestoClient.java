@@ -184,66 +184,66 @@ public class TestingPrestoClient
         if (BOOLEAN.equals(type)) {
             return value;
         }
-        else if (TINYINT.equals(type)) {
+        if (TINYINT.equals(type)) {
             return ((Number) value).byteValue();
         }
-        else if (SMALLINT.equals(type)) {
+        if (SMALLINT.equals(type)) {
             return ((Number) value).shortValue();
         }
-        else if (INTEGER.equals(type)) {
+        if (INTEGER.equals(type)) {
             return ((Number) value).intValue();
         }
-        else if (BIGINT.equals(type)) {
+        if (BIGINT.equals(type)) {
             return ((Number) value).longValue();
         }
-        else if (DOUBLE.equals(type)) {
+        if (DOUBLE.equals(type)) {
             return ((Number) value).doubleValue();
         }
-        else if (REAL.equals(type)) {
+        if (REAL.equals(type)) {
             return ((Number) value).floatValue();
         }
-        else if (UUID.equals(type)) {
+        if (UUID.equals(type)) {
             return java.util.UUID.fromString((String) value);
         }
-        else if (IPADDRESS.equals(type)) {
+        if (IPADDRESS.equals(type)) {
             return value;
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return value;
         }
-        else if (type instanceof CharType) {
+        if (type instanceof CharType) {
             return value;
         }
-        else if (VARBINARY.equals(type)) {
+        if (VARBINARY.equals(type)) {
             return value;
         }
-        else if (DATE.equals(type)) {
+        if (DATE.equals(type)) {
             return DateTimeFormatter.ISO_LOCAL_DATE.parse(((String) value), LocalDate::from);
         }
-        else if (type instanceof TimeType) {
+        if (type instanceof TimeType) {
             return DateTimeFormatter.ISO_LOCAL_TIME.parse(((String) value), LocalTime::from);
         }
-        else if (type instanceof TimeWithTimeZoneType) {
+        if (type instanceof TimeWithTimeZoneType) {
             return timeWithZoneOffsetFormat.parse(((String) value), OffsetTime::from);
         }
-        else if (type instanceof TimestampType) {
+        if (type instanceof TimestampType) {
             return timestampFormat.parse((String) value, LocalDateTime::from);
         }
-        else if (type instanceof TimestampWithTimeZoneType) {
+        if (type instanceof TimestampWithTimeZoneType) {
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);
         }
-        else if (INTERVAL_DAY_TIME.equals(type)) {
+        if (INTERVAL_DAY_TIME.equals(type)) {
             return new SqlIntervalDayTime(IntervalDayTime.parseMillis(String.valueOf(value)));
         }
-        else if (INTERVAL_YEAR_MONTH.equals(type)) {
+        if (INTERVAL_YEAR_MONTH.equals(type)) {
             return new SqlIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
         }
-        else if (type instanceof ArrayType) {
+        if (type instanceof ArrayType) {
             return ((List<?>) value).stream()
                     .map(element -> convertToRowValue(((ArrayType) type).getElementType(), element))
                     .collect(toList());
         }
-        else if (type instanceof MapType) {
+        if (type instanceof MapType) {
             Map<Object, Object> result = new HashMap<>();
             ((Map<?, ?>) value)
                     .forEach((k, v) -> result.put(
@@ -251,30 +251,28 @@ public class TestingPrestoClient
                             convertToRowValue(((MapType) type).getValueType(), v)));
             return result;
         }
-        else if (type instanceof RowType) {
+        if (type instanceof RowType) {
             List<Type> fieldTypes = type.getTypeParameters();
             List<Object> fieldValues = ((Row) value).getFields().stream()
                     .map(RowField::getValue)
                     .collect(toList()); // nullable
             return dataToRow(fieldTypes).apply(fieldValues);
         }
-        else if (type instanceof DecimalType) {
+        if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
         }
-        else if (type.getBaseName().equals("HyperLogLog")) {
+        if (type.getBaseName().equals("HyperLogLog")) {
             return value;
         }
-        else if (type.getBaseName().equals("ObjectId")) {
+        if (type.getBaseName().equals("ObjectId")) {
             return value;
         }
-        else if (type.getBaseName().equals("Bogus")) {
+        if (type.getBaseName().equals("Bogus")) {
             return value;
         }
-        else if (JSON.equals(type)) {
+        if (JSON.equals(type)) {
             return value;
         }
-        else {
-            throw new AssertionError("unhandled type: " + type);
-        }
+        throw new AssertionError("unhandled type: " + type);
     }
 }
