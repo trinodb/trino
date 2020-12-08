@@ -16,6 +16,11 @@ package io.prestosql.plugin.hive.s3;
 public enum S3FileSystemType
 {
     PRESTO,
+    /**
+     * @deprecated EMRFS was used to workaround S3's lack of strong consistency and is no longer needed
+     * per <a href="https://aws.amazon.com/blogs/aws/amazon-s3-update-strong-read-after-write-consistency/">AWS's announcement</a>.
+     */
+    @Deprecated
     EMRFS,
     HADOOP_DEFAULT,
 }
