@@ -20,6 +20,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -79,35 +80,42 @@ public class SnowflakeDistributedSessionProperties
                         S3_SELECT_PUSHDOWN_ENABLED,
                         "Internal Snowflake connector property",
                         false,
+                        value -> checkArgument(!value, "Enabling s3_select_pushdown_enabled not supported for Snowflake"),
                         true),
                 booleanProperty(
                         FORCE_LOCAL_SCHEDULING,
                         "Internal Snowflake connector property",
                         false,
+                        value -> checkArgument(!value, "Enabling force_local_scheduling not supported for Snowflake"),
                         true),
                 booleanProperty(
                         IGNORE_ABSENT_PARTITIONS,
                         "Internal Snowflake connector property",
                         false,
+                        value -> checkArgument(!value, "Enabling ignore_absent_partitions not supported for Snowflake"),
                         true),
                 booleanProperty(
                         PARTITION_USE_COLUMN_NAMES,
                         "Internal Snowflake connector property",
                         false,
+                        value -> checkArgument(!value, "Enabling partition_use_column_names not supported for Snowflake"),
                         true),
                 durationProperty(
                         DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT,
                         "Internal Snowflake connector property",
                         new Duration(0, MINUTES),
+                        value -> checkArgument(value.equals(new Duration(0, MINUTES)), "Enabling dynamic_filtering_probe_blocking_timeout not supported for Snowflake"),
                         true),
                 booleanProperty(
                         VALIDATE_BUCKETING,
                         "Internal Snowflake connector property",
                         false,
+                        value -> checkArgument(!value, "Enabling validate_bucketing not supported for Snowflake"),
                         true),
                 booleanProperty(OPTIMIZE_SYMLINK_LISTING,
                         "Internal Snowflake connector property",
                         false,
+                        value -> checkArgument(!value, "Enabling optimize_symlink_listing not supported for Snowflake"),
                         true));
     }
 
