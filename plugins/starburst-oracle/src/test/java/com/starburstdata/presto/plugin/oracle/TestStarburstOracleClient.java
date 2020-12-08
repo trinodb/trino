@@ -69,7 +69,7 @@ public class TestStarburstOracleClient
             new BaseJdbcConfig(),
             new JdbcMetadataConfig().setAggregationPushdownEnabled(true),
             new JdbcStatisticsConfig(),
-            new TableScanRedirection(new NoneRedirectionsProvider()),
+            new TableScanRedirection(new NoneRedirectionsProvider(), NOOP_LICENSE_MANAGER),
             new OracleConfig(),
             session -> { throw new UnsupportedOperationException(); });
 

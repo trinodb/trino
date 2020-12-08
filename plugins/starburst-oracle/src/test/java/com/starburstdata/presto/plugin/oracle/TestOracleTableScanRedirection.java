@@ -29,6 +29,7 @@ public class TestOracleTableScanRedirection
                         .putAll(getRedirectionProperties("oracle", USER))
                         .build())
                 .withTables(tables)
+                .withUnlockEnterpriseFeatures(true)
                 .build();
     }
 }
