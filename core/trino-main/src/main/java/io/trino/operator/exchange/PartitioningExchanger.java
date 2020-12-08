@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.operator.exchange.PageReference.PageReleasedListener;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
@@ -39,6 +40,7 @@ class PartitioningExchanger
     private final LocalExchangeMemoryManager memoryManager;
     private final LocalPartitionGenerator partitionGenerator;
     private final IntArrayList[] partitionAssignments;
+    private final PageReleasedListener onPageReleased;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
@@ -50,6 +52,7 @@ class PartitioningExchanger
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
+        this.onPageReleased = PageReleasedListener.forLocalExchangeMemoryManager(memoryManager);
 
         HashGenerator hashGenerator;
         if (hashChannel.isPresent()) {
@@ -89,7 +92,7 @@ class PartitioningExchanger
             if (!positions.isEmpty()) {
                 Page pageSplit = page.copyPositions(positions.elements(), 0, positions.size());
                 memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
-                buffers.get(partition).accept(new PageReference(pageSplit, 1, () -> memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes())));
+                buffers.get(partition).accept(new PageReference(pageSplit, 1, onPageReleased));
             }
         }
     }
