@@ -254,7 +254,7 @@ public class QueryAssertions
         public QueryAssert matches(BiFunction<Session, QueryRunner, MaterializedResult> evaluator)
         {
             MaterializedResult expected = evaluator.apply(session, runner);
-            return isEqualTo(expected);
+            return matches(expected);
         }
 
         public QueryAssert ordered()
@@ -269,7 +269,7 @@ public class QueryAssertions
             return matches(expected);
         }
 
-        private QueryAssert matches(MaterializedResult expected)
+        public QueryAssert matches(MaterializedResult expected)
         {
             return satisfies(actual -> {
                 assertThat(actual.getTypes())
