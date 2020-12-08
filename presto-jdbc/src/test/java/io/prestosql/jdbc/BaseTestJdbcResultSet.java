@@ -175,9 +175,14 @@ public abstract class BaseTestJdbcResultSet
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
             checkRepresentation(connectedStatement.getStatement(), "DATE '2018-02-13'", Types.DATE, (rs, column) -> {
-                assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
-                assertEquals(rs.getObject(column, Date.class), Date.valueOf(LocalDate.of(2018, 2, 13)));
-                assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
+                LocalDate localDate = LocalDate.of(2018, 2, 13);
+                Date sqlDate = Date.valueOf(localDate);
+
+                assertEquals(rs.getObject(column), sqlDate);
+                assertEquals(rs.getObject(column, Date.class), sqlDate);
+                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+
+                assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a time type but is date");
@@ -188,8 +193,14 @@ public abstract class BaseTestJdbcResultSet
 
             // distant past, but apparently not an uncommon value in practice
             checkRepresentation(connectedStatement.getStatement(), "DATE '0001-01-01'", Types.DATE, (rs, column) -> {
-                assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1, 1, 1)));
-                assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1, 1, 1)));
+                LocalDate localDate = LocalDate.of(1, 1, 1);
+                Date sqlDate = Date.valueOf(localDate);
+
+                assertEquals(rs.getObject(column), sqlDate);
+                assertEquals(rs.getObject(column, Date.class), sqlDate);
+                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+
+                assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a time type but is date");
@@ -200,8 +211,14 @@ public abstract class BaseTestJdbcResultSet
 
             // the Julian-Gregorian calendar "default cut-over"
             checkRepresentation(connectedStatement.getStatement(), "DATE '1582-10-04'", Types.DATE, (rs, column) -> {
-                assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 4)));
-                assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 4)));
+                LocalDate localDate = LocalDate.of(1582, 10, 4);
+                Date sqlDate = Date.valueOf(localDate);
+
+                assertEquals(rs.getObject(column), sqlDate);
+                assertEquals(rs.getObject(column, Date.class), sqlDate);
+                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+
+                assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a time type but is date");
@@ -212,8 +229,14 @@ public abstract class BaseTestJdbcResultSet
 
             // after the Julian-Gregorian calendar "default cut-over", but before the Gregorian calendar start
             checkRepresentation(connectedStatement.getStatement(), "DATE '1582-10-10'", Types.DATE, (rs, column) -> {
-                assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 10)));
-                assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 10)));
+                LocalDate localDate = LocalDate.of(1582, 10, 10);
+                Date sqlDate = Date.valueOf(localDate);
+
+                assertEquals(rs.getObject(column), sqlDate);
+                assertEquals(rs.getObject(column, Date.class), sqlDate);
+                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+
+                assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a time type but is date");
@@ -224,8 +247,14 @@ public abstract class BaseTestJdbcResultSet
 
             // the Gregorian calendar start
             checkRepresentation(connectedStatement.getStatement(), "DATE '1582-10-15'", Types.DATE, (rs, column) -> {
-                assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 15)));
-                assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 15)));
+                LocalDate localDate = LocalDate.of(1582, 10, 15);
+                Date sqlDate = Date.valueOf(localDate);
+
+                assertEquals(rs.getObject(column), sqlDate);
+                assertEquals(rs.getObject(column, Date.class), sqlDate);
+                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+
+                assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class)
                         .hasMessage("Expected column to be a time type but is date");
