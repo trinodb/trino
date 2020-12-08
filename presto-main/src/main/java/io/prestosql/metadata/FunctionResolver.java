@@ -110,6 +110,10 @@ public class FunctionResolver
 
     FunctionBinding resolveFunction(Collection<FunctionMetadata> allCandidates, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
+        if (allCandidates.isEmpty()) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
+        }
+
         List<FunctionMetadata> exactCandidates = allCandidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
@@ -140,13 +144,10 @@ public class FunctionResolver
                     Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
                     Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
         }
-        String parameters = Joiner.on(", ").join(parameterTypes);
-        String message = format("Function '%s' not registered", name);
-        if (!expectedParameters.isEmpty()) {
-            String expected = Joiner.on(", ").join(expectedParameters);
-            message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
-        }
 
+        String parameters = Joiner.on(", ").join(parameterTypes);
+        String expected = Joiner.on(", ").join(expectedParameters);
+        String message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
     }
 
