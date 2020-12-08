@@ -10,14 +10,14 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTestTableScanRedirection;
+import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTableScanRedirectionTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.USER;
 
 public class TestOracleTableScanRedirection
-        extends AbstractTestTableScanRedirection
+        extends AbstractTableScanRedirectionTest
 {
     @Override
     protected QueryRunner createQueryRunner(Iterable<TpchTable<?>> tables)
