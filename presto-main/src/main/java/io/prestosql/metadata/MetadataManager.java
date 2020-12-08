@@ -332,23 +332,19 @@ public final class MetadataManager
             return Optional.empty();
         }
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
-        if (catalog.isPresent()) {
-            CatalogMetadata catalogMetadata = catalog.get();
+        return getOptionalCatalogMetadata(session, table.getCatalogName()).flatMap(catalogMetadata -> {
             CatalogName catalogName = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-            ConnectorTableHandle tableHandle = metadata.getTableHandle(connectorSession, table.asSchemaTableName());
-            if (tableHandle != null) {
-                return Optional.of(new TableHandle(
-                        catalogName,
-                        tableHandle,
-                        catalogMetadata.getTransactionHandleFor(catalogName),
-                        Optional.empty()));
-            }
-        }
-        return Optional.empty();
+
+            return Optional.ofNullable(metadata.getTableHandle(connectorSession, table.asSchemaTableName()))
+                    .map(connectorTableHandle -> new TableHandle(
+                            catalogName,
+                            connectorTableHandle,
+                            catalogMetadata.getTransactionHandleFor(catalogName),
+                            Optional.empty()));
+        });
     }
 
     @Override
