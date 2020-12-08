@@ -14,6 +14,7 @@
 package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.operator.exchange.PageReference.PageReleasedListener;
 import io.trino.spi.Page;
 
 import java.util.function.LongConsumer;
@@ -26,12 +27,17 @@ public class PassthroughExchanger
     private final LocalExchangeSource localExchangeSource;
     private final LocalExchangeMemoryManager bufferMemoryManager;
     private final LongConsumer memoryTracker;
+    private final PageReleasedListener onPageReleased;
 
     public PassthroughExchanger(LocalExchangeSource localExchangeSource, long bufferMaxMemory, LongConsumer memoryTracker)
     {
         this.localExchangeSource = requireNonNull(localExchangeSource, "localExchangeSource is null");
-        this.bufferMemoryManager = new LocalExchangeMemoryManager(bufferMaxMemory);
         this.memoryTracker = requireNonNull(memoryTracker, "memoryTracker is null");
+        bufferMemoryManager = new LocalExchangeMemoryManager(bufferMaxMemory);
+        onPageReleased = (releasedSizeInBytes) -> {
+            this.bufferMemoryManager.updateMemoryUsage(-releasedSizeInBytes);
+            this.memoryTracker.accept(-releasedSizeInBytes);
+        };
     }
 
     @Override
@@ -41,12 +47,7 @@ public class PassthroughExchanger
         bufferMemoryManager.updateMemoryUsage(retainedSizeInBytes);
         memoryTracker.accept(retainedSizeInBytes);
 
-        PageReference pageReference = new PageReference(page, 1, () -> {
-            bufferMemoryManager.updateMemoryUsage(-retainedSizeInBytes);
-            memoryTracker.accept(-retainedSizeInBytes);
-        });
-
-        localExchangeSource.addPage(pageReference);
+        localExchangeSource.addPage(new PageReference(page, 1, onPageReleased));
     }
 
     @Override
