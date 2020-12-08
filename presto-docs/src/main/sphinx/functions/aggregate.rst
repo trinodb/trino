@@ -334,17 +334,17 @@ Approximate Aggregate Functions
 
     ``buckets`` must be a ``bigint``. ``value`` and ``weight`` must be numeric.
 
-.. function:: qdigest_agg(x) -> qdigest<[same as x]>
+.. function:: qdigest_agg(x) -> qdigest([same as x])
     :noindex:
 
     See :doc:`qdigest`.
 
-.. function:: qdigest_agg(x, w) -> qdigest<[same as x]>
+.. function:: qdigest_agg(x, w) -> qdigest([same as x])
     :noindex:
 
     See :doc:`qdigest`.
 
-.. function:: qdigest_agg(x, w, accuracy) -> qdigest<[same as x]>
+.. function:: qdigest_agg(x, w, accuracy) -> qdigest([same as x])
     :noindex:
 
     See :doc:`qdigest`.

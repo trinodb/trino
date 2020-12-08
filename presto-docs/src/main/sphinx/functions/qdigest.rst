@@ -31,17 +31,17 @@ Functions
     quantile digest and array of values between 0 and 1 which
     represent the quantiles to return.
 
-.. function:: qdigest_agg(x) -> qdigest<[same as x]>
+.. function:: qdigest_agg(x) -> qdigest([same as x])
 
     Returns the ``qdigest`` which is composed of  all input values of ``x``.
 
-.. function:: qdigest_agg(x, w) -> qdigest<[same as x]>
+.. function:: qdigest_agg(x, w) -> qdigest([same as x])
     :noindex:
 
     Returns the ``qdigest`` which is composed of  all input values of ``x`` using
     the per-item weight ``w``.
 
-.. function:: qdigest_agg(x, w, accuracy) -> qdigest<[same as x]>
+.. function:: qdigest_agg(x, w, accuracy) -> qdigest([same as x])
     :noindex:
 
     Returns the ``qdigest`` which is composed of  all input values of ``x`` using
