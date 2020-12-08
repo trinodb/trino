@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.snowflake.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.starburstdata.presto.plugin.jdbc.redirection.RedirectionsProvider;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
@@ -115,6 +114,7 @@ import static java.sql.Types.LONGVARBINARY;
 import static java.sql.Types.VARBINARY;
 import static java.sql.Types.VARCHAR;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Objects.requireNonNull;
 
 public class SnowflakeClient
         extends BaseJdbcClient
@@ -140,13 +140,13 @@ public class SnowflakeClient
     public SnowflakeClient(
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
-            RedirectionsProvider redirectionsProvider,
+            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             boolean distributedConnector)
     {
         super(config, IDENTIFIER_QUOTE, connectionFactory);
         this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
-        this.tableScanRedirection = new TableScanRedirection(redirectionsProvider);
+        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.distributedConnector = distributedConnector;
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(

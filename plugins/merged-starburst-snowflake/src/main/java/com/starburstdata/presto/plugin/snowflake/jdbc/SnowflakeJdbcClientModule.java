@@ -21,7 +21,7 @@ import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
-import com.starburstdata.presto.plugin.jdbc.redirection.RedirectionsProvider;
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.snowflake.SnowflakeConfig;
@@ -124,10 +124,10 @@ public class SnowflakeJdbcClientModule
     public SnowflakeClient getSnowflakeClient(
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
-            RedirectionsProvider redirectionsProvider,
+            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory)
     {
-        return new SnowflakeClient(config, statisticsConfig, redirectionsProvider, connectionFactory, distributedConnector);
+        return new SnowflakeClient(config, statisticsConfig, tableScanRedirection, connectionFactory, distributedConnector);
     }
 
     @Provides
