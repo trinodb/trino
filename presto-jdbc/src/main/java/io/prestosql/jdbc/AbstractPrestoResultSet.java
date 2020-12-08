@@ -144,7 +144,15 @@ abstract class AbstractPrestoResultSet
     static final TypeConversions TYPE_CONVERSIONS =
             TypeConversions.builder()
                     .add("decimal", String.class, BigDecimal.class, AbstractPrestoResultSet::parseBigDecimal)
-                    .add("date", String.class, Date.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())))
+                    .add("date", String.class, Date.class, string -> {
+                        try {
+                            return parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId()));
+                        }
+                        // TODO (https://github.com/prestosql/presto/issues/6242) this should never fail
+                        catch (IllegalArgumentException e) {
+                            throw new SQLException("Expected value to be a date but is: " + string, e);
+                        }
+                    })
                     .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
                     .add("time with time zone", String.class, Time.class, AbstractPrestoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
