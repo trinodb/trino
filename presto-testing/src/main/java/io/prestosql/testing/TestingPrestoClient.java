@@ -37,8 +37,6 @@ import io.prestosql.spi.type.VarcharType;
 import io.prestosql.type.SqlIntervalDayTime;
 import io.prestosql.type.SqlIntervalYearMonth;
 
-import javax.ws.rs.HEAD;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
