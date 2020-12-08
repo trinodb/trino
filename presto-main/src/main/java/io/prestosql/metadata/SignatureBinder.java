@@ -32,7 +32,6 @@ import io.prestosql.type.UnknownType;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -490,7 +489,7 @@ public class SignatureBinder
         if (typeVariableConstraints.containsKey(typeSignature.getBase())) {
             return ImmutableSet.of(typeSignature.getBase());
         }
-        Set<String> variables = new HashSet<>();
+        ImmutableSet.Builder<String> variables = ImmutableSet.builder();
         for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
             switch (parameter.getKind()) {
                 case TYPE:
@@ -508,12 +507,12 @@ public class SignatureBinder
             }
         }
 
-        return variables;
+        return variables.build();
     }
 
     private static Set<String> longVariablesOf(TypeSignature typeSignature)
     {
-        Set<String> variables = new HashSet<>();
+        ImmutableSet.Builder<String> variables = ImmutableSet.builder();
         for (TypeSignatureParameter parameter : typeSignature.getParameters()) {
             switch (parameter.getKind()) {
                 case TYPE:
@@ -532,7 +531,7 @@ public class SignatureBinder
             }
         }
 
-        return variables;
+        return variables.build();
     }
 
     private static boolean isTypeWithLiteralParameters(TypeSignature typeSignature)
@@ -1012,7 +1011,7 @@ public class SignatureBinder
         return true;
     }
 
-    private class TypeRelationshipConstraintSolver
+    private final class TypeRelationshipConstraintSolver
             implements TypeConstraintSolver
     {
         private final TypeSignature formalTypeSignature;
@@ -1023,11 +1022,11 @@ public class SignatureBinder
 
         public TypeRelationshipConstraintSolver(TypeSignature formalTypeSignature, Set<String> typeVariables, Set<String> longVariables, Type actualType, RelationshipType relationshipType)
         {
-            this.formalTypeSignature = formalTypeSignature;
-            this.typeVariables = typeVariables;
-            this.longVariables = longVariables;
-            this.actualType = actualType;
-            this.relationshipType = relationshipType;
+            this.formalTypeSignature = requireNonNull(formalTypeSignature, "formalTypeSignature is null");
+            this.typeVariables = ImmutableSet.copyOf(typeVariables);
+            this.longVariables = ImmutableSet.copyOf(longVariables);
+            this.actualType = requireNonNull(actualType, "actualType is null");
+            this.relationshipType = requireNonNull(relationshipType, "relationshipType is null");
         }
 
         @Override
