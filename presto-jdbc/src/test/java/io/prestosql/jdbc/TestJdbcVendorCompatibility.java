@@ -68,12 +68,8 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
-/**
- * Checks that JDBC dates and timestamps are interpreted in the client JVM timezone and should not
- * be affected by the session timezone.  We also compare the behavior to reference JDBC drivers.
- */
 @Test(singleThreaded = true)
-public class TestJdbcResultSetTimezone
+public class TestJdbcVendorCompatibility
 {
     private static final String OTHER_TIMEZONE = "Asia/Kathmandu";
 
@@ -89,7 +85,7 @@ public class TestJdbcResultSetTimezone
     {
         assertNotEquals(OTHER_TIMEZONE, TimeZone.getDefault().getID(), "We need a timezone different from the default JVM one");
         Logging.initialize();
-        log = Logger.get(TestJdbcResultSetTimezone.class);
+        log = Logger.get(TestJdbcVendorCompatibility.class);
         server = TestingPrestoServer.create();
         referenceDrivers = ImmutableList.of(new PostgresqlReferenceDriver(), new OracleReferenceDriver());
     }
