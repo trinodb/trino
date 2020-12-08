@@ -41,6 +41,7 @@ import static io.prestosql.client.ClientStandardTypes.MAP;
 import static io.prestosql.client.ClientStandardTypes.REAL;
 import static io.prestosql.client.ClientStandardTypes.ROW;
 import static io.prestosql.client.ClientStandardTypes.SMALLINT;
+import static io.prestosql.client.ClientStandardTypes.SPHERICAL_GEOGRAPHY;
 import static io.prestosql.client.ClientStandardTypes.TIME;
 import static io.prestosql.client.ClientStandardTypes.TIMESTAMP;
 import static io.prestosql.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
@@ -173,6 +174,7 @@ final class FixJsonDataUtils
             case DECIMAL:
             case CHAR:
             case GEOMETRY:
+            case SPHERICAL_GEOGRAPHY:
                 return String.class.cast(value);
             case BING_TILE:
                 // Bing tiles are serialized as strings when used as map keys,

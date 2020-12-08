@@ -37,6 +37,8 @@ import io.prestosql.spi.type.VarcharType;
 import io.prestosql.type.SqlIntervalDayTime;
 import io.prestosql.type.SqlIntervalYearMonth;
 
+import javax.ws.rs.HEAD;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -262,6 +264,12 @@ public class TestingPrestoClient
             return new BigDecimal((String) value);
         }
         if (type.getBaseName().equals("HyperLogLog")) {
+            return value;
+        }
+        if (type.getBaseName().equals("Geometry")) {
+            return value;
+        }
+        if (type.getBaseName().equals("SphericalGeography")) {
             return value;
         }
         if (type.getBaseName().equals("ObjectId")) {
