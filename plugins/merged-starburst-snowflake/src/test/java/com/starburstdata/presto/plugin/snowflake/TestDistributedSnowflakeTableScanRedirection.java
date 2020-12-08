@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTestTableScanRedirection;
+import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTableScanRedirectionTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 
@@ -19,7 +19,7 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.dis
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 
 public class TestDistributedSnowflakeTableScanRedirection
-        extends AbstractTestTableScanRedirection
+        extends AbstractTableScanRedirectionTest
 {
     protected final SnowflakeServer server = new SnowflakeServer();
 
