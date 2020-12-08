@@ -18,8 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.prestosql.connector.informationschema.InformationSchemaConnector;
-import io.prestosql.connector.system.DelegatingSystemTablesProvider;
-import io.prestosql.connector.system.MetadataBasedSystemTablesProvider;
+import io.prestosql.connector.system.CoordinatorSystemTablesProvider;
 import io.prestosql.connector.system.StaticSystemTablesProvider;
 import io.prestosql.connector.system.SystemConnector;
 import io.prestosql.connector.system.SystemTablesProvider;
@@ -223,9 +222,11 @@ public class ConnectorManager
         SystemTablesProvider systemTablesProvider;
 
         if (nodeManager.getCurrentNode().isCoordinator()) {
-            systemTablesProvider = new DelegatingSystemTablesProvider(
-                    new StaticSystemTablesProvider(connector.getSystemTables()),
-                    new MetadataBasedSystemTablesProvider(metadataManager, catalogName.getCatalogName()));
+            systemTablesProvider = new CoordinatorSystemTablesProvider(
+                    transactionManager,
+                    metadataManager,
+                    catalogName.getCatalogName(),
+                    new StaticSystemTablesProvider(connector.getSystemTables()));
         }
         else {
             systemTablesProvider = new StaticSystemTablesProvider(connector.getSystemTables());
