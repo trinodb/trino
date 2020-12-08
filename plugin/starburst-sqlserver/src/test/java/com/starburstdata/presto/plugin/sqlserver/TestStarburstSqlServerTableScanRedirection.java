@@ -30,7 +30,7 @@ public class TestStarburstSqlServerTableScanRedirection
         sqlServer.start();
         return createStarburstSqlServerQueryRunner(
                 sqlServer,
-                false,
+                true,
                 getRedirectionProperties("sqlserver", "dbo"),
                 tables);
     }
