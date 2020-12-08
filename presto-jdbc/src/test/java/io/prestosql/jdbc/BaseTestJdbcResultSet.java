@@ -222,12 +222,14 @@ public abstract class BaseTestJdbcResultSet
 
                 // TODO (https://github.com/prestosql/presto/issues/6242) this should not fail
                 assertThatThrownBy(() -> rs.getObject(column))
-                        .isInstanceOf(RuntimeException.class)
-                        .hasMessage("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Expected value to be a date but is: 1970-01-01")
+                        .hasStackTraceContaining("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
                 // TODO (https://github.com/prestosql/presto/issues/6242) this should not fail
                 assertThatThrownBy(() -> rs.getObject(column, Date.class))
-                        .isInstanceOf(RuntimeException.class)
-                        .hasMessage("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Expected value to be a date but is: 1970-01-01")
+                        .hasStackTraceContaining("Cannot parse \"1970-01-01\": Illegal instant due to time zone offset transition (America/Bahia_Banderas)");
                 // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
 
                 // TODO (https://github.com/prestosql/presto/issues/6242) this should not fail
