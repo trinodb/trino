@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
@@ -110,6 +111,7 @@ public class FunctionResolver
 
     FunctionBinding resolveFunction(Collection<FunctionMetadata> allCandidates, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
+        String actsb = allCandidates.toString();
         if (allCandidates.isEmpty()) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
         }
@@ -148,6 +150,8 @@ public class FunctionResolver
         String parameters = Joiner.on(", ").join(parameterTypes);
         String expected = Joiner.on(", ").join(expectedParameters);
         String message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
+        String actsa = allCandidates.toString();
+        verify(actsa.equals(actsb), "BUMP [%s] vs [%s]", actsa, actsb);
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
     }
 

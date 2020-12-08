@@ -220,7 +220,7 @@ public class SignatureBinder
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
 
         Map<String, TypeVariableConstraint> typeVariableConstraints = declaredSignature.getTypeVariableConstraints().stream()
-                    .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, identity()));
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, identity()));
 
         boolean variableArity = declaredSignature.isVariableArity();
         List<TypeSignature> formalTypeSignatures = declaredSignature.getArgumentTypes();
@@ -849,18 +849,22 @@ public class SignatureBinder
                     }
                     else {
                         // if an existing value doesn't exist for the given variable name, use the value that comes from the actual type.
-                        Optional<Type> type = typeCoercion.coerceTypeBase(actualType, formalTypeSignature.getBase());
+                        String formalBase = formalTypeSignature.getBase();
+                        Optional<Type> type = typeCoercion.coerceTypeBase(actualType, formalBase);
                         if (type.isEmpty()) {
                             return SolverReturnStatus.UNSOLVABLE;
                         }
                         TypeSignature typeSignature = type.get().getTypeSignature();
                         verify(
-                                i < typeSignature.getParameters().size(),
-                                "Expected type signature %s of type %s (coerced %s to %s base name) to have parameter count greater than %s",
+                                type.get().getBaseName().equals(typeSignature.getBase()) &&
+                                        typeSignature.getBase().equals(formalBase) &&
+                                        i < typeSignature.getParameters().size(),
+                                "Expected type signature %s of type %s (coerced %s to %s base name (%s)) to have parameter count greater than %s and same base",
                                 typeSignature,
                                 type.get(),
                                 actualType,
                                 formalTypeSignature,
+                                formalBase,
                                 i);
                         originalTypeTypeParametersBuilder.add(TypeSignatureParameter.numericParameter(typeSignature.getParameters().get(i).getLongLiteral()));
                     }

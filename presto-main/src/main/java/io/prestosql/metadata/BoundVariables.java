@@ -93,7 +93,9 @@ class BoundVariables
     {
         checkState(variableName != null, "variableName is null");
         checkState(value != null, "value for variable '%s' is null", variableName);
-        map.put(variableName, value);
+        // checkState(!map.containsKey(variableName), "variable already set when setting %s to %s in %s", variableName, value, map);
+        T old = map.put(variableName, value);
+        // checkState(old == null, "variable was set when setting %s to %s in %s: %s", variableName, value, map, old);
     }
 
     @Override

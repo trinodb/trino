@@ -18,7 +18,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.prestosql.operator.aggregation.ApproximateCountDistinctAggregation;
@@ -262,6 +261,7 @@ import io.prestosql.type.setdigest.SetDigestOperators;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -270,6 +270,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.isOperatorName;
 import static io.prestosql.metadata.Signature.unmangleOperator;
@@ -361,6 +362,7 @@ import static io.prestosql.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SA
 import static io.prestosql.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.prestosql.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.prestosql.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
@@ -878,10 +880,25 @@ public class FunctionRegistry
 
         public FunctionMap(FunctionMap map, Collection<? extends SqlFunction> functions)
         {
-            this.functions = ImmutableMap.<FunctionId, SqlFunction>builder()
-                    .putAll(map.functions)
-                    .putAll(Maps.uniqueIndex(functions, function -> function.getFunctionMetadata().getFunctionId()))
-                    .build();
+//            this.functions = ImmutableMap.<FunctionId, SqlFunction>builder()
+//                    .putAll(map.functions)
+//                    .putAll(Maps.uniqueIndex(functions, function -> function.getFunctionMetadata().getFunctionId()))
+//                    .build();
+
+            Map<FunctionId, SqlFunction> newFunctions = new LinkedHashMap<>();
+            map.functions.forEach( (k,v) -> {
+                requireNonNull(v, "v is null");
+                SqlFunction old = newFunctions.put(k, v);
+                verify(old == null, "override! %s %s %s", k, v, old);
+            });
+
+            functions.forEach(v -> {
+                FunctionId k = v.getFunctionMetadata().getFunctionId();
+                SqlFunction old = newFunctions.put(k, v);
+                verify(old == null, "override! %s %s %s", k, v, old);
+            });
+
+            this.functions = ImmutableMap.copyOf(newFunctions);
 
             ImmutableListMultimap.Builder<QualifiedName, FunctionMetadata> functionsByName = ImmutableListMultimap.<QualifiedName, FunctionMetadata>builder()
                     .putAll(map.functionsByName);
