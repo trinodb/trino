@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.starburstdata.presto.plugin.jdbc.redirection.RedirectionsProvider;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
@@ -57,12 +56,12 @@ public class StarburstSqlServerClient
     public StarburstSqlServerClient(
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
-            RedirectionsProvider redirectionsProvider,
+            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory)
     {
         super(config, connectionFactory);
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
-        tableScanRedirection = new TableScanRedirection(redirectionsProvider);
+        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }
 
     @Override
