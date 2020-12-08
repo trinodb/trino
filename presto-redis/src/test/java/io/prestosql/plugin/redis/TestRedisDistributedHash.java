@@ -42,4 +42,13 @@ public class TestRedisDistributedHash
     {
         redisServer.close();
     }
+
+    @Test
+//            (invocationCount = 100)
+            (invocationCount = 10)
+    @Override
+    public void testCorrelatedJoin()
+    {
+        super.testCorrelatedJoin();
+    }
 }
