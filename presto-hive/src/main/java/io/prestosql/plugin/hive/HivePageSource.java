@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.prestosql.plugin.hive.coercions.DoubleToFloatCoercer;
+import io.prestosql.plugin.hive.coercions.DoubleToVarcharCoercer;
 import io.prestosql.plugin.hive.coercions.FloatToDoubleCoercer;
+import io.prestosql.plugin.hive.coercions.FloatToVarcharCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
 import io.prestosql.plugin.hive.coercions.VarcharCoercer;
@@ -78,6 +80,7 @@ import static io.prestosql.plugin.hive.HiveType.HIVE_SHORT;
 import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
 import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToDoubleCoercer;
 import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToRealCoercer;
+import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToVarcharCoercer;
 import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
 import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucket;
@@ -385,6 +388,15 @@ public class HivePageSource
 
         if (toType instanceof VarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
             return Optional.of(new IntegerNumberToVarcharCoercer<>(fromType, (VarcharType) toType));
+        }
+        if (toType instanceof VarcharType && fromHiveType.equals(HIVE_FLOAT)) {
+            return new FloatToVarcharCoercer((VarcharType) toType);
+        }
+        if (toType instanceof VarcharType && fromHiveType.equals(HIVE_DOUBLE)) {
+            return new DoubleToVarcharCoercer((VarcharType) toType);
+        }
+        if (toType instanceof VarcharType && (fromType instanceof DecimalType)) {
+            return createDecimalToVarcharCoercer((DecimalType) fromType, (VarcharType) toType);
         }
         if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return Optional.of(new VarcharToIntegerNumberCoercer<>((VarcharType) fromType, toType));

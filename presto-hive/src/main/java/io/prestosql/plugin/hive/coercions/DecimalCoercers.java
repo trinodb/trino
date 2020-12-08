@@ -18,11 +18,14 @@ import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.VarcharType;
 
 import java.util.function.Function;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.DecimalConversions.doubleToLongDecimal;
 import static io.prestosql.spi.type.DecimalConversions.doubleToShortDecimal;
 import static io.prestosql.spi.type.DecimalConversions.longDecimalToDouble;
@@ -319,6 +322,46 @@ public final class DecimalCoercers
         {
             toType.writeSlice(blockBuilder,
                     realToLongDecimal(fromType.getLong(block, position), toType.getPrecision(), toType.getScale()));
+        }
+    }
+
+    public static Function<Block, Block> createDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+    {
+        if (fromType.isShort()) {
+            return new ShortDecimalToVarcharCoercer(fromType, toType);
+        }
+        else {
+            return new LongDecimalToVarcharCoercer(fromType, toType);
+        }
+    }
+
+    private static class LongDecimalToVarcharCoercer
+            extends TypeCoercer<DecimalType, VarcharType>
+    {
+        public LongDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+        {
+            super(fromType, toType);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            toType.writeSlice(blockBuilder, utf8Slice(Decimals.toString(fromType.getSlice(block, position), fromType.getScale())));
+        }
+    }
+
+    private static class ShortDecimalToVarcharCoercer
+            extends TypeCoercer<DecimalType, VarcharType>
+    {
+        public ShortDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+        {
+            super(fromType, toType);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            toType.writeSlice(blockBuilder, utf8Slice(Decimals.toString(fromType.getLong(block, position), fromType.getScale())));
         }
     }
 }
