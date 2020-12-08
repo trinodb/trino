@@ -310,6 +310,10 @@ Property Name                                      Description                  
                                                    can be used to use a different location for each user.
 
 ``hive.translate-hive-views``                      Enable translation for Hive views. (experimental)            ``false``
+
+``hive.legacy-hive-view-translation``              Use the legacy algorithm to translate Hive views. You can    ``false``
+                                                   alternatively set the ``legacy_hive_view_translation``
+                                                   session property to ``true``.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
