@@ -60,3 +60,7 @@
 
 * Add support for connectors to redirect table scan operations to another connector. ({issue}`5792`)
 * Add physical input bytes and rows for table scan operation to query completion event. ({issue}`5872`)
+
+## Server Changes
+
+* A minimum Java version of 11.0.7 is now required for Presto to start. This is to mitigate JDK-8206955. ({issue}`5957`)
