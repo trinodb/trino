@@ -310,11 +310,21 @@ Java Keystore File Verification
 Verify the password for a keystore file and view its contents using
 :ref:`troubleshooting_keystore`.
 
+Debug Presto to LDAP Server Issues
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+If you need to debug issues with Presto communicating with the LDAP server,
+you can change the :ref:`log level <log-levels>` for the LDAP authenticator:
+
+.. code-block:: none
+
+    io.prestosql.plugin.password=DEBUG
+
 SSL Debugging for Presto CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you encounter any SSL related errors when running Presto CLI, you can run CLI using ``-Djavax.net.debug=ssl``
-parameter for debugging. You should use the Presto CLI executable jar to enable this. E.g.:
+If you encounter any SSL related errors when running the Presto CLI, you can run
+the CLI using the ``-Djavax.net.debug=ssl`` parameter for debugging. Use the
+Presto CLI executable JAR to enable this. For example:
 
 .. code-block:: none
 

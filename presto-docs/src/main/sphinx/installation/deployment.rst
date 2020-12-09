@@ -236,6 +236,8 @@ The above configuration properties are a minimal set to help you get started.
 Please see :doc:`/admin` and :doc:`/security` for a more comprehensive list.
 In particular, see :doc:`/admin/resource-groups` for configuring queuing policies.
 
+.. _log-levels:
+
 Log Levels
 ^^^^^^^^^^
 
