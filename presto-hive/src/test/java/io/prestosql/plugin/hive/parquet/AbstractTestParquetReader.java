@@ -541,6 +541,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4063", match = "struct field values cannot be empty")
     public void testComplexNestedStructs()
             throws Exception
     {
