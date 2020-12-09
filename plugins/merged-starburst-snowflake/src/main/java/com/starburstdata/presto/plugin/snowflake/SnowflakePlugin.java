@@ -25,6 +25,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.starburstdata.presto.license.StarburstPrestoFeature.SNOWFLAKE;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class SnowflakePlugin
         implements Plugin
@@ -46,7 +47,9 @@ public class SnowflakePlugin
         return ImmutableList.of(
                 new JdbcConnectorFactory(
                         SNOWFLAKE_JDBC,
-                        (JdbcModuleProvider) catalogName -> new SnowflakeJdbcClientModule(catalogName, false)),
+                        (JdbcModuleProvider) catalogName -> combine(
+                                binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
+                                new SnowflakeJdbcClientModule(catalogName, false))),
                 new SnowflakeDistributedConnectorFactory(SNOWFLAKE_DISTRIBUTED, licenseManager));
     }
 }
