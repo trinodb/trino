@@ -14,6 +14,7 @@
 package io.prestosql.plugin.memory;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -322,7 +323,7 @@ public class TestMemorySmoke
         ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
 
         assertEquals(result.getResult().getRowCount(), expectedRowCount);
-        assertEquals(getOperatorRowsRead(getDistributedQueryRunner(), result.getQueryId()).toArray(), expectedOperatorRowsRead);
+        assertEquals(getOperatorRowsRead(getDistributedQueryRunner(), result.getQueryId()), Ints.asList(expectedOperatorRowsRead));
     }
 
     private Session withBroadcastJoin()

@@ -14,6 +14,7 @@
 package io.prestosql.plugin.kudu;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
 import io.prestosql.Session;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.QueryStats;
@@ -173,7 +174,7 @@ public class TestKuduIntegrationDynamicFilter
         ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, selectQuery);
 
         assertEquals(result.getResult().getRowCount(), expectedRowCount);
-        assertEquals(getOperatorRowsRead(runner, result.getQueryId()).toArray(), expectedOperatorRowsRead);
+        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), Ints.asList(expectedOperatorRowsRead));
     }
 
     private Session withBroadcastJoin()
