@@ -487,15 +487,16 @@ public class TestJdbcVendorCompatibility
         @Override
         public int expectedDeclaredJdbcType(JDBCType type)
         {
-            if (type == DATE) {
-                // Oracle's DATE is actually a TIMESTAMP
-                return Types.TIMESTAMP;
+            switch (type) {
+                case DATE:
+                    // Oracle's DATE is actually a TIMESTAMP
+                    return Types.TIMESTAMP;
+                case TIMESTAMP_WITH_TIMEZONE:
+                    // Oracle declares TIMESTAMP WITH TIME ZONE using vendor-specific type number
+                    return OracleType.TIMESTAMP_WITH_TIME_ZONE.getVendorTypeNumber();
+                default:
+                    return type.getVendorTypeNumber();
             }
-            if (type == TIMESTAMP_WITH_TIMEZONE) {
-                // Oracle declares TIMESTAMP WITH TIME ZONE using vendor-specific type number
-                return OracleType.TIMESTAMP_WITH_TIME_ZONE.getVendorTypeNumber();
-            }
-            return type.getVendorTypeNumber();
         }
 
         @Override
@@ -569,14 +570,15 @@ public class TestJdbcVendorCompatibility
         @Override
         public int expectedDeclaredJdbcType(JDBCType type)
         {
-            if (type == TIMESTAMP_WITH_TIMEZONE) {
-                // PostgreSQL returns TIMESTAMP WITH TIME ZONE declaring it as TIMESTAMP on JDBC level
-                return Types.TIMESTAMP;
+            switch (type) {
+                case TIMESTAMP_WITH_TIMEZONE:
+                    // PostgreSQL returns TIMESTAMP WITH TIME ZONE declaring it as TIMESTAMP on JDBC level
+                    return Types.TIMESTAMP;
+                case VARBINARY:
+                    return Types.BINARY;
+                default:
+                    return type.getVendorTypeNumber();
             }
-            if (type == VARBINARY) {
-                return Types.BINARY;
-            }
-            return type.getVendorTypeNumber();
         }
 
         @Override
