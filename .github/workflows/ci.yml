@@ -2,8 +2,6 @@ name: ci
 
 on:
   push:
-    branches:
-      - master
   pull_request:
 
 env:
