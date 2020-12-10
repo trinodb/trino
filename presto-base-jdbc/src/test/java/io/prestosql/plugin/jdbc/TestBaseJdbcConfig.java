@@ -16,7 +16,6 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig.LegacyGenericColumnMapping;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -38,7 +37,6 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setJdbcTypesMappedToVarchar("")
-                .setLegacyGenericColumnMapping(LegacyGenericColumnMapping.ENABLE)
                 .setMetadataCacheTtl(Duration.valueOf("0m"))
                 .setCacheMissing(false));
     }
@@ -51,7 +49,6 @@ public class TestBaseJdbcConfig
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .put("jdbc-types-mapped-to-varchar", "mytype,struct_type1")
-                .put("legacy-generic-column-mapping", "IGNORE")
                 .put("metadata.cache-ttl", "1s")
                 .put("metadata.cache-missing", "true")
                 .build();
@@ -61,7 +58,6 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
                 .setJdbcTypesMappedToVarchar("mytype, struct_type1")
-                .setLegacyGenericColumnMapping(LegacyGenericColumnMapping.IGNORE)
                 .setMetadataCacheTtl(Duration.valueOf("1s"))
                 .setCacheMissing(true);
 
