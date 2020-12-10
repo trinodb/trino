@@ -665,27 +665,35 @@ public class TestJdbcPreparedStatement
         Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
 
         assertBind((ps, i) -> ps.setDate(i, sqlDate))
+                .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
         assertBind((ps, i) -> ps.setObject(i, sqlDate))
+                .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
         assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.DATE))
+                .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
         assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.DATE))
+                .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
         assertBind((ps, i) -> ps.setObject(i, javaDate, Types.DATE))
+                .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
         assertBind((ps, i) -> ps.setObject(i, date, Types.DATE))
+                .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
         assertBind((ps, i) -> ps.setObject(i, dateTime, Types.DATE))
+                .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
 
         assertBind((ps, i) -> ps.setObject(i, "2001-05-06", Types.DATE))
+                .resultsIn("date", "DATE '2001-05-06'")
                 .roundTripsAs(Types.DATE, sqlDate);
     }
 
@@ -700,24 +708,31 @@ public class TestJdbcPreparedStatement
         Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
 
         assertBind((ps, i) -> ps.setTime(i, sqlTime))
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         assertBind((ps, i) -> ps.setObject(i, sqlTime))
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         assertBind((ps, i) -> ps.setObject(i, sqlTime, Types.TIME))
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIME))
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         assertBind((ps, i) -> ps.setObject(i, javaDate, Types.TIME))
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIME))
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         assertBind((ps, i) -> ps.setObject(i, "12:34:56", Types.TIME))
+                .resultsIn("time(3)", "TIME '12:34:56.000'")
                 .roundTripsAs(Types.TIME, sqlTime);
     }
 
@@ -733,36 +748,47 @@ public class TestJdbcPreparedStatement
         java.util.Date javaDate = java.util.Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
 
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, null))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 20:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sameInstantInWarsawZone);
 
         assertBind((ps, i) -> ps.setObject(i, sqlTimestamp))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 00:00:00.000'")
                 .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlDate.getTime()));
 
         assertBind((ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP))
+                .resultsIn("timestamp(3)", "TIMESTAMP '1970-01-01 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTime.getTime()));
 
         assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIMESTAMP))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         assertBind((ps, i) -> ps.setObject(i, javaDate, Types.TIMESTAMP))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP))
+                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
     }
 
@@ -831,6 +857,43 @@ public class TestJdbcPreparedStatement
                     verify(!rs.next(), "unexpected second row");
 
                     assertEquals(rs.getMetaData().getColumnType(1), expectedSqlType);
+                }
+            }
+
+            return this;
+        }
+
+        public BindAssertion resultsIn(String type, String expectedValueLiteral)
+                throws SQLException
+        {
+            String sql = "" +
+                    "SELECT " +
+                    "  typeof(bound) type_of_bind, " +
+                    "  bound, " +
+                    "  CAST(bound AS varchar) bound_as_varchar, " +
+                    "  typeof(literal) type_of_literal, " +
+                    "  literal, " +
+                    "  CAST(literal AS varchar) literal_as_varchar, " +
+                    "  bound = literal are_equal " +
+                    "FROM (VALUES (?, " + expectedValueLiteral + ")) t(bound, literal)";
+
+            try (Connection connection = connectionFactory.createConnection();
+                    PreparedStatement statement = connection.prepareStatement(sql)) {
+                binder.bind(statement, 1);
+
+                try (ResultSet rs = statement.executeQuery()) {
+                    verify(rs.next(), "no row returned");
+                    assertThat(rs.getString("type_of_bind")).as("type_of_bind")
+                            .isEqualTo(type);
+                    assertThat(rs.getString("type_of_literal")).as("type_of_literal (sanity check)")
+                            .isEqualTo(type);
+                    assertThat(rs.getString("bound_as_varchar")).as("bound should cast to VARCHAR the same way as literal " + expectedValueLiteral)
+                            .isEqualTo(rs.getString("literal_as_varchar"));
+                    assertThat(rs.getObject("bound")).as("bound value should round trip the same way as literal " + expectedValueLiteral)
+                            .isEqualTo(rs.getObject("literal"));
+                    assertThat(rs.getObject("are_equal")).as("Expected bound value to be equal to " + expectedValueLiteral)
+                            .isEqualTo(true);
+                    verify(!rs.next(), "unexpected second row");
                 }
             }
 
