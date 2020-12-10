@@ -20,6 +20,8 @@ import io.airlift.slice.Slices;
 
 import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
 import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.prestosql.spi.block.EncoderUtil.retrieveNullBits;
+import static java.lang.System.arraycopy;
 
 public class Int96ArrayBlockEncoding
         implements BlockEncoding
@@ -67,28 +69,50 @@ public class Int96ArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
-
+        byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
         long[] high = new long[positionCount];
         int[] low = new int[positionCount];
-        if (valueIsNull == null) {
+
+        if (valueIsNullPacked == null) {
             sliceInput.readBytes(Slices.wrappedLongArray(high));
             sliceInput.readBytes(Slices.wrappedIntArray(low));
+            return new Int96ArrayBlock(0, positionCount, null, high, low);
         }
-        else {
-            int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readBytes(Slices.wrappedLongArray(high, 0, nonNullPositionCount));
-            sliceInput.readBytes(Slices.wrappedIntArray(low, 0, nonNullPositionCount));
-            int position = nonNullPositionCount - 1;
-            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
-                high[i] = high[position];
-                low[i] = low[position];
-                if (!valueIsNull[i]) {
-                    position--;
-                }
+        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
+
+        int nonNullPositionCount = sliceInput.readInt();
+        sliceInput.readBytes(Slices.wrappedLongArray(high, 0, nonNullPositionCount));
+        sliceInput.readBytes(Slices.wrappedIntArray(low, 0, nonNullPositionCount));
+        int position = nonNullPositionCount - 1;
+
+        // Handle Last (positionCount % 8) values
+        for (int i = positionCount - 1; i >= (positionCount & ~0b111) && position >= 0; i--) {
+            high[i] = high[position];
+            low[i] = low[position];
+            if (!valueIsNull[i]) {
+                position--;
             }
         }
 
+        // Handle the remaining positions.
+        for (int i = (positionCount & ~0b111) - 8; i >= 0 && position >= 0; i -= 8) {
+            byte packed = valueIsNullPacked[i >> 3];
+            if (packed == 0) { // Only values
+                arraycopy(high, position - 7, high, i, 8);
+                arraycopy(low, position - 7, low, i, 8);
+                position -= 8;
+            }
+            else if (packed != -1) { // At least one non-null
+                for (int j = i + 7; j >= i && position >= 0; j--) {
+                    high[j] = high[position];
+                    low[j] = low[position];
+                    if (!valueIsNull[j]) {
+                        position--;
+                    }
+                }
+            }
+            // Do nothing if there are only nulls
+        }
         return new Int96ArrayBlock(0, positionCount, valueIsNull, high, low);
     }
 
