@@ -15,7 +15,6 @@ package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig.LegacyGenericColumnMapping;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -37,7 +36,6 @@ public class TestPhoenixConfig
         assertRecordedDefaults(recordDefaults(PhoenixConfig.class)
                 .setConnectionUrl(null)
                 .setResourceConfigFiles("")
-                .setLegacyGenericColumnMapping(LegacyGenericColumnMapping.ENABLE)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
     }
@@ -51,7 +49,6 @@ public class TestPhoenixConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("phoenix.connection-url", "jdbc:phoenix:localhost:2181:/hbase")
                 .put("phoenix.config.resources", configFile.toString())
-                .put("legacy-generic-column-mapping", "IGNORE")
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .build();
@@ -59,7 +56,6 @@ public class TestPhoenixConfig
         PhoenixConfig expected = new PhoenixConfig()
                 .setConnectionUrl("jdbc:phoenix:localhost:2181:/hbase")
                 .setResourceConfigFiles(configFile.toString())
-                .setLegacyGenericColumnMapping(LegacyGenericColumnMapping.IGNORE)
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
 

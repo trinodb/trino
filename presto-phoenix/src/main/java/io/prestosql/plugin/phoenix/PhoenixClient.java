@@ -194,7 +194,6 @@ public class PhoenixClient
                 ESCAPE_CHARACTER,
                 connectionFactory,
                 ImmutableSet.of(),
-                config.getLegacyGenericColumnMapping(),
                 config.isCaseInsensitiveNameMatching(),
                 config.getCaseInsensitiveNameMatchingCacheTtl());
         this.configuration = new Configuration(false);
