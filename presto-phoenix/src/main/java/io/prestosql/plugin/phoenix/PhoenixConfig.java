@@ -19,10 +19,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig.LegacyGenericColumnMapping;
 
-import javax.annotation.Nonnull;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
@@ -33,7 +30,6 @@ public class PhoenixConfig
 {
     private String connectionUrl;
     private List<String> resourceConfigFiles = ImmutableList.of();
-    private LegacyGenericColumnMapping legacyGenericColumnMapping = LegacyGenericColumnMapping.ENABLE;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
@@ -60,27 +56,6 @@ public class PhoenixConfig
     public PhoenixConfig setResourceConfigFiles(String files)
     {
         this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
-        return this;
-    }
-
-    /**
-     * @deprecated Fallback flag, to be removed after some time.
-     */
-    @Deprecated
-    @Nonnull
-    public LegacyGenericColumnMapping getLegacyGenericColumnMapping()
-    {
-        return legacyGenericColumnMapping;
-    }
-
-    /**
-     * @deprecated Fallback flag, to be removed after some time.
-     */
-    @Config(BaseJdbcConfig.LEGACY_GENERIC_COLUMN_MAPPING)
-    @Deprecated
-    public PhoenixConfig setLegacyGenericColumnMapping(LegacyGenericColumnMapping legacyGenericColumnMapping)
-    {
-        this.legacyGenericColumnMapping = legacyGenericColumnMapping;
         return this;
     }
 

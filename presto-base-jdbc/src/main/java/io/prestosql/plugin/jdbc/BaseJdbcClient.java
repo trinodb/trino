@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig.LegacyGenericColumnMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -69,7 +68,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.plugin.jdbc.BaseJdbcConfig.LEGACY_GENERIC_COLUMN_MAPPING;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -118,7 +116,6 @@ public abstract class BaseJdbcClient
 {
     private static final Logger log = Logger.get(BaseJdbcClient.class);
 
-    @Deprecated
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(BOOLEAN, WriteMapping.booleanMapping("boolean", booleanWriteFunction()))
             .put(BIGINT, WriteMapping.longMapping("bigint", bigintWriteFunction()))
@@ -134,7 +131,6 @@ public abstract class BaseJdbcClient
     protected final ConnectionFactory connectionFactory;
     protected final String identifierQuote;
     protected final Set<String> jdbcTypesMappedToVarchar;
-    private final LegacyGenericColumnMapping legacyGenericColumnMapping;
     protected final boolean caseInsensitiveNameMatching;
     protected final Cache<JdbcIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
@@ -145,7 +141,6 @@ public abstract class BaseJdbcClient
                 identifierQuote,
                 connectionFactory,
                 config.getJdbcTypesMappedToVarchar(),
-                config.getLegacyGenericColumnMapping(),
                 requireNonNull(config, "config is null").isCaseInsensitiveNameMatching(),
                 config.getCaseInsensitiveNameMatchingCacheTtl());
     }
@@ -154,7 +149,6 @@ public abstract class BaseJdbcClient
             String identifierQuote,
             ConnectionFactory connectionFactory,
             Set<String> jdbcTypesMappedToVarchar,
-            LegacyGenericColumnMapping legacyGenericColumnMapping,
             boolean caseInsensitiveNameMatching,
             Duration caseInsensitiveNameMatchingCacheTtl)
     {
@@ -163,9 +157,8 @@ public abstract class BaseJdbcClient
         this.jdbcTypesMappedToVarchar = ImmutableSortedSet.orderedBy(CASE_INSENSITIVE_ORDER)
                 .addAll(requireNonNull(jdbcTypesMappedToVarchar, "jdbcTypesMappedToVarchar is null"))
                 .build();
-        this.legacyGenericColumnMapping = requireNonNull(legacyGenericColumnMapping, "legacyGenericColumnMapping is null");
-
         requireNonNull(caseInsensitiveNameMatchingCacheTtl, "caseInsensitiveNameMatchingCacheTtl is null");
+
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(caseInsensitiveNameMatchingCacheTtl.toMillis(), MILLISECONDS);
@@ -350,32 +343,13 @@ public abstract class BaseJdbcClient
         if (mapping.isPresent()) {
             return mapping;
         }
-
-        mapping = jdbcTypeToPrestoType(typeHandle);
-        if (mapping.isPresent()) {
-            switch (legacyGenericColumnMapping) {
-                case ENABLE:
-                    return mapping;
-                case THROW:
-                    throw new IllegalStateException(format(
-                            "Column type %s is not explicitly mapped by the connector, and used to be mapped to %s by deprecated generic mappings. " +
-                                    "You can set '%s' to '%s' to temporarily restore the legacy mapping, or to '%s' to suppress this message.",
-                            typeHandle,
-                            mapping.get().getType(),
-                            LEGACY_GENERIC_COLUMN_MAPPING,
-                            LegacyGenericColumnMapping.ENABLE.name(),
-                            LegacyGenericColumnMapping.IGNORE.name()));
-                case IGNORE:
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected legacy mapping: " + legacyGenericColumnMapping);
-            }
+        Optional<ColumnMapping> connectorMapping = jdbcTypeToPrestoType(typeHandle);
+        if (connectorMapping.isPresent()) {
+            return connectorMapping;
         }
-
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
             return mapToUnboundedVarchar(typeHandle);
         }
-
         return Optional.empty();
     }
 
@@ -909,33 +883,6 @@ public abstract class BaseJdbcClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        WriteMapping writeMapping = legacyToWriteMapping(type);
-        if (writeMapping != null) {
-            switch (legacyGenericColumnMapping) {
-                case ENABLE:
-                    return writeMapping;
-                case THROW:
-                    throw new IllegalStateException(format(
-                            "Presto type %s is not explicitly mapped by the connector, and used to be mapped to %s by deprecated generic mappings. " +
-                                    "You can set '%s' to '%s' to temporarily restore the legacy mapping, or to '%s' to suppress this message.",
-                            type,
-                            writeMapping.getDataType(),
-                            LEGACY_GENERIC_COLUMN_MAPPING,
-                            LegacyGenericColumnMapping.ENABLE.name(),
-                            LegacyGenericColumnMapping.IGNORE.name()));
-                case IGNORE:
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected legacy mapping: " + legacyGenericColumnMapping);
-            }
-        }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
-    }
-
-    @Deprecated
-    @Nullable
-    private WriteMapping legacyToWriteMapping(Type type)
-    {
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             String dataType;
@@ -963,7 +910,7 @@ public abstract class BaseJdbcClient
         if (writeMapping != null) {
             return writeMapping;
         }
-        return null;
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     protected Function<String, String> tryApplyLimit(OptionalLong limit)
