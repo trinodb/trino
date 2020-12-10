@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.aggregation;
 
+import com.google.common.primitives.Ints;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.GroupByIdBlock;
 import io.prestosql.operator.aggregation.groupby.GroupByAggregationTestUtils;
@@ -34,7 +35,6 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
-import org.testng.internal.collections.Ints;
 
 import java.util.ArrayList;
 import java.util.List;
