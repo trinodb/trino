@@ -26,6 +26,7 @@ import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProv
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
+import io.prestosql.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.plugin.base.security.AllowAllAccessControl;
 import io.prestosql.plugin.hive.NodeVersion;
@@ -63,6 +64,7 @@ public final class InternalIcebergConnectorFactory
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
+                    new ConnectorObjectNameGeneratorModule(catalogName, "io.prestosql.plugin.iceberg", "presto.plugin.iceberg"),
                     new JsonModule(),
                     new IcebergModule(),
                     new IcebergMetastoreModule(),
