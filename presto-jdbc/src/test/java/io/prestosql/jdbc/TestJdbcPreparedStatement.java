@@ -46,12 +46,14 @@ import java.util.Calendar;
 import java.util.TimeZone;
 
 import static com.google.common.base.Strings.repeat;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.primitives.Ints.asList;
 import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
 import static io.prestosql.jdbc.TestingJdbcUtils.list;
 import static io.prestosql.jdbc.TestingJdbcUtils.readRows;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -445,20 +447,20 @@ public class TestJdbcPreparedStatement
     public void testConvertBoolean()
             throws SQLException
     {
-        assertParameter(true, Types.BOOLEAN, (ps, i) -> ps.setBoolean(i, true));
-        assertParameter(false, Types.BOOLEAN, (ps, i) -> ps.setBoolean(i, false));
-        assertParameter(true, Types.BOOLEAN, (ps, i) -> ps.setObject(i, true));
-        assertParameter(false, Types.BOOLEAN, (ps, i) -> ps.setObject(i, false));
+        assertBind((ps, i) -> ps.setBoolean(i, true)).roundTripsAs(Types.BOOLEAN, true);
+        assertBind((ps, i) -> ps.setBoolean(i, false)).roundTripsAs(Types.BOOLEAN, false);
+        assertBind((ps, i) -> ps.setObject(i, true)).roundTripsAs(Types.BOOLEAN, true);
+        assertBind((ps, i) -> ps.setObject(i, false)).roundTripsAs(Types.BOOLEAN, false);
 
         for (int type : asList(Types.BOOLEAN, Types.BIT)) {
-            assertParameter(true, Types.BOOLEAN, (ps, i) -> ps.setObject(i, true, type));
-            assertParameter(false, Types.BOOLEAN, (ps, i) -> ps.setObject(i, false, type));
-            assertParameter(true, Types.BOOLEAN, (ps, i) -> ps.setObject(i, 13, type));
-            assertParameter(false, Types.BOOLEAN, (ps, i) -> ps.setObject(i, 0, type));
-            assertParameter(true, Types.BOOLEAN, (ps, i) -> ps.setObject(i, "1", type));
-            assertParameter(true, Types.BOOLEAN, (ps, i) -> ps.setObject(i, "true", type));
-            assertParameter(false, Types.BOOLEAN, (ps, i) -> ps.setObject(i, "0", type));
-            assertParameter(false, Types.BOOLEAN, (ps, i) -> ps.setObject(i, "false", type));
+            assertBind((ps, i) -> ps.setObject(i, true, type)).roundTripsAs(Types.BOOLEAN, true);
+            assertBind((ps, i) -> ps.setObject(i, false, type)).roundTripsAs(Types.BOOLEAN, false);
+            assertBind((ps, i) -> ps.setObject(i, 13, type)).roundTripsAs(Types.BOOLEAN, true);
+            assertBind((ps, i) -> ps.setObject(i, 0, type)).roundTripsAs(Types.BOOLEAN, false);
+            assertBind((ps, i) -> ps.setObject(i, "1", type)).roundTripsAs(Types.BOOLEAN, true);
+            assertBind((ps, i) -> ps.setObject(i, "true", type)).roundTripsAs(Types.BOOLEAN, true);
+            assertBind((ps, i) -> ps.setObject(i, "0", type)).roundTripsAs(Types.BOOLEAN, false);
+            assertBind((ps, i) -> ps.setObject(i, "false", type)).roundTripsAs(Types.BOOLEAN, false);
         }
     }
 
@@ -466,103 +468,103 @@ public class TestJdbcPreparedStatement
     public void testConvertTinyint()
             throws SQLException
     {
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setByte(i, (byte) 123));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, (byte) 123));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, (byte) 123, Types.TINYINT));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, (short) 123, Types.TINYINT));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, 123, Types.TINYINT));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, 123L, Types.TINYINT));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, 123.9f, Types.TINYINT));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, 123.9d, Types.TINYINT));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.TINYINT));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.TINYINT));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.TINYINT));
-        assertParameter((byte) 123, Types.TINYINT, (ps, i) -> ps.setObject(i, "123", Types.TINYINT));
-        assertParameter((byte) 1, Types.TINYINT, (ps, i) -> ps.setObject(i, true, Types.TINYINT));
-        assertParameter((byte) 0, Types.TINYINT, (ps, i) -> ps.setObject(i, false, Types.TINYINT));
+        assertBind((ps, i) -> ps.setByte(i, (byte) 123)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, "123", Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 123);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 1);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.TINYINT)).roundTripsAs(Types.TINYINT, (byte) 0);
     }
 
     @Test
     public void testConvertSmallint()
             throws SQLException
     {
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setShort(i, (short) 123));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, (short) 123));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, (byte) 123, Types.SMALLINT));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, (short) 123, Types.SMALLINT));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, 123, Types.SMALLINT));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, 123L, Types.SMALLINT));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, 123.9f, Types.SMALLINT));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, 123.9d, Types.SMALLINT));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.SMALLINT));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.SMALLINT));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.SMALLINT));
-        assertParameter((short) 123, Types.SMALLINT, (ps, i) -> ps.setObject(i, "123", Types.SMALLINT));
-        assertParameter((short) 1, Types.SMALLINT, (ps, i) -> ps.setObject(i, true, Types.SMALLINT));
-        assertParameter((short) 0, Types.SMALLINT, (ps, i) -> ps.setObject(i, false, Types.SMALLINT));
+        assertBind((ps, i) -> ps.setShort(i, (short) 123)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, "123", Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 123);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 1);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.SMALLINT)).roundTripsAs(Types.SMALLINT, (short) 0);
     }
 
     @Test
     public void testConvertInteger()
             throws SQLException
     {
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setInt(i, 123));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, 123));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, (byte) 123, Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, (byte) 123, Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, (short) 123, Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, 123, Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, 123L, Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, 123.9f, Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, 123.9d, Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.INTEGER));
-        assertParameter(123, Types.INTEGER, (ps, i) -> ps.setObject(i, "123", Types.INTEGER));
-        assertParameter(1, Types.INTEGER, (ps, i) -> ps.setObject(i, true, Types.INTEGER));
-        assertParameter(0, Types.INTEGER, (ps, i) -> ps.setObject(i, false, Types.INTEGER));
+        assertBind((ps, i) -> ps.setInt(i, 123)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, "123", Types.INTEGER)).roundTripsAs(Types.INTEGER, 123);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.INTEGER)).roundTripsAs(Types.INTEGER, 1);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.INTEGER)).roundTripsAs(Types.INTEGER, 0);
     }
 
     @Test
     public void testConvertBigint()
             throws SQLException
     {
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setLong(i, 123L));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, 123L));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, (byte) 123, Types.BIGINT));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, (short) 123, Types.BIGINT));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, 123, Types.BIGINT));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, 123L, Types.BIGINT));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, 123.9f, Types.BIGINT));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, 123.9d, Types.BIGINT));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.BIGINT));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.BIGINT));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.BIGINT));
-        assertParameter(123L, Types.BIGINT, (ps, i) -> ps.setObject(i, "123", Types.BIGINT));
-        assertParameter(1L, Types.BIGINT, (ps, i) -> ps.setObject(i, true, Types.BIGINT));
-        assertParameter(0L, Types.BIGINT, (ps, i) -> ps.setObject(i, false, Types.BIGINT));
+        assertBind((ps, i) -> ps.setLong(i, 123L)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123L)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, "123", Types.BIGINT)).roundTripsAs(Types.BIGINT, 123L);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.BIGINT)).roundTripsAs(Types.BIGINT, 1L);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.BIGINT)).roundTripsAs(Types.BIGINT, 0L);
     }
 
     @Test
     public void testConvertReal()
             throws SQLException
     {
-        assertParameter(4.2f, Types.REAL, (ps, i) -> ps.setFloat(i, 4.2f));
-        assertParameter(4.2f, Types.REAL, (ps, i) -> ps.setObject(i, 4.2f));
+        assertBind((ps, i) -> ps.setFloat(i, 4.2f)).roundTripsAs(Types.REAL, 4.2f);
+        assertBind((ps, i) -> ps.setObject(i, 4.2f)).roundTripsAs(Types.REAL, 4.2f);
 
         for (int type : asList(Types.REAL, Types.FLOAT)) {
-            assertParameter(123.0f, Types.REAL, (ps, i) -> ps.setObject(i, (byte) 123, type));
-            assertParameter(123.0f, Types.REAL, (ps, i) -> ps.setObject(i, (short) 123, type));
-            assertParameter(123.0f, Types.REAL, (ps, i) -> ps.setObject(i, 123, type));
-            assertParameter(123.0f, Types.REAL, (ps, i) -> ps.setObject(i, 123L, type));
-            assertParameter(123.9f, Types.REAL, (ps, i) -> ps.setObject(i, 123.9f, type));
-            assertParameter(123.9f, Types.REAL, (ps, i) -> ps.setObject(i, 123.9d, type));
-            assertParameter(123.0f, Types.REAL, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type));
-            assertParameter(123.0f, Types.REAL, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type));
-            assertParameter(123.9f, Types.REAL, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type));
-            assertParameter(4.2f, Types.REAL, (ps, i) -> ps.setObject(i, "4.2", type));
-            assertParameter(1.0f, Types.REAL, (ps, i) -> ps.setObject(i, true, type));
-            assertParameter(0.0f, Types.REAL, (ps, i) -> ps.setObject(i, false, type));
+            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type)).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, (short) 123, type)).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, 123, type)).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, 123L, type)).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, 123.9f, type)).roundTripsAs(Types.REAL, 123.9f);
+            assertBind((ps, i) -> ps.setObject(i, 123.9d, type)).roundTripsAs(Types.REAL, 123.9f);
+            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type)).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type)).roundTripsAs(Types.REAL, 123.0f);
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type)).roundTripsAs(Types.REAL, 123.9f);
+            assertBind((ps, i) -> ps.setObject(i, "4.2", type)).roundTripsAs(Types.REAL, 4.2f);
+            assertBind((ps, i) -> ps.setObject(i, true, type)).roundTripsAs(Types.REAL, 1.0f);
+            assertBind((ps, i) -> ps.setObject(i, false, type)).roundTripsAs(Types.REAL, 0.0f);
         }
     }
 
@@ -570,42 +572,42 @@ public class TestJdbcPreparedStatement
     public void testConvertDouble()
             throws SQLException
     {
-        assertParameter(4.2d, Types.DOUBLE, (ps, i) -> ps.setDouble(i, 4.2d));
-        assertParameter(4.2d, Types.DOUBLE, (ps, i) -> ps.setObject(i, 4.2d));
-        assertParameter(123.0d, Types.DOUBLE, (ps, i) -> ps.setObject(i, (byte) 123, Types.DOUBLE));
-        assertParameter(123.0d, Types.DOUBLE, (ps, i) -> ps.setObject(i, (short) 123, Types.DOUBLE));
-        assertParameter(123.0d, Types.DOUBLE, (ps, i) -> ps.setObject(i, 123, Types.DOUBLE));
-        assertParameter(123.0d, Types.DOUBLE, (ps, i) -> ps.setObject(i, 123L, Types.DOUBLE));
-        assertParameter((double) 123.9f, Types.DOUBLE, (ps, i) -> ps.setObject(i, 123.9f, Types.DOUBLE));
-        assertParameter(123.9d, Types.DOUBLE, (ps, i) -> ps.setObject(i, 123.9d, Types.DOUBLE));
-        assertParameter(123.0d, Types.DOUBLE, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.DOUBLE));
-        assertParameter(123.0d, Types.DOUBLE, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.DOUBLE));
-        assertParameter(123.9d, Types.DOUBLE, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.DOUBLE));
-        assertParameter(4.2d, Types.DOUBLE, (ps, i) -> ps.setObject(i, "4.2", Types.DOUBLE));
-        assertParameter(1.0d, Types.DOUBLE, (ps, i) -> ps.setObject(i, true, Types.DOUBLE));
-        assertParameter(0.0d, Types.DOUBLE, (ps, i) -> ps.setObject(i, false, Types.DOUBLE));
+        assertBind((ps, i) -> ps.setDouble(i, 4.2d)).roundTripsAs(Types.DOUBLE, 4.2d);
+        assertBind((ps, i) -> ps.setObject(i, 4.2d)).roundTripsAs(Types.DOUBLE, 4.2d);
+        assertBind((ps, i) -> ps.setObject(i, (byte) 123, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, (short) 123, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, 123, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, 123L, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, 123.9f, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, (double) 123.9f);
+        assertBind((ps, i) -> ps.setObject(i, 123.9d, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.9d);
+        assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.0d);
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 123.9d);
+        assertBind((ps, i) -> ps.setObject(i, "4.2", Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 4.2d);
+        assertBind((ps, i) -> ps.setObject(i, true, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 1.0d);
+        assertBind((ps, i) -> ps.setObject(i, false, Types.DOUBLE)).roundTripsAs(Types.DOUBLE, 0.0d);
     }
 
     @Test
     public void testConvertDecimal()
             throws SQLException
     {
-        assertParameter(BigDecimal.valueOf(123), Types.DECIMAL, (ps, i) -> ps.setBigDecimal(i, BigDecimal.valueOf(123)));
-        assertParameter(BigDecimal.valueOf(123), Types.DECIMAL, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123)));
+        assertBind((ps, i) -> ps.setBigDecimal(i, BigDecimal.valueOf(123))).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+        assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123))).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
 
         for (int type : asList(Types.DECIMAL, Types.NUMERIC)) {
-            assertParameter(BigDecimal.valueOf(123), Types.DECIMAL, (ps, i) -> ps.setObject(i, (byte) 123, type));
-            assertParameter(BigDecimal.valueOf(123), Types.DECIMAL, (ps, i) -> ps.setObject(i, (short) 123, type));
-            assertParameter(BigDecimal.valueOf(123), Types.DECIMAL, (ps, i) -> ps.setObject(i, 123, type));
-            assertParameter(BigDecimal.valueOf(123), Types.DECIMAL, (ps, i) -> ps.setObject(i, 123L, type));
-            assertParameter(BigDecimal.valueOf(123.9f), Types.DECIMAL, (ps, i) -> ps.setObject(i, 123.9f, type));
-            assertParameter(BigDecimal.valueOf(123.9d), Types.DECIMAL, (ps, i) -> ps.setObject(i, 123.9d, type));
-            assertParameter(BigDecimal.valueOf(123), Types.DECIMAL, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type));
-            assertParameter(BigDecimal.valueOf(123), Types.DECIMAL, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type));
-            assertParameter(BigDecimal.valueOf(123.9d), Types.DECIMAL, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9d), type));
-            assertParameter(BigDecimal.valueOf(123), Types.DECIMAL, (ps, i) -> ps.setObject(i, "123", type));
-            assertParameter(BigDecimal.valueOf(1), Types.DECIMAL, (ps, i) -> ps.setObject(i, true, type));
-            assertParameter(BigDecimal.valueOf(0), Types.DECIMAL, (ps, i) -> ps.setObject(i, false, type));
+            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, (short) 123, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, 123, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, 123L, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, 123.9f, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123.9f));
+            assertBind((ps, i) -> ps.setObject(i, 123.9d, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123.9d));
+            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9d), type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123.9d));
+            assertBind((ps, i) -> ps.setObject(i, "123", type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(123));
+            assertBind((ps, i) -> ps.setObject(i, true, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(1));
+            assertBind((ps, i) -> ps.setObject(i, false, type)).roundTripsAs(Types.DECIMAL, BigDecimal.valueOf(0));
         }
     }
 
@@ -613,26 +615,26 @@ public class TestJdbcPreparedStatement
     public void testConvertVarchar()
             throws SQLException
     {
-        assertParameter("hello", Types.VARCHAR, (ps, i) -> ps.setString(i, "hello"));
-        assertParameter("hello", Types.VARCHAR, (ps, i) -> ps.setObject(i, "hello"));
+        assertBind((ps, i) -> ps.setString(i, "hello")).roundTripsAs(Types.VARCHAR, "hello");
+        assertBind((ps, i) -> ps.setObject(i, "hello")).roundTripsAs(Types.VARCHAR, "hello");
 
         String unicodeAndNull = "abc'xyz\0\u2603\uD835\uDCABtest";
-        assertParameter(unicodeAndNull, Types.VARCHAR, (ps, i) -> ps.setString(i, unicodeAndNull));
+        assertBind((ps, i) -> ps.setString(i, unicodeAndNull)).roundTripsAs(Types.VARCHAR, unicodeAndNull);
 
         for (int type : asList(Types.CHAR, Types.NCHAR, Types.VARCHAR, Types.NVARCHAR, Types.LONGVARCHAR, Types.LONGNVARCHAR)) {
-            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, (byte) 123, type));
-            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, (byte) 123, type));
-            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, (short) 123, type));
-            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, 123, type));
-            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, 123L, type));
-            assertParameter("123.9", Types.VARCHAR, (ps, i) -> ps.setObject(i, 123.9f, type));
-            assertParameter("123.9", Types.VARCHAR, (ps, i) -> ps.setObject(i, 123.9d, type));
-            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type));
-            assertParameter("123", Types.VARCHAR, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type));
-            assertParameter("123.9", Types.VARCHAR, (ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type));
-            assertParameter("hello", Types.VARCHAR, (ps, i) -> ps.setObject(i, "hello", type));
-            assertParameter("true", Types.VARCHAR, (ps, i) -> ps.setObject(i, true, type));
-            assertParameter("false", Types.VARCHAR, (ps, i) -> ps.setObject(i, false, type));
+            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type)).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, (byte) 123, type)).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, (short) 123, type)).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, 123, type)).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, 123L, type)).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, 123.9f, type)).roundTripsAs(Types.VARCHAR, "123.9");
+            assertBind((ps, i) -> ps.setObject(i, 123.9d, type)).roundTripsAs(Types.VARCHAR, "123.9");
+            assertBind((ps, i) -> ps.setObject(i, BigInteger.valueOf(123), type)).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123), type)).roundTripsAs(Types.VARCHAR, "123");
+            assertBind((ps, i) -> ps.setObject(i, BigDecimal.valueOf(123.9), type)).roundTripsAs(Types.VARCHAR, "123.9");
+            assertBind((ps, i) -> ps.setObject(i, "hello", type)).roundTripsAs(Types.VARCHAR, "hello");
+            assertBind((ps, i) -> ps.setObject(i, true, type)).roundTripsAs(Types.VARCHAR, "true");
+            assertBind((ps, i) -> ps.setObject(i, false, type)).roundTripsAs(Types.VARCHAR, "false");
         }
     }
 
@@ -643,12 +645,12 @@ public class TestJdbcPreparedStatement
         String value = "abc\0xyz";
         byte[] bytes = value.getBytes(UTF_8);
 
-        assertParameter(bytes, Types.VARBINARY, (ps, i) -> ps.setBytes(i, bytes));
-        assertParameter(bytes, Types.VARBINARY, (ps, i) -> ps.setObject(i, bytes));
+        assertBind((ps, i) -> ps.setBytes(i, bytes)).roundTripsAs(Types.VARBINARY, bytes);
+        assertBind((ps, i) -> ps.setObject(i, bytes)).roundTripsAs(Types.VARBINARY, bytes);
 
         for (int type : asList(Types.BINARY, Types.VARBINARY, Types.LONGVARBINARY)) {
-            assertParameter(bytes, Types.VARBINARY, (ps, i) -> ps.setObject(i, bytes, type));
-            assertParameter(bytes, Types.VARBINARY, (ps, i) -> ps.setObject(i, value, type));
+            assertBind((ps, i) -> ps.setObject(i, bytes, type)).roundTripsAs(Types.VARBINARY, bytes);
+            assertBind((ps, i) -> ps.setObject(i, value, type)).roundTripsAs(Types.VARBINARY, bytes);
         }
     }
 
@@ -662,14 +664,29 @@ public class TestJdbcPreparedStatement
         LocalDateTime dateTime = LocalDateTime.of(date, LocalTime.of(12, 34, 56));
         Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
 
-        assertParameter(sqlDate, Types.DATE, (ps, i) -> ps.setDate(i, sqlDate));
-        assertParameter(sqlDate, Types.DATE, (ps, i) -> ps.setObject(i, sqlDate));
-        assertParameter(sqlDate, Types.DATE, (ps, i) -> ps.setObject(i, sqlDate, Types.DATE));
-        assertParameter(sqlDate, Types.DATE, (ps, i) -> ps.setObject(i, sqlTimestamp, Types.DATE));
-        assertParameter(sqlDate, Types.DATE, (ps, i) -> ps.setObject(i, javaDate, Types.DATE));
-        assertParameter(sqlDate, Types.DATE, (ps, i) -> ps.setObject(i, date, Types.DATE));
-        assertParameter(sqlDate, Types.DATE, (ps, i) -> ps.setObject(i, dateTime, Types.DATE));
-        assertParameter(sqlDate, Types.DATE, (ps, i) -> ps.setObject(i, "2001-05-06", Types.DATE));
+        assertBind((ps, i) -> ps.setDate(i, sqlDate))
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlDate))
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.DATE))
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.DATE))
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.DATE))
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, date, Types.DATE))
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, dateTime, Types.DATE))
+                .roundTripsAs(Types.DATE, sqlDate);
+
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06", Types.DATE))
+                .roundTripsAs(Types.DATE, sqlDate);
     }
 
     @Test
@@ -682,13 +699,26 @@ public class TestJdbcPreparedStatement
         LocalDateTime dateTime = LocalDateTime.of(LocalDate.of(2001, 5, 6), time);
         Timestamp sqlTimestamp = Timestamp.valueOf(dateTime);
 
-        assertParameter(sqlTime, Types.TIME, (ps, i) -> ps.setTime(i, sqlTime));
-        assertParameter(sqlTime, Types.TIME, (ps, i) -> ps.setObject(i, sqlTime));
-        assertParameter(sqlTime, Types.TIME, (ps, i) -> ps.setObject(i, sqlTime, Types.TIME));
-        assertParameter(sqlTime, Types.TIME, (ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIME));
-        assertParameter(sqlTime, Types.TIME, (ps, i) -> ps.setObject(i, javaDate, Types.TIME));
-        assertParameter(sqlTime, Types.TIME, (ps, i) -> ps.setObject(i, dateTime, Types.TIME));
-        assertParameter(sqlTime, Types.TIME, (ps, i) -> ps.setObject(i, "12:34:56", Types.TIME));
+        assertBind((ps, i) -> ps.setTime(i, sqlTime))
+                .roundTripsAs(Types.TIME, sqlTime);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTime))
+                .roundTripsAs(Types.TIME, sqlTime);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTime, Types.TIME))
+                .roundTripsAs(Types.TIME, sqlTime);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIME))
+                .roundTripsAs(Types.TIME, sqlTime);
+
+        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.TIME))
+                .roundTripsAs(Types.TIME, sqlTime);
+
+        assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIME))
+                .roundTripsAs(Types.TIME, sqlTime);
+
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56", Types.TIME))
+                .roundTripsAs(Types.TIME, sqlTime);
     }
 
     @Test
@@ -702,55 +732,52 @@ public class TestJdbcPreparedStatement
         Timestamp sameInstantInWarsawZone = Timestamp.valueOf(dateTime.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneId.of("Europe/Warsaw")).toLocalDateTime());
         java.util.Date javaDate = java.util.Date.from(dateTime.atZone(ZoneId.systemDefault()).toInstant());
 
-        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp));
-        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, null));
-        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()));
-        assertParameter(sameInstantInWarsawZone, Types.TIMESTAMP, (ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))));
-        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlTimestamp));
-        assertParameter(new Timestamp(sqlDate.getTime()), Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP));
-        assertParameter(new Timestamp(sqlTime.getTime()), Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP));
-        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIMESTAMP));
-        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setObject(i, javaDate, Types.TIMESTAMP));
-        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP));
-        assertParameter(sqlTimestamp, Types.TIMESTAMP, (ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP));
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp))
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, null))
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance()))
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setTimestamp(i, sqlTimestamp, Calendar.getInstance(TimeZone.getTimeZone(ZoneId.of("Europe/Warsaw")))))
+                .roundTripsAs(Types.TIMESTAMP, sameInstantInWarsawZone);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp))
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setObject(i, sqlDate, Types.TIMESTAMP))
+                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlDate.getTime()));
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTime, Types.TIMESTAMP))
+                .roundTripsAs(Types.TIMESTAMP, new Timestamp(sqlTime.getTime()));
+
+        assertBind((ps, i) -> ps.setObject(i, sqlTimestamp, Types.TIMESTAMP))
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setObject(i, javaDate, Types.TIMESTAMP))
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP))
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP))
+                .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
     }
 
     @Test
     public void testInvalidConversions()
-    {
-        assertInvalidConversion((ps, i) -> ps.setObject(i, String.class), "Unsupported object type: java.lang.Class");
-        assertInvalidConversion((ps, i) -> ps.setObject(i, String.class, Types.BIGINT), "Cannot convert instance of java.lang.Class to SQL type " + Types.BIGINT);
-        assertInvalidConversion((ps, i) -> ps.setObject(i, "abc", Types.SMALLINT), "Cannot convert instance of java.lang.String to SQL type " + Types.SMALLINT);
-    }
-
-    private void assertInvalidConversion(Binder binder, String message)
-    {
-        assertThatThrownBy(() -> assertParameter(null, Types.NULL, binder))
-                .isInstanceOf(SQLException.class)
-                .hasMessageContaining(message);
-    }
-
-    private void assertParameter(Object expectedValue, int expectedSqlType, Binder binder)
             throws SQLException
     {
-        try (Connection connection = createConnection();
-                PreparedStatement statement = connection.prepareStatement("SELECT ?")) {
-            binder.bind(statement, 1);
-
-            try (ResultSet rs = statement.executeQuery()) {
-                assertTrue(rs.next());
-                assertEquals(expectedValue, rs.getObject(1));
-                assertFalse(rs.next());
-
-                assertEquals(rs.getMetaData().getColumnType(1), expectedSqlType);
-            }
-        }
+        assertBind((ps, i) -> ps.setObject(i, String.class)).isInvalid("Unsupported object type: java.lang.Class");
+        assertBind((ps, i) -> ps.setObject(i, String.class, Types.BIGINT)).isInvalid("Cannot convert instance of java.lang.Class to SQL type " + Types.BIGINT);
+        assertBind((ps, i) -> ps.setObject(i, "abc", Types.SMALLINT)).isInvalid("Cannot convert instance of java.lang.String to SQL type " + Types.SMALLINT);
     }
 
-    private interface Binder
+    private BindAssertion assertBind(Binder binder)
     {
-        void bind(PreparedStatement ps, int i)
-                throws SQLException;
+        return new BindAssertion(this::createConnection, binder);
     }
 
     private Connection createConnection()
@@ -765,5 +792,61 @@ public class TestJdbcPreparedStatement
     {
         String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
+    }
+
+    private static class BindAssertion
+    {
+        private final ConnectionFactory connectionFactory;
+        private final Binder binder;
+
+        public BindAssertion(ConnectionFactory connectionFactory, Binder binder)
+        {
+            this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
+            this.binder = requireNonNull(binder, "binder is null");
+        }
+
+        public BindAssertion isInvalid(String expectedMessage)
+                throws SQLException
+        {
+            try (Connection connection = connectionFactory.createConnection();
+                    PreparedStatement statement = connection.prepareStatement("SELECT ?")) {
+                assertThatThrownBy(() -> binder.bind(statement, 1))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(expectedMessage);
+            }
+
+            return this;
+        }
+
+        public BindAssertion roundTripsAs(int expectedSqlType, Object expectedValue)
+                throws SQLException
+        {
+            try (Connection connection = connectionFactory.createConnection();
+                    PreparedStatement statement = connection.prepareStatement("SELECT ?")) {
+                binder.bind(statement, 1);
+
+                try (ResultSet rs = statement.executeQuery()) {
+                    verify(rs.next(), "no row returned");
+                    assertEquals(expectedValue, rs.getObject(1));
+                    verify(!rs.next(), "unexpected second row");
+
+                    assertEquals(rs.getMetaData().getColumnType(1), expectedSqlType);
+                }
+            }
+
+            return this;
+        }
+    }
+
+    private interface Binder
+    {
+        void bind(PreparedStatement ps, int i)
+                throws SQLException;
+    }
+
+    private interface ConnectionFactory
+    {
+        Connection createConnection()
+                throws SQLException;
     }
 }
