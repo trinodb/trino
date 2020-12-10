@@ -47,7 +47,7 @@ import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 
@@ -651,7 +651,7 @@ public class PlanFragmenter
         }
 
         @Override
-        public GroupedExecutionProperties visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        public GroupedExecutionProperties visitTopNRanking(TopNRankingNode node, Void context)
         {
             return processWindowFunction(node);
         }

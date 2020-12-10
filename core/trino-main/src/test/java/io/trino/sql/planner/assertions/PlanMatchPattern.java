@@ -371,9 +371,9 @@ public final class PlanMatchPattern
         return builder.build();
     }
 
-    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> handler, PlanMatchPattern source)
+    public static PlanMatchPattern topNRanking(Consumer<TopNRankingMatcher.Builder> handler, PlanMatchPattern source)
     {
-        TopNRowNumberMatcher.Builder builder = new TopNRowNumberMatcher.Builder(source);
+        TopNRankingMatcher.Builder builder = new TopNRankingMatcher.Builder(source);
         handler.accept(builder);
         return builder.build();
     }

@@ -54,7 +54,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
@@ -278,7 +278,7 @@ public class HashGenerationOptimizer
         }
 
         @Override
-        public PlanWithProperties visitTopNRowNumber(TopNRowNumberNode node, HashComputationSet parentPreference)
+        public PlanWithProperties visitTopNRanking(TopNRankingNode node, HashComputationSet parentPreference)
         {
             if (node.getPartitionBy().isEmpty()) {
                 return planSimpleNodeWithProperties(node, parentPreference);
@@ -293,12 +293,12 @@ public class HashGenerationOptimizer
             Symbol hashSymbol = child.getRequiredHashSymbol(hashComputation.get());
 
             return new PlanWithProperties(
-                    new TopNRowNumberNode(
+                    new TopNRankingNode(
                             node.getId(),
                             child.getNode(),
                             node.getSpecification(),
-                            node.getRowNumberSymbol(),
-                            node.getMaxRowCountPerPartition(),
+                            node.getRankingSymbol(),
+                            node.getMaxRankingPerPartition(),
                             node.isPartial(),
                             Optional.of(hashSymbol)),
                     child.getHashSymbols());

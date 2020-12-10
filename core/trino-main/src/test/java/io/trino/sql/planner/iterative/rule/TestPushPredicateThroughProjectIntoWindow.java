@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.TopNRowNumberSymbolMatcher;
+import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
@@ -35,7 +35,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
@@ -45,12 +45,12 @@ public class TestPushPredicateThroughProjectIntoWindow
         extends BaseRuleTest
 {
     @Test
-    public void testRowNumberSymbolPruned()
+    public void testRankingSymbolPruned()
     {
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.filter(
                             PlanBuilder.expression("a = 1"),
                             p.project(
@@ -59,52 +59,52 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(rowNumber, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rowNumberFunction()),
                                             p.values(a))));
                 })
                 .doesNotFire();
     }
 
     @Test
-    public void testNoUpperBoundForRowNumberSymbol()
+    public void testNoUpperBoundForRankingSymbol()
     {
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.filter(
                             PlanBuilder.expression("a = 1"),
                             p.project(
-                                    Assignments.identity(a, rowNumber),
+                                    Assignments.identity(a, ranking),
                                     p.window(
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(rowNumber, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rowNumberFunction()),
                                             p.values(a))));
                 })
                 .doesNotFire();
     }
 
     @Test
-    public void testNonPositiveUpperBoundForRowNumberSymbol()
+    public void testNonPositiveUpperBoundForRankingSymbol()
     {
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("a = 1 AND row_number < -10"),
+                            PlanBuilder.expression("a = 1 AND ranking < -10"),
                             p.project(
-                                    Assignments.identity(a, rowNumber),
+                                    Assignments.identity(a, ranking),
                                     p.window(
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(rowNumber, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rowNumberFunction()),
                                             p.values(a))));
                 })
-                .matches(values("a", "row_number"));
+                .matches(values("a", "ranking"));
     }
 
     @Test
@@ -113,32 +113,32 @@ public class TestPushPredicateThroughProjectIntoWindow
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("row_number > 2 AND row_number < 5"),
+                            PlanBuilder.expression("ranking > 2 AND ranking < 5"),
                             p.project(
-                                    Assignments.identity(rowNumber),
+                                    Assignments.identity(ranking),
                                     p.window(
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(rowNumber, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rowNumberFunction()),
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "row_number > 2 AND row_number < 5",
+                        "ranking > 2 AND ranking < 5",
                         project(
-                                ImmutableMap.of("row_number", expression("row_number")),
-                                topNRowNumber(
+                                ImmutableMap.of("ranking", expression("ranking")),
+                                topNRanking(
                                         pattern -> pattern
                                                 .specification(
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
                                                         ImmutableMap.of("a", ASC_NULLS_FIRST))
-                                                .maxRowCountPerPartition(4)
+                                                .maxRankingPerPartition(4)
                                                 .partial(false),
                                         values(ImmutableList.of("a")))
-                                        .withAlias("row_number", new TopNRowNumberSymbolMatcher()))));
+                                        .withAlias("ranking", new TopNRankingSymbolMatcher()))));
     }
 
     @Test
@@ -147,30 +147,30 @@ public class TestPushPredicateThroughProjectIntoWindow
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 5"),
+                            PlanBuilder.expression("ranking < 5"),
                             p.project(
-                                    Assignments.identity(rowNumber),
+                                    Assignments.identity(ranking),
                                     p.window(
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(rowNumber, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rowNumberFunction()),
                                             p.values(a))));
                 })
                 .matches(project(
-                        ImmutableMap.of("row_number", expression("row_number")),
-                        topNRowNumber(
+                        ImmutableMap.of("ranking", expression("ranking")),
+                        topNRanking(
                                 pattern -> pattern
                                         .specification(
                                                 ImmutableList.of(),
                                                 ImmutableList.of("a"),
                                                 ImmutableMap.of("a", ASC_NULLS_FIRST))
-                                        .maxRowCountPerPartition(4)
+                                        .maxRankingPerPartition(4)
                                         .partial(false),
                                 values(ImmutableList.of("a")))
-                                .withAlias("row_number", new TopNRowNumberSymbolMatcher())));
+                                .withAlias("ranking", new TopNRankingSymbolMatcher())));
     }
 
     @Test
@@ -179,62 +179,62 @@ public class TestPushPredicateThroughProjectIntoWindow
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 5 AND a > 0"),
+                            PlanBuilder.expression("ranking < 5 AND a > 0"),
                             p.project(
-                                    Assignments.identity(rowNumber, a),
+                                    Assignments.identity(ranking, a),
                                     p.window(
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(rowNumber, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rowNumberFunction()),
                                             p.values(a))));
                 })
                 .matches(filter(
                         "a > 0",
                         project(
-                                ImmutableMap.of("row_number", expression("row_number"), "a", expression("a")),
-                                topNRowNumber(
+                                ImmutableMap.of("ranking", expression("ranking"), "a", expression("a")),
+                                topNRanking(
                                         pattern -> pattern
                                                 .specification(
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
                                                         ImmutableMap.of("a", ASC_NULLS_FIRST))
-                                                .maxRowCountPerPartition(4)
+                                                .maxRankingPerPartition(4)
                                                 .partial(false),
                                         values(ImmutableList.of("a")))
-                                        .withAlias("row_number", new TopNRowNumberSymbolMatcher()))));
+                                        .withAlias("ranking", new TopNRankingSymbolMatcher()))));
 
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.filter(
-                            PlanBuilder.expression("row_number < 5 AND row_number % 2 = 0"),
+                            PlanBuilder.expression("ranking < 5 AND ranking % 2 = 0"),
                             p.project(
-                                    Assignments.identity(rowNumber),
+                                    Assignments.identity(ranking),
                                     p.window(
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(rowNumber, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rowNumberFunction()),
                                             p.values(a))));
                 })
                 .matches(filter(
-                        "row_number % 2 = 0",
+                        "ranking % 2 = 0",
                         project(
-                                ImmutableMap.of("row_number", expression("row_number")),
-                                topNRowNumber(
+                                ImmutableMap.of("ranking", expression("ranking")),
+                                topNRanking(
                                         pattern -> pattern
                                                 .specification(
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
                                                         ImmutableMap.of("a", ASC_NULLS_FIRST))
-                                                .maxRowCountPerPartition(4)
+                                                .maxRankingPerPartition(4)
                                                 .partial(false),
                                         values(ImmutableList.of("a")))
-                                        .withAlias("row_number", new TopNRowNumberSymbolMatcher()))));
+                                        .withAlias("ranking", new TopNRankingSymbolMatcher()))));
     }
 
     private Function rowNumberFunction()

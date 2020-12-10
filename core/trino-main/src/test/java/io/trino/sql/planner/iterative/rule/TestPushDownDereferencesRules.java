@@ -62,7 +62,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
@@ -467,9 +467,9 @@ public class TestPushDownDereferencesRules
     }
 
     @Test
-    public void testPushdownDereferenceThroughTopNRowNumber()
+    public void testPushdownDereferenceThroughTopNRanking()
     {
-        tester().assertThat(new PushDownDereferencesThroughTopNRowNumber(tester().getTypeAnalyzer()))
+        tester().assertThat(new PushDownDereferencesThroughTopNRanking(tester().getTypeAnalyzer()))
                 .on(p ->
                         p.project(
                                 Assignments.builder()
@@ -477,14 +477,14 @@ public class TestPushDownDereferencesRules
                                         .put(p.symbol("msg2_x"), expression("msg2.x"))
                                         .put(p.symbol("msg3_x"), expression("msg3.x"))
                                         .build(),
-                                p.topNRowNumber(
+                                p.topNRanking(
                                         new WindowNode.Specification(
                                                 ImmutableList.of(p.symbol("msg1", ROW_TYPE)),
                                                 Optional.of(new OrderingScheme(
                                                         ImmutableList.of(p.symbol("msg2", ROW_TYPE)),
                                                         ImmutableMap.of(p.symbol("msg2", ROW_TYPE), ASC_NULLS_FIRST)))),
                                         5,
-                                        p.symbol("row_number"),
+                                        p.symbol("ranking"),
                                         Optional.empty(),
                                         p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE), p.symbol("msg3", ROW_TYPE)))))
                 .matches(
@@ -494,7 +494,7 @@ public class TestPushDownDereferencesRules
                                         .put("msg2_x", PlanMatchPattern.expression("msg2.x"))
                                         .put("msg3_x", PlanMatchPattern.expression("expr"))
                                         .build(),
-                                topNRowNumber(
+                                topNRanking(
                                         pattern -> pattern.specification(singletonList("msg1"), singletonList("msg2"), ImmutableMap.of("msg2", ASC_NULLS_FIRST)),
                                         strictProject(
                                                 ImmutableMap.<String, ExpressionMatcher>builder()

@@ -91,7 +91,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -630,7 +630,7 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        public Void visitTopNRanking(TopNRankingNode node, Void context)
         {
             List<String> partitionBy = node.getPartitionBy().stream()
                     .map(Object::toString)
@@ -645,10 +645,10 @@ public class PlanPrinter
             args.add(format("order by (%s)", Joiner.on(", ").join(orderBy)));
 
             NodeRepresentation nodeOutput = addNode(node,
-                    "TopNRowNumber",
-                    format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRowCountPerPartition(), formatHash(node.getHashSymbol())));
+                    "TopNRanking",
+                    format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRankingPerPartition(), formatHash(node.getHashSymbol())));
 
-            nodeOutput.appendDetailsLine("%s := %s", node.getRowNumberSymbol(), "row_number()");
+            nodeOutput.appendDetailsLine("%s := %s", node.getRankingSymbol(), "row_number()");
 
             return processChildren(node, context);
         }

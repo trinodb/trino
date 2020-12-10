@@ -38,7 +38,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -72,7 +72,7 @@ public class TestWindow
 
         assertDistributedPlan("SELECT orderkey FROM (SELECT orderkey, row_number() OVER (PARTITION BY orderkey ORDER BY custkey) n FROM orders) WHERE n = 1",
                 anyTree(
-                        topNRowNumber(pattern -> pattern
+                        topNRanking(pattern -> pattern
                                         .specification(
                                                 ImmutableList.of("orderkey"),
                                                 ImmutableList.of("custkey"),
@@ -99,7 +99,7 @@ public class TestWindow
 
         assertDistributedPlan("SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n = 1",
                 anyTree(
-                        topNRowNumber(pattern -> pattern
+                        topNRanking(pattern -> pattern
                                         .specification(
                                                 ImmutableList.of("orderstatus"),
                                                 ImmutableList.of("custkey"),
@@ -107,7 +107,7 @@ public class TestWindow
                                         .partial(false),
                                 exchange(LOCAL, GATHER,
                                         exchange(REMOTE, REPARTITION,
-                                                topNRowNumber(topNRowNumber -> topNRowNumber
+                                                topNRanking(topNRanking -> topNRanking
                                                                 .specification(
                                                                         ImmutableList.of("orderstatus"),
                                                                         ImmutableList.of("custkey"),
