@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Ints;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.aggregation.groupby.AggregationTestInput;
@@ -33,7 +34,6 @@ import io.prestosql.sql.tree.QualifiedName;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
-import org.testng.internal.collections.Ints;
 
 import java.util.ArrayList;
 import java.util.HashMap;
