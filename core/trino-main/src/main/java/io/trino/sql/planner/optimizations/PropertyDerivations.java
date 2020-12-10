@@ -71,7 +71,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
@@ -328,7 +328,7 @@ public final class PropertyDerivations
         }
 
         @Override
-        public ActualProperties visitTopNRowNumber(TopNRowNumberNode node, List<ActualProperties> inputProperties)
+        public ActualProperties visitTopNRanking(TopNRankingNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 

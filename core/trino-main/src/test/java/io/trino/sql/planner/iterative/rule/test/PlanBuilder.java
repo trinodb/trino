@@ -81,7 +81,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TopNNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -1062,14 +1062,14 @@ public class PlanBuilder
                 hashSymbol);
     }
 
-    public TopNRowNumberNode topNRowNumber(Specification specification, int maxRowCountPerPartition, Symbol rowNumberSymbol, Optional<Symbol> hashSymbol, PlanNode source)
+    public TopNRankingNode topNRanking(Specification specification, int maxRankingPerPartition, Symbol rankingSymbol, Optional<Symbol> hashSymbol, PlanNode source)
     {
-        return new TopNRowNumberNode(
+        return new TopNRankingNode(
                 idAllocator.getNextId(),
                 source,
                 specification,
-                rowNumberSymbol,
-                maxRowCountPerPartition,
+                rankingSymbol,
+                maxRankingPerPartition,
                 false,
                 hashSymbol);
     }

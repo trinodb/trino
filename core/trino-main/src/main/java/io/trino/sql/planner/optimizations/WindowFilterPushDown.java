@@ -34,7 +34,7 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.BooleanLiteral;
@@ -157,11 +157,11 @@ public class WindowFilterPushDown
                 WindowNode windowNode = (WindowNode) source;
                 // verify that unordered row_number window functions are replaced by RowNumberNode
                 verify(windowNode.getOrderingScheme().isPresent());
-                TopNRowNumberNode topNRowNumberNode = convertToTopNRowNumber(windowNode, limit);
+                TopNRankingNode topNRankingNode = convertToTopNRanking(windowNode, limit);
                 if (windowNode.getPartitionBy().isEmpty()) {
-                    return topNRowNumberNode;
+                    return topNRankingNode;
                 }
-                source = topNRowNumberNode;
+                source = topNRankingNode;
             }
             return replaceChildren(node, ImmutableList.of(source));
         }
@@ -194,7 +194,7 @@ public class WindowFilterPushDown
                     if (upperBound.getAsInt() <= 0) {
                         return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
                     }
-                    source = convertToTopNRowNumber(windowNode, upperBound.getAsInt());
+                    source = convertToTopNRanking(windowNode, upperBound.getAsInt());
                     return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
                 }
             }
@@ -283,9 +283,9 @@ public class WindowFilterPushDown
                     node.getHashSymbol());
         }
 
-        private TopNRowNumberNode convertToTopNRowNumber(WindowNode windowNode, int limit)
+        private TopNRankingNode convertToTopNRanking(WindowNode windowNode, int limit)
         {
-            return new TopNRowNumberNode(idAllocator.getNextId(),
+            return new TopNRankingNode(idAllocator.getNextId(),
                     windowNode.getSource(),
                     windowNode.getSpecification(),
                     getOnlyElement(windowNode.getWindowFunctions().keySet()),

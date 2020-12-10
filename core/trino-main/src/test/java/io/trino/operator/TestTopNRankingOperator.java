@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.RowPagesBuilder;
+import io.trino.operator.TopNRankingOperator.TopNRankingOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
@@ -41,7 +42,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
-import static io.trino.operator.TopNRowNumberOperator.TopNRowNumberOperatorFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -52,7 +52,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
-public class TestTopNRowNumberOperator
+public class TestTopNRankingOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -111,7 +111,7 @@ public class TestTopNRowNumberOperator
                 .row("b", 0.9)
                 .build();
 
-        TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
+        TopNRankingOperatorFactory operatorFactory = new TopNRankingOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR, DOUBLE),
@@ -161,7 +161,7 @@ public class TestTopNRowNumberOperator
                 .row("b", 0.9)
                 .build();
 
-        TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
+        TopNRankingOperatorFactory operatorFactory = new TopNRankingOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(VARCHAR, DOUBLE),
@@ -203,7 +203,7 @@ public class TestTopNRowNumberOperator
         Type type = BIGINT;
         List<Page> input = createPagesWithDistinctHashKeys(type, 1_000, 500);
 
-        OperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
+        OperatorFactory operatorFactory = new TopNRankingOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 ImmutableList.of(type),
@@ -225,7 +225,7 @@ public class TestTopNRowNumberOperator
                 input,
                 type,
                 operatorFactory,
-                operator -> ((TopNRowNumberOperator) operator).getCapacity(),
+                operator -> ((TopNRankingOperator) operator).getCapacity(),
                 1_000_000);
         assertGreaterThan(result.getYieldCount(), 3);
         assertGreaterThan(result.getMaxReservedBytes(), 5L << 20);

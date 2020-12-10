@@ -19,7 +19,7 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
@@ -33,25 +33,25 @@ import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static java.util.Objects.requireNonNull;
 
-public class TopNRowNumberMatcher
+public class TopNRankingMatcher
         implements Matcher
 {
     private final Optional<ExpectedValueProvider<WindowNode.Specification>> specification;
-    private final Optional<SymbolAlias> rowNumberSymbol;
-    private final Optional<Integer> maxRowCountPerPartition;
+    private final Optional<SymbolAlias> rankingSymbol;
+    private final Optional<Integer> maxRankingPerPartition;
     private final Optional<Boolean> partial;
     private final Optional<Optional<SymbolAlias>> hashSymbol;
 
-    private TopNRowNumberMatcher(
+    private TopNRankingMatcher(
             Optional<ExpectedValueProvider<WindowNode.Specification>> specification,
-            Optional<SymbolAlias> rowNumberSymbol,
-            Optional<Integer> maxRowCountPerPartition,
+            Optional<SymbolAlias> rankingSymbol,
+            Optional<Integer> maxRankingPerPartition,
             Optional<Boolean> partial,
             Optional<Optional<SymbolAlias>> hashSymbol)
     {
         this.specification = requireNonNull(specification, "specification is null");
-        this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
-        this.maxRowCountPerPartition = requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
+        this.rankingSymbol = requireNonNull(rankingSymbol, "rankingSymbol is null");
+        this.maxRankingPerPartition = requireNonNull(maxRankingPerPartition, "maxRankingPerPartition is null");
         this.partial = requireNonNull(partial, "partial is null");
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
     }
@@ -59,7 +59,7 @@ public class TopNRowNumberMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        return node instanceof TopNRowNumberNode;
+        return node instanceof TopNRankingNode;
     }
 
     @Override
@@ -67,37 +67,37 @@ public class TopNRowNumberMatcher
     {
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
-        TopNRowNumberNode topNRowNumberNode = (TopNRowNumberNode) node;
+        TopNRankingNode topNRankingNode = (TopNRankingNode) node;
 
         if (specification.isPresent()) {
             WindowNode.Specification expected = specification.get().getExpectedValue(symbolAliases);
-            if (!expected.equals(topNRowNumberNode.getSpecification())) {
+            if (!expected.equals(topNRankingNode.getSpecification())) {
                 return NO_MATCH;
             }
         }
 
-        if (rowNumberSymbol.isPresent()) {
-            Symbol expected = rowNumberSymbol.get().toSymbol(symbolAliases);
-            if (!expected.equals(topNRowNumberNode.getRowNumberSymbol())) {
+        if (rankingSymbol.isPresent()) {
+            Symbol expected = rankingSymbol.get().toSymbol(symbolAliases);
+            if (!expected.equals(topNRankingNode.getRankingSymbol())) {
                 return NO_MATCH;
             }
         }
 
-        if (maxRowCountPerPartition.isPresent()) {
-            if (!maxRowCountPerPartition.get().equals(topNRowNumberNode.getMaxRowCountPerPartition())) {
+        if (maxRankingPerPartition.isPresent()) {
+            if (!maxRankingPerPartition.get().equals(topNRankingNode.getMaxRankingPerPartition())) {
                 return NO_MATCH;
             }
         }
 
         if (partial.isPresent()) {
-            if (!partial.get().equals(topNRowNumberNode.isPartial())) {
+            if (!partial.get().equals(topNRankingNode.isPartial())) {
                 return NO_MATCH;
             }
         }
 
         if (hashSymbol.isPresent()) {
             Optional<Symbol> expected = hashSymbol.get().map(alias -> alias.toSymbol(symbolAliases));
-            if (!expected.equals(topNRowNumberNode.getHashSymbol())) {
+            if (!expected.equals(topNRankingNode.getHashSymbol())) {
                 return NO_MATCH;
             }
         }
@@ -110,8 +110,8 @@ public class TopNRowNumberMatcher
     {
         return toStringHelper(this)
                 .add("specification", specification)
-                .add("rowNumberSymbol", rowNumberSymbol)
-                .add("maxRowCountPerPartition", maxRowCountPerPartition)
+                .add("rankingSymbol", rankingSymbol)
+                .add("maxRankingPerPartition", maxRankingPerPartition)
                 .add("partial", partial)
                 .add("hashSymbol", hashSymbol)
                 .toString();
@@ -121,8 +121,8 @@ public class TopNRowNumberMatcher
     {
         private final PlanMatchPattern source;
         private Optional<ExpectedValueProvider<WindowNode.Specification>> specification = Optional.empty();
-        private Optional<SymbolAlias> rowNumberSymbol = Optional.empty();
-        private Optional<Integer> maxRowCountPerPartition = Optional.empty();
+        private Optional<SymbolAlias> rankingSymbol = Optional.empty();
+        private Optional<Integer> maxRankingPerPartition = Optional.empty();
         private Optional<Boolean> partial = Optional.empty();
         private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
 
@@ -137,15 +137,15 @@ public class TopNRowNumberMatcher
             return this;
         }
 
-        public Builder rowNumberSymbol(SymbolAlias rowNumberSymbol)
+        public Builder rankingSymbol(SymbolAlias rankingSymbol)
         {
-            this.rowNumberSymbol = Optional.of(requireNonNull(rowNumberSymbol, "rowNumberSymbol is null"));
+            this.rankingSymbol = Optional.of(requireNonNull(rankingSymbol, "rankingSymbol is null"));
             return this;
         }
 
-        public Builder maxRowCountPerPartition(int maxRowCountPerPartition)
+        public Builder maxRankingPerPartition(int maxRankingPerPartition)
         {
-            this.maxRowCountPerPartition = Optional.of(maxRowCountPerPartition);
+            this.maxRankingPerPartition = Optional.of(maxRankingPerPartition);
             return this;
         }
 
@@ -163,11 +163,11 @@ public class TopNRowNumberMatcher
 
         PlanMatchPattern build()
         {
-            return node(TopNRowNumberNode.class, source).with(
-                    new TopNRowNumberMatcher(
+            return node(TopNRankingNode.class, source).with(
+                    new TopNRankingMatcher(
                             specification,
-                            rowNumberSymbol,
-                            maxRowCountPerPartition,
+                            rankingSymbol,
+                            maxRankingPerPartition,
                             partial,
                             hashSymbol));
         }

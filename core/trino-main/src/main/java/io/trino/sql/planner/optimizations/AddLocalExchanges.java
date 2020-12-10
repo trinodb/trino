@@ -55,7 +55,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Literal;
@@ -515,11 +515,11 @@ public class AddLocalExchanges
         }
 
         @Override
-        public PlanWithProperties visitTopNRowNumber(TopNRowNumberNode node, StreamPreferredProperties parentPreferences)
+        public PlanWithProperties visitTopNRanking(TopNRankingNode node, StreamPreferredProperties parentPreferences)
         {
             StreamPreferredProperties requiredProperties = parentPreferences.withDefaultParallelism(session);
 
-            // final topN row number requires that all data be partitioned
+            // final topN ranking requires that all data be partitioned
             if (!node.isPartial()) {
                 requiredProperties = requiredProperties.withPartitioning(node.getPartitionBy());
             }

@@ -31,7 +31,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
@@ -55,8 +55,8 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This rule pushes filter predicate concerning row number symbol into WindowNode
- * by converting it into TopNRowNumberNode. It skips an identity projection
+ * This rule pushes filter predicate concerning a ranking symbol into WindowNode
+ * by converting it into TopNRankingNode. It skips an identity projection
  * separating FilterNode from WindowNode in the plan tree.
  * TODO This rule should be removed as soon as WindowNode becomes capable of absorbing pruning projections (i.e. capable of pruning outputs).
  * <p>
@@ -70,8 +70,8 @@ import static java.util.Objects.requireNonNull;
  * into:
  * <pre>
  * - Filter (a > 1)
- *     - Project (a, rowNumber)
- *         - TopNRowNumber (maxRowCountPerPartition = 5, order by a)
+ *     - Project (a, ranking)
+ *         - TopNRanking (maxRankingPerPartition = 5, order by a)
  *             - source (a, b)
  * </pre>
  */
@@ -125,33 +125,33 @@ public class PushPredicateThroughProjectIntoWindow
         ProjectNode project = captures.get(PROJECT);
         WindowNode window = captures.get(WINDOW);
 
-        Symbol rowNumberSymbol = getOnlyElement(window.getWindowFunctions().keySet());
-        if (!project.getAssignments().getSymbols().contains(rowNumberSymbol)) {
+        Symbol rankingSymbol = getOnlyElement(window.getWindowFunctions().keySet());
+        if (!project.getAssignments().getSymbols().contains(rankingSymbol)) {
             return Result.empty();
         }
 
         DomainTranslator.ExtractionResult extractionResult = fromPredicate(metadata, typeOperators, context.getSession(), filter.getPredicate(), context.getSymbolAllocator().getTypes());
         TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
-        OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
+        OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
         if (upperBound.isEmpty()) {
             return Result.empty();
         }
         if (upperBound.getAsInt() <= 0) {
             return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols(), ImmutableList.of()));
         }
-        project = (ProjectNode) project.replaceChildren(ImmutableList.of(new TopNRowNumberNode(
+        project = (ProjectNode) project.replaceChildren(ImmutableList.of(new TopNRankingNode(
                 window.getId(),
                 window.getSource(),
                 window.getSpecification(),
-                rowNumberSymbol,
+                rankingSymbol,
                 upperBound.getAsInt(),
                 false,
                 Optional.empty())));
-        if (!allRowNumberValuesInDomain(tupleDomain, rowNumberSymbol, upperBound.getAsInt())) {
+        if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound.getAsInt())) {
             return Result.ofPlanNode(filter.replaceChildren(ImmutableList.of(project)));
         }
-        // Remove the row number domain because it is absorbed into the node
-        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
+        // Remove the ranking domain because it is absorbed into the node
+        TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
         Expression newPredicate = ExpressionUtils.combineConjuncts(
                 metadata,
                 extractionResult.getRemainingExpression(),
@@ -168,11 +168,11 @@ public class PushPredicateThroughProjectIntoWindow
             return OptionalInt.empty();
         }
 
-        Domain rowNumberDomain = tupleDomain.getDomains().get().get(symbol);
-        if (rowNumberDomain == null) {
+        Domain rankingDomain = tupleDomain.getDomains().get().get(symbol);
+        if (rankingDomain == null) {
             return OptionalInt.empty();
         }
-        ValueSet values = rowNumberDomain.getValues();
+        ValueSet values = rankingDomain.getValues();
         if (values.isAll() || values.isNone() || values.getRanges().getRangeCount() <= 0) {
             return OptionalInt.empty();
         }
@@ -194,7 +194,7 @@ public class PushPredicateThroughProjectIntoWindow
         return OptionalInt.empty();
     }
 
-    private static boolean allRowNumberValuesInDomain(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)
+    private static boolean allRankingValuesInDomain(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)
     {
         if (tupleDomain.isNone()) {
             return false;

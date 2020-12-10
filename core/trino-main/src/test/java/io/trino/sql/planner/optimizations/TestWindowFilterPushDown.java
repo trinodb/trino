@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
-import io.trino.sql.planner.assertions.TopNRowNumberSymbolMatcher;
+import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.WindowNode;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -38,7 +38,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestWindowFilterPushDown
@@ -56,7 +56,7 @@ public class TestWindowFilterPushDown
                 true,
                 anyTree(
                         limit(10, anyTree(
-                                node(TopNRowNumberNode.class,
+                                node(TopNRankingNode.class,
                                         anyTree(
                                                 tableScan("lineitem")))))));
 
@@ -84,7 +84,7 @@ public class TestWindowFilterPushDown
                 true,
                 anyTree(
                         anyNot(FilterNode.class,
-                                node(TopNRowNumberNode.class,
+                                node(TopNRankingNode.class,
                                         anyTree(
                                                 tableScan("lineitem"))))));
 
@@ -108,52 +108,52 @@ public class TestWindowFilterPushDown
                         ImmutableList.of("name", "row_number"),
                         values("name", "row_number")));
 
-        // optimize to TopNRowNumber on the basis of predicate; remove filter because predicate is satisfied
+        // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
                 "SELECT * FROM (SELECT name, row_number() OVER(ORDER BY name) FROM nation) t(name, row_number) WHERE row_number < 2",
                 optimizeTopNRowNumber(true),
                 true,
                 output(
                         ImmutableList.of("name", "row_number"),
-                        topNRowNumber(
+                        topNRanking(
                                 pattern -> pattern
-                                        .maxRowCountPerPartition(1)
+                                        .maxRankingPerPartition(1)
                                         .specification(ImmutableList.of(), ImmutableList.of("name"), ImmutableMap.of("name", ASC_NULLS_LAST)),
                                 any(
                                         tableScan("nation", ImmutableMap.of("name", "name"))))
-                                .withAlias("row_number", new TopNRowNumberSymbolMatcher())));
+                                .withAlias("row_number", new TopNRankingSymbolMatcher())));
 
-        // optimize to TopNRowNumber on the basis of predicate; remove filter because predicate is satisfied
+        // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
                 "SELECT * FROM (SELECT name, row_number() OVER(ORDER BY name) FROM nation) t(name, row_number) WHERE row_number <= 1",
                 optimizeTopNRowNumber(true),
                 true,
                 output(
                         ImmutableList.of("name", "row_number"),
-                        topNRowNumber(
+                        topNRanking(
                                 pattern -> pattern
-                                        .maxRowCountPerPartition(1)
+                                        .maxRankingPerPartition(1)
                                         .specification(ImmutableList.of(), ImmutableList.of("name"), ImmutableMap.of("name", ASC_NULLS_LAST)),
                                 any(
                                         tableScan("nation", ImmutableMap.of("name", "name"))))
-                                .withAlias("row_number", new TopNRowNumberSymbolMatcher())));
+                                .withAlias("row_number", new TopNRankingSymbolMatcher())));
 
-        // optimize to TopNRowNumber on the basis of predicate; remove filter because predicate is satisfied
+        // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
                 "SELECT * FROM (SELECT name, row_number() OVER(ORDER BY name) FROM nation) t(name, row_number) WHERE row_number <= 1 AND row_number > -10",
                 optimizeTopNRowNumber(true),
                 true,
                 output(
                         ImmutableList.of("name", "row_number"),
-                        topNRowNumber(
+                        topNRanking(
                                 pattern -> pattern
-                                        .maxRowCountPerPartition(1)
+                                        .maxRankingPerPartition(1)
                                         .specification(ImmutableList.of(), ImmutableList.of("name"), ImmutableMap.of("name", ASC_NULLS_LAST)),
                                 any(
                                         tableScan("nation", ImmutableMap.of("name", "name"))))
-                                .withAlias("row_number", new TopNRowNumberSymbolMatcher())));
+                                .withAlias("row_number", new TopNRankingSymbolMatcher())));
 
-        // optimize to TopNRowNumber on the basis of predicate; cannot remove filter because predicate is not satisfied
+        // optimize to TopNRanking on the basis of predicate; cannot remove filter because predicate is not satisfied
         assertPlanWithSession(
                 "SELECT * FROM (SELECT name, row_number() OVER(ORDER BY name) FROM nation) t(name, row_number) WHERE row_number > 1 AND row_number < 3",
                 optimizeTopNRowNumber(true),
@@ -162,13 +162,13 @@ public class TestWindowFilterPushDown
                         ImmutableList.of("name", "row_number"),
                         filter(
                                 "(row_number > BIGINT '1') AND (row_number < BIGINT '3')",
-                                topNRowNumber(
+                                topNRanking(
                                         pattern -> pattern
-                                                .maxRowCountPerPartition(2)
+                                                .maxRankingPerPartition(2)
                                                 .specification(ImmutableList.of(), ImmutableList.of("name"), ImmutableMap.of("name", ASC_NULLS_LAST)),
                                         any(
                                                 tableScan("nation", ImmutableMap.of("name", "name"))))
-                                        .withAlias("row_number", new TopNRowNumberSymbolMatcher()))));
+                                        .withAlias("row_number", new TopNRankingSymbolMatcher()))));
     }
 
     @Test

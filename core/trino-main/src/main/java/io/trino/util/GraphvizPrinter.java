@@ -51,7 +51,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -286,13 +286,13 @@ public final class GraphvizPrinter
         }
 
         @Override
-        public Void visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        public Void visitTopNRanking(TopNRankingNode node, Void context)
         {
             printNode(node,
-                    "TopNRowNumber",
+                    "TopNRanking",
                     format("partition by = %s|order by = %s|n = %s",
                             Joiner.on(", ").join(node.getPartitionBy()),
-                            Joiner.on(", ").join(node.getOrderingScheme().getOrderBy()), node.getMaxRowCountPerPartition()),
+                            Joiner.on(", ").join(node.getOrderingScheme().getOrderBy()), node.getMaxRankingPerPartition()),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
         }

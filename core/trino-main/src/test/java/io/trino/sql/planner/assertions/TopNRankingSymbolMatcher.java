@@ -17,25 +17,25 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class TopNRowNumberSymbolMatcher
+public class TopNRankingSymbolMatcher
         implements RvalueMatcher
 {
     @Override
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof TopNRowNumberNode)) {
+        if (!(node instanceof TopNRankingNode)) {
             return Optional.empty();
         }
 
-        TopNRowNumberNode topNRowNumberNode = (TopNRowNumberNode) node;
+        TopNRankingNode topNRankingNode = (TopNRankingNode) node;
 
-        return Optional.of(topNRowNumberNode.getRowNumberSymbol());
+        return Optional.of(topNRankingNode.getRankingSymbol());
     }
 
     @Override
