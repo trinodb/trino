@@ -15,12 +15,12 @@
 package io.prestosql.operator.aggregation.groupby;
 
 import com.google.common.base.Suppliers;
+import com.google.common.primitives.Ints;
 import io.prestosql.operator.GroupByIdBlock;
 import io.prestosql.operator.aggregation.AggregationTestUtils;
 import io.prestosql.operator.aggregation.GroupedAccumulator;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
-import org.testng.internal.collections.Ints;
 
 import java.util.Optional;
 import java.util.function.Supplier;
