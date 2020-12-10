@@ -869,6 +869,10 @@ public class PrestoS3FileSystem
 
     private AWSCredentialsProvider createAwsCredentialsProvider(URI uri, Configuration conf)
     {
+        if (anonymousRequestsEnabled) {
+            return new AWSStaticCredentialsProvider(new AnonymousAWSCredentials());
+        }
+    
         // credentials embedded in the URI take precedence and are used alone
         Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
         if (credentials.isPresent()) {
@@ -891,10 +895,6 @@ public class PrestoS3FileSystem
                     .withExternalId(externalId)
                     .withLongLivedCredentialsProvider(provider)
                     .build();
-        }
-
-        if (anonymousRequestsEnabled) {
-            provider = new AWSStaticCredentialsProvider(new AnonymousAWSCredentials());
         }
 
         return provider;
