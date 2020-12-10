@@ -107,7 +107,7 @@ import io.trino.sql.planner.iterative.rule.PruneSpatialJoinColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableWriterSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneTopNColumns;
-import io.trino.sql.planner.iterative.rule.PruneTopNRowNumberColumns;
+import io.trino.sql.planner.iterative.rule.PruneTopNRankingColumns;
 import io.trino.sql.planner.iterative.rule.PruneUnionColumns;
 import io.trino.sql.planner.iterative.rule.PruneUnionSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneUnnestColumns;
@@ -128,7 +128,7 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughLimit;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughRowNumber;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughSort;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopN;
-import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRowNumber;
+import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRanking;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughWindow;
 import io.trino.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
@@ -333,7 +333,7 @@ public class PlanOptimizers
                 new PruneTableScanColumns(metadata),
                 new PruneTableWriterSourceColumns(),
                 new PruneTopNColumns(),
-                new PruneTopNRowNumberColumns(),
+                new PruneTopNRankingColumns(),
                 new PruneUnionColumns(),
                 new PruneUnionSourceColumns(),
                 new PruneUnnestColumns(),
@@ -358,7 +358,7 @@ public class PlanOptimizers
                 new PushDownDereferencesThroughWindow(typeAnalyzer),
                 new PushDownDereferencesThroughTopN(typeAnalyzer),
                 new PushDownDereferencesThroughRowNumber(typeAnalyzer),
-                new PushDownDereferencesThroughTopNRowNumber(typeAnalyzer));
+                new PushDownDereferencesThroughTopNRanking(typeAnalyzer));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 ruleStats,

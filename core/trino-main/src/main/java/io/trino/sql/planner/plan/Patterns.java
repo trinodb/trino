@@ -188,9 +188,9 @@ public final class Patterns
         return typeOf(RowNumberNode.class);
     }
 
-    public static Pattern<TopNRowNumberNode> topNRowNumber()
+    public static Pattern<TopNRankingNode> topNRanking()
     {
-        return typeOf(TopNRowNumberNode.class);
+        return typeOf(TopNRankingNode.class);
     }
 
     public static Pattern<DistinctLimitNode> distinctLimit()

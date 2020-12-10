@@ -224,7 +224,7 @@ export function getChildren(nodeInfo: any)
         case 'markDistinct':
         case 'window':
         case 'rowNumber':
-        case 'topnRowNumber':
+        case 'topnRanking':
         case 'limit':
         case 'distinctlimit':
         case 'topn':

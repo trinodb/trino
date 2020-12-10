@@ -121,7 +121,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -699,7 +699,7 @@ public class TestLogicalPlanner
     @Test
     public void testCorrelatedJoinWithTopN()
     {
-        // rewrite TopN to TopNRowNumberNode
+        // rewrite TopN to TopNRankingNode
         assertPlan(
                 "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation WHERE region.regionkey = regionkey ORDER BY name LIMIT 2) n ON TRUE",
                 any(
@@ -707,13 +707,13 @@ public class TestLogicalPlanner
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("region_regionkey", "nation_regionkey")),
                                 any(tableScan("region", ImmutableMap.of("region_regionkey", "regionkey"))),
-                                any(topNRowNumber(
+                                any(topNRanking(
                                         pattern -> pattern
                                                 .specification(
                                                         ImmutableList.of("nation_regionkey"),
                                                         ImmutableList.of("nation_name"),
                                                         ImmutableMap.of("nation_name", SortOrder.ASC_NULLS_LAST))
-                                                .maxRowCountPerPartition(2)
+                                                .maxRankingPerPartition(2)
                                                 .partial(false),
                                         anyTree(tableScan("nation", ImmutableMap.of("nation_name", "name", "nation_regionkey", "regionkey"))))))));
 

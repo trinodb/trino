@@ -31,23 +31,23 @@ import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public final class TopNRowNumberNode
+public final class TopNRankingNode
         extends PlanNode
 {
     private final PlanNode source;
     private final Specification specification;
-    private final Symbol rowNumberSymbol;
-    private final int maxRowCountPerPartition;
+    private final Symbol rankingSymbol;
+    private final int maxRankingPerPartition;
     private final boolean partial;
     private final Optional<Symbol> hashSymbol;
 
     @JsonCreator
-    public TopNRowNumberNode(
+    public TopNRankingNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
-            @JsonProperty("rowNumberSymbol") Symbol rowNumberSymbol,
-            @JsonProperty("maxRowCountPerPartition") int maxRowCountPerPartition,
+            @JsonProperty("rankingSymbol") Symbol rankingSymbol,
+            @JsonProperty("maxRankingPerPartition") int maxRankingPerPartition,
             @JsonProperty("partial") boolean partial,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol)
     {
@@ -56,14 +56,14 @@ public final class TopNRowNumberNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         checkArgument(specification.getOrderingScheme().isPresent(), "specification orderingScheme is absent");
-        requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
-        checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
+        requireNonNull(rankingSymbol, "rankingSymbol is null");
+        checkArgument(maxRankingPerPartition > 0, "maxRankingPerPartition must be > 0");
         requireNonNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.specification = specification;
-        this.rowNumberSymbol = rowNumberSymbol;
-        this.maxRowCountPerPartition = maxRowCountPerPartition;
+        this.rankingSymbol = rankingSymbol;
+        this.maxRankingPerPartition = maxRankingPerPartition;
         this.partial = partial;
         this.hashSymbol = hashSymbol;
     }
@@ -78,7 +78,7 @@ public final class TopNRowNumberNode
     public List<Symbol> getOutputSymbols()
     {
         if (!partial) {
-            return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rowNumberSymbol)));
+            return ImmutableList.copyOf(concat(source.getOutputSymbols(), ImmutableList.of(rankingSymbol)));
         }
         return ImmutableList.copyOf(source.getOutputSymbols());
     }
@@ -106,15 +106,15 @@ public final class TopNRowNumberNode
     }
 
     @JsonProperty
-    public Symbol getRowNumberSymbol()
+    public Symbol getRankingSymbol()
     {
-        return rowNumberSymbol;
+        return rankingSymbol;
     }
 
     @JsonProperty
-    public int getMaxRowCountPerPartition()
+    public int getMaxRankingPerPartition()
     {
-        return maxRowCountPerPartition;
+        return maxRankingPerPartition;
     }
 
     @JsonProperty
@@ -132,12 +132,12 @@ public final class TopNRowNumberNode
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
-        return visitor.visitTopNRowNumber(this, context);
+        return visitor.visitTopNRanking(this, context);
     }
 
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(getId(), Iterables.getOnlyElement(newChildren), specification, rowNumberSymbol, maxRowCountPerPartition, partial, hashSymbol);
+        return new TopNRankingNode(getId(), Iterables.getOnlyElement(newChildren), specification, rankingSymbol, maxRankingPerPartition, partial, hashSymbol);
     }
 }

@@ -24,7 +24,7 @@ import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
@@ -41,34 +41,34 @@ import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractDer
 import static io.trino.sql.planner.iterative.rule.DereferencePushdown.getBase;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
-import static io.trino.sql.planner.plan.Patterns.topNRowNumber;
+import static io.trino.sql.planner.plan.Patterns.topNRanking;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
  * <pre>
  *  Project(E := f1(A.x), G := f2(B.x), H := f3(C.x), J := f4(D))
- *      TopNRowNumber(partitionBy = [B], orderBy = [C])
+ *      TopNRanking(partitionBy = [B], orderBy = [C])
  *          Source(A, B, C, D)
  *  </pre>
  * to:
  * <pre>
  *  Project(E := f1(symbol), G := f2(B.x), H := f3(C.x), J := f4(D))
- *      TopNRowNumber(partitionBy = [B], orderBy = [C])
+ *      TopNRanking(partitionBy = [B], orderBy = [C])
  *          Project(A, B, C, D, symbol := A.x)
  *              Source(A, B, C, D)
  * </pre>
  * <p>
- * Pushes down dereference projections through TopNRowNumber. Excludes dereferences on symbols in partitionBy and ordering scheme
+ * Pushes down dereference projections through TopNRanking. Excludes dereferences on symbols in partitionBy and ordering scheme
  * to avoid data replication, since these symbols cannot be pruned.
  */
-public class PushDownDereferencesThroughTopNRowNumber
+public class PushDownDereferencesThroughTopNRanking
         implements Rule<ProjectNode>
 {
-    private static final Capture<TopNRowNumberNode> CHILD = newCapture();
+    private static final Capture<TopNRankingNode> CHILD = newCapture();
     private final TypeAnalyzer typeAnalyzer;
 
-    public PushDownDereferencesThroughTopNRowNumber(TypeAnalyzer typeAnalyzer)
+    public PushDownDereferencesThroughTopNRanking(TypeAnalyzer typeAnalyzer)
     {
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
@@ -77,19 +77,19 @@ public class PushDownDereferencesThroughTopNRowNumber
     public Pattern<ProjectNode> getPattern()
     {
         return project()
-                .with(source().matching(topNRowNumber().capturedAs(CHILD)));
+                .with(source().matching(topNRanking().capturedAs(CHILD)));
     }
 
     @Override
     public Result apply(ProjectNode projectNode, Captures captures, Context context)
     {
-        TopNRowNumberNode topNRowNumberNode = captures.get(CHILD);
+        TopNRankingNode topNRankingNode = captures.get(CHILD);
 
         // Extract dereferences from project node assignments for pushdown
         Set<DereferenceExpression> dereferences = extractDereferences(projectNode.getAssignments().getExpressions(), false);
 
         // Exclude dereferences on symbols being used in partitionBy and orderBy
-        WindowNode.Specification specification = topNRowNumberNode.getSpecification();
+        WindowNode.Specification specification = topNRankingNode.getSpecification();
         dereferences = dereferences.stream()
                 .filter(expression -> {
                     Symbol symbol = getBase(expression);
@@ -115,12 +115,12 @@ public class PushDownDereferencesThroughTopNRowNumber
         return Result.ofPlanNode(
                 new ProjectNode(
                         context.getIdAllocator().getNextId(),
-                        topNRowNumberNode.replaceChildren(ImmutableList.of(
+                        topNRankingNode.replaceChildren(ImmutableList.of(
                                 new ProjectNode(
                                         context.getIdAllocator().getNextId(),
-                                        topNRowNumberNode.getSource(),
+                                        topNRankingNode.getSource(),
                                         Assignments.builder()
-                                                .putIdentities(topNRowNumberNode.getSource().getOutputSymbols())
+                                                .putIdentities(topNRankingNode.getSource().getOutputSymbols())
                                                 .putAll(dereferenceAssignments)
                                                 .build()))),
                         newAssignments));

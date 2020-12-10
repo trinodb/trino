@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.TopNRowNumberSymbolMatcher;
+import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.WindowNode.Specification;
@@ -28,28 +28,28 @@ import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
-public class TestPruneTopNRowNumberColumns
+public class TestPruneTopNRankingColumns
         extends BaseRuleTest
 {
     @Test
     public void testDoNotPrunePartitioningSymbol()
     {
-        tester().assertThat(new PruneTopNRowNumberColumns())
+        tester().assertThat(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.project(
-                            Assignments.identity(b, rowNumber),
-                            p.topNRowNumber(
+                            Assignments.identity(b, ranking),
+                            p.topNRanking(
                                     new Specification(
                                             ImmutableList.of(a),
                                             Optional.of(new OrderingScheme(ImmutableList.of(b), ImmutableMap.of(b, SortOrder.ASC_NULLS_FIRST)))),
                                     5,
-                                    rowNumber,
+                                    ranking,
                                     Optional.empty(),
                                     p.values(a, b)));
                 })
@@ -59,18 +59,18 @@ public class TestPruneTopNRowNumberColumns
     @Test
     public void testDoNotPruneOrderingSymbol()
     {
-        tester().assertThat(new PruneTopNRowNumberColumns())
+        tester().assertThat(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.project(
-                            Assignments.identity(rowNumber),
-                            p.topNRowNumber(
+                            Assignments.identity(ranking),
+                            p.topNRanking(
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
                                     5,
-                                    rowNumber,
+                                    ranking,
                                     Optional.empty(),
                                     p.values(a)));
                 })
@@ -80,19 +80,19 @@ public class TestPruneTopNRowNumberColumns
     @Test
     public void testDoNotPruneHashSymbol()
     {
-        tester().assertThat(new PruneTopNRowNumberColumns())
+        tester().assertThat(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol hash = p.symbol("hash");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.project(
-                            Assignments.identity(a, rowNumber),
-                            p.topNRowNumber(
+                            Assignments.identity(a, ranking),
+                            p.topNRanking(
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
                                     5,
-                                    rowNumber,
+                                    ranking,
                                     Optional.of(hash),
                                     p.values(a, hash)));
                 })
@@ -102,54 +102,54 @@ public class TestPruneTopNRowNumberColumns
     @Test
     public void testSourceSymbolNotReferenced()
     {
-        tester().assertThat(new PruneTopNRowNumberColumns())
+        tester().assertThat(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.project(
-                            Assignments.identity(a, rowNumber),
-                            p.topNRowNumber(
+                            Assignments.identity(a, ranking),
+                            p.topNRanking(
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
                                     5,
-                                    rowNumber,
+                                    ranking,
                                     Optional.empty(),
                                     p.values(a, b)));
                 })
                 .matches(
                         strictProject(
-                                ImmutableMap.of("a", expression("a"), "row_number", expression("row_number")),
-                                topNRowNumber(
+                                ImmutableMap.of("a", expression("a"), "ranking", expression("ranking")),
+                                topNRanking(
                                         pattern -> pattern
                                                 .specification(
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
                                                         ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
-                                                .maxRowCountPerPartition(5),
+                                                .maxRankingPerPartition(5),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
                                                 values("a", "b")))
-                                        .withAlias("row_number", new TopNRowNumberSymbolMatcher())));
+                                        .withAlias("ranking", new TopNRankingSymbolMatcher())));
     }
 
     @Test
     public void testAllSymbolsReferenced()
     {
-        tester().assertThat(new PruneTopNRowNumberColumns())
+        tester().assertThat(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.project(
-                            Assignments.identity(a, b, rowNumber),
-                            p.topNRowNumber(
+                            Assignments.identity(a, b, ranking),
+                            p.topNRanking(
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
                                     5,
-                                    rowNumber,
+                                    ranking,
                                     Optional.empty(),
                                     p.values(a, b)));
                 })
@@ -157,20 +157,20 @@ public class TestPruneTopNRowNumberColumns
     }
 
     @Test
-    public void testRowNumberSymbolNotReferenced()
+    public void testRankingSymbolNotReferenced()
     {
-        tester().assertThat(new PruneTopNRowNumberColumns())
+        tester().assertThat(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol rowNumber = p.symbol("row_number");
+                    Symbol ranking = p.symbol("ranking");
                     return p.project(
                             Assignments.identity(a),
-                            p.topNRowNumber(
+                            p.topNRanking(
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
                                     5,
-                                    rowNumber,
+                                    ranking,
                                     Optional.empty(),
                                     p.values(a)));
                 })

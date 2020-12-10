@@ -20,10 +20,10 @@ import io.trino.testing.LocalQueryRunner;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static java.lang.String.format;
 
-public class SqlTopNRowNumberBenchmark
+public class SqlTopNRankingBenchmark
         extends AbstractSqlBenchmark
 {
-    public SqlTopNRowNumberBenchmark(LocalQueryRunner localQueryRunner, String function, String partitions, int topN)
+    public SqlTopNRankingBenchmark(LocalQueryRunner localQueryRunner, String function, String partitions, int topN)
     {
         super(localQueryRunner,
                 format("sql_%s_partition_by_(%s)_top_%s", function, partitions, topN),
@@ -42,7 +42,7 @@ public class SqlTopNRowNumberBenchmark
         for (String function : ImmutableList.of("row_number", "rank")) {
             for (String partitions : ImmutableList.of("orderkey, partkey", "partkey", "linestatus")) {
                 for (int topN : ImmutableList.of(1, 100, 10_000)) {
-                    new SqlTopNRowNumberBenchmark(localQueryRunner, function, partitions, topN).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
+                    new SqlTopNRankingBenchmark(localQueryRunner, function, partitions, topN).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
                 }
             }
         }

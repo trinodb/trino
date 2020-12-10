@@ -66,7 +66,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -360,7 +360,7 @@ public class AddExchanges
         }
 
         @Override
-        public PlanWithProperties visitTopNRowNumber(TopNRowNumberNode node, PreferredProperties preferredProperties)
+        public PlanWithProperties visitTopNRanking(TopNRankingNode node, PreferredProperties preferredProperties)
         {
             PreferredProperties preferredChildProperties;
             Function<PlanNode, PlanNode> addExchange;
@@ -381,12 +381,12 @@ public class AddExchanges
                     && !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
                 // add exchange + push function to child
                 child = withDerivedProperties(
-                        new TopNRowNumberNode(
+                        new TopNRankingNode(
                                 idAllocator.getNextId(),
                                 child.getNode(),
                                 node.getSpecification(),
-                                node.getRowNumberSymbol(),
-                                node.getMaxRowCountPerPartition(),
+                                node.getRankingSymbol(),
+                                node.getMaxRankingPerPartition(),
                                 true,
                                 node.getHashSymbol()),
                         child.getProperties());

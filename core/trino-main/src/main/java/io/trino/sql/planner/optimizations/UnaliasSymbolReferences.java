@@ -68,7 +68,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
-import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -606,15 +606,15 @@ public class UnaliasSymbolReferences
         }
 
         @Override
-        public PlanAndMappings visitTopNRowNumber(TopNRowNumberNode node, UnaliasContext context)
+        public PlanAndMappings visitTopNRanking(TopNRankingNode node, UnaliasContext context)
         {
             PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
             Map<Symbol, Symbol> mapping = new HashMap<>(rewrittenSource.getMappings());
             SymbolMapper mapper = symbolMapper(mapping);
 
-            TopNRowNumberNode rewrittenTopNRowNumber = mapper.map(node, rewrittenSource.getRoot());
+            TopNRankingNode rewrittenTopNRanking = mapper.map(node, rewrittenSource.getRoot());
 
-            return new PlanAndMappings(rewrittenTopNRowNumber, mapping);
+            return new PlanAndMappings(rewrittenTopNRanking, mapping);
         }
 
         @Override

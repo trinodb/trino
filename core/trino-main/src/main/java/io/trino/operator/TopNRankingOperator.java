@@ -35,10 +35,10 @@ import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static java.util.Objects.requireNonNull;
 
-public class TopNRowNumberOperator
+public class TopNRankingOperator
         implements Operator
 {
-    public static class TopNRowNumberOperatorFactory
+    public static class TopNRankingOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
@@ -56,13 +56,13 @@ public class TopNRowNumberOperator
         private final Optional<Integer> hashChannel;
         private final int expectedPositions;
 
-        private final boolean generateRowNumber;
+        private final boolean generateRanking;
         private boolean closed;
         private final JoinCompiler joinCompiler;
         private final TypeOperators typeOperators;
         private final BlockTypeOperators blockTypeOperators;
 
-        public TopNRowNumberOperatorFactory(
+        public TopNRankingOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
                 List<? extends Type> sourceTypes,
@@ -92,7 +92,7 @@ public class TopNRowNumberOperator
             checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
             this.maxRowCountPerPartition = maxRowCountPerPartition;
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
-            this.generateRowNumber = !partial;
+            this.generateRanking = !partial;
             this.expectedPositions = expectedPositions;
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
@@ -103,8 +103,8 @@ public class TopNRowNumberOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TopNRowNumberOperator.class.getSimpleName());
-            return new TopNRowNumberOperator(
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TopNRankingOperator.class.getSimpleName());
+            return new TopNRankingOperator(
                     operatorContext,
                     sourceTypes,
                     outputChannels,
@@ -113,7 +113,7 @@ public class TopNRowNumberOperator
                     sortChannels,
                     sortOrder,
                     maxRowCountPerPartition,
-                    generateRowNumber,
+                    generateRanking,
                     hashChannel,
                     expectedPositions,
                     joinCompiler,
@@ -130,7 +130,7 @@ public class TopNRowNumberOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TopNRowNumberOperatorFactory(
+            return new TopNRankingOperatorFactory(
                     operatorId,
                     planNodeId,
                     sourceTypes,
@@ -161,7 +161,7 @@ public class TopNRowNumberOperator
     private Work<?> unfinishedWork;
     private Iterator<Page> outputIterator;
 
-    public TopNRowNumberOperator(
+    public TopNRankingOperator(
             OperatorContext operatorContext,
             List<? extends Type> sourceTypes,
             List<Integer> outputChannels,
@@ -169,8 +169,8 @@ public class TopNRowNumberOperator
             List<Type> partitionTypes,
             List<Integer> sortChannels,
             List<SortOrder> sortOrders,
-            int maxRowCountPerPartition,
-            boolean generateRowNumber,
+            int maxRankingPerPartition,
+            boolean generateRanking,
             Optional<Integer> hashChannel,
             int expectedPositions,
             JoinCompiler joinCompiler,
@@ -184,12 +184,12 @@ public class TopNRowNumberOperator
         for (int channel : requireNonNull(outputChannels, "outputChannels is null")) {
             outputChannelsBuilder.add(channel);
         }
-        if (generateRowNumber) {
+        if (generateRanking) {
             outputChannelsBuilder.add(outputChannels.size());
         }
         this.outputChannels = Ints.toArray(outputChannelsBuilder.build());
 
-        checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
+        checkArgument(maxRankingPerPartition > 0, "maxRankingPerPartition must be > 0");
 
         if (!partitionChannels.isEmpty()) {
             checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
@@ -210,8 +210,8 @@ public class TopNRowNumberOperator
         this.groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 ImmutableList.copyOf(sourceTypes),
                 new SimplePageWithPositionComparator(ImmutableList.copyOf(sourceTypes), sortChannels, sortOrders, typeOperators),
-                maxRowCountPerPartition,
-                generateRowNumber,
+                maxRankingPerPartition,
+                generateRanking,
                 groupByHash);
     }
 
