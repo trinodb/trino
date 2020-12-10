@@ -203,7 +203,7 @@ class RelationPlanner
             }
 
             List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-            boolean isDeleteTarget = analysis.isDeleteTarget(createQualifiedObjectName(session, node, node.getName()));
+            boolean isDeleteTarget = analysis.isDeleteTarget(() -> createQualifiedObjectName(session, node, node.getName()));
             PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build(), isDeleteTarget);
 
             plan = new RelationPlan(root, scope, outputSymbols, outerContext);

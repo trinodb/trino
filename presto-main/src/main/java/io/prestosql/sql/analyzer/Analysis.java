@@ -22,6 +22,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
+import io.prestosql.metadata.MetadataUtil;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.ResolvedFunction;
@@ -79,6 +80,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -219,9 +221,9 @@ public class Analysis
         this.target = Optional.empty();
     }
 
-    public boolean isDeleteTarget(QualifiedObjectName name)
+    public boolean isDeleteTarget(Supplier<QualifiedObjectName> name)
     {
-        return "DELETE".equals(updateType) && Optional.of(name).equals(target);
+        return "DELETE".equals(updateType) && Optional.of(name.get()).equals(target);
     }
 
     public boolean isSkipMaterializedViewRefresh()
