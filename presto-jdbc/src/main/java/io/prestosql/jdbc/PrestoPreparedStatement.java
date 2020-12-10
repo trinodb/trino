@@ -45,6 +45,11 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -64,22 +69,30 @@ import static io.prestosql.jdbc.ObjectCasts.castToBigDecimal;
 import static io.prestosql.jdbc.ObjectCasts.castToBinary;
 import static io.prestosql.jdbc.ObjectCasts.castToBoolean;
 import static io.prestosql.jdbc.ObjectCasts.castToByte;
-import static io.prestosql.jdbc.ObjectCasts.castToDate;
 import static io.prestosql.jdbc.ObjectCasts.castToDouble;
 import static io.prestosql.jdbc.ObjectCasts.castToFloat;
 import static io.prestosql.jdbc.ObjectCasts.castToInt;
 import static io.prestosql.jdbc.ObjectCasts.castToLong;
 import static io.prestosql.jdbc.ObjectCasts.castToShort;
-import static io.prestosql.jdbc.ObjectCasts.castToTime;
-import static io.prestosql.jdbc.ObjectCasts.castToTimestamp;
+import static io.prestosql.jdbc.ObjectCasts.invalidConversion;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoPreparedStatement
         extends PrestoStatement
         implements PreparedStatement
 {
+    private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
+            new DateTimeFormatterBuilder()
+                    .parseCaseInsensitive()
+                    .append(ISO_LOCAL_DATE)
+                    .appendLiteral(' ')
+                    .append(ISO_LOCAL_TIME)
+                    .toFormatter();
+
     private static final Pattern TOP_LEVEL_TYPE_PATTERN = Pattern.compile("(.+?)\\((.+)\\)");
     private static final Pattern TIMESTAMP_WITH_TIME_ZONE_PRECISION_PATTERN = Pattern.compile("timestamp\\((\\d+)\\) with time zone");
     private static final Pattern TIME_WITH_TIME_ZONE_PRECISION_PATTERN = Pattern.compile("time\\((\\d+)\\) with time zone");
@@ -257,8 +270,37 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.DATE);
         }
         else {
-            setParameter(parameterIndex, formatLiteral("DATE", DATE_FORMATTER.print(x.getTime())));
+            setAsDate(parameterIndex, x);
         }
+    }
+
+    private void setAsDate(int parameterIndex, Object value)
+            throws SQLException
+    {
+        requireNonNull(value, "value is null");
+
+        String literal = toDateLiteral(value);
+        setParameter(parameterIndex, formatLiteral("DATE", literal));
+    }
+
+    private String toDateLiteral(Object value)
+            throws SQLException
+    {
+        requireNonNull(value, "value is null");
+        if (value instanceof java.util.Date) {
+            return DATE_FORMATTER.print(((java.util.Date) value).getTime());
+        }
+        if (value instanceof LocalDate) {
+            return ISO_LOCAL_DATE.format(((LocalDate) value));
+        }
+        if (value instanceof LocalDateTime) {
+            return ISO_LOCAL_DATE.format(((LocalDateTime) value));
+        }
+        if (value instanceof String) {
+            // TODO validate proper format
+            return (String) value;
+        }
+        throw invalidConversion(value, "date");
     }
 
     @Override
@@ -270,8 +312,36 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.TIME);
         }
         else {
-            setParameter(parameterIndex, formatLiteral("TIME", TIME_FORMATTER.print(x.getTime())));
+            setAsTime(parameterIndex, x);
         }
+    }
+
+    private void setAsTime(int parameterIndex, Object value)
+            throws SQLException
+    {
+        requireNonNull(value, "value is null");
+
+        String literal = toTimeLiteral(value);
+        setParameter(parameterIndex, formatLiteral("TIME", literal));
+    }
+
+    private String toTimeLiteral(Object value)
+            throws SQLException
+    {
+        if (value instanceof java.util.Date) {
+            return TIME_FORMATTER.print(((java.util.Date) value).getTime());
+        }
+        if (value instanceof LocalTime) {
+            return ISO_LOCAL_TIME.format((LocalTime) value);
+        }
+        if (value instanceof LocalDateTime) {
+            return ISO_LOCAL_TIME.format((LocalDateTime) value);
+        }
+        if (value instanceof String) {
+            // TODO validate proper format
+            return (String) value;
+        }
+        throw invalidConversion(value, "time");
     }
 
     @Override
@@ -283,9 +353,33 @@ public class PrestoPreparedStatement
             setNull(parameterIndex, Types.TIMESTAMP);
         }
         else {
-            String formattedDateTime = TIMESTAMP_FORMATTER.print(x.getTime());
-            setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
+            setAsTimestamp(parameterIndex, x);
         }
+    }
+
+    private void setAsTimestamp(int parameterIndex, Object value)
+            throws SQLException
+    {
+        requireNonNull(value, "value is null");
+
+        String literal = toTimestampLiteral(value);
+        setParameter(parameterIndex, formatLiteral("TIMESTAMP", literal));
+    }
+
+    private String toTimestampLiteral(Object value)
+            throws SQLException
+    {
+        if (value instanceof java.util.Date) {
+            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime());
+        }
+        if (value instanceof LocalDateTime) {
+            return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
+        }
+        if (value instanceof String) {
+            // TODO validate proper format
+            return (String) value;
+        }
+        throw invalidConversion(value, "timestamp");
     }
 
     @Override
@@ -382,13 +476,13 @@ public class PrestoPreparedStatement
                 setBytes(parameterIndex, castToBinary(x, targetSqlType));
                 return;
             case Types.DATE:
-                setDate(parameterIndex, castToDate(x, targetSqlType));
+                setAsDate(parameterIndex, x);
                 return;
             case Types.TIME:
-                setTime(parameterIndex, castToTime(x, targetSqlType));
+                setAsTime(parameterIndex, x);
                 return;
             case Types.TIMESTAMP:
-                setTimestamp(parameterIndex, castToTimestamp(x, targetSqlType));
+                setAsTimestamp(parameterIndex, x);
                 return;
             // TODO Types.TIME_WITH_TIMEZONE
             // TODO Types.TIMESTAMP_WITH_TIMEZONE

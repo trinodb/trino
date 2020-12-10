@@ -15,13 +15,7 @@ package io.prestosql.jdbc;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Date;
 import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 
 import static java.lang.Byte.parseByte;
 import static java.lang.Double.parseDouble;
@@ -226,83 +220,6 @@ final class ObjectCasts
         throw invalidConversion(x, targetSqlType);
     }
 
-    public static Date castToDate(Object x, int targetSqlType)
-            throws SQLException
-    {
-        if (x instanceof Date) {
-            return (Date) x;
-        }
-        if (x instanceof java.util.Date) {
-            return new Date(((java.util.Date) x).getTime());
-        }
-        if (x instanceof LocalDate) {
-            return Date.valueOf((LocalDate) x);
-        }
-        if (x instanceof LocalDateTime) {
-            return Date.valueOf(((LocalDateTime) x).toLocalDate());
-        }
-        try {
-            if (x instanceof String) {
-                return Date.valueOf((String) x);
-            }
-        }
-        catch (RuntimeException e) {
-            throw invalidConversion(x, targetSqlType, e);
-        }
-        throw invalidConversion(x, targetSqlType);
-    }
-
-    public static Time castToTime(Object x, int targetSqlType)
-            throws SQLException
-    {
-        if (x instanceof Time) {
-            return (Time) x;
-        }
-        if (x instanceof java.util.Date) {
-            return new Time(((java.util.Date) x).getTime());
-        }
-        if (x instanceof LocalTime) {
-            // TODO Time.valueOf does not preserve second fraction
-            return Time.valueOf((LocalTime) x);
-        }
-        if (x instanceof LocalDateTime) {
-            // TODO Time.valueOf does not preserve second fraction
-            return Time.valueOf(((LocalDateTime) x).toLocalTime());
-        }
-        try {
-            if (x instanceof String) {
-                return Time.valueOf((String) x);
-            }
-        }
-        catch (RuntimeException e) {
-            throw invalidConversion(x, targetSqlType, e);
-        }
-        throw invalidConversion(x, targetSqlType);
-    }
-
-    public static Timestamp castToTimestamp(Object x, int targetSqlType)
-            throws SQLException
-    {
-        if (x instanceof Timestamp) {
-            return (Timestamp) x;
-        }
-        if (x instanceof java.util.Date) {
-            return new Timestamp(((java.util.Date) x).getTime());
-        }
-        if (x instanceof LocalDateTime) {
-            return Timestamp.valueOf((LocalDateTime) x);
-        }
-        try {
-            if (x instanceof String) {
-                return Timestamp.valueOf((String) x);
-            }
-        }
-        catch (RuntimeException e) {
-            throw invalidConversion(x, targetSqlType, e);
-        }
-        throw invalidConversion(x, targetSqlType);
-    }
-
     private static SQLException invalidConversion(Object x, int sqlType)
     {
         return invalidConversion(x, sqlType, null);
@@ -311,5 +228,10 @@ final class ObjectCasts
     private static SQLException invalidConversion(Object x, int sqlType, Exception e)
     {
         return new SQLException(format("Cannot convert instance of %s to SQL type %s", x.getClass().getName(), sqlType), e);
+    }
+
+    static SQLException invalidConversion(Object x, String toType)
+    {
+        return new SQLException(format("Cannot convert instance of %s to %s", x.getClass().getName(), toType));
     }
 }
