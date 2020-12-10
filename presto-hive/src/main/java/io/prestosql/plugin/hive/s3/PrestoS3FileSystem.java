@@ -166,6 +166,9 @@ public class PrestoS3FileSystem
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
     public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
     public static final String S3_STORAGE_CLASS = "presto.s3.storage-class";
+    public static final String S3_PROXY_HOST = "presto.s3.proxy-host";
+    public static final String S3_PROXY_PORT = "presto.s3.proxy-port";
+
 
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 
@@ -249,8 +252,8 @@ public class PrestoS3FileSystem
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
-        this.s3ProxyHost = defaults.getS3ProxyHost();
-        this.s3ProxyPort = defaults.getS3ProxyPort();
+        this.s3ProxyHost = conf.get(S3_PROXY_HOST,defaults.getS3ProxyHost());
+        this.s3ProxyPort = conf.get(S3_PROXY_PORT,defaults.getS3ProxyPort());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
