@@ -20,6 +20,8 @@ import io.airlift.slice.Slices;
 
 import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
 import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.prestosql.spi.block.EncoderUtil.retrieveNullBits;
+import static java.lang.System.arraycopy;
 
 public class LongArrayBlockEncoding
         implements BlockEncoding
@@ -63,24 +65,44 @@ public class LongArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
-
+        byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
         long[] values = new long[positionCount];
-        if (valueIsNull == null) {
+
+        if (valueIsNullPacked == null) {
             sliceInput.readBytes(Slices.wrappedLongArray(values));
+            return new LongArrayBlock(0, positionCount, null, values);
         }
-        else {
-            int nonNullPositionCount = sliceInput.readInt();
-            sliceInput.readBytes(Slices.wrappedLongArray(values, 0, nonNullPositionCount));
-            int position = nonNullPositionCount - 1;
-            for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
-                values[i] = values[position];
-                if (!valueIsNull[i]) {
-                    position--;
-                }
+        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
+
+        int nonNullPositionCount = sliceInput.readInt();
+        sliceInput.readBytes(Slices.wrappedLongArray(values, 0, nonNullPositionCount));
+        int position = nonNullPositionCount - 1;
+
+        // Handle Last (positionCount % 8) values
+        for (int i = positionCount - 1; i >= (positionCount & ~0b111) && position >= 0; i--) {
+            values[i] = values[position];
+            if (!valueIsNull[i]) {
+                position--;
             }
         }
 
+        // Handle the remaining positions.
+        for (int i = (positionCount & ~0b111) - 8; i >= 0 && position >= 0; i -= 8) {
+            byte packed = valueIsNullPacked[i >>> 3];
+            if (packed == 0) { // Only values
+                arraycopy(values, position - 7, values, i, 8);
+                position -= 8;
+            }
+            else if (packed != -1) { // At least one non-null
+                for (int j = i + 7; j >= i && position >= 0; j--) {
+                    values[j] = values[position];
+                    if (!valueIsNull[j]) {
+                        position--;
+                    }
+                }
+            }
+            // Do nothing if there are only nulls
+        }
         return new LongArrayBlock(0, positionCount, valueIsNull, values);
     }
 
