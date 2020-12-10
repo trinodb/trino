@@ -728,12 +728,17 @@ public class TestJdbcPreparedStatement
                 .roundTripsAs(Types.TIME, sqlTime);
 
         assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIME))
-                .resultsIn("time(3)", "TIME '12:34:56.000'")
+                .resultsIn("time(0)", "TIME '12:34:56'")
                 .roundTripsAs(Types.TIME, sqlTime);
 
         assertBind((ps, i) -> ps.setObject(i, "12:34:56", Types.TIME))
-                .resultsIn("time(3)", "TIME '12:34:56.000'")
+                .resultsIn("time(0)", "TIME '12:34:56'")
                 .roundTripsAs(Types.TIME, sqlTime);
+
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123", Types.TIME)).resultsIn("time(3)", "TIME '12:34:56.123'");
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456", Types.TIME)).resultsIn("time(6)", "TIME '12:34:56.123456'");
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789", Types.TIME)).resultsIn("time(9)", "TIME '12:34:56.123456789'");
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789012", Types.TIME)).resultsIn("time(12)", "TIME '12:34:56.123456789012'");
 
         Time timeWithDecisecond = new Time(sqlTime.getTime() + 100);
         assertBind((ps, i) -> ps.setObject(i, timeWithDecisecond))
@@ -802,12 +807,17 @@ public class TestJdbcPreparedStatement
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         assertBind((ps, i) -> ps.setObject(i, dateTime, Types.TIMESTAMP))
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
+                .resultsIn("timestamp(0)", "TIMESTAMP '2001-05-06 12:34:56'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
 
         assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56", Types.TIMESTAMP))
-                .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.000'")
+                .resultsIn("timestamp(0)", "TIMESTAMP '2001-05-06 12:34:56'")
                 .roundTripsAs(Types.TIMESTAMP, sqlTimestamp);
+
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123", Types.TIMESTAMP)).resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'");
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123456", Types.TIMESTAMP)).resultsIn("timestamp(6)", "TIMESTAMP '2001-05-06 12:34:56.123456'");
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123456789", Types.TIMESTAMP)).resultsIn("timestamp(9)", "TIMESTAMP '2001-05-06 12:34:56.123456789'");
+        assertBind((ps, i) -> ps.setObject(i, "2001-05-06 12:34:56.123456789012", Types.TIMESTAMP)).resultsIn("timestamp(12)", "TIMESTAMP '2001-05-06 12:34:56.123456789012'");
 
         Timestamp timestampWithWithDecisecond = new Timestamp(sqlTimestamp.getTime() + 100);
         assertBind((ps, i) -> ps.setTimestamp(i, timestampWithWithDecisecond))
