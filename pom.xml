@@ -71,7 +71,7 @@
           -->
         <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
-        <air.test.thread-count>2</air.test.thread-count>
+        <air.test.thread-count>1</air.test.thread-count>
         <!-- Be conservative about memory allotment, because tests start background process (e.g. docker containers) -->
         <air.test.jvmsize>3g</air.test.jvmsize>
 
