@@ -293,9 +293,9 @@ public class TestJdbcPreparedStatement
                     ResultSet resultSet = statement.executeQuery("SELECT c_int FROM test_execute_batch");
                     assertThat(readRows(resultSet))
                             .containsExactlyInAnyOrder(
-                                            list(0),
-                                            list(1),
-                                            list(2));
+                                    list(0),
+                                    list(1),
+                                    list(2));
                 }
 
                 // Make sure the above executeBatch cleared existing batch
