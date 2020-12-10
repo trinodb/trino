@@ -538,6 +538,9 @@ public class PrestoPreparedStatement
         else if (x instanceof Date) {
             setDate(parameterIndex, (Date) x);
         }
+        else if (x instanceof LocalDate) {
+            setAsDate(parameterIndex, x);
+        }
         else if (x instanceof Time) {
             setTime(parameterIndex, (Time) x);
         }
