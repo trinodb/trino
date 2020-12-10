@@ -152,7 +152,7 @@ public abstract class BaseSnowflakeDistributedQueries
                         "(NULL, NULL, NULL, NULL, NULL, NULL), " +
                         "(NULL, NULL, NULL, NULL, NULL, DATE '2019-11-18')");
 
-        assertQueryFails("INSERT INTO " + tableName + " (bounded_varchar_column) VALUES ('abcd')", "Cannot truncate non-space characters on INSERT");
+        assertQueryFails("INSERT INTO " + tableName + " (bounded_varchar_column) VALUES ('abcd')", "Cannot truncate non-space characters when casting from varchar\\(4\\) to varchar\\(3\\) on INSERT");
 
         assertUpdate("DROP TABLE " + tableName);
     }
