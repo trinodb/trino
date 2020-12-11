@@ -80,8 +80,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -363,10 +361,13 @@ public class ColumnJdbcTable
         if (type.equals(VARBINARY)) {
             return Types.VARBINARY;
         }
-        if (type.equals(TIME)) {
+        if (type.equals(DATE)) {
+            return Types.DATE;
+        }
+        if (type instanceof TimeType) {
             return Types.TIME;
         }
-        if (type.equals(TIME_WITH_TIME_ZONE)) {
+        if (type instanceof TimeWithTimeZoneType) {
             return Types.TIME_WITH_TIMEZONE;
         }
         if (type instanceof TimestampType) {
@@ -374,9 +375,6 @@ public class ColumnJdbcTable
         }
         if (type instanceof TimestampWithTimeZoneType) {
             return Types.TIMESTAMP_WITH_TIMEZONE;
-        }
-        if (type.equals(DATE)) {
-            return Types.DATE;
         }
         if (type instanceof ArrayType) {
             return Types.ARRAY;
@@ -462,6 +460,18 @@ public class ColumnJdbcTable
     {
         if (type instanceof DecimalType) {
             return ((DecimalType) type).getScale();
+        }
+        if (type instanceof TimeType) {
+            return ((TimeType) type).getPrecision();
+        }
+        if (type instanceof TimeWithTimeZoneType) {
+            return ((TimeWithTimeZoneType) type).getPrecision();
+        }
+        if (type instanceof TimestampType) {
+            return ((TimestampType) type).getPrecision();
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            return ((TimestampWithTimeZoneType) type).getPrecision();
         }
         return null;
     }
