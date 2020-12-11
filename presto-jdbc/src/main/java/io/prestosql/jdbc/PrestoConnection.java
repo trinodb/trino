@@ -106,8 +106,8 @@ public class PrestoConnection
         requireNonNull(uri, "uri is null");
         this.jdbcUri = uri.getJdbcUri();
         this.httpUri = uri.getHttpUri();
-        this.schema.set(uri.getSchema());
-        this.catalog.set(uri.getCatalog());
+        uri.getSchema().ifPresent(value -> schema.set(value));
+        uri.getCatalog().ifPresent(value -> catalog.set(value));
         this.user = uri.getUser();
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
