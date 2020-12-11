@@ -179,6 +179,32 @@ public class TestExpressionEquivalence
         assertNotEquivalent("a_bigint <= b_bigint or c_bigint < d_bigint", "d_bigint > c_bigint or b_bigint >= c_bigint");
 
         assertNotEquivalent(
+                "CAST(TIME '12:34:56.123 +00:00' AS varchar)",
+                "CAST(TIME '14:34:56.123 +02:00' AS varchar)");
+        assertNotEquivalent(
+                "CAST(TIME '12:34:56.123456 +00:00' AS varchar)",
+                "CAST(TIME '14:34:56.123456 +02:00' AS varchar)");
+        assertNotEquivalent(
+                "CAST(TIME '12:34:56.123456789 +00:00' AS varchar)",
+                "CAST(TIME '14:34:56.123456789 +02:00' AS varchar)");
+        assertNotEquivalent(
+                "CAST(TIME '12:34:56.123456789012 +00:00' AS varchar)",
+                "CAST(TIME '14:34:56.123456789012 +02:00' AS varchar)");
+
+        assertNotEquivalent(
+                "CAST(TIMESTAMP '2020-05-10 12:34:56.123 Europe/Warsaw' AS varchar)",
+                "CAST(TIMESTAMP '2020-05-10 12:34:56.123 Europe/Paris' AS varchar)");
+        assertNotEquivalent(
+                "CAST(TIMESTAMP '2020-05-10 12:34:56.123456 Europe/Warsaw' AS varchar)",
+                "CAST(TIMESTAMP '2020-05-10 12:34:56.123456 Europe/Paris' AS varchar)");
+        assertNotEquivalent(
+                "CAST(TIMESTAMP '2020-05-10 12:34:56.123456789 Europe/Warsaw' AS varchar)",
+                "CAST(TIMESTAMP '2020-05-10 12:34:56.123456789 Europe/Paris' AS varchar)");
+        assertNotEquivalent(
+                "CAST(TIMESTAMP '2020-05-10 12:34:56.123456789012 Europe/Warsaw' AS varchar)",
+                "CAST(TIMESTAMP '2020-05-10 12:34:56.123456789012 Europe/Paris' AS varchar)");
+
+        assertNotEquivalent(
                 "reduce(ARRAY [b_boolean], false, (s, x) -> s AND x, s -> s)",
                 "reduce(ARRAY [b_boolean], false, (s, x) -> s OR x, s -> s)");
     }
