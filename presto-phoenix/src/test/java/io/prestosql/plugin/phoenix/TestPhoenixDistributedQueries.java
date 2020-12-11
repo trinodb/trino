@@ -75,13 +75,6 @@ public class TestPhoenixDistributedQueries
     }
 
     @Override
-    public void testLargeIn(int valuesCount)
-    {
-        // TODO https://github.com/prestosql/presto/issues/1641
-        throw new SkipException("test disabled");
-    }
-
-    @Override
     public void testRenameTable()
     {
         // Phoenix does not support renaming tables
