@@ -88,7 +88,7 @@ public abstract class AbstractTestEngineOnlyQueries
     private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss[.SSS] VV");
 
     @Test
-    public void testTimeLiterals()
+    public void testDateLiterals()
     {
         Session chicago = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Chicago")).build();
         Session kathmandu = Session.builder(getSession()).setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Asia/Kathmandu")).build();
@@ -97,7 +97,11 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT DATE '2013-03-22'");
         assertQuery(chicago, "SELECT DATE '2013-03-22'");
         assertQuery(kathmandu, "SELECT DATE '2013-03-22'");
+    }
 
+    @Test
+    public void testTimeLiterals()
+    {
         assertEquals(computeScalar("SELECT TIME '3:04:05'"), LocalTime.of(3, 4, 5, 0));
         assertEquals(computeScalar("SELECT TIME '3:04:05.123'"), LocalTime.of(3, 4, 5, 123_000_000));
         assertQuery("SELECT TIME '3:04:05'");
@@ -105,12 +109,20 @@ public abstract class AbstractTestEngineOnlyQueries
         // TODO https://github.com/prestosql/presto/issues/37
         // TODO assertQuery(chicago, "SELECT TIME '3:04:05'");
         // TODO assertQuery(kathmandu, "SELECT TIME '3:04:05'");
+    }
 
+    @Test
+    public void testTimeWithTimeZoneLiterals()
+    {
         assertEquals(computeScalar("SELECT TIME '01:02:03.400+00:00'"), OffsetTime.of(1, 2, 3, 400_000_000, ZoneOffset.ofHoursMinutes(0, 0)));
         assertEquals(computeScalar("SELECT TIME '3:04:05 +06:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
         assertEquals(computeScalar("SELECT TIME '3:04:05 +05:07'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(5, 7)));
         assertEquals(computeScalar("SELECT TIME '3:04:05 +03:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(3, 0)));
+    }
 
+    @Test
+    public void testTimestampLiterals()
+    {
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5));
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05.123'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5, 123_000_000));
         assertQuery("SELECT TIMESTAMP '1960-01-22 3:04:05'");
@@ -118,7 +130,11 @@ public abstract class AbstractTestEngineOnlyQueries
         // TODO https://github.com/prestosql/presto/issues/37
         // TODO assertQuery(chicago, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
         // TODO assertQuery(kathmandu, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
+    }
 
+    @Test
+    public void testTimestampWithTimeZoneLiterals()
+    {
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05 +06:00'"), ZonedDateTime.of(1960, 1, 22, 3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
     }
 
