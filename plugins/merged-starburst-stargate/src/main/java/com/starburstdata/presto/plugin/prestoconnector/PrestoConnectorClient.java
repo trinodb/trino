@@ -23,7 +23,6 @@ import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
-import io.prestosql.plugin.jdbc.LongReadFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.prestosql.spi.PrestoException;
@@ -49,7 +48,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,6 +56,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoDateColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -488,33 +487,6 @@ public class PrestoConnectorClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
-    }
-
-    private ColumnMapping prestoDateColumnMapping()
-    {
-        return ColumnMapping.longMapping(
-                DATE,
-                new LongReadFunction()
-                {
-                    @Override
-                    public boolean isNull(ResultSet resultSet, int columnIndex)
-                            throws SQLException
-                    {
-                        // resultSet.getObject fails for certain dates
-                        // TODO simplify this read function once https://github.com/prestosql/presto/issues/6242 is fixed
-                        resultSet.getString(columnIndex);
-                        return resultSet.wasNull();
-                    }
-
-                    @Override
-                    public long readLong(ResultSet resultSet, int columnIndex)
-                            throws SQLException
-                    {
-                        LocalDate localDate = LocalDate.parse(resultSet.getString(columnIndex));
-                        return localDate.toEpochDay();
-                    }
-                },
-                dateWriteFunction());
     }
 
     private static JdbcTypeHandle jdbcTypeHandle(int jdbcType)
