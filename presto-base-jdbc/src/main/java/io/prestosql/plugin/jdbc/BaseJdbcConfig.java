@@ -21,11 +21,13 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
 
 import java.util.Set;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static javax.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
 
 public class BaseJdbcConfig
 {
@@ -37,6 +39,8 @@ public class BaseJdbcConfig
     private boolean cacheMissing;
 
     @NotNull
+    // Some drivers match case insensitive in Driver.acceptURL
+    @Pattern(regexp = "^jdbc:[a-z0-9]+:(?s:.*)$", flags = CASE_INSENSITIVE)
     public String getConnectionUrl()
     {
         return connectionUrl;
