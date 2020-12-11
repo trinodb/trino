@@ -81,13 +81,14 @@ public final class LongTimestampWithTimeZone
         }
         LongTimestampWithTimeZone that = (LongTimestampWithTimeZone) o;
         return epochMillis == that.epochMillis &&
-                picosOfMilli == that.picosOfMilli;
+                picosOfMilli == that.picosOfMilli &&
+                timeZoneKey == that.timeZoneKey;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(epochMillis, picosOfMilli);
+        return Objects.hash(epochMillis, picosOfMilli, timeZoneKey);
     }
 
     @Override
