@@ -297,6 +297,7 @@ public class HashGenerationOptimizer
                             node.getId(),
                             child.getNode(),
                             node.getSpecification(),
+                            node.getRankingType(),
                             node.getRankingSymbol(),
                             node.getMaxRankingPerPartition(),
                             node.isPartial(),

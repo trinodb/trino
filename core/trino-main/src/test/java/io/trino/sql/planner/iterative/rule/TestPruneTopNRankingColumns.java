@@ -30,6 +30,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 
 public class TestPruneTopNRankingColumns
         extends BaseRuleTest
@@ -48,6 +49,7 @@ public class TestPruneTopNRankingColumns
                                     new Specification(
                                             ImmutableList.of(a),
                                             Optional.of(new OrderingScheme(ImmutableList.of(b), ImmutableMap.of(b, SortOrder.ASC_NULLS_FIRST)))),
+                                    ROW_NUMBER,
                                     5,
                                     ranking,
                                     Optional.empty(),
@@ -69,6 +71,7 @@ public class TestPruneTopNRankingColumns
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
+                                    ROW_NUMBER,
                                     5,
                                     ranking,
                                     Optional.empty(),
@@ -91,6 +94,7 @@ public class TestPruneTopNRankingColumns
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
+                                    ROW_NUMBER,
                                     5,
                                     ranking,
                                     Optional.of(hash),
@@ -113,6 +117,7 @@ public class TestPruneTopNRankingColumns
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
+                                    ROW_NUMBER,
                                     5,
                                     ranking,
                                     Optional.empty(),
@@ -127,6 +132,7 @@ public class TestPruneTopNRankingColumns
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
                                                         ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
+                                                .rankingType(ROW_NUMBER)
                                                 .maxRankingPerPartition(5),
                                         strictProject(
                                                 ImmutableMap.of("a", expression("a")),
@@ -148,6 +154,7 @@ public class TestPruneTopNRankingColumns
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
+                                    ROW_NUMBER,
                                     5,
                                     ranking,
                                     Optional.empty(),
@@ -169,6 +176,7 @@ public class TestPruneTopNRankingColumns
                                     new Specification(
                                             ImmutableList.of(),
                                             Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST)))),
+                                    ROW_NUMBER,
                                     5,
                                     ranking,
                                     Optional.empty(),

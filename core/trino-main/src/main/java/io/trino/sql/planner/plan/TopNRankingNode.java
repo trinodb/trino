@@ -34,8 +34,16 @@ import static java.util.Objects.requireNonNull;
 public final class TopNRankingNode
         extends PlanNode
 {
+    public enum RankingType
+    {
+        ROW_NUMBER,
+        RANK,
+        DENSE_RANK
+    }
+
     private final PlanNode source;
     private final Specification specification;
+    private final RankingType rankingType;
     private final Symbol rankingSymbol;
     private final int maxRankingPerPartition;
     private final boolean partial;
@@ -46,6 +54,7 @@ public final class TopNRankingNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
+            @JsonProperty("rankingType") RankingType rankingType,
             @JsonProperty("rankingSymbol") Symbol rankingSymbol,
             @JsonProperty("maxRankingPerPartition") int maxRankingPerPartition,
             @JsonProperty("partial") boolean partial,
@@ -56,12 +65,14 @@ public final class TopNRankingNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         checkArgument(specification.getOrderingScheme().isPresent(), "specification orderingScheme is absent");
+        requireNonNull(rankingType, "rankingType is null");
         requireNonNull(rankingSymbol, "rankingSymbol is null");
         checkArgument(maxRankingPerPartition > 0, "maxRankingPerPartition must be > 0");
         requireNonNull(hashSymbol, "hashSymbol is null");
 
         this.source = source;
         this.specification = specification;
+        this.rankingType = rankingType;
         this.rankingSymbol = rankingSymbol;
         this.maxRankingPerPartition = maxRankingPerPartition;
         this.partial = partial;
@@ -106,6 +117,12 @@ public final class TopNRankingNode
     }
 
     @JsonProperty
+    public RankingType getRankingType()
+    {
+        return rankingType;
+    }
+
+    @JsonProperty
     public Symbol getRankingSymbol()
     {
         return rankingSymbol;
@@ -138,6 +155,6 @@ public final class TopNRankingNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNRankingNode(getId(), Iterables.getOnlyElement(newChildren), specification, rankingSymbol, maxRankingPerPartition, partial, hashSymbol);
+        return new TopNRankingNode(getId(), Iterables.getOnlyElement(newChildren), specification, rankingType, rankingSymbol, maxRankingPerPartition, partial, hashSymbol);
     }
 }

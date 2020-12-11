@@ -59,6 +59,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -322,6 +323,7 @@ public class PlanNodeDecorrelator
                                 new Specification(
                                         ImmutableList.copyOf(childDecorrelationResult.symbolsToPropagate),
                                         Optional.of(orderingScheme)),
+                                ROW_NUMBER,
                                 symbolAllocator.newSymbol("ranking", BIGINT),
                                 toIntExact(node.getCount()),
                                 false,

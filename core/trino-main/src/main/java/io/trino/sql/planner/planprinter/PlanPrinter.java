@@ -648,7 +648,7 @@ public class PlanPrinter
                     "TopNRanking",
                     format("[%s limit %s]%s", Joiner.on(", ").join(args), node.getMaxRankingPerPartition(), formatHash(node.getHashSymbol())));
 
-            nodeOutput.appendDetailsLine("%s := %s", node.getRankingSymbol(), "row_number()");
+            nodeOutput.appendDetailsLine("%s := %s", node.getRankingSymbol(), node.getRankingType());
 
             return processChildren(node, context);
         }
