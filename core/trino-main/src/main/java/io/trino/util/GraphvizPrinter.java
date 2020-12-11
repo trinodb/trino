@@ -290,9 +290,11 @@ public final class GraphvizPrinter
         {
             printNode(node,
                     "TopNRanking",
-                    format("partition by = %s|order by = %s|n = %s",
+                    format("type=%s|partition by = %s|order by = %s|n = %s",
+                            node.getRankingType(),
                             Joiner.on(", ").join(node.getPartitionBy()),
-                            Joiner.on(", ").join(node.getOrderingScheme().getOrderBy()), node.getMaxRankingPerPartition()),
+                            Joiner.on(", ").join(node.getOrderingScheme().getOrderBy()),
+                            node.getMaxRankingPerPartition()),
                     NODE_COLORS.get(NodeType.WINDOW));
             return node.getSource().accept(this, context);
         }

@@ -20,6 +20,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
+import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
@@ -38,6 +39,7 @@ public class TopNRankingMatcher
 {
     private final Optional<ExpectedValueProvider<WindowNode.Specification>> specification;
     private final Optional<SymbolAlias> rankingSymbol;
+    private final Optional<RankingType> rankingType;
     private final Optional<Integer> maxRankingPerPartition;
     private final Optional<Boolean> partial;
     private final Optional<Optional<SymbolAlias>> hashSymbol;
@@ -45,12 +47,14 @@ public class TopNRankingMatcher
     private TopNRankingMatcher(
             Optional<ExpectedValueProvider<WindowNode.Specification>> specification,
             Optional<SymbolAlias> rankingSymbol,
+            Optional<RankingType> rankingType,
             Optional<Integer> maxRankingPerPartition,
             Optional<Boolean> partial,
             Optional<Optional<SymbolAlias>> hashSymbol)
     {
         this.specification = requireNonNull(specification, "specification is null");
         this.rankingSymbol = requireNonNull(rankingSymbol, "rankingSymbol is null");
+        this.rankingType = requireNonNull(rankingType, "rankingType is null");
         this.maxRankingPerPartition = requireNonNull(maxRankingPerPartition, "maxRankingPerPartition is null");
         this.partial = requireNonNull(partial, "partial is null");
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
@@ -83,6 +87,12 @@ public class TopNRankingMatcher
             }
         }
 
+        if (rankingType.isPresent()) {
+            if (!rankingType.get().equals(topNRankingNode.getRankingType())) {
+                return NO_MATCH;
+            }
+        }
+
         if (maxRankingPerPartition.isPresent()) {
             if (!maxRankingPerPartition.get().equals(topNRankingNode.getMaxRankingPerPartition())) {
                 return NO_MATCH;
@@ -111,6 +121,7 @@ public class TopNRankingMatcher
         return toStringHelper(this)
                 .add("specification", specification)
                 .add("rankingSymbol", rankingSymbol)
+                .add("rankingType", rankingType)
                 .add("maxRankingPerPartition", maxRankingPerPartition)
                 .add("partial", partial)
                 .add("hashSymbol", hashSymbol)
@@ -122,6 +133,7 @@ public class TopNRankingMatcher
         private final PlanMatchPattern source;
         private Optional<ExpectedValueProvider<WindowNode.Specification>> specification = Optional.empty();
         private Optional<SymbolAlias> rankingSymbol = Optional.empty();
+        private Optional<RankingType> rankingType = Optional.empty();
         private Optional<Integer> maxRankingPerPartition = Optional.empty();
         private Optional<Boolean> partial = Optional.empty();
         private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
@@ -140,6 +152,12 @@ public class TopNRankingMatcher
         public Builder rankingSymbol(SymbolAlias rankingSymbol)
         {
             this.rankingSymbol = Optional.of(requireNonNull(rankingSymbol, "rankingSymbol is null"));
+            return this;
+        }
+
+        public Builder rankingType(RankingType rankingType)
+        {
+            this.rankingType = Optional.of(requireNonNull(rankingType, "rankingType is null"));
             return this;
         }
 
@@ -167,6 +185,7 @@ public class TopNRankingMatcher
                     new TopNRankingMatcher(
                             specification,
                             rankingSymbol,
+                            rankingType,
                             maxRankingPerPartition,
                             partial,
                             hashSymbol));

@@ -385,6 +385,7 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 child.getNode(),
                                 node.getSpecification(),
+                                node.getRankingType(),
                                 node.getRankingSymbol(),
                                 node.getMaxRankingPerPartition(),
                                 true,
