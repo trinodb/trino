@@ -23,6 +23,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.type.BlockTypeOperators;
 
 import java.util.Iterator;
@@ -44,6 +45,7 @@ public class TopNRankingOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
 
+        private final RankingType rankingType;
         private final List<Type> sourceTypes;
 
         private final List<Integer> outputChannels;
@@ -65,6 +67,7 @@ public class TopNRankingOperator
         public TopNRankingOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
+                RankingType rankingType,
                 List<? extends Type> sourceTypes,
                 List<Integer> outputChannels,
                 List<Integer> partitionChannels,
@@ -81,6 +84,7 @@ public class TopNRankingOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.rankingType = requireNonNull(rankingType, "rankingType is null");
             this.sourceTypes = ImmutableList.copyOf(sourceTypes);
             this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
             this.partitionChannels = ImmutableList.copyOf(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -106,6 +110,7 @@ public class TopNRankingOperator
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, TopNRankingOperator.class.getSimpleName());
             return new TopNRankingOperator(
                     operatorContext,
+                    rankingType,
                     sourceTypes,
                     outputChannels,
                     partitionChannels,
@@ -133,6 +138,7 @@ public class TopNRankingOperator
             return new TopNRankingOperatorFactory(
                     operatorId,
                     planNodeId,
+                    rankingType,
                     sourceTypes,
                     outputChannels,
                     partitionChannels,
@@ -163,6 +169,7 @@ public class TopNRankingOperator
 
     public TopNRankingOperator(
             OperatorContext operatorContext,
+            RankingType rankingType,
             List<? extends Type> sourceTypes,
             List<Integer> outputChannels,
             List<Integer> partitionChannels,
@@ -207,12 +214,21 @@ public class TopNRankingOperator
             groupByHash = new NoChannelGroupByHash();
         }
 
-        this.groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
-                ImmutableList.copyOf(sourceTypes),
-                new SimplePageWithPositionComparator(ImmutableList.copyOf(sourceTypes), sortChannels, sortOrders, typeOperators),
-                maxRankingPerPartition,
-                generateRanking,
-                groupByHash);
+        switch (rankingType) {
+            case ROW_NUMBER:
+                this.groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
+                        ImmutableList.copyOf(sourceTypes),
+                        new SimplePageWithPositionComparator(ImmutableList.copyOf(sourceTypes), sortChannels, sortOrders, typeOperators),
+                        maxRankingPerPartition,
+                        generateRanking,
+                        groupByHash);
+                break;
+            case RANK:
+            case DENSE_RANK:
+                throw new UnsupportedOperationException();
+            default:
+                throw new AssertionError("Unknown ranking type: " + rankingType);
+        }
     }
 
     @Override

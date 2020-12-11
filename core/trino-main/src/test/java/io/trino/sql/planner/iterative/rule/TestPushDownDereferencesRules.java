@@ -69,6 +69,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.iterative.rule.test.RuleTester.CATALOG_ID;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static java.util.Collections.singletonList;
@@ -483,6 +484,7 @@ public class TestPushDownDereferencesRules
                                                 Optional.of(new OrderingScheme(
                                                         ImmutableList.of(p.symbol("msg2", ROW_TYPE)),
                                                         ImmutableMap.of(p.symbol("msg2", ROW_TYPE), ASC_NULLS_FIRST)))),
+                                        ROW_NUMBER,
                                         5,
                                         p.symbol("ranking"),
                                         Optional.empty(),

@@ -907,6 +907,7 @@ public class LocalExecutionPlanner
             OperatorFactory operatorFactory = new TopNRankingOperator.TopNRankingOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
+                    node.getRankingType(),
                     source.getTypes(),
                     outputChannels.build(),
                     partitionChannels,

@@ -351,6 +351,7 @@ public class SymbolMapper
                 node.getId(),
                 source,
                 mapAndDistinct(node.getSpecification()),
+                node.getRankingType(),
                 map(node.getRankingSymbol()),
                 node.getMaxRankingPerPartition(),
                 node.isPartial(),
