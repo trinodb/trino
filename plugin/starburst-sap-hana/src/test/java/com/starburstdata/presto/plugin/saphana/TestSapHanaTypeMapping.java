@@ -582,7 +582,7 @@ public class TestSapHanaTypeMapping
     }
 
     /**
-     * Additional test supplementing {@link #testPrestoTime} with timestamp precision higher than expressible with {@code LocalTime}.
+     * Additional test supplementing {@link #testPrestoTime} with time precision higher than expressible with {@code LocalTime}.
      *
      * @see #testPrestoTime
      */
