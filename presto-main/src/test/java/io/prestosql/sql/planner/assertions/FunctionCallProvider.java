@@ -83,7 +83,7 @@ class FunctionCallProvider
     @Override
     public String toString()
     {
-        return format("%s%s (%s%s) %s",
+        return format("%s%s (%s%s) %s %s",
                 distinct ? "DISTINCT" : "",
                 name,
                 Joiner.on(", ").join(args),
