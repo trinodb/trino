@@ -304,6 +304,7 @@ jobs:
         config:
           - config-default
           - config-hdp3
+          - config-hive3
           - config-cdh5
         suite:
           - suite-1
@@ -323,6 +324,14 @@ jobs:
           - config: config-hdp3
             suite: suite-8-non-generic
           - config: config-hdp3
+            suite: suite-tpcds
+          - config: config-hive3
+            suite: suite-6-non-generic
+          - config: config-hive3
+            suite: suite-7-non-generic
+          - config: config-hive3
+            suite: suite-8-non-generic
+          - config: config-hive3
             suite: suite-tpcds
           - config: config-cdh5
             suite: suite-6-non-generic
