@@ -29,6 +29,7 @@ import io.prestosql.server.security.jwt.JwkSigningKeyResolver;
 import io.prestosql.server.security.jwt.JwtAuthenticatorConfig;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.server.ui.WebUiModule;
+import io.prestosql.testng.services.Flaky;
 import okhttp3.CookieJar;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
@@ -198,15 +199,17 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/6223", match = "Presto-OAuth2-Token is missing")
     public void testExpiredAccessToken()
             throws Exception
     {
         withSuccessfulAuthentication(((driver, wait) -> {
-            String accessToken = driver.manage().getCookieNamed("Presto-OAuth2-Token").getValue();
+            Cookie cookie = driver.manage().getCookieNamed("Presto-OAuth2-Token");
+            assertThat(cookie).withFailMessage("Presto-OAuth2-Token is missing").isNotNull();
             Thread.sleep((TTL_ACCESS_TOKEN_IN_SECONDS + 1) * 1000L); // wait for the token expiration
             try (Response response = httpClient.newCall(
                     uiCall()
-                            .header(AUTHORIZATION, "Bearer " + accessToken)
+                            .header(AUTHORIZATION, "Bearer " + cookie.getValue())
                             .build())
                     .execute()) {
                 assertUnauthorizedUICall(response);
