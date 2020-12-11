@@ -80,7 +80,9 @@ import static io.prestosql.tpch.TpchTable.LINE_ITEM;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.PART;
+import static io.prestosql.tpch.TpchTable.PART_SUPPLIER;
 import static io.prestosql.tpch.TpchTable.REGION;
+import static io.prestosql.tpch.TpchTable.SUPPLIER;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
@@ -172,6 +174,28 @@ public class H2QueryRunner
                 "  PRIMARY KEY (custkey)" +
                 ")");
         insertRows(tpchMetadata, CUSTOMER);
+
+        handle.execute("CREATE TABLE supplier (\n" +
+                "   suppkey BIGINT NOT NULL,\n" +
+                "   name VARCHAR(25) NOT NULL,\n" +
+                "   address VARCHAR(40) NOT NULL,\n" +
+                "   nationkey BIGINT NOT NULL,\n" +
+                "   phone VARCHAR(15) NOT NULL,\n" +
+                "   acctbal DOUBLE NOT NULL,\n" +
+                "   comment VARCHAR(101) NOT NULL,\n" +
+                "   PRIMARY KEY (suppkey)" +
+                ")");
+        insertRows(tpchMetadata, SUPPLIER);
+
+        handle.execute("CREATE TABLE partsupp (\n" +
+                "   partkey bigint NOT NULL,\n" +
+                "   suppkey bigint NOT NULL,\n" +
+                "   availqty integer NOT NULL,\n" +
+                "   supplycost double NOT NULL,\n" +
+                "   comment varchar(199) NOT NULL,\n" +
+                "   PRIMARY KEY (partkey, suppkey)" +
+                ")");
+        insertRows(tpchMetadata, PART_SUPPLIER);
     }
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable<?> tpchTable)
