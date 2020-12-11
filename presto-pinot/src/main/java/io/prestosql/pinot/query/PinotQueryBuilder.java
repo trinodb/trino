@@ -160,7 +160,7 @@ public final class PinotQueryBuilder
                 disjuncts.add(toConjunct(columnName, "=", getOnlyElement(singleValues)));
             }
             else if (singleValues.size() > 1) {
-                disjuncts.add(format("%s IN (%s)", inClauseValues(columnName, singleValues)));
+                disjuncts.add(inClauseValues(columnName, singleValues));
             }
         }
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
