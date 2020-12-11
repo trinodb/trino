@@ -88,7 +88,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -203,7 +202,7 @@ class RelationPlanner
             }
 
             List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-            boolean isDeleteTarget = analysis.isDeleteTarget(createQualifiedObjectName(session, node, node.getName()));
+            boolean isDeleteTarget = analysis.isDeleteTarget(node);
             PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build(), isDeleteTarget);
 
             plan = new RelationPlan(root, scope, outputSymbols, outerContext);

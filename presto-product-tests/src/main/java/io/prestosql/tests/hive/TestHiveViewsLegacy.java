@@ -18,6 +18,7 @@ import io.prestosql.tempto.Requires;
 import io.prestosql.tempto.assertions.QueryAssert;
 import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
+import io.prestosql.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -29,6 +30,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_VIEWS;
+import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 
@@ -223,6 +225,21 @@ public class TestHiveViewsLegacy
                         row(3, "CANADA", true, 0, 1, 1, "", "CANADA", -0.143, sqlDate(1993, 10, 14), 10013),
                         row(12, "JAPAN", true, 0, 1, 1, "", "JAPAN", -0.636, null, 10049),
                         row(17, "PERU", true, 0, 0, 0, "", "PERU", 3.494, null, 10069)));
+    }
+
+    @Test
+    public void testSelectFromHiveViewWithoutDefaultCatalogAndSchema()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
+        onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
+
+        QueryExecutor executor = connectToPresto("presto_no_default_catalog");
+        executor.executeQuery("SET SESSION hive.legacy_hive_view_translation = true");
+
+        assertThat(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
+                .failsWithMessageMatching(".*Schema must be specified when session schema is not set.*");
+        assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
+                .containsExactly(row(1L));
     }
 
     private static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
