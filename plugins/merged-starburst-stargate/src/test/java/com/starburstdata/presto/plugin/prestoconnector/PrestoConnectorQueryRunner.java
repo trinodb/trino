@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.prestoconnector;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.postgresql.StarburstPostgreSqlPlugin;
 import io.prestosql.Session;
+import io.prestosql.plugin.hive.HiveHadoop2Plugin;
 import io.prestosql.plugin.jmx.JmxPlugin;
 import io.prestosql.plugin.memory.MemoryPlugin;
 import io.prestosql.plugin.postgresql.TestingPostgreSqlServer;
@@ -19,6 +20,7 @@ import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tpch.TpchTable;
 
+import java.io.File;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,7 +37,7 @@ public final class PrestoConnectorQueryRunner
 {
     private PrestoConnectorQueryRunner() {}
 
-    public static DistributedQueryRunner createRemotePrestoQueryRunner(Map<String, String> extraProperties)
+    private static DistributedQueryRunner createRemotePrestoQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -76,6 +78,34 @@ public final class PrestoConnectorQueryRunner
                     .setSchema("tiny")
                     .build();
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTablesInMemoryConnector);
+
+            return queryRunner;
+        }
+        catch (Exception e) {
+            throw closeAllSuppress(e, queryRunner);
+        }
+    }
+
+    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithHive(
+            File tmpDir,
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> requiredTablesInHiveConnector)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
+        try {
+            queryRunner.installPlugin(new HiveHadoop2Plugin());
+            queryRunner.createCatalog("hive", "hive-hadoop2", ImmutableMap.of(
+                    "hive.metastore", "file",
+                    "hive.metastore.catalog.dir", tmpDir.toURI().toString(),
+                    "hive.security", "allow-all"));
+
+            queryRunner.execute("CREATE SCHEMA hive.tiny");
+            Session tpchSetupSession = testSessionBuilder()
+                    .setCatalog("hive")
+                    .setSchema("tiny")
+                    .build();
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTablesInHiveConnector);
 
             return queryRunner;
         }

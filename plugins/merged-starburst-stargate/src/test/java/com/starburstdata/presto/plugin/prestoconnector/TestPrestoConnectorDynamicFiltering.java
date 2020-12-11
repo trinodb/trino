@@ -9,16 +9,21 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
+import com.google.common.io.Files;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import org.testng.SkipException;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithHive;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,14 +35,17 @@ public class TestPrestoConnectorDynamicFiltering
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithMemory(
+        File tempDir = Files.createTempDir();
+        closeAfterClass(() -> deleteRecursively(Path.of(tempDir.getPath()), ALLOW_INSECURE));
+        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithHive(
+                tempDir,
                 Map.of(),
                 List.of(ORDERS)));
         return createPrestoConnectorQueryRunner(
                 false,
                 Map.of(),
                 Map.of(
-                        "connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"),
+                        "connection-url", prestoConnectorConnectionUrl(remotePresto, "hive"),
                         "allow-drop-table", "true"));
     }
 

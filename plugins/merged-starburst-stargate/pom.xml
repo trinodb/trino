@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>348-e-SNAPSHOT</version>
+        <version>349-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -118,6 +118,12 @@
                     <artifactId>checker-qual</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-hive-hadoop2</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

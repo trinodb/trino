@@ -62,7 +62,7 @@ public abstract class BasePrestoConnectorIntegrationSmokeTest
                 List.of(
                         "(100.000, 100000000.000000000)",
                         "(123.321, 123456789.987654321)"))) {
-            String tableName = "p2p_" + testTable.getName();
+            String tableName = "p2p_" + testTable.getName().replace(getRemoteCatalogName(), "remote");
             assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + tableName)).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + tableName)).isFullyPushedDown();
             assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + tableName)).isFullyPushedDown();

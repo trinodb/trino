@@ -13,14 +13,13 @@ import io.prestosql.plugin.postgresql.TestingPostgreSqlServer;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.SqlExecutor;
+import io.prestosql.tpch.TpchTable;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithPostgreSql;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 
 public class TestPrestoConnectorIntegrationSmokeTestWithPostgreSql
         extends BasePrestoConnectorIntegrationSmokeTest
@@ -36,21 +35,11 @@ public class TestPrestoConnectorIntegrationSmokeTestWithPostgreSql
                 postgreSqlServer,
                 Map.of(),
                 Map.of("connection-url", postgreSqlServer.getJdbcUrl()),
-                List.of()));
-        DistributedQueryRunner queryRunner = createPrestoConnectorQueryRunner(
+                TpchTable.getTables()));
+        return createPrestoConnectorQueryRunner(
                 false,
                 Map.of(),
-                Map.of("connection-url", prestoConnectorConnectionUrl(remotePresto, "tpch")));
-        try {
-            queryRunner.createCatalog("p2p_" + getRemoteCatalogName(), "presto-connector", Map.of(
-                    "connection-user", "p2p",
-                    "connection-url", prestoConnectorConnectionUrl(remotePresto, getRemoteCatalogName())));
-        }
-        catch (Exception e) {
-            throw closeAllSuppress(e, queryRunner);
-        }
-
-        return queryRunner;
+                Map.of("connection-url", prestoConnectorConnectionUrl(remotePresto, getRemoteCatalogName())));
     }
 
     @Override
