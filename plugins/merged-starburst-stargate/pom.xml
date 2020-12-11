@@ -109,6 +109,18 @@
         </dependency>
 
         <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-postgresql</artifactId>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.checkerframework</groupId>
+                    <artifactId>checker-qual</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-jmx</artifactId>
             <scope>test</scope>
@@ -131,6 +143,19 @@
             <groupId>io.prestosql</groupId>
             <artifactId>presto-memory</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-postgresql</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.checkerframework</groupId>
+                    <artifactId>checker-qual</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

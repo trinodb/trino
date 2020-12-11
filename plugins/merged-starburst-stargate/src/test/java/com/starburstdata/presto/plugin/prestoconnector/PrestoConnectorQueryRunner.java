@@ -10,9 +10,11 @@
 package com.starburstdata.presto.plugin.prestoconnector;
 
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.plugin.postgresql.StarburstPostgreSqlPlugin;
 import io.prestosql.Session;
 import io.prestosql.plugin.jmx.JmxPlugin;
 import io.prestosql.plugin.memory.MemoryPlugin;
+import io.prestosql.plugin.postgresql.TestingPostgreSqlServer;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tpch.TpchTable;
@@ -33,9 +35,7 @@ public final class PrestoConnectorQueryRunner
 {
     private PrestoConnectorQueryRunner() {}
 
-    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithMemory(
-            Map<String, String> extraProperties,
-            Iterable<TpchTable<?>> requiredTablesInMemoryConnector)
+    public static DistributedQueryRunner createRemotePrestoQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -53,6 +53,20 @@ public final class PrestoConnectorQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            return queryRunner;
+        }
+        catch (Exception e) {
+            throw closeAllSuppress(e, queryRunner);
+        }
+    }
+
+    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithMemory(
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> requiredTablesInMemoryConnector)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
+        try {
             queryRunner.installPlugin(new MemoryPlugin());
             queryRunner.createCatalog("memory", "memory");
 
@@ -66,8 +80,38 @@ public final class PrestoConnectorQueryRunner
             return queryRunner;
         }
         catch (Exception e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
+            throw closeAllSuppress(e, queryRunner);
+        }
+    }
+
+    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithPostgreSql(
+            TestingPostgreSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> requiredTablesInPostgreSqlConnector)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
+        try {
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
+            connectorProperties.putIfAbsent("allow-drop-table", "true");
+            connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
+
+            server.execute("CREATE SCHEMA tiny");
+
+            queryRunner.installPlugin(new StarburstPostgreSqlPlugin());
+            queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
+
+            Session tpchSetupSession = testSessionBuilder()
+                    .setCatalog("postgresql")
+                    .setSchema("tiny")
+                    .build();
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTablesInPostgreSqlConnector);
+            return queryRunner;
+        }
+        catch (Exception e) {
+            throw closeAllSuppress(e, queryRunner);
         }
     }
 
@@ -103,8 +147,7 @@ public final class PrestoConnectorQueryRunner
             return queryRunner;
         }
         catch (Exception e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
+            throw closeAllSuppress(e, queryRunner);
         }
     }
 
