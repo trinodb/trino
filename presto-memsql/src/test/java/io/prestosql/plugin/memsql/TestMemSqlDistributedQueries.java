@@ -130,13 +130,6 @@ public class TestMemSqlDistributedQueries
     }
 
     @Override
-    public void testLargeIn(int valuesCount)
-    {
-        // Caused by: java.sql.SQLException: Thread stack overrun:  Used: 1048713 of a 1048576 stack. Use 'memsqld --thread_stack=#' to specify a bigger stack if needed.
-        throw new SkipException("MemSQL's default thread stack is not large enough");
-    }
-
-    @Override
     public void testInsertUnicode()
     {
         // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
