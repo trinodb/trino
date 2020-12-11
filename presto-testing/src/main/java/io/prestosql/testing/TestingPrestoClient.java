@@ -79,7 +79,13 @@ import static java.util.stream.Collectors.toList;
 public class TestingPrestoClient
         extends AbstractTestingPrestoClient<MaterializedResult>
 {
-    private static final DateTimeFormatter timeWithZoneOffsetFormat = DateTimeFormatter.ofPattern("HH:mm:ss[.SSS]XXX");
+    private static final DateTimeFormatter timeWithZoneOffsetFormat = new DateTimeFormatterBuilder()
+            .appendPattern("HH:mm:ss")
+            .optionalStart()
+            .appendFraction(NANO_OF_SECOND, 0, 9, true)
+            .optionalEnd()
+            .appendPattern("XXX")
+            .toFormatter();
 
     private static final DateTimeFormatter timestampFormat = new DateTimeFormatterBuilder()
             .appendPattern("uuuu-MM-dd HH:mm:ss")
@@ -221,15 +227,31 @@ public class TestingPrestoClient
             return DateTimeFormatter.ISO_LOCAL_DATE.parse(((String) value), LocalDate::from);
         }
         if (type instanceof TimeType) {
+            if (((TimeType) type).getPrecision() > 9) {
+                // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                return (String) value;
+            }
             return DateTimeFormatter.ISO_LOCAL_TIME.parse(((String) value), LocalTime::from);
         }
         if (type instanceof TimeWithTimeZoneType) {
+            if (((TimeWithTimeZoneType) type).getPrecision() > 9) {
+                // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                return (String) value;
+            }
             return timeWithZoneOffsetFormat.parse(((String) value), OffsetTime::from);
         }
         if (type instanceof TimestampType) {
+            if (((TimestampType) type).getPrecision() > 9) {
+                // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                return (String) value;
+            }
             return timestampFormat.parse((String) value, LocalDateTime::from);
         }
         if (type instanceof TimestampWithTimeZoneType) {
+            if (((TimestampWithTimeZoneType) type).getPrecision() > 9) {
+                // String representation is not as nice as java.time, but it's currently the best available for picoseconds precision
+                return (String) value;
+            }
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);
         }
         if (INTERVAL_DAY_TIME.equals(type)) {

@@ -26,6 +26,7 @@ import com.google.common.collect.Ordering;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.sql.query.QueryAssertions.QueryAssert;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -77,6 +78,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -111,6 +113,25 @@ public abstract class AbstractTestEngineOnlyQueries
         // TODO assertQuery(kathmandu, "SELECT TIME '3:04:05'");
     }
 
+    /**
+     * Tests query runner with results of various precisions, and query assert.
+     */
+    @Test
+    public void testTimeQueryResult()
+    {
+        assertThat(query("SELECT TIME '01:23:45.123'")).matches("SELECT TIME '01:23:45.123'");
+        assertThat(query("SELECT TIME '01:23:45.123456'")).matches("SELECT TIME '01:23:45.123456'");
+        assertThat(query("SELECT TIME '01:23:45.123456789'")).matches("SELECT TIME '01:23:45.123456789'");
+        assertThat(query("SELECT TIME '01:23:45.123456789012'")).matches("SELECT TIME '01:23:45.123456789012'");
+
+        QueryAssert queryAssert = assertThat(query("SELECT TIME '01:23:45.123456789012'"));
+        assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789013'"))
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(01:23:45.123456789012)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(01:23:45.123456789013)]>");
+    }
+
     @Test
     public void testTimeWithTimeZoneLiterals()
     {
@@ -118,6 +139,32 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEquals(computeScalar("SELECT TIME '3:04:05 +06:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
         assertEquals(computeScalar("SELECT TIME '3:04:05 +05:07'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(5, 7)));
         assertEquals(computeScalar("SELECT TIME '3:04:05 +03:00'"), OffsetTime.of(3, 4, 5, 0, ZoneOffset.ofHoursMinutes(3, 0)));
+    }
+
+    /**
+     * Tests query runner with results of various precisions, and query assert.
+     */
+    @Test
+    public void testTimeWithTimeZoneQueryResult()
+    {
+        assertThat(query("SELECT TIME '01:23:45.123 +05:07'")).matches("SELECT TIME '01:23:45.123 +05:07'");
+        assertThat(query("SELECT TIME '01:23:45.123456 +05:07'")).matches("SELECT TIME '01:23:45.123456 +05:07'");
+        assertThat(query("SELECT TIME '01:23:45.123456789 +05:07'")).matches("SELECT TIME '01:23:45.123456789 +05:07'");
+        assertThat(query("SELECT TIME '01:23:45.123456789012 +05:07'")).matches("SELECT TIME '01:23:45.123456789012 +05:07'");
+
+        QueryAssert queryAssert = assertThat(query("SELECT TIME '01:23:45.123456789012 +05:07'"));
+        // different second fraction
+        assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789013 +05:07'"))
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(01:23:45.123456789012+05:07)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(01:23:45.123456789013+05:07)]>");
+        // different zone
+        assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789012 +05:42'"))
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(01:23:45.123456789012+05:07)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(01:23:45.123456789012+05:42)]>");
     }
 
     @Test
@@ -132,10 +179,55 @@ public abstract class AbstractTestEngineOnlyQueries
         // TODO assertQuery(kathmandu, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
     }
 
+    /**
+     * Tests query runner with results of various precisions, and query assert.
+     */
+    @Test
+    public void testTimestampQueryResult()
+    {
+        assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123'")).matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123'");
+        assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456'")).matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456'");
+        assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789'")).matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789'");
+        assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012'")).matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012'");
+
+        QueryAssert queryAssert = assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012'"));
+        assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789013'"))
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(2017-01-02 09:12:34.123456789012)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(2017-01-02 09:12:34.123456789013)]>");
+    }
+
     @Test
     public void testTimestampWithTimeZoneLiterals()
     {
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05 +06:00'"), ZonedDateTime.of(1960, 1, 22, 3, 4, 5, 0, ZoneOffset.ofHoursMinutes(6, 0)));
+    }
+
+    /**
+     * Tests query runner with results of various precisions, and query assert.
+     */
+    @Test
+    public void testTimestampWithTimeZoneQueryResult()
+    {
+        assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123 Europe/Warsaw'")).matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123 Europe/Warsaw'");
+        assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456 Europe/Warsaw'")).matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456 Europe/Warsaw'");
+        assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789 Europe/Warsaw'")).matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789 Europe/Warsaw'");
+        assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'")).matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'");
+
+        QueryAssert queryAssert = assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'"));
+        // different second fraction
+        assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789013 Europe/Warsaw'"))
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(2017-01-02 09:12:34.123456789012 Europe/Warsaw)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(2017-01-02 09:12:34.123456789013 Europe/Warsaw)]>");
+        // different zone
+        assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Paris'"))
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(2017-01-02 09:12:34.123456789012 Europe/Warsaw)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(2017-01-02 09:12:34.123456789012 Europe/Paris)]>");
     }
 
     @Test
