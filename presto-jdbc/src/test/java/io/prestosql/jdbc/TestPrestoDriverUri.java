@@ -31,6 +31,7 @@ import static io.prestosql.jdbc.ConnectionProperties.SslVerificationMode.CA;
 import static io.prestosql.jdbc.ConnectionProperties.SslVerificationMode.FULL;
 import static io.prestosql.jdbc.ConnectionProperties.SslVerificationMode.NONE;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -340,6 +341,24 @@ public class TestPrestoDriverUri
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?clientTags=" + clientTags);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(CLIENT_TAGS.getKey()), clientTags);
+    }
+
+    @Test
+    public void testOptionalCatalogAndSchema()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080");
+        assertThat(parameters.getCatalog()).isEmpty();
+        assertThat(parameters.getSchema()).isEmpty();
+    }
+
+    @Test
+    public void testOptionalSchema()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/catalog");
+        assertThat(parameters.getCatalog()).isPresent();
+        assertThat(parameters.getSchema()).isEmpty();
     }
 
     private static void assertUriPortScheme(PrestoDriverUri parameters, int port, String scheme)
