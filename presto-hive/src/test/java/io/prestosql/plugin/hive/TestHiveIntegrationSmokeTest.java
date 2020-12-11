@@ -7534,6 +7534,21 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(withTimestampPrecision(session, HiveTimestampPrecision.NANOSECONDS), sql, "VALUES ('2019-02-03 18:30:00.999999999')");
     }
 
+    @Test
+    public void testSelectFromViewWithoutDefaultCatalogAndSchema()
+    {
+        String viewName = "select_from_view_without_catalog_and_schema_" + randomTableSuffix();
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM nation WHERE nationkey=1");
+        assertQuery("SELECT count(*) FROM " + viewName, "VALUES 1");
+        assertQuery("SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");
+        Session sessionNoCatalog = Session.builder(getSession())
+                .setCatalog(null)
+                .setSchema(null)
+                .build();
+        assertQueryFails(sessionNoCatalog, "SELECT count(*) FROM " + viewName, ".*Schema must be specified when session schema is not set.*");
+        assertQuery(sessionNoCatalog, "SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())

@@ -17,6 +17,7 @@ import io.prestosql.tempto.Requires;
 import io.prestosql.tempto.assertions.QueryAssert;
 import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
+import io.prestosql.tempto.query.QueryExecutor;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
@@ -29,6 +30,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_VIEWS;
+import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
@@ -278,6 +280,19 @@ public class TestHiveViews
         assertViewQuery(
                 "SELECT n_renamed FROM nested_top_view",
                 queryAssert -> queryAssert.containsOnly(row("KENYA")));
+    }
+
+    @Test
+    public void testSelectFromHiveViewWithoutDefaultCatalogAndSchema()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS no_catalog_schema_view");
+        onHive().executeQuery("CREATE VIEW no_catalog_schema_view AS SELECT * FROM nation WHERE n_nationkey = 1");
+
+        QueryExecutor executor = connectToPresto("presto_no_default_catalog");
+        assertThat(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
+                .failsWithMessageMatching(".*Schema must be specified when session schema is not set.*");
+        assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
+                .containsExactly(row(1L));
     }
 
     private static void assertViewQuery(String query, Consumer<QueryAssert> assertion)

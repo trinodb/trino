@@ -36,6 +36,14 @@ databases:
     jdbc_password: "***empty***"
     jdbc_pooling: false
 
+  presto_no_default_catalog:
+    host: ${databases.presto.host}
+    jdbc_driver_class: ${databases.presto.jdbc_driver_class}
+    jdbc_url: jdbc:presto://${databases.presto.host}:${databases.presto.port}
+    jdbc_user: ${databases.presto.jdbc_user}
+    jdbc_password: ${databases.presto.jdbc_password}
+    jdbc_pooling: ${databases.presto.${databases.presto.jdbc_user}}
+
   presto_tpcds:
     host: localhost
     jdbc_driver_class: ${databases.presto.jdbc_driver_class}
