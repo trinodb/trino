@@ -25,6 +25,7 @@ import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class PrestoConnectorAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -67,6 +68,7 @@ public class PrestoConnectorAuthenticationModule
         protected void setup(Binder binder)
         {
             install(new CredentialProviderModule());
+            configBinder(binder).bindConfig(PrestoConnectorCredentialConfig.class);
         }
 
         @Provides

@@ -40,6 +40,7 @@ public class PrestoConnectorModule
     {
         configBinder(binder).bindConfig(PrestoConnectorConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        configBinder(binder).bindConfig(PrestoConnectorJdbcConfig.class);
 
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(PrestoConnectorClient.class).in(Scopes.SINGLETON);
 
