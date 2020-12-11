@@ -81,7 +81,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Parses and extracts parameters from a Presto JDBC URL.
  */
-final class PrestoDriverUri
+public final class PrestoDriverUri
 {
     private static final String JDBC_URL_PREFIX = "jdbc:";
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "presto:";
