@@ -16,6 +16,7 @@ package io.prestosql.tests.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.prestosql.plugin.hive.HiveTimestampPrecision;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert.Row;
 import io.prestosql.tempto.query.QueryExecutor.QueryParam;
@@ -345,85 +346,85 @@ public class TestHiveStorageFormats
                         "1967-01-02 12:34:56.123",
                         ImmutableMap.of(
                                 "MILLISECONDS", "1967-01-02 12:34:56.123",
-                                "MICROSECONDS", "1967-01-02 12:34:56.123",
-                                "NANOSECONDS", "1967-01-02 12:34:56.123")),
+                                "MICROSECONDS", "1967-01-02 12:34:56.123000",
+                                "NANOSECONDS", "1967-01-02 12:34:56.123000000")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "2020-01-02 12:34:56.123",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
-                                "MICROSECONDS", "2020-01-02 12:34:56.123",
-                                "NANOSECONDS", "2020-01-02 12:34:56.123")),
+                                "MICROSECONDS", "2020-01-02 12:34:56.123000",
+                                "NANOSECONDS", "2020-01-02 12:34:56.123000000")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "1967-01-02 12:34:56.1234",
                         ImmutableMap.of(
                                 "MILLISECONDS", "1967-01-02 12:34:56.123",
-                                "MICROSECONDS", "1967-01-02 12:34:56.1234",
-                                "NANOSECONDS", "1967-01-02 12:34:56.1234")),
+                                "MICROSECONDS", "1967-01-02 12:34:56.123400",
+                                "NANOSECONDS", "1967-01-02 12:34:56.123400000")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "2020-01-02 12:34:56.1234",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
-                                "MICROSECONDS", "2020-01-02 12:34:56.1234",
-                                "NANOSECONDS", "2020-01-02 12:34:56.1234")),
+                                "MICROSECONDS", "2020-01-02 12:34:56.123400",
+                                "NANOSECONDS", "2020-01-02 12:34:56.123400000")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "1967-01-02 12:34:56.1236",
                         ImmutableMap.of(
                                 "MILLISECONDS", "1967-01-02 12:34:56.124",
-                                "MICROSECONDS", "1967-01-02 12:34:56.1236",
-                                "NANOSECONDS", "1967-01-02 12:34:56.1236")),
+                                "MICROSECONDS", "1967-01-02 12:34:56.123600",
+                                "NANOSECONDS", "1967-01-02 12:34:56.123600000")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "2020-01-02 12:34:56.1236",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.124",
-                                "MICROSECONDS", "2020-01-02 12:34:56.1236",
-                                "NANOSECONDS", "2020-01-02 12:34:56.1236")),
+                                "MICROSECONDS", "2020-01-02 12:34:56.123600",
+                                "NANOSECONDS", "2020-01-02 12:34:56.123600000")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "1967-01-02 12:34:56.123456",
                         ImmutableMap.of(
                                 "MILLISECONDS", "1967-01-02 12:34:56.123",
                                 "MICROSECONDS", "1967-01-02 12:34:56.123456",
-                                "NANOSECONDS", "1967-01-02 12:34:56.123456")),
+                                "NANOSECONDS", "1967-01-02 12:34:56.123456000")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "2020-01-02 12:34:56.123456",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
                                 "MICROSECONDS", "2020-01-02 12:34:56.123456",
-                                "NANOSECONDS", "2020-01-02 12:34:56.123456")),
+                                "NANOSECONDS", "2020-01-02 12:34:56.123456000")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "1967-01-02 12:34:56.1234564",
                         ImmutableMap.of(
                                 "MILLISECONDS", "1967-01-02 12:34:56.123",
                                 "MICROSECONDS", "1967-01-02 12:34:56.123456",
-                                "NANOSECONDS", "1967-01-02 12:34:56.1234564")),
+                                "NANOSECONDS", "1967-01-02 12:34:56.123456400")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "2020-01-02 12:34:56.1234564",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
                                 "MICROSECONDS", "2020-01-02 12:34:56.123456",
-                                "NANOSECONDS", "2020-01-02 12:34:56.1234564")),
+                                "NANOSECONDS", "2020-01-02 12:34:56.123456400")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "1967-01-02 12:34:56.1234567",
                         ImmutableMap.of(
                                 "MILLISECONDS", "1967-01-02 12:34:56.123",
                                 "MICROSECONDS", "1967-01-02 12:34:56.123457",
-                                "NANOSECONDS", "1967-01-02 12:34:56.1234567")),
+                                "NANOSECONDS", "1967-01-02 12:34:56.123456700")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "2020-01-02 12:34:56.1234567",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
                                 "MICROSECONDS", "2020-01-02 12:34:56.123457",
-                                "NANOSECONDS", "2020-01-02 12:34:56.1234567")),
+                                "NANOSECONDS", "2020-01-02 12:34:56.123456700")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "1967-01-02 12:34:56.123456789",
@@ -461,43 +462,43 @@ public class TestHiveStorageFormats
                         "2020-01-02 12:34:56.123",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
-                                "MICROSECONDS", "2020-01-02 12:34:56.123",
-                                "NANOSECONDS", "2020-01-02 12:34:56.123")),
+                                "MICROSECONDS", "2020-01-02 12:34:56.123000",
+                                "NANOSECONDS", "2020-01-02 12:34:56.123000000")),
                 new TimestampAndPrecision(
                         "MILLISECONDS",
                         "2020-01-02 12:34:56.1234",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
-                                "MICROSECONDS", "2020-01-02 12:34:56.123",
-                                "NANOSECONDS", "2020-01-02 12:34:56.123")),
+                                "MICROSECONDS", "2020-01-02 12:34:56.123000",
+                                "NANOSECONDS", "2020-01-02 12:34:56.123000000")),
                 new TimestampAndPrecision(
                         "MILLISECONDS",
                         "2020-01-02 12:34:56.1236",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.124",
-                                "MICROSECONDS", "2020-01-02 12:34:56.124",
-                                "NANOSECONDS", "2020-01-02 12:34:56.124")),
+                                "MICROSECONDS", "2020-01-02 12:34:56.124000",
+                                "NANOSECONDS", "2020-01-02 12:34:56.124000000")),
                 new TimestampAndPrecision(
                         "MICROSECONDS",
                         "2020-01-02 12:34:56.123456",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
                                 "MICROSECONDS", "2020-01-02 12:34:56.123456",
-                                "NANOSECONDS", "2020-01-02 12:34:56.123456")),
+                                "NANOSECONDS", "2020-01-02 12:34:56.123456000")),
                 new TimestampAndPrecision(
                         "MICROSECONDS",
                         "2020-01-02 12:34:56.1234564",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
                                 "MICROSECONDS", "2020-01-02 12:34:56.123456",
-                                "NANOSECONDS", "2020-01-02 12:34:56.123456")),
+                                "NANOSECONDS", "2020-01-02 12:34:56.123456000")),
                 new TimestampAndPrecision(
                         "MICROSECONDS",
                         "2020-01-02 12:34:56.1234567",
                         ImmutableMap.of(
                                 "MILLISECONDS", "2020-01-02 12:34:56.123",
                                 "MICROSECONDS", "2020-01-02 12:34:56.123457",
-                                "NANOSECONDS", "2020-01-02 12:34:56.123457")),
+                                "NANOSECONDS", "2020-01-02 12:34:56.123457000")),
                 new TimestampAndPrecision(
                         "NANOSECONDS",
                         "2020-01-02 12:34:56.123456789",
@@ -534,18 +535,9 @@ public class TestHiveStorageFormats
         for (TimestampAndPrecision entry : data) {
             for (String precision : List.of("MILLISECONDS", "MICROSECONDS", "NANOSECONDS")) {
                 setSessionProperty(onPresto().getConnection(), "hive.timestamp_precision", precision);
-                assertThat(onPresto().executeQuery(format("SELECT ts FROM %s WHERE id = %s", tableName, entry.getId())))
-                        .containsOnly(row(Timestamp.valueOf(entry.getReadValues(precision))));
-                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts = TIMESTAMP'%s'", tableName, entry.getId(), entry.getReadValues(precision))))
-                        .containsOnly(row(entry.getId()));
-                if (entry.isRoundedUp(precision)) {
-                    assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts > TIMESTAMP'%s'", tableName, entry.getId(), entry.getWriteValue())))
-                            .containsOnly(row(entry.getId()));
-                }
-                if (entry.isRoundedDown(precision)) {
-                    assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts < TIMESTAMP'%s'", tableName, entry.getId(), entry.getWriteValue())))
-                            .containsOnly(row(entry.getId()));
-                }
+                // Assert also with `CAST AS varchar` on the server side to avoid any JDBC-related issues
+                assertThat(onPresto().executeQuery(format("SELECT id, typeof(ts), CAST(ts AS varchar), ts FROM %s WHERE id = %s", tableName, entry.getId())))
+                        .containsOnly(row(entry.getId(), entry.getReadType(precision), entry.getReadValues(precision), Timestamp.valueOf(entry.getReadValues(precision))));
             }
         }
         onPresto().executeQuery("DROP TABLE " + tableName);
@@ -711,22 +703,12 @@ public class TestHiveStorageFormats
 
         public String getReadValues(String precision)
         {
-            return readValues.get(precision);
+            return requireNonNull(readValues.get(precision), () -> "no read value for " + precision);
         }
 
-        private int roundingSign(String precision)
+        public String getReadType(String precision)
         {
-            return Timestamp.valueOf(readValues.get(precision)).compareTo(Timestamp.valueOf(writeValue));
-        }
-
-        public boolean isRoundedUp(String precision)
-        {
-            return roundingSign(precision) > 0;
-        }
-
-        public boolean isRoundedDown(String precision)
-        {
-            return roundingSign(precision) < 0;
+            return format("timestamp(%s)", HiveTimestampPrecision.valueOf(precision).getPrecision());
         }
     }
 }
