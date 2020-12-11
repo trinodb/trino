@@ -255,7 +255,7 @@ public class TestTimeWithTimeZone
 
         assertThat(assertions.expression("TIME '12:34:56.123456789123-14:00'"))
                 .hasType(createTimeWithTimeZoneType(12))
-                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, 14 * 60));
+                .isEqualTo(timeWithTimeZone(12, 12, 34, 56, 123_456_789_123L, -14 * 60));
 
         assertThatThrownBy(() -> assertions.expression("TIME '12:34:56.1234567891234+08:35'"))
                 .hasMessage("line 1:8: TIME WITH TIME ZONE precision must be in range [0, 12]: 13");
