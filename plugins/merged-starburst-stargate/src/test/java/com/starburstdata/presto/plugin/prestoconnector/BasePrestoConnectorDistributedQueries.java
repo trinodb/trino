@@ -102,7 +102,6 @@ public abstract class BasePrestoConnectorDistributedQueries
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         switch (dataMappingTestSetup.getPrestoTypeName()) {
-            case "time":
             case "timestamp":
             case "timestamp(3) with time zone":
                 // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4760) implement mapping for date-time types

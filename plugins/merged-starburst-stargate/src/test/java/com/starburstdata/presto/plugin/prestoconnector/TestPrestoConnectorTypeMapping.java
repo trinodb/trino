@@ -15,6 +15,7 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.TestingSession;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAndPrestoInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
@@ -25,11 +26,13 @@ import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -52,19 +55,40 @@ import static io.prestosql.testing.datatype.DataType.doubleDataType;
 import static io.prestosql.testing.datatype.DataType.integerDataType;
 import static io.prestosql.testing.datatype.DataType.realDataType;
 import static io.prestosql.testing.datatype.DataType.smallintDataType;
+import static io.prestosql.testing.datatype.DataType.timeDataType;
 import static io.prestosql.testing.datatype.DataType.tinyintDataType;
 import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrestoConnectorTypeMapping
         extends AbstractTestQueryFramework
 {
+    private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
+
     private DistributedQueryRunner remotePresto;
     private PrestoSqlExecutor remoteExecutor;
+
+    private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+    private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
+    private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
+
+    // no DST in 1970, but has DST in later years (e.g. 2018)
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+    private final LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
+    private final LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
+
+    // minutes offset change since 1970-01-01, no DST
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+    private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -86,6 +110,15 @@ public class TestPrestoConnectorTypeMapping
     @BeforeClass
     public void setUp()
     {
+        checkIsGap(jvmZone, timeGapInJvmZone1);
+        checkIsGap(jvmZone, timeGapInJvmZone2);
+        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
+
+        checkIsGap(vilnius, timeGapInVilnius);
+        checkIsDoubled(vilnius, timeDoubledInVilnius);
+
+        checkIsGap(kathmandu, timeGapInKathmandu);
+
         remoteExecutor = new PrestoSqlExecutor(
                 remotePresto,
                 Session.builder(remotePresto.getDefaultSession())
@@ -295,6 +328,99 @@ public class TestPrestoConnectorTypeMapping
         }
     }
 
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTime(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34);
+        checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
+
+        DataTypeTest testCases = DataTypeTest.create()
+                .addRoundTrip(timeDataType(0), LocalTime.of(1, 12, 34, 0))
+                .addRoundTrip(timeDataType(9), LocalTime.of(23, 59, 59))
+                .addRoundTrip(timeDataType(9), LocalTime.of(23, 59, 59, 123_456_789))
+                .addRoundTrip(timeDataType(1), LocalTime.of(2, 12, 34, 100_000_000))
+                .addRoundTrip(timeDataType(2), LocalTime.of(2, 12, 34, 10_000_000))
+                .addRoundTrip(timeDataType(3), LocalTime.of(2, 12, 34, 1_000_000))
+                .addRoundTrip(timeDataType(4), LocalTime.of(2, 12, 34, 100_000))
+                .addRoundTrip(timeDataType(5), LocalTime.of(2, 12, 34, 10_000))
+                .addRoundTrip(timeDataType(6), LocalTime.of(2, 12, 34, 1_000))
+                .addRoundTrip(timeDataType(7), LocalTime.of(2, 12, 34, 100))
+                .addRoundTrip(timeDataType(8), LocalTime.of(2, 12, 34, 10))
+                .addRoundTrip(timeDataType(9), LocalTime.of(2, 12, 34, 1))
+                // maximum possible value for given precision
+                .addRoundTrip(timeDataType(0), LocalTime.of(23, 59, 59))
+                .addRoundTrip(timeDataType(3), LocalTime.of(23, 59, 59, 999_000_000))
+                .addRoundTrip(timeDataType(6), LocalTime.of(23, 59, 59, 999_999_000))
+                .addRoundTrip(timeDataType(9), LocalTime.of(23, 59, 59, 999_999_999))
+                // epoch is also a gap in JVM zone
+                .addRoundTrip(timeDataType(0), epoch.toLocalTime())
+                .addRoundTrip(timeDataType(3), epoch.toLocalTime())
+                .addRoundTrip(timeDataType(6), epoch.toLocalTime())
+                .addRoundTrip(timeDataType(9), epoch.toLocalTime())
+                .addRoundTrip(timeDataType(0), timeGapInJvmZone.withNano(0))
+                .addRoundTrip(timeDataType(3), timeGapInJvmZone.withNano(567_000_000))
+                .addRoundTrip(timeDataType(6), timeGapInJvmZone.withNano(567_123_000))
+                .addRoundTrip(timeDataType(9), timeGapInJvmZone.withNano(567_123_456));
+
+        testCases.execute(getQueryRunner(), session, remotePrestoCreated("test_time"));
+        testCases.execute(getQueryRunner(), session, remotePrestoCreatedPrestoConnectorInserted(session, "test_time"));
+        testCases.execute(getQueryRunner(), session, prestoConnectorCreateAsSelect(session, "test_time"));
+        testCases.execute(getQueryRunner(), session, prestoConnectorCreateAndInsert(session, "test_time"));
+    }
+
+    /**
+     * Additional test supplementing {@link #testTime} with timestamp precision higher than expressible with {@code LocalTime}.
+     *
+     * @see #testTime
+     */
+    @Test
+    public void testTimePrecision()
+    {
+        testTimePrecision("TIME '00:00:00'");
+        testTimePrecision("TIME '00:34:56'");
+        testTimePrecision("TIME '01:34:56'");
+        testTimePrecision("TIME '12:34:56'");
+        testTimePrecision("TIME '23:59:59'");
+        testTimePrecision("TIME '00:00:00.123456'");
+
+        // minimum possible non-zero value for given precision
+        testTimePrecision("TIME '00:00:00.1'");
+        testTimePrecision("TIME '00:00:00.01'");
+        testTimePrecision("TIME '00:00:00.001'");
+        testTimePrecision("TIME '00:00:00.0001'");
+        testTimePrecision("TIME '00:00:00.00001'");
+        testTimePrecision("TIME '00:00:00.000001'");
+        testTimePrecision("TIME '00:00:00.0000001'");
+        testTimePrecision("TIME '00:00:00.00000001'");
+        testTimePrecision("TIME '00:00:00.000000001'");
+        testTimePrecision("TIME '00:00:00.0000000001'");
+        testTimePrecision("TIME '00:00:00.00000000001'");
+        testTimePrecision("TIME '00:00:00.000000000001'");
+
+        // maximum possible value for given precision
+        testTimePrecision("TIME '23:59:59.9'");
+        testTimePrecision("TIME '23:59:59.99'");
+        testTimePrecision("TIME '23:59:59.999'");
+        testTimePrecision("TIME '23:59:59.9999'");
+        testTimePrecision("TIME '23:59:59.99999'");
+        testTimePrecision("TIME '23:59:59.999999'");
+        testTimePrecision("TIME '23:59:59.9999999'");
+        testTimePrecision("TIME '23:59:59.99999999'");
+        testTimePrecision("TIME '23:59:59.999999999'");
+        testTimePrecision("TIME '23:59:59.9999999999'");
+        testTimePrecision("TIME '23:59:59.99999999999'");
+        testTimePrecision("TIME '23:59:59.999999999999'");
+    }
+
+    private void testTimePrecision(String literal)
+    {
+        testCreateTableAsAndInsertConsistency(literal, literal);
+    }
+
     @Test
     public void testForcedMappingToVarchar()
     {
@@ -401,6 +527,43 @@ public class TestPrestoConnectorTypeMapping
                     "SELECT * FROM " + table.getName(),
                     format("VALUES ('null', NULL), ('value', %s), ('inserted null', NULL), ('inserted implicit null', NULL)", expectedReturnedValue));
         }
+    }
+
+    private void testCreateTableAsAndInsertConsistency(String inputLiteral, String expectedResult)
+    {
+        String tableName = "test_ctas_and_insert_" + randomTableSuffix();
+
+        // CTAS
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT " + inputLiteral + " a", 1);
+        assertThat(query("SELECT a FROM " + tableName))
+                .matches("VALUES " + expectedResult);
+        assertUpdate("DROP TABLE " + tableName);
+
+        // INSERT as a control query, where the coercion is done by the engine
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT " + inputLiteral + " a WITH NO DATA", 0);
+        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (" + inputLiteral + ")", 1);
+        assertThat(query("SELECT a FROM " + tableName))
+                .matches("VALUES " + expectedResult);
+
+        // opportunistically test predicate pushdown if applies to given type
+        assertThat(query("SELECT count(*) FROM " + tableName + " WHERE a = " + expectedResult))
+                .matches("VALUES BIGINT '1'")
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] sessionZonesDataProvider()
+    {
+        return new Object[][] {
+                {UTC},
+                {jvmZone},
+                // using two non-JVM zones
+                {vilnius},
+                {kathmandu},
+                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+        };
     }
 
     private DataSetup remotePrestoCreated(String tableNamePrefix)

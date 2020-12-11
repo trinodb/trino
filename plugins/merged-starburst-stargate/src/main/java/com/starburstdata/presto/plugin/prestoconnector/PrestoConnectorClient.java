@@ -57,6 +57,8 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoDateColumnMapping;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeColumnMapping;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeWriteMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -278,11 +280,10 @@ public class PrestoConnectorClient
             case Types.DATE:
                 return Optional.of(prestoDateColumnMapping());
 
+            case Types.TIME:
+                return Optional.of(prestoTimeColumnMapping(typeHandle.getRequiredDecimalDigits()));
+
 // TODO
-//            case Types.TIME:
-//                // TODO default to `timeColumnMapping`
-//                return Optional.of(timeColumnMappingUsingSqlTime());
-//
 //            case Types.TIMESTAMP:
 //                // TODO default to `timestampColumnMapping`
 //                return Optional.of(timestampColumnMappingUsingSqlTimestamp(TIMESTAMP_MILLIS));
@@ -427,6 +428,10 @@ public class PrestoConnectorClient
 
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
+        }
+
+        if (type instanceof TimeType) {
+            return prestoTimeWriteMapping((TimeType) type);
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
