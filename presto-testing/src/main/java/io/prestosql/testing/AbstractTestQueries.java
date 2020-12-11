@@ -21,6 +21,7 @@ import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.tests.QueryTemplate;
 import io.prestosql.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -652,10 +653,10 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
     }
 
-    @Test
-    public void testLargeIn()
+    @Test(dataProvider = "largeInValuesCount")
+    public void testLargeIn(int valuesCount)
     {
-        String longValues = range(0, 5000)
+        String longValues = range(0, valuesCount)
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
@@ -663,6 +664,17 @@ public abstract class AbstractTestQueries
 
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
         assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+    }
+
+    @DataProvider
+    public static Object[][] largeInValuesCount()
+    {
+        return new Object[][] {
+                {200},
+                {500},
+                {1000},
+                {5000}
+        };
     }
 
     @Test
