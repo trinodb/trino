@@ -850,22 +850,33 @@ public class SignatureBinder
                     else {
                         // if an existing value doesn't exist for the given variable name, use the value that comes from the actual type.
                         String formalBase = formalTypeSignature.getBase();
+                        Optional<Type> typeBefore = typeCoercion.coerceTypeBase(actualType, formalBase);
                         Optional<Type> type = typeCoercion.coerceTypeBase(actualType, formalBase);
+                        Optional<Type> typeAfter = typeCoercion.coerceTypeBase(actualType, formalBase);
                         if (type.isEmpty()) {
                             return SolverReturnStatus.UNSOLVABLE;
                         }
                         TypeSignature typeSignature = type.get().getTypeSignature();
-                        verify(
-                                type.get().getBaseName().equals(typeSignature.getBase()) &&
-                                        typeSignature.getBase().equals(formalBase) &&
-                                        i < typeSignature.getParameters().size(),
-                                "Expected type signature %s of type %s (coerced %s to %s base name (%s)) to have parameter count greater than %s and same base",
-                                typeSignature,
-                                type.get(),
-                                actualType,
-                                formalTypeSignature,
-                                formalBase,
-                                i);
+                        boolean isEverythingAlright = type.get().getBaseName().equals(typeSignature.getBase()) &&
+                                typeSignature.getBase().equals(formalBase) &&
+                                typeBefore.equals(type) &&
+                                typeAfter.equals(type) &&
+                                i < typeSignature.getParameters().size();
+                        if (!isEverythingAlright) {
+                            Optional<Type> typeAgain = typeCoercion.coerceTypeBase(actualType, formalBase);
+                            throw new VerifyException(format(
+                                    "Expected type signature %s of type %s (coerced %s to %s base name (%s)) to have parameter count greater than %s and same base; " +
+                                            "type{Before,After,Again} = %s, %s, %s",
+                                    typeSignature,
+                                    type.get(),
+                                    actualType,
+                                    formalTypeSignature,
+                                    formalBase,
+                                    i,
+                                    typeBefore.orElse(null),
+                                    typeAfter.orElse(null),
+                                    typeAgain.orElse(null)));
+                        }
                         originalTypeTypeParametersBuilder.add(TypeSignatureParameter.numericParameter(typeSignature.getParameters().get(i).getLongLiteral()));
                     }
                 }
