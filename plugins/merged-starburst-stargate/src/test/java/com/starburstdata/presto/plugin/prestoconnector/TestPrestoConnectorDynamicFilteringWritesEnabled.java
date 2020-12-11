@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 
@@ -28,7 +28,7 @@ public class TestPrestoConnectorDynamicFilteringWritesEnabled
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
+        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
                 List.of(ORDERS)));
         return createPrestoConnectorQueryRunner(

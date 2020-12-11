@@ -18,7 +18,7 @@ import org.testng.SkipException;
 import java.util.Map;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 
 public class TestPrestoConnectorDistributedQueriesWritesEnabled
@@ -28,7 +28,7 @@ public class TestPrestoConnectorDistributedQueriesWritesEnabled
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
+        DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
                 TpchTable.getTables()));
         return createPrestoConnectorQueryRunner(

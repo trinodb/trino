@@ -45,7 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
@@ -113,7 +113,7 @@ public class TestPrestoConnectorTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        remotePresto = createRemotePrestoQueryRunner(
+        remotePresto = createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
                 List.of());
         return createPrestoConnectorQueryRunner(

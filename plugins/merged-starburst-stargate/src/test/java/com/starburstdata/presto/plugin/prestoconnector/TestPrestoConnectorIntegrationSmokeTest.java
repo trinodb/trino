@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -38,7 +38,7 @@ public class TestPrestoConnectorIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        remotePresto = closeAfterClass(createRemotePrestoQueryRunner(
+        remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
                 List.of()));
         DistributedQueryRunner queryRunner = createPrestoConnectorQueryRunner(

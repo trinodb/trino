@@ -33,7 +33,7 @@ public final class PrestoConnectorQueryRunner
 {
     private PrestoConnectorQueryRunner() {}
 
-    public static DistributedQueryRunner createRemotePrestoQueryRunner(
+    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithMemory(
             Map<String, String> extraProperties,
             Iterable<TpchTable<?>> requiredTablesInMemoryConnector)
             throws Exception
