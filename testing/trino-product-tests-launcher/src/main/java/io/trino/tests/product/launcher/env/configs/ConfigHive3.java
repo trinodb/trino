@@ -13,35 +13,33 @@
  */
 package io.trino.tests.product.launcher.env.configs;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
 
 import javax.inject.Inject;
 
+import java.util.List;
+
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.PRESTO;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
-public class ConfigHdp3
+public class ConfigHive3
         extends ConfigDefault
 {
     private final DockerFiles dockerFiles;
 
     @Inject
-    public ConfigHdp3(DockerFiles dockerFiles)
+    public ConfigHive3(DockerFiles dockerFiles)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
     }
 
-    /**
-     * export HADOOP_BASE_IMAGE="ghcr.io/trinodb/testing/hdp3.1-hive"
-     * export TEMPTO_ENVIRONMENT_CONFIG_FILE="/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hive3.yaml"
-     * export DISTRO_SKIP_GROUP=iceberg
-     */
     @Override
     public String getHadoopBaseImage()
     {
-        return "ghcr.io/trinodb/testing/hdp3.1-hive";
+        return "ghcr.io/trinodb/testing/hive3.1-hive";
     }
 
     @Override
@@ -50,7 +48,7 @@ public class ConfigHdp3
         builder.configureContainers(container -> {
             if (container.getLogicalName().startsWith(PRESTO)) {
                 container.withCopyFileToContainer(forHostPath(
-                        // HDP3's handling of timestamps is incompatible with previous versions of Hive (see https://issues.apache.org/jira/browse/HIVE-21002);
+                        // Hive 3.1's handling of timestamps is incompatible with previous versions of Hive (see https://issues.apache.org/jira/browse/HIVE-21002);
                         // in order for Presto to deal with the differences, we must set catalog properties for Parquet and RCFile
                         dockerFiles.getDockerFilesHostPath("common/standard/trino-init-hive3.sh")),
                         "/docker/presto-init.d/trino-init-hive3.sh");
@@ -59,8 +57,31 @@ public class ConfigHdp3
     }
 
     @Override
+    public List<String> getExcludedGroups()
+    {
+        return ImmutableList.of("hive_transactional", "skip_on_cdh");
+    }
+
+    @Override
     public String getTemptoEnvironmentConfigFile()
     {
         return "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hive3.yaml";
     }
+
+    @Override
+    public List<String> getExcludedTests()
+    {
+        return ImmutableList.of(
+                "io.trino.tests.product.hive.TestHiveBucketedTables.testBucketingVersion",
+                "io.trino.tests.product.hive.TestHiveBucketedTables.testSelectFromIncompleteBucketedTableEmptyTablesAllowed",
+                "io.trino.tests.product.hive.TestHiveMaterializedView.testMetadata",
+                "io.trino.tests.product.hive.TestHiveMaterializedView.testRead",
+                "io.trino.tests.product.hive.TestHiveMaterializedView.testWrite");
+    }
+
+//    @Override
+//    public String getHadoopImagesVersion()
+//    {
+//        return "latest";
+//    }
 }
