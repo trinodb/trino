@@ -30,7 +30,7 @@ public class TestJdbcDistributedQueries
     }
 
     @Override
-    public void testLargeIn()
+    public void testLargeIn(int valuesCount)
     {
     }
 }
