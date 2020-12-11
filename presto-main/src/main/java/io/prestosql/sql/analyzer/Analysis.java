@@ -98,6 +98,7 @@ public class Analysis
     private final Statement root;
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private String updateType;
+    // TODO Reference by NodeRef instead name so we can distinguish actual target from other references to same table in the query
     private Optional<QualifiedObjectName> target = Optional.empty();
     private boolean skipMaterializedViewRefresh;
 
@@ -219,8 +220,9 @@ public class Analysis
         this.target = Optional.empty();
     }
 
-    public boolean isDeleteTarget(QualifiedObjectName name)
+    public boolean isDeleteTarget(Table table)
     {
+        QualifiedObjectName name = tables.get(NodeRef.of(table)).getName();
         return "DELETE".equals(updateType) && Optional.of(name).equals(target);
     }
 
