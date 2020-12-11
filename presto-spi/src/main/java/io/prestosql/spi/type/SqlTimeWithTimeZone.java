@@ -67,7 +67,9 @@ public final class SqlTimeWithTimeZone
         }
 
         SqlTimeWithTimeZone other = (SqlTimeWithTimeZone) o;
-        return precision == other.precision && normalizePicos(picos, offsetMinutes) == normalizePicos(other.picos, offsetMinutes);
+        return precision == other.precision &&
+                // TODO the equals here should probably compare precision, picos, offsetMinutes directly, without interpretation
+                normalizePicos(picos, offsetMinutes) == normalizePicos(other.picos, other.offsetMinutes);
     }
 
     @Override
