@@ -93,8 +93,8 @@ final class PrestoDriverUri
 
     private final Properties properties;
 
-    private String catalog;
-    private String schema;
+    private Optional<String> catalog = Optional.empty();
+    private Optional<String> schema = Optional.empty();
 
     private final boolean useSecureConnection;
 
@@ -124,12 +124,12 @@ final class PrestoDriverUri
         return uri;
     }
 
-    public String getSchema()
+    public Optional<String> getSchema()
     {
         return schema;
     }
 
-    public String getCatalog()
+    public Optional<String> getCatalog()
     {
         return catalog;
     }
@@ -355,13 +355,15 @@ final class PrestoDriverUri
         if (parts.get(0).isEmpty()) {
             throw new SQLException("Catalog name is empty: " + uri);
         }
-        catalog = parts.get(0);
+
+        catalog = Optional.ofNullable(parts.get(0));
 
         if (parts.size() > 1) {
             if (parts.get(1).isEmpty()) {
                 throw new SQLException("Schema name is empty: " + uri);
             }
-            schema = parts.get(1);
+
+            schema = Optional.ofNullable(parts.get(1));
         }
     }
 
