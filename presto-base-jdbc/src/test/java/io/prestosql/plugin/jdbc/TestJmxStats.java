@@ -40,7 +40,7 @@ public class TestJmxStats
     {
         Plugin plugin = new JdbcPlugin("base-jdbc", new TestingH2JdbcModule());
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:driver:"), new TestingConnectorContext());
         MBeanServer mbeanServer = getPlatformMBeanServer();
         Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("io.prestosql.plugin.jdbc:*"), null);
 
