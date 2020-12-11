@@ -1627,14 +1627,21 @@
                                     -Xplugin:ErrorProne
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
                                     -XepDisableAllChecks
+                                    -Xep:ArrayEquals:ERROR
+                                    -Xep:ArrayHashCode:ERROR
                                     -Xep:ArrayToString:ERROR
+                                    -Xep:ArrayToString:ERROR
+                                    -Xep:ArraysAsListPrimitiveArray:ERROR
                                     -Xep:BadInstanceof:ERROR
                                     -Xep:BoxedPrimitiveConstructor:ERROR
                                     -Xep:ClassCanBeStatic:ERROR
                                     -Xep:CompareToZero:ERROR
+                                    -Xep:ComparingThisWithNull:ERROR
                                     -Xep:EqualsIncompatibleType:ERROR
+                                    -Xep:FormatString:ERROR
                                     -Xep:GetClassOnClass:ERROR
                                     -Xep:InconsistentHashCode:ERROR
+                                    -Xep:InjectOnConstructorOfAbstractClass:ERROR
                                     -Xep:MissingOverride:ERROR
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
