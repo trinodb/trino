@@ -76,6 +76,8 @@ import static io.prestosql.jdbc.TestingJdbcUtils.list;
 import static io.prestosql.jdbc.TestingJdbcUtils.readRows;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.TimeType.createTimeType;
+import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -738,11 +740,29 @@ public class TestPrestoDatabaseMetaData
                             "c_char_345 char(345), " +
                             "c_varbinary varbinary, " +
                             "c_time time, " +
+                            "c_time_0 time(0), " +
+                            "c_time_3 time(3), " +
+                            "c_time_6 time(6), " +
+                            "c_time_9 time(9), " +
+                            "c_time_12 time(12), " +
                             "c_time_with_time_zone time with time zone, " +
+                            "c_time_with_time_zone_0 time(0) with time zone, " +
+                            "c_time_with_time_zone_3 time(3) with time zone, " +
+                            "c_time_with_time_zone_6 time(6) with time zone, " +
+                            "c_time_with_time_zone_9 time(9) with time zone, " +
+                            "c_time_with_time_zone_12 time(12) with time zone, " +
                             "c_timestamp timestamp, " +
-                            "c_timestamp_nano timestamp(9), " +
+                            "c_timestamp_0 timestamp(0), " +
+                            "c_timestamp_3 timestamp(3), " +
+                            "c_timestamp_6 timestamp(6), " +
+                            "c_timestamp_9 timestamp(9), " +
+                            "c_timestamp_12 timestamp(12), " +
                             "c_timestamp_with_time_zone timestamp with time zone, " +
-                            "c_timestamp_with_time_zone_nano timestamp(9) with time zone, " +
+                            "c_timestamp_with_time_zone_0 timestamp(0) with time zone, " +
+                            "c_timestamp_with_time_zone_3 timestamp(3) with time zone, " +
+                            "c_timestamp_with_time_zone_6 timestamp(6) with time zone, " +
+                            "c_timestamp_with_time_zone_9 timestamp(9) with time zone, " +
+                            "c_timestamp_with_time_zone_12 timestamp(12) with time zone, " +
                             "c_date date, " +
                             "c_decimal_8_2 decimal(8,2), " +
                             "c_decimal_38_0 decimal(38,0), " +
@@ -763,12 +783,30 @@ public class TestPrestoDatabaseMetaData
                 assertColumnSpec(rs, Types.VARCHAR, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, createUnboundedVarcharType());
                 assertColumnSpec(rs, Types.CHAR, 345L, null, null, 345L, createCharType(345));
                 assertColumnSpec(rs, Types.VARBINARY, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
-                assertColumnSpec(rs, Types.TIME, 12L, null, null, null, TimeType.TIME);
-                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, null, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
-                assertColumnSpec(rs, Types.TIMESTAMP, 25L, null, null, null, TimestampType.TIMESTAMP_MILLIS);
-                assertColumnSpec(rs, Types.TIMESTAMP, 31L, null, null, null, createTimestampType(9));
-                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, null, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
-                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 65L, null, null, null, createTimestampWithTimeZoneType(9));
+                assertColumnSpec(rs, Types.TIME, 12L, null, 3L, null, TimeType.TIME);
+                assertColumnSpec(rs, Types.TIME, 8L, null, 0L, null, createTimeType(0));
+                assertColumnSpec(rs, Types.TIME, 12L, null, 3L, null, createTimeType(3));
+                assertColumnSpec(rs, Types.TIME, 15L, null, 6L, null, createTimeType(6));
+                assertColumnSpec(rs, Types.TIME, 18L, null, 9L, null, createTimeType(9));
+                assertColumnSpec(rs, Types.TIME, 21L, null, 12L, null, createTimeType(12));
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, 3L, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, 0L, null, createTimeWithTimeZoneType(0));
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, 3L, null, createTimeWithTimeZoneType(3));
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 21L, null, 6L, null, createTimeWithTimeZoneType(6));
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 24L, null, 9L, null, createTimeWithTimeZoneType(9));
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 27L, null, 12L, null, createTimeWithTimeZoneType(12));
+                assertColumnSpec(rs, Types.TIMESTAMP, 25L, null, 3L, null, TimestampType.TIMESTAMP);
+                assertColumnSpec(rs, Types.TIMESTAMP, 21L, null, 0L, null, createTimestampType(0));
+                assertColumnSpec(rs, Types.TIMESTAMP, 25L, null, 3L, null, createTimestampType(3));
+                assertColumnSpec(rs, Types.TIMESTAMP, 28L, null, 6L, null, createTimestampType(6));
+                assertColumnSpec(rs, Types.TIMESTAMP, 31L, null, 9L, null, createTimestampType(9));
+                assertColumnSpec(rs, Types.TIMESTAMP, 34L, null, 12L, null, createTimestampType(12));
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, 3L, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 55L, null, 0L, null, createTimestampWithTimeZoneType(0));
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, 3L, null, createTimestampWithTimeZoneType(3));
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 62L, null, 6L, null, createTimestampWithTimeZoneType(6));
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 65L, null, 9L, null, createTimestampWithTimeZoneType(9));
+                assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 68L, null, 12L, null, createTimestampWithTimeZoneType(12));
                 assertColumnSpec(rs, Types.DATE, 14L, null, null, null, DateType.DATE);
                 assertColumnSpec(rs, Types.DECIMAL, 8L, 10L, 2L, null, createDecimalType(8, 2));
                 assertColumnSpec(rs, Types.DECIMAL, 38L, 10L, 0L, null, createDecimalType(38, 0));
@@ -784,6 +822,7 @@ public class TestPrestoDatabaseMetaData
     {
         String message = " of " + type.getDisplayName() + ": ";
         assertTrue(rs.next());
+        assertEquals(rs.getObject("TYPE_NAME"), type.getDisplayName(), "TYPE_NAME");
         assertEquals(rs.getObject("DATA_TYPE"), (long) jdbcType, "DATA_TYPE" + message);
         assertEquals(rs.getObject("COLUMN_SIZE"), columnSize, "COLUMN_SIZE" + message);
         assertEquals(rs.getObject("NUM_PREC_RADIX"), numPrecRadix, "NUM_PREC_RADIX" + message);
