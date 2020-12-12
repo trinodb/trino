@@ -41,7 +41,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.isOptimizeTopNRowNumber;
+import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Marker.Bound.BELOW;
 import static io.trino.spi.predicate.Range.range;
@@ -117,7 +117,7 @@ public class PushPredicateThroughProjectIntoWindow
     @Override
     public boolean isEnabled(Session session)
     {
-        return isOptimizeTopNRowNumber(session);
+        return isOptimizeTopNRanking(session);
     }
 
     @Override

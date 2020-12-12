@@ -120,7 +120,7 @@ public class FeaturesConfig
     private boolean parseDecimalLiteralsAsDouble;
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
-    private boolean optimizeTopNRowNumber = true;
+    private boolean optimizeTopNRanking = true;
     private boolean lateMaterializationEnabled;
     private boolean skipRedundantSort = true;
     private boolean predicatePushdownUseTableProperties = true;
@@ -432,15 +432,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isOptimizeTopNRowNumber()
+    public boolean isOptimizeTopNRanking()
     {
-        return optimizeTopNRowNumber;
+        return optimizeTopNRanking;
     }
 
-    @Config("optimizer.optimize-top-n-row-number")
-    public FeaturesConfig setOptimizeTopNRowNumber(boolean optimizeTopNRowNumber)
+    @Config("optimizer.optimize-top-n-ranking")
+    @LegacyConfig("optimizer.optimize-top-n-row-number")
+    public FeaturesConfig setOptimizeTopNRanking(boolean optimizeTopNRanking)
     {
-        this.optimizeTopNRowNumber = optimizeTopNRowNumber;
+        this.optimizeTopNRanking = optimizeTopNRanking;
         return this;
     }
 
