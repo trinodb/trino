@@ -3,8 +3,9 @@ Pushdown
 ========
 
 Presto can push down the processing of queries, or parts of queries, into the
-connected data source. This means that a specific function, or other operation,
-is passed through to the underlying database or storage system for processing.
+connected data source. This means that a specific predicate, aggregation function,
+or other operation, is passed through to the underlying database or storage system
+for processing.
 
 The results of this pushdown can include the following benefits:
 
@@ -15,22 +16,19 @@ The results of this pushdown can include the following benefits:
 Support for pushdown is specific to each connector and the relevant underlying
 database or storage system.
 
-Analysis and Confirmation
--------------------------
+Aggregation Pushdown
+--------------------
 
-Pushdown depends on a number of factors:
+Aggregation pushdown can take place provided the following conditions are satisfied:
 
-* generic support for pushdown for that function in Presto
-* function or operation specific support for pushdown in the connector
-* query that allows the detection of the function to push down
-* function needs to exist in the underlying system so it can process the
-  pushdown
+* If aggregation pushdown is generally supported by the connector.
+* If pushdown of the specific function or functions is supported by the connector.
+* If the query structure allows pushdown to take place.
 
-The best way to analyze if pushdown for a specific query is performed is to
-take a closer look at the :doc:`EXPLAIN plan </sql/explain>` of the query. If an
-operation such as an aggregate function is successfully pushed down to the
-connector, the explain plan does **not** show that operator. The explain plan
-only shows the operations that are performed by Presto.
+You can check if pushdown for a specific query is performed by looking at the
+:doc:`EXPLAIN plan </sql/explain>` of the query. If an aggregate function is successfully
+pushed down to the connector, the explain plan does **not** show that ``Aggregate`` operator.
+The explain plan only shows the operations that are performed by Presto.
 
 As an example, we loaded the TPCH data set into a PostgreSQL database and then
 queried it using the PostgreSQL connector::
@@ -78,12 +76,11 @@ operator. This shows you that the pushdown was successful.
 A number of factors can prevent a push down:
 
 * adding a condition to the query
-* using a different aggregate function without pushdown support in Presto
-* using a function that has no native equivalent in the underlying data source
+* using a different aggregate function that cannot be pushed down into the connector
 * using a connector without pushdown support for the specific function
 
 As a result, the explain plan shows the ``Aggregate`` operation being performed
-by Presto. This is a clear sign that now pushdown to the database is not
+by Presto. This is a clear sign that now pushdown to the remote data source is not
 performed, and instead Presto performs the aggregate processing.
 
 .. code-block:: text
@@ -137,4 +134,6 @@ Pushdown does not support a number of more complex statements:
 * complex grouping operations such as ``ROLLUP``, ``CUBE``, or ``GROUPING SETS``
 * expressions inside the aggregation function call: ``sum(a * b)``
 * coercions: ``sum(integer_column)``
+* :ref:`aggregations with ordering <aggregate-function-ordering-during-aggregation>`
+* :ref:`aggregations with filter <aggregate-function-filtering-during-aggregation>`
 
