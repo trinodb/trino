@@ -2516,6 +2516,17 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testTopNRank()
+    {
+        assertQuery(
+                "SELECT * " +
+                        "FROM (" +
+                        "    SELECT orderstatus, orderdate, rank() OVER (PARTITION BY orderstatus ORDER BY orderdate) ranking FROM orders" +
+                        ") t " +
+                        "WHERE t.ranking > 1 and t.ranking <= 10");
+    }
+
+    @Test
     public void testScalarFunction()
     {
         assertQuery("SELECT SUBSTR('Quadratically', 5, 6)");
