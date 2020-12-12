@@ -54,6 +54,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.DomainTranslator.ExtractionResult;
 import static io.trino.sql.planner.DomainTranslator.fromPredicate;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -94,6 +95,7 @@ public class WindowFilterPushDown
         private final Session session;
         private final TypeProvider types;
         private final FunctionId rowNumberFunctionId;
+        private final FunctionId rankFunctionId;
 
         private Rewriter(
                 PlanNodeIdAllocator idAllocator,
@@ -110,6 +112,7 @@ public class WindowFilterPushDown
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             rowNumberFunctionId = metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId();
+            rankFunctionId = metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of()).getFunctionId();
         }
 
         @Override
@@ -155,15 +158,16 @@ public class WindowFilterPushDown
                 }
                 source = rowNumberNode;
             }
-            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source) && isOptimizeTopNRanking(session)) {
+            else if (source instanceof WindowNode && isOptimizeTopNRanking(session)) {
                 WindowNode windowNode = (WindowNode) source;
-                // verify that unordered row_number window functions are replaced by RowNumberNode
-                verify(windowNode.getOrderingScheme().isPresent());
-                TopNRankingNode topNRankingNode = convertToTopNRanking(windowNode, ROW_NUMBER, limit);
-                if (windowNode.getPartitionBy().isEmpty()) {
-                    return topNRankingNode;
+                Optional<RankingType> rankingType = toTopNRankingType(windowNode);
+                if (rankingType.isPresent()) {
+                    TopNRankingNode topNRankingNode = convertToTopNRanking(windowNode, rankingType.get(), limit);
+                    if (rankingType.get() == ROW_NUMBER && windowNode.getPartitionBy().isEmpty()) {
+                        return topNRankingNode;
+                    }
+                    source = topNRankingNode;
                 }
-                source = topNRankingNode;
             }
             return replaceChildren(node, ImmutableList.of(source));
         }
@@ -187,33 +191,36 @@ public class WindowFilterPushDown
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
                 }
             }
-            else if (source instanceof WindowNode && canOptimizeWindowFunction((WindowNode) source) && isOptimizeTopNRanking(session)) {
+            else if (source instanceof WindowNode && isOptimizeTopNRanking(session)) {
                 WindowNode windowNode = (WindowNode) source;
-                Symbol rowNumberSymbol = getOnlyElement(windowNode.getWindowFunctions().entrySet()).getKey();
-                OptionalInt upperBound = extractUpperBound(tupleDomain, rowNumberSymbol);
+                Optional<RankingType> rankingType = toTopNRankingType(windowNode);
+                if (rankingType.isPresent()) {
+                    Symbol rankingSymbol = getOnlyElement(windowNode.getWindowFunctions().entrySet()).getKey();
+                    OptionalInt upperBound = extractUpperBound(tupleDomain, rankingSymbol);
 
-                if (upperBound.isPresent()) {
-                    if (upperBound.getAsInt() <= 0) {
-                        return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                    if (upperBound.isPresent()) {
+                        if (upperBound.getAsInt() <= 0) {
+                            return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
+                        }
+                        source = convertToTopNRanking(windowNode, rankingType.get(), upperBound.getAsInt());
+                        return rewriteFilterSource(node, source, rankingSymbol, upperBound.getAsInt());
                     }
-                    source = convertToTopNRanking(windowNode, ROW_NUMBER, upperBound.getAsInt());
-                    return rewriteFilterSource(node, source, rowNumberSymbol, upperBound.getAsInt());
                 }
             }
             return replaceChildren(node, ImmutableList.of(source));
         }
 
-        private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rowNumberSymbol, int upperBound)
+        private PlanNode rewriteFilterSource(FilterNode filterNode, PlanNode source, Symbol rankingSymbol, int upperBound)
         {
             ExtractionResult extractionResult = fromPredicate(metadata, typeOperators, session, filterNode.getPredicate(), types);
             TupleDomain<Symbol> tupleDomain = extractionResult.getTupleDomain();
 
-            if (!allRowNumberValuesInDomain(tupleDomain, rowNumberSymbol, upperBound)) {
+            if (!allRankingValuesInDomain(tupleDomain, rankingSymbol, upperBound)) {
                 return new FilterNode(filterNode.getId(), source, filterNode.getPredicate());
             }
 
-            // Remove the row number domain because it is absorbed into the node
-            TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rowNumberSymbol));
+            // Remove the ranking domain because it is absorbed into the node
+            TupleDomain<Symbol> newTupleDomain = tupleDomain.filter((symbol, domain) -> !symbol.equals(rankingSymbol));
             Expression newPredicate = ExpressionUtils.combineConjuncts(
                     metadata,
                     extractionResult.getRemainingExpression(),
@@ -225,7 +232,7 @@ public class WindowFilterPushDown
             return new FilterNode(filterNode.getId(), source, newPredicate);
         }
 
-        private static boolean allRowNumberValuesInDomain(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)
+        private static boolean allRankingValuesInDomain(TupleDomain<Symbol> tupleDomain, Symbol symbol, long upperBound)
         {
             if (tupleDomain.isNone()) {
                 return false;
@@ -243,11 +250,11 @@ public class WindowFilterPushDown
                 return OptionalInt.empty();
             }
 
-            Domain rowNumberDomain = tupleDomain.getDomains().get().get(symbol);
-            if (rowNumberDomain == null) {
+            Domain domain = tupleDomain.getDomains().get().get(symbol);
+            if (domain == null) {
                 return OptionalInt.empty();
             }
-            ValueSet values = rowNumberDomain.getValues();
+            ValueSet values = domain.getValues();
             if (values.isAll() || values.isNone() || values.getRanges().getRangeCount() <= 0) {
                 return OptionalInt.empty();
             }
@@ -258,7 +265,7 @@ public class WindowFilterPushDown
                 return OptionalInt.empty();
             }
 
-            verify(rowNumberDomain.getType().equals(BIGINT));
+            verify(domain.getType().equals(BIGINT));
             long upperBound = (Long) span.getHigh().getValue();
             if (span.getHigh().getBound() == BELOW) {
                 upperBound--;
@@ -299,16 +306,28 @@ public class WindowFilterPushDown
 
         private boolean canReplaceWithRowNumber(WindowNode node)
         {
-            return canOptimizeWindowFunction(node) && node.getOrderingScheme().isEmpty();
-        }
-
-        private boolean canOptimizeWindowFunction(WindowNode node)
-        {
             if (node.getWindowFunctions().size() != 1) {
                 return false;
             }
-            Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            return node.getWindowFunctions().get(rowNumberSymbol).getResolvedFunction().getFunctionId().equals(rowNumberFunctionId);
+            Symbol rankingSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
+            FunctionId functionId = node.getWindowFunctions().get(rankingSymbol).getResolvedFunction().getFunctionId();
+            return functionId.equals(rowNumberFunctionId) && node.getOrderingScheme().isEmpty();
+        }
+
+        private Optional<RankingType> toTopNRankingType(WindowNode node)
+        {
+            if (node.getWindowFunctions().size() != 1 || node.getOrderingScheme().isEmpty()) {
+                return Optional.empty();
+            }
+            Symbol rankingSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
+            FunctionId functionId = node.getWindowFunctions().get(rankingSymbol).getResolvedFunction().getFunctionId();
+            if (functionId.equals(rowNumberFunctionId)) {
+                return Optional.of(ROW_NUMBER);
+            }
+            if (functionId.equals(rankFunctionId)) {
+                return Optional.of(RANK);
+            }
+            return Optional.empty();
         }
     }
 }
