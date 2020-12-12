@@ -491,13 +491,13 @@ public class MySqlClient
         if (typeName.equalsIgnoreCase("tinyint unsigned")) {
             return Optional.of(smallintColumnMapping());
         }
-        else if (typeName.equalsIgnoreCase("smallint unsigned")) {
+        if (typeName.equalsIgnoreCase("smallint unsigned")) {
             return Optional.of(integerColumnMapping());
         }
-        else if (typeName.equalsIgnoreCase("int unsigned")) {
+        if (typeName.equalsIgnoreCase("int unsigned")) {
             return Optional.of(bigintColumnMapping());
         }
-        else if (typeName.equalsIgnoreCase("bigint unsigned")) {
+        if (typeName.equalsIgnoreCase("bigint unsigned")) {
             return Optional.of(decimalColumnMapping(createDecimalType(20)));
         }
 
