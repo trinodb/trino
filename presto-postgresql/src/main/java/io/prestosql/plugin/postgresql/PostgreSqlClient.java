@@ -468,7 +468,7 @@ public class PostgreSqlClient
         }
 
         // TODO support PostgreSQL's TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
-        return super.toPrestoType(session, connection, typeHandle);
+        return legacyToPrestoType(session, connection, typeHandle);
     }
 
     private Optional<ColumnMapping> arrayToPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
@@ -613,7 +613,7 @@ public class PostgreSqlClient
             String elementDataType = toWriteMapping(session, elementType).getDataType();
             return WriteMapping.objectMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
         }
-        return super.toWriteMapping(session, type);
+        return legacyToWriteMapping(session, type);
     }
 
     @Override

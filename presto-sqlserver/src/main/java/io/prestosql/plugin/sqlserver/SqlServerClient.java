@@ -181,7 +181,7 @@ public class SqlServerClient
 
         // TODO how to provide SIMPLIFY_UNSUPPORTED_PUSHDOWN in most readable & maintainable way?
         return toColumnMapping(typeHandle)
-                .or(() -> super.toPrestoType(session, connection, typeHandle))
+                .or(() -> legacyToPrestoType(session, connection, typeHandle))
                 .map(columnMapping -> new ColumnMapping(
                         columnMapping.getType(),
                         columnMapping.getReadFunction(),
@@ -318,7 +318,7 @@ public class SqlServerClient
         }
 
         // TODO implement proper type mapping
-        return super.toWriteMapping(session, type);
+        return legacyToWriteMapping(session, type);
     }
 
     @Override

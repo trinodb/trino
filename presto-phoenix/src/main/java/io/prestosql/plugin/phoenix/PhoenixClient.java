@@ -383,7 +383,7 @@ public class PhoenixClient
                             return arrayColumnMapping(session, prestoArrayType, jdbcTypeName);
                         });
         }
-        return super.toPrestoType(session, connection, typeHandle);
+        return legacyToPrestoType(session, connection, typeHandle);
     }
 
     @Override
@@ -455,7 +455,7 @@ public class PhoenixClient
             String elementWriteName = getArrayElementPhoenixTypeName(session, this, elementType);
             return WriteMapping.objectMapping(elementDataType + " ARRAY", arrayWriteFunction(session, elementType, elementWriteName));
         }
-        return super.toWriteMapping(session, type);
+        return legacyToWriteMapping(session, type);
     }
 
     @Override
