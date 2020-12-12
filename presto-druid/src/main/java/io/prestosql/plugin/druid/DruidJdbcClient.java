@@ -25,10 +25,12 @@ import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.plugin.jdbc.RemoteTableName;
+import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.type.Type;
 
 import javax.inject.Inject;
 
@@ -142,7 +144,15 @@ public class DruidJdbcClient
                 }
                 return Optional.of(defaultVarcharColumnMapping(columnSize));
         }
-        return super.toPrestoType(session, connection, typeHandle);
+        // TODO implement proper type mapping
+        return legacyToPrestoType(session, connection, typeHandle);
+    }
+
+    @Override
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
+    {
+        // TODO implement proper type mapping
+        return legacyToWriteMapping(session, type);
     }
 
     // Druid doesn't like table names to be qualified with catalog names in the SQL query.
