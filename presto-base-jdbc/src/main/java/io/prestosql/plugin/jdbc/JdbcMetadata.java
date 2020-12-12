@@ -353,12 +353,8 @@ public class JdbcMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, jdbcTableHandle)) {
-            columnHandles.put(column.getColumnMetadata().getName(), column);
-        }
-        return columnHandles.build();
+        return jdbcClient.getColumns(session, (JdbcTableHandle) tableHandle).stream()
+                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
     }
 
     @Override
