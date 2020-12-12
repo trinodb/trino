@@ -27,7 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.OPTIMIZE_TOP_N_ROW_NUMBER;
+import static io.trino.SystemSessionProperties.OPTIMIZE_TOP_N_RANKING;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -52,7 +52,7 @@ public class TestWindowFilterPushDown
 
         assertPlanWithSession(
                 sql,
-                optimizeTopNRowNumber(true),
+                optimizeTopNRanking(true),
                 true,
                 anyTree(
                         limit(10, anyTree(
@@ -62,7 +62,7 @@ public class TestWindowFilterPushDown
 
         assertPlanWithSession(
                 sql,
-                optimizeTopNRowNumber(false),
+                optimizeTopNRanking(false),
                 true,
                 anyTree(
                         limit(10, anyTree(
@@ -80,7 +80,7 @@ public class TestWindowFilterPushDown
 
         assertPlanWithSession(
                 sql,
-                optimizeTopNRowNumber(true),
+                optimizeTopNRanking(true),
                 true,
                 anyTree(
                         anyNot(FilterNode.class,
@@ -90,7 +90,7 @@ public class TestWindowFilterPushDown
 
         assertPlanWithSession(
                 sql,
-                optimizeTopNRowNumber(false),
+                optimizeTopNRanking(false),
                 true,
                 anyTree(
                         node(FilterNode.class,
@@ -102,7 +102,7 @@ public class TestWindowFilterPushDown
         // remove subplan if predicate on row number symbol can't be satisfied
         assertPlanWithSession(
                 "SELECT * FROM (SELECT name, row_number() OVER(ORDER BY name) FROM nation) t(name, row_number) WHERE row_number < 0",
-                optimizeTopNRowNumber(true),
+                optimizeTopNRanking(true),
                 true,
                 output(
                         ImmutableList.of("name", "row_number"),
@@ -111,7 +111,7 @@ public class TestWindowFilterPushDown
         // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
                 "SELECT * FROM (SELECT name, row_number() OVER(ORDER BY name) FROM nation) t(name, row_number) WHERE row_number < 2",
-                optimizeTopNRowNumber(true),
+                optimizeTopNRanking(true),
                 true,
                 output(
                         ImmutableList.of("name", "row_number"),
@@ -126,7 +126,7 @@ public class TestWindowFilterPushDown
         // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
                 "SELECT * FROM (SELECT name, row_number() OVER(ORDER BY name) FROM nation) t(name, row_number) WHERE row_number <= 1",
-                optimizeTopNRowNumber(true),
+                optimizeTopNRanking(true),
                 true,
                 output(
                         ImmutableList.of("name", "row_number"),
@@ -141,7 +141,7 @@ public class TestWindowFilterPushDown
         // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
                 "SELECT * FROM (SELECT name, row_number() OVER(ORDER BY name) FROM nation) t(name, row_number) WHERE row_number <= 1 AND row_number > -10",
-                optimizeTopNRowNumber(true),
+                optimizeTopNRanking(true),
                 true,
                 output(
                         ImmutableList.of("name", "row_number"),
@@ -156,7 +156,7 @@ public class TestWindowFilterPushDown
         // optimize to TopNRanking on the basis of predicate; cannot remove filter because predicate is not satisfied
         assertPlanWithSession(
                 "SELECT * FROM (SELECT name, row_number() OVER(ORDER BY name) FROM nation) t(name, row_number) WHERE row_number > 1 AND row_number < 3",
-                optimizeTopNRowNumber(true),
+                optimizeTopNRanking(true),
                 true,
                 output(
                         ImmutableList.of("name", "row_number"),
@@ -232,10 +232,10 @@ public class TestWindowFilterPushDown
                                         .withAlias("row_number", new RowNumberSymbolMatcher()))));
     }
 
-    private Session optimizeTopNRowNumber(boolean enabled)
+    private Session optimizeTopNRanking(boolean enabled)
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())
-                .setSystemProperty(OPTIMIZE_TOP_N_ROW_NUMBER, Boolean.toString(enabled))
+                .setSystemProperty(OPTIMIZE_TOP_N_RANKING, Boolean.toString(enabled))
                 .build();
     }
 }
