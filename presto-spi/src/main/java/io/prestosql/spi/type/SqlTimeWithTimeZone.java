@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Objects;
 
 import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
-import static io.prestosql.spi.type.TimeWithTimeZoneTypes.normalizePicos;
 import static io.prestosql.spi.type.Timestamps.MINUTES_PER_HOUR;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
@@ -68,14 +67,14 @@ public final class SqlTimeWithTimeZone
 
         SqlTimeWithTimeZone other = (SqlTimeWithTimeZone) o;
         return precision == other.precision &&
-                // TODO the equals here should probably compare precision, picos, offsetMinutes directly, without interpretation
-                normalizePicos(picos, offsetMinutes) == normalizePicos(other.picos, other.offsetMinutes);
+                picos == other.picos &&
+                offsetMinutes == other.offsetMinutes;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(precision, normalizePicos(picos, offsetMinutes));
+        return Objects.hash(precision, picos, offsetMinutes);
     }
 
     @JsonValue
