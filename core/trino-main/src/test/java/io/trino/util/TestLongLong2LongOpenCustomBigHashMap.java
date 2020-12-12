@@ -13,6 +13,7 @@
  */
 package io.trino.util;
 
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -39,11 +40,17 @@ public class TestLongLong2LongOpenCustomBigHashMap
         }
     };
 
-    @Test
-    public void testBasicOps()
+    @DataProvider
+    public static Object[][] nullKeyValues()
+    {
+        return new Object[][] {{0L, 0L}, {1L, 1L}, {-1L, -1L}, {0L, -1L}};
+    }
+
+    @Test(dataProvider = "nullKeyValues")
+    public void testBasicOps(long nullKey1, long nullKey2)
     {
         int expected = 100_000;
-        LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(expected, DEFAULT_STRATEGY);
+        LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(expected, DEFAULT_STRATEGY, nullKey1, nullKey2);
         map.defaultReturnValue(-1);
 
         assertTrue(map.isEmpty());
@@ -96,8 +103,8 @@ public class TestLongLong2LongOpenCustomBigHashMap
         }
     }
 
-    @Test
-    public void testHashCollision()
+    @Test(dataProvider = "nullKeyValues")
+    public void testHashCollision(long nullKey1, long nullKey2)
     {
         LongLong2LongOpenCustomBigHashMap.HashStrategy collisionHashStrategy = new LongLong2LongOpenCustomBigHashMap.HashStrategy()
         {
@@ -115,7 +122,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
             }
         };
 
-        LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(collisionHashStrategy);
+        LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(collisionHashStrategy, nullKey1, nullKey2);
         map.defaultReturnValue(-1);
 
         List<Long> values = Arrays.asList(Long.MIN_VALUE, -10L, 0L, 10L, Long.MAX_VALUE);
@@ -163,11 +170,11 @@ public class TestLongLong2LongOpenCustomBigHashMap
         }
     }
 
-    @Test
-    public void testRehash()
+    @Test(dataProvider = "nullKeyValues")
+    public void testRehash(long nullKey1, long nullKey2)
     {
         int initialCapacity = 1;
-        LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(initialCapacity, DEFAULT_STRATEGY);
+        LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(initialCapacity, DEFAULT_STRATEGY, nullKey1, nullKey2);
         map.defaultReturnValue(-1);
 
         // Inserting 1M elements should be enough to trigger some rehashes given an initial capacity of 1.
