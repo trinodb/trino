@@ -354,8 +354,6 @@ public class JdbcMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
-        verify(!jdbcTableHandle.isSynthetic(), "Not a table reference: %s", jdbcTableHandle);
-
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, jdbcTableHandle)) {
             columnHandles.put(column.getColumnMetadata().getName(), column);
