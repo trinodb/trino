@@ -32,14 +32,18 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
+import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
 
+import javax.annotation.Nullable;
+
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.isOptimizeTopNRanking;
 import static io.trino.matching.Capture.newCapture;
@@ -50,6 +54,7 @@ import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.planner.plan.Patterns.project;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.window;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.Math.toIntExact;
@@ -63,16 +68,16 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * Transforms:
  * <pre>
- * - Filter (rowNumber <= 5 && a > 1)
- *     - Project (a, rowNumber)
- *         - Window (row_number() OVER (ORDER BY a))
+ * - Filter (ranking <= 5 && a > 1)
+ *     - Project (a, ranking)
+ *         - Window ([row_number()|rank()] OVER (ORDER BY a))
  *             - source (a, b)
  * </pre>
  * into:
  * <pre>
  * - Filter (a > 1)
  *     - Project (a, ranking)
- *         - TopNRanking (type = ROW_NUMBER, maxRankingPerPartition = 5, order by a)
+ *         - TopNRanking (type = [ROW_NUMBER|RANK], maxRankingPerPartition = 5, order by a)
  *             - source (a, b)
  * </pre>
  */
@@ -95,17 +100,28 @@ public class PushPredicateThroughProjectIntoWindow
                         .matching(ProjectNode::isIdentity)
                         .capturedAs(PROJECT)
                         .with(source().matching(window()
-                                .matching(window -> {
-                                    if (window.getOrderingScheme().isEmpty()) {
-                                        return false;
-                                    }
-                                    if (window.getWindowFunctions().size() != 1) {
-                                        return false;
-                                    }
-                                    FunctionId functionId = getOnlyElement(window.getWindowFunctions().values()).getResolvedFunction().getFunctionId();
-                                    return functionId.equals(metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId());
-                                })
+                                .matching(window -> toRankingType(metadata, window) != null)
                                 .capturedAs(WINDOW)))));
+    }
+
+    @Nullable
+    private static RankingType toRankingType(Metadata metadata, WindowNode window)
+    {
+        if (window.getOrderingScheme().isEmpty()) {
+            return null;
+        }
+        if (window.getWindowFunctions().size() != 1) {
+            return null;
+        }
+
+        FunctionId functionId = getOnlyElement(window.getWindowFunctions().values()).getResolvedFunction().getFunctionId();
+        if (functionId.equals(metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of()).getFunctionId())) {
+            return ROW_NUMBER;
+        }
+        if (functionId.equals(metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of()).getFunctionId())) {
+            return RANK;
+        }
+        return null;
     }
 
     @Override
@@ -140,11 +156,13 @@ public class PushPredicateThroughProjectIntoWindow
         if (upperBound.getAsInt() <= 0) {
             return Result.ofPlanNode(new ValuesNode(filter.getId(), filter.getOutputSymbols(), ImmutableList.of()));
         }
+        RankingType rankingType = toRankingType(metadata, window);
+        checkState(rankingType != null);
         project = (ProjectNode) project.replaceChildren(ImmutableList.of(new TopNRankingNode(
                 window.getId(),
                 window.getSource(),
                 window.getSpecification(),
-                ROW_NUMBER,
+                rankingType,
                 rankingSymbol,
                 upperBound.getAsInt(),
                 false,

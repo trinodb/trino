@@ -22,6 +22,7 @@ import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.TopNRankingNode.RankingType;
 import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.plan.WindowNode.Function;
 import io.trino.sql.planner.plan.WindowNode.Specification;
@@ -37,6 +38,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
@@ -46,6 +49,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 {
     @Test
     public void testRankingSymbolPruned()
+    {
+        assertRankingSymbolPruned(rowNumberFunction());
+        assertRankingSymbolPruned(rankFunction());
+    }
+
+    private void assertRankingSymbolPruned(Function rankingFunction)
     {
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
@@ -59,7 +68,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(ranking, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .doesNotFire();
@@ -67,6 +76,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     @Test
     public void testNoUpperBoundForRankingSymbol()
+    {
+        assertNoUpperBoundForRankingSymbol(rowNumberFunction());
+        assertNoUpperBoundForRankingSymbol(rankFunction());
+    }
+
+    private void assertNoUpperBoundForRankingSymbol(Function rankingFunction)
     {
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
@@ -80,7 +95,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(ranking, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .doesNotFire();
@@ -88,6 +103,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     @Test
     public void testNonPositiveUpperBoundForRankingSymbol()
+    {
+        assertNonPositiveUpperBoundForRankingSymbol(rowNumberFunction());
+        assertNonPositiveUpperBoundForRankingSymbol(rankFunction());
+    }
+
+    private void assertNonPositiveUpperBoundForRankingSymbol(Function rankingFunction)
     {
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
@@ -101,7 +122,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(ranking, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .matches(values("a", "ranking"));
@@ -109,6 +130,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     @Test
     public void testPredicateNotSatisfied()
+    {
+        assertPredicateNotSatisfied(rowNumberFunction(), ROW_NUMBER);
+        assertPredicateNotSatisfied(rankFunction(), RANK);
+    }
+
+    private void assertPredicateNotSatisfied(Function rankingFunction, RankingType rankingType)
     {
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
@@ -122,7 +149,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(ranking, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .matches(filter(
@@ -135,6 +162,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
                                                         ImmutableMap.of("a", ASC_NULLS_FIRST))
+                                                .rankingType(rankingType)
                                                 .maxRankingPerPartition(4)
                                                 .partial(false),
                                         values(ImmutableList.of("a")))
@@ -143,6 +171,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     @Test
     public void testPredicateSatisfied()
+    {
+        assertPredicateSatisfied(rowNumberFunction(), RankingType.ROW_NUMBER);
+        assertPredicateSatisfied(rankFunction(), RankingType.RANK);
+    }
+
+    private void assertPredicateSatisfied(Function rankingFunction, RankingType rankingType)
     {
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
@@ -156,7 +190,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(ranking, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .matches(project(
@@ -167,6 +201,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                                 ImmutableList.of(),
                                                 ImmutableList.of("a"),
                                                 ImmutableMap.of("a", ASC_NULLS_FIRST))
+                                        .rankingType(rankingType)
                                         .maxRankingPerPartition(4)
                                         .partial(false),
                                 values(ImmutableList.of("a")))
@@ -175,6 +210,12 @@ public class TestPushPredicateThroughProjectIntoWindow
 
     @Test
     public void testPredicatePartiallySatisfied()
+    {
+        assertPredicatePartiallySatisfied(rowNumberFunction(), RankingType.ROW_NUMBER);
+        assertPredicatePartiallySatisfied(rankFunction(), RankingType.RANK);
+    }
+
+    private void assertPredicatePartiallySatisfied(Function rankingFunction, RankingType rankingType)
     {
         tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
@@ -188,7 +229,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(ranking, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .matches(filter(
@@ -201,6 +242,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
                                                         ImmutableMap.of("a", ASC_NULLS_FIRST))
+                                                .rankingType(rankingType)
                                                 .maxRankingPerPartition(4)
                                                 .partial(false),
                                         values(ImmutableList.of("a")))
@@ -218,7 +260,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                             new Specification(
                                                     ImmutableList.of(),
                                                     Optional.of(new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, ASC_NULLS_FIRST)))),
-                                            ImmutableMap.of(ranking, rowNumberFunction()),
+                                            ImmutableMap.of(ranking, rankingFunction),
                                             p.values(a))));
                 })
                 .matches(filter(
@@ -231,6 +273,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
                                                         ImmutableMap.of("a", ASC_NULLS_FIRST))
+                                                .rankingType(rankingType)
                                                 .maxRankingPerPartition(4)
                                                 .partial(false),
                                         values(ImmutableList.of("a")))
@@ -241,6 +284,15 @@ public class TestPushPredicateThroughProjectIntoWindow
     {
         return new Function(
                 tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes()),
+                ImmutableList.of(),
+                new Frame(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), CURRENT_ROW, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                false);
+    }
+
+    private Function rankFunction()
+    {
+        return new Function(
+                tester().getMetadata().resolveFunction(QualifiedName.of("rank"), fromTypes()),
                 ImmutableList.of(),
                 new Frame(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), CURRENT_ROW, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 false);
