@@ -159,7 +159,7 @@ public class MemSqlClient
         }
 
         // TODO add explicit mappings
-        return super.toPrestoType(session, connection, typeHandle);
+        return legacyToPrestoType(session, connection, typeHandle);
     }
 
     @Override
@@ -281,7 +281,7 @@ public class MemSqlClient
         }
 
         // TODO add explicit mappings
-        return super.toWriteMapping(session, type);
+        return legacyToWriteMapping(session, type);
     }
 
     @Override

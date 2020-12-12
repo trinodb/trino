@@ -116,6 +116,10 @@ public abstract class BaseJdbcClient
 {
     private static final Logger log = Logger.get(BaseJdbcClient.class);
 
+    /**
+     * @deprecated To be removed after {{@link #legacyToWriteMapping} is removed.
+     */
+    @Deprecated
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(BOOLEAN, WriteMapping.booleanMapping("boolean", booleanWriteFunction()))
             .put(BIGINT, WriteMapping.longMapping("bigint", bigintWriteFunction()))
@@ -336,8 +340,11 @@ public abstract class BaseJdbcClient
                 null);
     }
 
-    @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    /**
+     * @deprecated Each connector should provide its own explicit type mapping, along with respective tests.
+     */
+    @Deprecated
+    protected Optional<ColumnMapping> legacyToPrestoType(ConnectorSession session, @SuppressWarnings("unused") Connection connection, JdbcTypeHandle typeHandle)
     {
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
@@ -880,8 +887,11 @@ public abstract class BaseJdbcClient
         }
     }
 
-    @Override
-    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
+    /**
+     * @deprecated Each connector should provide its own explicit type mapping, along with respective tests.
+     */
+    @Deprecated
+    protected WriteMapping legacyToWriteMapping(@SuppressWarnings("unused") ConnectorSession session, Type type)
     {
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;

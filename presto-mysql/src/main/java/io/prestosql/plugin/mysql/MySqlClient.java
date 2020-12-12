@@ -305,7 +305,7 @@ public class MySqlClient
         }
 
         // TODO add explicit mappings
-        return super.toPrestoType(session, connection, typeHandle);
+        return legacyToPrestoType(session, connection, typeHandle);
     }
 
     @Override
@@ -383,7 +383,7 @@ public class MySqlClient
             return WriteMapping.sliceMapping("json", varcharWriteFunction());
         }
 
-        return super.toWriteMapping(session, type);
+        return legacyToWriteMapping(session, type);
     }
 
     @Override
