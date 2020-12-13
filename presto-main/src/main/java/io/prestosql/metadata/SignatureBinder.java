@@ -853,15 +853,13 @@ public class SignatureBinder
                         if (type.isEmpty()) {
                             return SolverReturnStatus.UNSOLVABLE;
                         }
-                        TypeSignature typeSignature = type.get().getTypeSignature();
                         verify(
-                                i < typeSignature.getParameters().size(),
-                                "Expected type signature %s of type %s (coerced %s to %s base name) to have parameter count greater than %s",
-                                typeSignature,
-                                type.get(),
+                                type.get().getBaseName().equals(formalTypeSignature.getBase()),
+                                "Unexpected coerce result for %s and %s: %s",
                                 actualType,
-                                formalTypeSignature,
-                                i);
+                                formalTypeSignature.getBase(),
+                                type.get());
+                        TypeSignature typeSignature = type.get().getTypeSignature();
                         originalTypeTypeParametersBuilder.add(TypeSignatureParameter.numericParameter(typeSignature.getParameters().get(i).getLongLiteral()));
                     }
                 }
