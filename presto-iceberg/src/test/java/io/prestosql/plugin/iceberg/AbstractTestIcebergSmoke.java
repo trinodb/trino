@@ -1126,7 +1126,7 @@ public abstract class AbstractTestIcebergSmoke
         MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
         MaterializedResult expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col", columnSizeForFormat(96.0), null, 0.0, null, "-10.0", "100.0")
+                        .row("col", null, null, 0.0, null, "-10.0", "100.0")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
         assertEquals(result, expectedStatistics);
@@ -1136,17 +1136,12 @@ public abstract class AbstractTestIcebergSmoke
         result = computeActual("SHOW STATS FOR " + tableName);
         expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col", columnSizeForFormat(144.0), null, 0.0, null, "-10.0", "200.0")
+                        .row("col", null, null, 0.0, null, "-10.0", "200.0")
                         .row(null, null, null, null, 3.0, null, null)
                         .build();
         assertEquals(result, expectedStatistics);
 
         dropTable(tableName);
-    }
-
-    private Double columnSizeForFormat(double size)
-    {
-        return format == PARQUET ? size : null;
     }
 
     @Test
@@ -1164,9 +1159,9 @@ public abstract class AbstractTestIcebergSmoke
 
         MaterializedResult expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col1", columnSizeForFormat(96.0), null, 0.0, null, "-10.0", "100.0")
-                        .row("col2", columnSizeForFormat(98.0), null, 0.0, null, "-1", "10")
-                        .row("col3", columnSizeForFormat(102.0), null, 0.0, null, "2019-06-28", "2020-01-01")
+                        .row("col1", null, null, 0.0, null, "-10.0", "100.0")
+                        .row("col2", null, null, 0.0, null, "-1", "10")
+                        .row("col3", null, null, 0.0, null, "2019-06-28", "2020-01-01")
                         .row(null, null, null, null, 2.0, null, null)
                         .build();
         assertEquals(result, expectedStatistics);
@@ -1175,9 +1170,9 @@ public abstract class AbstractTestIcebergSmoke
         result = computeActual("SHOW STATS FOR " + tableName);
         expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col1", columnSizeForFormat(144.0), null, 0.0, null, "-10.0", "200.0")
-                        .row("col2", columnSizeForFormat(147), null, 0.0, null, "-1", "20")
-                        .row("col3", columnSizeForFormat(153), null, 0.0, null, "2019-06-28", "2020-06-28")
+                        .row("col1", null, null, 0.0, null, "-10.0", "200.0")
+                        .row("col2", null, null, 0.0, null, "-1", "20")
+                        .row("col3", null, null, 0.0, null, "2019-06-28", "2020-06-28")
                         .row(null, null, null, null, 3.0, null, null)
                         .build();
         assertEquals(result, expectedStatistics);
@@ -1194,9 +1189,9 @@ public abstract class AbstractTestIcebergSmoke
 
         expectedStatistics =
                 resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
-                        .row("col1", columnSizeForFormat(271.0), null, 5.0 / 13.0, null, "-10.0", "200.0")
-                        .row("col2", columnSizeForFormat(251.0), null, 0.0, null, "-1", "30")
-                        .row("col3", columnSizeForFormat(261), null, 0.0, null, "2019-06-28", "2020-07-25")
+                        .row("col1", null, null, 5.0 / 13.0, null, "-10.0", "200.0")
+                        .row("col2", null, null, 0.0, null, "-1", "30")
+                        .row("col3", null, null, 0.0, null, "2019-06-28", "2020-07-25")
                         .row(null, null, null, null, 13.0, null, null)
                         .build();
         assertEquals(result, expectedStatistics);

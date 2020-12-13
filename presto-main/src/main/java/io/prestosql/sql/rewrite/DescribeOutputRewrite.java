@@ -15,6 +15,7 @@ package io.prestosql.sql.rewrite;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
+import io.prestosql.cost.StatsCalculator;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -69,9 +70,10 @@ final class DescribeOutputRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            StatsCalculator statsCalculator)
     {
-        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, groupProvider, accessControl, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, metadata, queryExplainer, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator).process(node, null);
     }
 
     private static final class Visitor
@@ -86,6 +88,7 @@ final class DescribeOutputRewrite
         private final GroupProvider groupProvider;
         private final AccessControl accessControl;
         private final WarningCollector warningCollector;
+        private final StatsCalculator statsCalculator;
 
         public Visitor(
                 Session session,
@@ -96,7 +99,8 @@ final class DescribeOutputRewrite
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
                 GroupProvider groupProvider,
                 AccessControl accessControl,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                StatsCalculator statsCalculator)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = parser;
@@ -107,6 +111,7 @@ final class DescribeOutputRewrite
             this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
             this.accessControl = accessControl;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         }
 
         @Override
@@ -115,7 +120,7 @@ final class DescribeOutputRewrite
             String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
-            Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = new Analyzer(session, metadata, parser, groupProvider, accessControl, queryExplainer, parameters, parameterLookup, warningCollector, statsCalculator);
             Analysis analysis = analyzer.analyze(statement, true);
 
             Optional<Node> limit = Optional.empty();

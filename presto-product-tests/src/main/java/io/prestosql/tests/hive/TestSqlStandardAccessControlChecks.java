@@ -266,7 +266,7 @@ public class TestSqlStandardAccessControlChecks
     public void testAccessControlShowStatsFor()
     {
         assertThat(() -> bobExecutor.executeQuery(format("SHOW STATS FOR %s", tableName)))
-                .failsWithMessage(format("Access Denied: Cannot show stats for table default.%s", tableName));
+                .failsWithMessage(format("Access Denied: Cannot select from table default.%s", tableName));
 
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
         assertThat(bobExecutor.executeQuery(format("SHOW STATS FOR %s", tableName))).hasRowsCount(3);

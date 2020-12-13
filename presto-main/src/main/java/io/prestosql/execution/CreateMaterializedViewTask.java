@@ -16,6 +16,7 @@ package io.prestosql.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.cost.StatsCalculator;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
@@ -51,12 +52,14 @@ public class CreateMaterializedViewTask
 {
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
+    private final StatsCalculator statsCalculator;
 
     @Inject
-    public CreateMaterializedViewTask(SqlParser sqlParser, GroupProvider groupProvider)
+    public CreateMaterializedViewTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
 
     @Override
@@ -86,7 +89,7 @@ public class CreateMaterializedViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector())
+        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterLookup, stateMachine.getWarningCollector(), statsCalculator)
                 .analyze(statement);
 
         List<ConnectorMaterializedViewDefinition.Column> columns = analysis.getOutputDescriptor(statement.getQuery())

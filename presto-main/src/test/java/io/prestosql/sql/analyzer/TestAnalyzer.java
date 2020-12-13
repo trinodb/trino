@@ -52,6 +52,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.assertions.PrestoExceptionAssert;
@@ -66,6 +67,7 @@ import java.util.function.Consumer;
 
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
+import static io.prestosql.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -2904,7 +2906,8 @@ public class TestAnalyzer
                 Optional.empty(),
                 emptyList(),
                 emptyMap(),
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                createNewStatsCalculator(metadata, new TypeAnalyzer(SQL_PARSER, metadata)));
     }
 
     private void analyze(@Language("SQL") String query)

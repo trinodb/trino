@@ -258,7 +258,8 @@ public class SqlQueryExecution
                 Optional.of(queryExplainer),
                 preparedQuery.getParameters(),
                 parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
-                warningCollector);
+                warningCollector,
+                statsCalculator);
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
 
         stateMachine.setUpdateType(analysis.getUpdateType());

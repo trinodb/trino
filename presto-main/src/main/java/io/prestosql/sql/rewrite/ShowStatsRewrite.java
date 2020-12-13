@@ -14,24 +14,15 @@
 package io.prestosql.sql.rewrite;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
+import io.prestosql.cost.CachingStatsProvider;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.StatsCalculator;
+import io.prestosql.cost.SymbolStatsEstimate;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableMetadata;
 import io.prestosql.security.AccessControl;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.Constraint;
-import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.GroupProvider;
-import io.prestosql.spi.statistics.ColumnStatistics;
-import io.prestosql.spi.statistics.DoubleRange;
-import io.prestosql.spi.statistics.Estimate;
-import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.IntegerType;
@@ -43,14 +34,13 @@ import io.prestosql.sql.QueryUtil;
 import io.prestosql.sql.analyzer.QueryExplainer;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NullLiteral;
@@ -60,7 +50,6 @@ import io.prestosql.sql.tree.QuerySpecification;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.ShowStats;
-import io.prestosql.sql.tree.SingleColumn;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.Table;
@@ -71,13 +60,10 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -86,9 +72,8 @@ import static io.prestosql.sql.QueryUtil.query;
 import static io.prestosql.sql.QueryUtil.selectAll;
 import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static java.lang.Double.isFinite;
 import static java.lang.Math.round;
 import static java.util.Objects.requireNonNull;
 
@@ -109,29 +94,28 @@ public class ShowStatsRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            StatsCalculator statsCalculator)
     {
-        return (Statement) new Visitor(metadata, session, parameters, queryExplainer, accessControl, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parameters, queryExplainer, warningCollector, statsCalculator).process(node, null);
     }
 
     private static class Visitor
             extends AstVisitor<Node, Void>
     {
-        private final Metadata metadata;
         private final Session session;
         private final List<Expression> parameters;
         private final Optional<QueryExplainer> queryExplainer;
-        private final AccessControl accessControl;
         private final WarningCollector warningCollector;
+        private final StatsCalculator statsCalculator;
 
-        private Visitor(Metadata metadata, Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, AccessControl accessControl, WarningCollector warningCollector)
+        private Visitor(Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector, StatsCalculator statsCalculator)
         {
-            this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
-            this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         }
 
         @Override
@@ -139,50 +123,15 @@ public class ShowStatsRewrite
         {
             checkState(queryExplainer.isPresent(), "Query explainer must be provided for SHOW STATS SELECT");
 
-            Query query = getRelationQuery(node);
+            Query query = getRelation(node);
             QuerySpecification specification = (QuerySpecification) query.getQueryBody();
-
-            Plan plan;
-
-            try {
-                plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, warningCollector);
-            }
-            catch (AccessDeniedException e) {
-                throw rewriteAccessDeniedException(e);
-            }
-
-            Table table = getTable(node, specification);
-            QualifiedObjectName tableName = createQualifiedObjectName(session, node, table.getName());
-            TableHandle tableHandle = metadata.getTableHandle(session, tableName)
-                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' not found", table.getName()));
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-            Set<String> columnNames = extractStatsColumns(tableMetadata, specification.getSelect().getSelectItems());
-
-            try {
-                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), tableName, columnNames);
-            }
-            catch (AccessDeniedException e) {
-                throw rewriteAccessDeniedException(e);
-            }
-
-            for (String columnName : columnNames) {
-                ColumnMetadata column = tableMetadata.getColumn(columnName);
-                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, columnName, column.getType()).isEmpty()) {
-                    throw new PrestoException(NOT_SUPPORTED, "SHOW STATS for table with column masking is not supported: " + columnName);
-                }
-            }
-            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
-                // SHOW STATS could reveal min, max value which would be otherwise filtered out; or could reveal statistical properties of the data, like row count
-                throw new PrestoException(NOT_SUPPORTED, "SHOW STATS is not supported for a table with row filtering");
-            }
-
-            validateShowStatsSubquery(node, query, specification, plan);
-
-            return rewriteShowStats(table, tableHandle, tableMetadata, columnNames, columnHandles, getConstraint(plan));
+            Plan plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, warningCollector);
+            CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes());
+            PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
+            return rewriteShowStats(plan, stats);
         }
 
-        private Query getRelationQuery(ShowStats node)
+        private Query getRelation(ShowStats node)
         {
             if (node.getRelation() instanceof Table) {
                 return simpleQuery(selectList(new AllColumns()), node.getRelation());
@@ -193,110 +142,47 @@ public class ShowStatsRewrite
             throw new IllegalArgumentException("Expected either TableSubquery or Table as relation");
         }
 
-        private Table getTable(ShowStats node, QuerySpecification specification)
+        private Node rewriteShowStats(Plan plan, PlanNodeStatsEstimate planNodeStatsEstimate)
         {
-            check(specification.getFrom().isPresent(), node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
-            check(specification.getFrom().isPresent(), node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
-            check(specification.getFrom().get() instanceof Table, node, "There must be exactly one table in query passed to SHOW STATS SELECT clause");
-            return (Table) specification.getFrom().get();
-        }
-
-        private AccessDeniedException rewriteAccessDeniedException(AccessDeniedException original)
-        {
-            return new AccessDeniedException(original.getMessage()
-                    .replace("Access Denied: ", "")
-                    .replace("Cannot select from", "Cannot show stats for"));
-        }
-
-        private void validateShowStatsSubquery(ShowStats node, Query query, QuerySpecification querySpecification, Plan plan)
-        {
-            // The following properties of SELECT subquery are required:
-            //  - only one relation in FROM
-            //  - only predicates that can be pushed down can be in the where clause
-            //  - no group by
-            //  - no having
-            //  - no set quantifier
-
-            Optional<FilterNode> filterNode = searchFrom(plan.getRoot())
-                    .where(FilterNode.class::isInstance)
-                    .findSingle();
-
-            check(filterNode.isEmpty(), node, "Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
-            check(query.getWith().isEmpty(), node, "WITH is not supported by SHOW STATS SELECT clause");
-            check(querySpecification.getOrderBy().isEmpty(), node, "ORDER BY is not supported in SHOW STATS SELECT clause");
-            check(querySpecification.getLimit().isEmpty(), node, "LIMIT is not supported by SHOW STATS SELECT clause");
-            check(querySpecification.getHaving().isEmpty(), node, "HAVING is not supported in SHOW STATS SELECT clause");
-            check(querySpecification.getGroupBy().isEmpty(), node, "GROUP BY is not supported in SHOW STATS SELECT clause");
-            check(!querySpecification.getSelect().isDistinct(), node, "DISTINCT is not supported by SHOW STATS SELECT clause");
-        }
-
-        private Node rewriteShowStats(
-                Table table,
-                TableHandle tableHandle,
-                TableMetadata tableMetadata,
-                Set<String> columnNames,
-                Map<String, ColumnHandle> columnHandles,
-                Constraint constraint)
-        {
-            TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
-            List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, columnNames, tableStatistics);
-            return simpleQuery(
-                    selectAll(buildSelectItems(buildColumnsNames())),
-                    aliased(new Values(resultRows), "table_stats_for_" + table.getName(), buildColumnsNames()));
-        }
-
-        private Set<String> extractStatsColumns(TableMetadata metadata, List<SelectItem> selectItems)
-        {
-            ImmutableSet.Builder<String> columns = ImmutableSet.builder();
-
-            for (SelectItem item : selectItems) {
-                if (item instanceof AllColumns) {
-                    for (ColumnMetadata column : metadata.getColumns()) {
-                        if (!column.isHidden()) {
-                            columns.add(column.getName());
-                        }
-                    }
-                }
-
-                if (item instanceof SingleColumn) {
-                    SingleColumn column = (SingleColumn) item;
-                    Expression expression = column.getExpression();
-
-                    check(expression instanceof Identifier, expression, "Only table columns names are supported in SHOW STATS SELECT clause");
-                    Identifier identifier = (Identifier) expression;
-                    check(column.getAlias().isEmpty(), column, "Column aliasing is not supported in SHOW STATS SELECT clause");
-
-                    columns.add(identifier.getValue());
-                }
+            List<String> statsColumnNames = buildColumnsNames();
+            List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
+            ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
+            verify(plan.getRoot() instanceof OutputNode, "Expected plan root be OutputNode, but was: %s", plan.getRoot().getClass().getName());
+            OutputNode root = (OutputNode) plan.getRoot();
+            for (int columnIndex = 0; columnIndex < root.getOutputSymbols().size(); columnIndex++) {
+                Symbol outputSymbol = root.getOutputSymbols().get(columnIndex);
+                String columnName = root.getColumnNames().get(columnIndex);
+                Type columnType = plan.getTypes().get(outputSymbol);
+                SymbolStatsEstimate symbolStatistics = planNodeStatsEstimate.getSymbolStatistics(outputSymbol);
+                ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
+                rowValues.add(new StringLiteral(columnName));
+                rowValues.add(toDoubleLiteral(symbolStatistics.getAverageRowSize() * planNodeStatsEstimate.getOutputRowCount() * (1 - symbolStatistics.getNullsFraction())));
+                rowValues.add(toDoubleLiteral(symbolStatistics.getDistinctValuesCount()));
+                rowValues.add(toDoubleLiteral(symbolStatistics.getNullsFraction()));
+                rowValues.add(NULL_DOUBLE);
+                rowValues.add(toStringLiteral(columnType, symbolStatistics.getLowValue()));
+                rowValues.add(toStringLiteral(columnType, symbolStatistics.getHighValue()));
+                rowsBuilder.add(new Row(rowValues.build()));
             }
+            // Stats for whole table
+            ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
+            rowValues.add(NULL_VARCHAR);
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(NULL_DOUBLE);
+            rowValues.add(toDoubleLiteral(planNodeStatsEstimate.getOutputRowCount()));
+            rowValues.add(NULL_VARCHAR);
+            rowValues.add(NULL_VARCHAR);
+            rowsBuilder.add(new Row(rowValues.build()));
+            List<Expression> resultRows = rowsBuilder.build();
 
-            return columns.build();
-        }
-
-        private static void check(boolean condition, Node node, String message)
-        {
-            if (!condition) {
-                throw semanticException(NOT_SUPPORTED, node, message);
-            }
+            return simpleQuery(selectAll(selectItems), aliased(new Values(resultRows), "table_stats", statsColumnNames));
         }
 
         @Override
         protected Node visitNode(Node node, Void context)
         {
             return node;
-        }
-
-        private Constraint getConstraint(Plan plan)
-        {
-            Optional<TableScanNode> scanNode = searchFrom(plan.getRoot())
-                    .where(TableScanNode.class::isInstance)
-                    .findSingle();
-
-            if (scanNode.isEmpty()) {
-                return Constraint.alwaysFalse();
-            }
-
-            return new Constraint(metadata.getTableProperties(session, scanNode.get().getTable()).getPredicate());
         }
 
         private static List<String> buildColumnsNames()
@@ -319,86 +205,11 @@ public class ShowStatsRewrite
                     .collect(toImmutableList());
         }
 
-        private List<Expression> buildStatisticsRows(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, Set<String> resultColumns, TableStatistics tableStatistics)
-        {
-            ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
-            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
-                if (columnMetadata.isHidden()) {
-                    continue;
-                }
-                String columnName = columnMetadata.getName();
-                Type columnType = columnMetadata.getType();
-                if (!resultColumns.contains(columnName)) {
-                    continue;
-                }
-                ColumnHandle columnHandle = columnHandles.get(columnName);
-                ColumnStatistics columnStatistics = tableStatistics.getColumnStatistics().get(columnHandle);
-                if (columnStatistics != null) {
-                    rowsBuilder.add(createColumnStatsRow(columnName, columnType, columnStatistics));
-                }
-                else {
-                    rowsBuilder.add(createEmptyColumnStatsRow(columnName));
-                }
-            }
-            // Stats for whole table
-            rowsBuilder.add(createTableStatsRow(tableStatistics));
-            return rowsBuilder.build();
-        }
-
-        private Row createColumnStatsRow(String columnName, Type type, ColumnStatistics columnStatistics)
-        {
-            ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
-            rowValues.add(new StringLiteral(columnName));
-            rowValues.add(createEstimateRepresentation(columnStatistics.getDataSize()));
-            rowValues.add(createEstimateRepresentation(columnStatistics.getDistinctValuesCount()));
-            rowValues.add(createEstimateRepresentation(columnStatistics.getNullsFraction()));
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
-            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
-            return new Row(rowValues.build());
-        }
-
-        private Expression createEmptyColumnStatsRow(String columnName)
-        {
-            ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
-            rowValues.add(new StringLiteral(columnName));
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(NULL_VARCHAR);
-            rowValues.add(NULL_VARCHAR);
-            return new Row(rowValues.build());
-        }
-
-        private static Row createTableStatsRow(TableStatistics tableStatistics)
-        {
-            ImmutableList.Builder<Expression> rowValues = ImmutableList.builder();
-            rowValues.add(NULL_VARCHAR);
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(NULL_DOUBLE);
-            rowValues.add(createEstimateRepresentation(tableStatistics.getRowCount()));
-            rowValues.add(NULL_VARCHAR);
-            rowValues.add(NULL_VARCHAR);
-            return new Row(rowValues.build());
-        }
-
-        private static Expression createEstimateRepresentation(Estimate estimate)
-        {
-            if (estimate.isUnknown()) {
-                return NULL_DOUBLE;
-            }
-            return new DoubleLiteral(Double.toString(estimate.getValue()));
-        }
-
-        private static Expression toStringLiteral(Type type, Optional<Double> optionalValue)
-        {
-            return optionalValue.map(value -> toStringLiteral(type, value)).orElse(NULL_VARCHAR);
-        }
-
         private static Expression toStringLiteral(Type type, double value)
         {
+            if (!isFinite(value)) {
+                return NULL_VARCHAR;
+            }
             if (type.equals(BigintType.BIGINT) || type.equals(IntegerType.INTEGER) || type.equals(SmallintType.SMALLINT) || type.equals(TinyintType.TINYINT)) {
                 return new StringLiteral(Long.toString(round(value)));
             }
@@ -413,5 +224,13 @@ public class ShowStatsRewrite
             }
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
+    }
+
+    private static Expression toDoubleLiteral(double value)
+    {
+        if (!isFinite(value)) {
+            return NULL_DOUBLE;
+        }
+        return new DoubleLiteral(Double.toString(value));
     }
 }
