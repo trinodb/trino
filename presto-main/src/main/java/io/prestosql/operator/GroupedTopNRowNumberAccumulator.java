@@ -530,7 +530,7 @@ public class GroupedTopNRowNumberAccumulator
 
         public long getActiveNodeCount()
         {
-            return capacity - emptySlots.size();
+            return capacity - emptySlots.longSize();
         }
 
         public long getRowId(long index)
