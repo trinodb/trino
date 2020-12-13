@@ -36,13 +36,13 @@ import static java.util.Objects.requireNonNull;
  *          |GroupIdToHeapBuffer |   |HeapNodeBuffer|
  *          +--------------------+   +--------------+
  * Group1+->+RootNodeIndex1+-------->+RowID1        |
- *          |HeapSize1           |   |LeftChild1+-----+
- *          |RootNodeIndex2      |   |RightChild1   | |
- *          |HeapSize2           |   |RowID2    <-----+
- *          |...                 |   |LeftChild2    |
- *          +--------------------+   |RightChild2   |
- *                                   |...           |
- *                                   +--------------+
+ *          |RootNodeIndex2      |   |LeftChild1+-----+
+ *          |...                 |   |RightChild1   | |
+ *          +--------------------+   |RowID2    <-----+
+ *          |HeapSize1           |   |LeftChild2    |
+ *          |HeapSize2           |   |RightChild2   |
+ *          |...                 |   |...           |
+ *          +--------------------+   +--------------+
  * </pre>
  */
 public class GroupedTopNRowNumberAccumulator
