@@ -83,7 +83,8 @@ import static java.util.Objects.requireNonNull;
  */
 final class PrestoDriverUri
 {
-    private static final String JDBC_URL_START = "jdbc:";
+    private static final String JDBC_URL_PREFIX = "jdbc:";
+    private static final String JDBC_URL_START = JDBC_URL_PREFIX + "presto:";
 
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
     private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
@@ -123,6 +124,11 @@ final class PrestoDriverUri
             throws SQLException
     {
         return new PrestoDriverUri(url, properties);
+    }
+
+    public static boolean acceptsURL(String url)
+    {
+        return url.startsWith(JDBC_URL_START);
     }
 
     public URI getJdbcUri()
@@ -304,13 +310,22 @@ final class PrestoDriverUri
     private static URI parseDriverUrl(String url)
             throws SQLException
     {
+        if (!url.startsWith(JDBC_URL_START)) {
+            throw new SQLException("Invalid JDBC URL: " + url);
+        }
+
+        if (url.length() == JDBC_URL_START.length()) {
+            throw new SQLException("Empty JDBC URL: " + url);
+        }
+
         URI uri;
         try {
-            uri = new URI(url.substring(JDBC_URL_START.length()));
+            uri = new URI(url.substring(JDBC_URL_PREFIX.length()));
         }
         catch (URISyntaxException e) {
             throw new SQLException("Invalid JDBC URL: " + url, e);
         }
+
         if (isNullOrEmpty(uri.getHost())) {
             throw new SQLException("No host specified: " + url);
         }
