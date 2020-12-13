@@ -31,6 +31,7 @@ public class TestShowStats
         return HiveQueryRunner.builder()
                 // create nation so tpch schema got created
                 .setInitialTables(ImmutableList.of(NATION))
+                .setNodeCount(1)
                 .build();
     }
 
