@@ -40,8 +40,6 @@ public class PrestoDriver
     static final int DRIVER_VERSION_MAJOR;
     static final int DRIVER_VERSION_MINOR;
 
-    private static final String DRIVER_URL_START = "jdbc:presto:";
-
     private final OkHttpClient httpClient = newHttpClient();
 
     static {
@@ -93,7 +91,7 @@ public class PrestoDriver
     public boolean acceptsURL(String url)
             throws SQLException
     {
-        return url.startsWith(DRIVER_URL_START);
+        return PrestoDriverUri.acceptsURL(url);
     }
 
     @Override

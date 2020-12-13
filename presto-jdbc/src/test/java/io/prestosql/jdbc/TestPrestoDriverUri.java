@@ -43,6 +43,18 @@ public class TestPrestoDriverUri
     @Test
     public void testInvalidUrls()
     {
+        // missing jdbc: prefix
+        assertInvalid("test", "Invalid JDBC URL: test");
+
+        // empty jdbc: url
+        assertInvalid("jdbc:", "Invalid JDBC URL: jdbc:");
+
+        // empty jdbc: url
+        assertInvalid("jdbc:presto:", "Empty JDBC URL: jdbc:presto:");
+
+        // invalid scheme
+        assertInvalid("jdbc:mysql://localhost", "Invalid JDBC URL: jdbc:mysql://localhost");
+
         // missing port
         assertInvalid("jdbc:presto://localhost/", "No port number specified:");
 
@@ -68,17 +80,17 @@ public class TestPrestoDriverUri
         assertInvalid("jdbc:presto://localhost:8080/hive/default?SSL=true&SSLVerification=", "Connection property 'SSLVerification' value is empty");
 
         // property in url multiple times
-        assertInvalid("presto://localhost:8080/blackhole?password=a&password=b", "Connection property 'password' is in URL multiple times");
+        assertInvalid("jdbc:presto://localhost:8080/blackhole?password=a&password=b", "Connection property 'password' is in URL multiple times");
 
         // property not well formed, missing '='
-        assertInvalid("presto://localhost:8080/blackhole?password&user=abc", "Connection argument is not valid connection property: 'password'");
+        assertInvalid("jdbc:presto://localhost:8080/blackhole?password&user=abc", "Connection argument is not valid connection property: 'password'");
 
         // property in both url and arguments
-        assertInvalid("presto://localhost:8080/blackhole?user=test123", "Connection property 'user' is both in the URL and an argument");
+        assertInvalid("jdbc:presto://localhost:8080/blackhole?user=test123", "Connection property 'user' is both in the URL and an argument");
 
         // setting both socks and http proxy
-        assertInvalid("presto://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Connection property 'socksProxy' is not allowed");
-        assertInvalid("presto://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Connection property 'socksProxy' is not allowed");
+        assertInvalid("jdbc:presto://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Connection property 'socksProxy' is not allowed");
+        assertInvalid("jdbc:presto://localhost:8080?httpProxy=localhost:8888&socksProxy=localhost:1080", "Connection property 'socksProxy' is not allowed");
 
         // invalid ssl flag
         assertInvalid("jdbc:presto://localhost:8080?SSL=0", "Connection property 'SSL' value is invalid: 0");
@@ -148,15 +160,15 @@ public class TestPrestoDriverUri
         assertInvalid("jdbc:presto://localhost:8080?KerberosCredentialCachePath=/test", "Connection property 'KerberosCredentialCachePath' is not allowed");
 
         // invalid extra credentials
-        assertInvalid("presto://localhost:8080?extraCredentials=:invalid", "Connection property 'extraCredentials' value is invalid:");
-        assertInvalid("presto://localhost:8080?extraCredentials=invalid:", "Connection property 'extraCredentials' value is invalid:");
-        assertInvalid("presto://localhost:8080?extraCredentials=:invalid", "Connection property 'extraCredentials' value is invalid:");
+        assertInvalid("jdbc:presto://localhost:8080?extraCredentials=:invalid", "Connection property 'extraCredentials' value is invalid:");
+        assertInvalid("jdbc:presto://localhost:8080?extraCredentials=invalid:", "Connection property 'extraCredentials' value is invalid:");
+        assertInvalid("jdbc:presto://localhost:8080?extraCredentials=:invalid", "Connection property 'extraCredentials' value is invalid:");
 
         // duplicate credential keys
-        assertInvalid("presto://localhost:8080?extraCredentials=test.token.foo:bar;test.token.foo:xyz", "Connection property 'extraCredentials' value is invalid");
+        assertInvalid("jdbc:presto://localhost:8080?extraCredentials=test.token.foo:bar;test.token.foo:xyz", "Connection property 'extraCredentials' value is invalid");
 
         // empty extra credentials
-        assertInvalid("presto://localhost:8080?extraCredentials=", "Connection property 'extraCredentials' value is empty");
+        assertInvalid("jdbc:presto://localhost:8080?extraCredentials=", "Connection property 'extraCredentials' value is empty");
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
@@ -177,7 +189,7 @@ public class TestPrestoDriverUri
     public void testEmptyPassword()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?password=");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080?password=");
         assertEquals(parameters.getProperties().getProperty("password"), "");
     }
 
@@ -185,7 +197,7 @@ public class TestPrestoDriverUri
     public void testNonEmptyPassword()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?password=secret");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080?password=secret");
         assertEquals(parameters.getProperties().getProperty("password"), "secret");
     }
 
@@ -193,7 +205,7 @@ public class TestPrestoDriverUri
     public void testUriWithSocksProxy()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?socksProxy=localhost:1234");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080?socksProxy=localhost:1234");
         assertUriPortScheme(parameters, 8080, "http");
 
         Properties properties = parameters.getProperties();
@@ -204,7 +216,7 @@ public class TestPrestoDriverUri
     public void testUriWithHttpProxy()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?httpProxy=localhost:5678");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080?httpProxy=localhost:5678");
         assertUriPortScheme(parameters, 8080, "http");
 
         Properties properties = parameters.getProperties();
@@ -215,7 +227,7 @@ public class TestPrestoDriverUri
     public void testUriWithoutCompression()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?disableCompression=true");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080?disableCompression=true");
         assertTrue(parameters.isCompressionDisabled());
 
         Properties properties = parameters.getProperties();
@@ -226,7 +238,7 @@ public class TestPrestoDriverUri
     public void testUriWithoutSsl()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080/blackhole");
         assertUriPortScheme(parameters, 8080, "http");
     }
 
@@ -234,7 +246,7 @@ public class TestPrestoDriverUri
     public void testUriWithSslDisabled()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=false");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080/blackhole?SSL=false");
         assertUriPortScheme(parameters, 8080, "http");
     }
 
@@ -242,7 +254,7 @@ public class TestPrestoDriverUri
     public void testUriWithSslEnabled()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=true");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080/blackhole?SSL=true");
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
@@ -254,7 +266,7 @@ public class TestPrestoDriverUri
     public void testUriWithSslDisabledUsing443()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:443/blackhole?SSL=false");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:443/blackhole?SSL=false");
         assertUriPortScheme(parameters, 443, "http");
     }
 
@@ -262,7 +274,7 @@ public class TestPrestoDriverUri
     public void testUriWithSslEnabledUsing443()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:443/blackhole");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:443/blackhole");
         assertUriPortScheme(parameters, 443, "https");
     }
 
@@ -270,7 +282,7 @@ public class TestPrestoDriverUri
     public void testUriWithSslEnabledPathOnly()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks");
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
@@ -282,7 +294,7 @@ public class TestPrestoDriverUri
     public void testUriWithSslEnabledPassword()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks&SSLTrustStorePassword=password");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080/blackhole?SSL=true&SSLTrustStorePath=truststore.jks&SSLTrustStorePassword=password");
         assertUriPortScheme(parameters, 8080, "https");
 
         Properties properties = parameters.getProperties();
@@ -294,7 +306,7 @@ public class TestPrestoDriverUri
     public void testUriWithSslEnabledUsing443SslVerificationFull()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:443/blackhole?SSL=true&SSLVerification=FULL");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:443/blackhole?SSL=true&SSLVerification=FULL");
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
@@ -305,7 +317,7 @@ public class TestPrestoDriverUri
     public void testUriWithSslEnabledUsing443SslVerificationCA()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:443/blackhole?SSL=true&SSLVerification=CA");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:443/blackhole?SSL=true&SSLVerification=CA");
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
@@ -316,7 +328,7 @@ public class TestPrestoDriverUri
     public void testUriWithSslEnabledUsing443SslVerificationNONE()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:443/blackhole?SSL=true&SSLVerification=NONE");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:443/blackhole?SSL=true&SSLVerification=NONE");
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
@@ -328,7 +340,7 @@ public class TestPrestoDriverUri
             throws SQLException
     {
         String extraCredentials = "test.token.foo:bar;test.token.abc:xyz";
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?extraCredentials=" + extraCredentials);
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080?extraCredentials=" + extraCredentials);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(EXTRA_CREDENTIALS.getKey()), extraCredentials);
     }
@@ -338,7 +350,7 @@ public class TestPrestoDriverUri
             throws SQLException
     {
         String clientTags = "c1,c2";
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?clientTags=" + clientTags);
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080?clientTags=" + clientTags);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(CLIENT_TAGS.getKey()), clientTags);
     }
@@ -347,7 +359,7 @@ public class TestPrestoDriverUri
     public void testOptionalCatalogAndSchema()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080");
         assertThat(parameters.getCatalog()).isEmpty();
         assertThat(parameters.getSchema()).isEmpty();
     }
@@ -356,7 +368,7 @@ public class TestPrestoDriverUri
     public void testOptionalSchema()
             throws SQLException
     {
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/catalog");
+        PrestoDriverUri parameters = createDriverUri("jdbc:presto://localhost:8080/catalog");
         assertThat(parameters.getCatalog()).isPresent();
         assertThat(parameters.getSchema()).isEmpty();
     }
