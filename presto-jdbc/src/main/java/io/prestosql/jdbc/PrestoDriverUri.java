@@ -98,7 +98,7 @@ final class PrestoDriverUri
 
     private final boolean useSecureConnection;
 
-    public PrestoDriverUri(String url, Properties driverProperties)
+    private PrestoDriverUri(String url, Properties driverProperties)
             throws SQLException
     {
         this(parseDriverUrl(url), driverProperties);
@@ -117,6 +117,12 @@ final class PrestoDriverUri
         useSecureConnection = SSL.getValue(properties).orElse(uri.getPort() == 443);
 
         initCatalogAndSchema();
+    }
+
+    public static PrestoDriverUri create(String url, Properties properties)
+            throws SQLException
+    {
+        return new PrestoDriverUri(url, properties);
     }
 
     public URI getJdbcUri()

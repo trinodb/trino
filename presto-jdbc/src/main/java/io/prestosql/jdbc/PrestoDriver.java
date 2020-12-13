@@ -80,7 +80,7 @@ public class PrestoDriver
             return null;
         }
 
-        PrestoDriverUri uri = new PrestoDriverUri(url, info);
+        PrestoDriverUri uri = PrestoDriverUri.create(url, info);
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
         uri.setupClient(builder);
@@ -100,7 +100,7 @@ public class PrestoDriver
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
             throws SQLException
     {
-        Properties properties = new PrestoDriverUri(url, info).getProperties();
+        Properties properties = PrestoDriverUri.create(url, info).getProperties();
 
         return ConnectionProperties.allProperties().stream()
                 .map(property -> property.getDriverPropertyInfo(properties))
