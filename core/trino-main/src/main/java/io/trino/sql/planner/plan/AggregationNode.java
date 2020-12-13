@@ -293,6 +293,7 @@ public class AggregationNode
                 @JsonProperty("globalGroupingSets") Set<Integer> globalGroupingSets)
         {
             requireNonNull(globalGroupingSets, "globalGroupingSets is null");
+            checkArgument(groupingSetCount > 0, "grouping set count must be larger than 0");
             checkArgument(globalGroupingSets.size() <= groupingSetCount, "list of empty global grouping sets must be no larger than grouping set count");
             requireNonNull(groupingKeys, "groupingKeys is null");
             if (groupingKeys.isEmpty()) {
