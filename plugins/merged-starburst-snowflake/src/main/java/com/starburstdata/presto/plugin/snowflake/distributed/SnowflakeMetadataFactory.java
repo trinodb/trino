@@ -17,6 +17,7 @@ import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 
 import javax.inject.Inject;
 
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
@@ -35,7 +36,7 @@ public class SnowflakeMetadataFactory
             BaseJdbcConfig cachingConfig)
     {
         this.connectionManager = requireNonNull(connectionManager, "connectionManager is null");
-        this.jdbcClient = new CachingJdbcClient(requireNonNull(jdbcClient, "jdbcClient is null"), cachingConfig);
+        this.jdbcClient = new CachingJdbcClient(requireNonNull(jdbcClient, "jdbcClient is null"), Set.of(), cachingConfig);
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
     }
@@ -44,7 +45,7 @@ public class SnowflakeMetadataFactory
     {
         return new SnowflakeMetadata(
                 connectionManager,
-                new CachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS), true),
+                new CachingJdbcClient(jdbcClient, Set.of(), new Duration(1, TimeUnit.DAYS), true),
                 allowDropTable);
     }
 }
