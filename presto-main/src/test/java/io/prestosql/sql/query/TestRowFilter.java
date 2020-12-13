@@ -366,7 +366,11 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 0"));
 
-        assertThatThrownBy(() -> assertions.query("SHOW STATS FOR (SELECT * FROM tiny.orders)"))
-                .hasMessageMatching("\\QSHOW STATS is not supported for a table with row filtering");
+        assertThat(assertions.query("SHOW STATS FOR (SELECT * FROM tiny.orders)"))
+                .containsAll(
+                        "VALUES " +
+                                "(CAST('orderkey' AS varchar), 0e1, 0e1, 1e0, CAST(NULL AS double), CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                                "(CAST('custkey' AS varchar), 0e1, 0e1, 1e0, CAST(NULL AS double), CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                                "(NULL, NULL, NULL, NULL, 0e1, NULL, NULL)");
     }
 }

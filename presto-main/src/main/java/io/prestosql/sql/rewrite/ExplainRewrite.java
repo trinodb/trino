@@ -14,6 +14,7 @@
 package io.prestosql.sql.rewrite;
 
 import io.prestosql.Session;
+import io.prestosql.cost.StatsCalculator;
 import io.prestosql.execution.QueryPreparer;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -59,7 +60,8 @@ final class ExplainRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            StatsCalculator statsCalculator)
     {
         return (Statement) new Visitor(session, parser, queryExplainer, warningCollector).process(node, null);
     }

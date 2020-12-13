@@ -16,6 +16,7 @@ package io.prestosql.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
+import io.prestosql.cost.StatsCalculator;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
@@ -51,6 +52,7 @@ public class Analyzer
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
+    private final StatsCalculator statsCalculator;
 
     public Analyzer(
             Session session,
@@ -61,7 +63,8 @@ public class Analyzer
             Optional<QueryExplainer> queryExplainer,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            StatsCalculator statsCalculator)
     {
         this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -72,6 +75,7 @@ public class Analyzer
         this.parameters = parameters;
         this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
 
     public Analysis analyze(Statement statement)
@@ -81,7 +85,7 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, boolean isDescribe)
     {
-        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, groupProvider, accessControl, warningCollector);
+        Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
         analyzer.analyze(rewrittenStatement, Optional.empty());

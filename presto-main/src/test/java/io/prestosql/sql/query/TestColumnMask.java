@@ -455,14 +455,19 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "7"));
 
-        assertThatThrownBy(() -> assertions.query("SHOW STATS FOR (SELECT * FROM orders)"))
-                .hasMessageMatching("\\QSHOW STATS for table with column masking is not supported: orderkey");
-        assertThatThrownBy(() -> assertions.query("SHOW STATS FOR (SELECT orderkey FROM orders)"))
-                .hasMessageMatching("\\QSHOW STATS for table with column masking is not supported: orderkey");
+        assertThat(assertions.query("SHOW STATS FOR (SELECT * FROM orders)"))
+                .containsAll("VALUES " +
+                        "(CAST('orderkey' AS varchar), CAST(NULL AS double), 1e0, 0e1, NULL, '7', '7')," +
+                        "(CAST('clerk' AS varchar), 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                        "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
+        assertThat(assertions.query("SHOW STATS FOR (SELECT orderkey FROM orders)"))
+                .matches("VALUES " +
+                        "(CAST('orderkey' AS varchar), CAST(NULL AS double), 1e0, 0e1, NULL, CAST('7' AS varchar), CAST('7' AS varchar))," +
+                        "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
         assertThat(assertions.query("SHOW STATS FOR (SELECT clerk FROM orders)"))
                 .matches("VALUES " +
-                        "(cast('clerk' AS varchar), cast(15000 AS double), cast(1000 AS double), cast(0 AS double), cast(null AS double), cast(null AS varchar), cast(null AS varchar))," +
-                        "(null, null, null, null, 15000, null, null)");
+                        "(CAST('clerk' AS varchar), 15e3, 1e3, 0e1, NULL, CAST(NULL AS varchar), CAST(NULL AS varchar))," +
+                        "(NULL, NULL, NULL, NULL, 15e3, NULL, NULL)");
     }
 
     @Test

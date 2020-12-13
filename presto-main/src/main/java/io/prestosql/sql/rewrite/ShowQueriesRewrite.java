@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Primitives;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.cost.StatsCalculator;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionMetadata;
@@ -158,7 +159,8 @@ final class ShowQueriesRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            StatsCalculator statsCalculator)
     {
         return (Statement) new Visitor(metadata, parser, session, accessControl).process(node, null);
     }

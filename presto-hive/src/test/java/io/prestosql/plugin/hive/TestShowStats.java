@@ -40,9 +40,8 @@ public class TestShowStats
     {
         assertUpdate("CREATE TABLE nation_partitioned(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey BIGINT) WITH (partitioned_by = ARRAY['regionkey'])");
         assertUpdate("INSERT INTO nation_partitioned SELECT nationkey, name, comment, regionkey from tpch.tiny.nation", 25);
-        assertUpdate("CREATE TABLE region(regionkey BIGINT, name VARCHAR, comment VARCHAR)");
-        assertUpdate("CREATE TABLE orders(orderkey BIGINT, custkey BIGINT, totalprice DOUBLE, orderdate  DATE, " +
-                "orderpriority VARCHAR, clerk VARCHAR, shippriority VARCHAR, comment VARCHAR, orderstatus VARCHAR)");
+        assertUpdate("CREATE TABLE region AS SELECT * FROM tpch.tiny.region", 5);
+        assertUpdate("CREATE TABLE orders AS SELECT * FROM tpch.tiny.orders", 15000);
     }
 
     @Test
@@ -74,10 +73,10 @@ public class TestShowStats
 
         assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey IS NULL)",
                 "SELECT * FROM (VALUES " +
-                        "   ('regionkey', null, 0.0, 0.0, null, null, null), " +
-                        "   ('nationkey', null, 0.0, 0.0, null, null, null), " +
-                        "   ('name', 0.0, 0.0, 0.0, null, null, null), " +
-                        "   ('comment', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   ('regionkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('nationkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('name', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('comment', 0.0, 0.0, 1.0, null, null, null), " +
                         "   (null, null, null, null, 0.0, null, null))");
 
         assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey = 1)",
@@ -130,26 +129,35 @@ public class TestShowStats
 
         assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey > 10 or regionkey < 0)",
                 "SELECT * FROM (VALUES " +
-                        "   ('regionkey', null, 0.0, 0.0, null, null, null), " +
-                        "   ('nationkey', null, 0.0, 0.0, null, null, null), " +
-                        "   ('name', 0.0, 0.0, 0.0, null, null, null), " +
-                        "   ('comment', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   ('regionkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('nationkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('name', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('comment', 0.0, 0.0, 1.0, null, null, null), " +
                         "   (null, null, null, null, 0.0, null, null))");
 
         assertQuery("SHOW STATS FOR (SELECT *, * FROM nation_partitioned WHERE regionkey > 10 or regionkey < 0)",
                 "SELECT * FROM (VALUES " +
-                        "   ('regionkey', null, 0.0, 0.0, null, null, null), " +
-                        "   ('nationkey', null, 0.0, 0.0, null, null, null), " +
-                        "   ('name', 0.0, 0.0, 0.0, null, null, null), " +
-                        "   ('comment', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   ('regionkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('nationkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('name', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('comment', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('regionkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('nationkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('name', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('comment', 0.0, 0.0, 1.0, null, null, null), " +
                         "   (null, null, null, null, 0.0, null, null))");
 
         assertQuery("SHOW STATS FOR (SELECT *, *, regionkey FROM nation_partitioned WHERE regionkey > 10 or regionkey < 0)",
                 "SELECT * FROM (VALUES " +
-                        "   ('regionkey', null, 0.0, 0.0, null, null, null), " +
-                        "   ('nationkey', null, 0.0, 0.0, null, null, null), " +
-                        "   ('name', 0.0, 0.0, 0.0, null, null, null), " +
-                        "   ('comment', 0.0, 0.0, 0.0, null, null, null), " +
+                        "   ('regionkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('nationkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('name', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('comment', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('regionkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('nationkey', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('name', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('comment', 0.0, 0.0, 1.0, null, null, null), " +
+                        "   ('regionkey', 0.0, 0.0, 1.0, null, null, null), " +
                         "   (null, null, null, null, 0.0, null, null))");
 
         assertQuery("SHOW STATS FOR (SELECT *, regionkey FROM nation_partitioned)",
@@ -158,6 +166,7 @@ public class TestShowStats
                         "   ('nationkey', null, 5.0, 0.0, null, 0, 24), " +
                         "   ('name', 177.0, 5.0, 0.0, null, null, null), " +
                         "   ('comment', 1857.0, 5.0, 0.0, null, null, null), " +
+                        "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
                         "   (null, null, null, null, 25.0, null, null))");
 
         assertQuery("SHOW STATS FOR (SELECT *, * FROM nation_partitioned)",
@@ -165,7 +174,11 @@ public class TestShowStats
                         "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
                         "   ('nationkey', null, 5.0, 0.0, null, 0, 24), " +
                         "   ('name', 177.0, 5.0, 0.0, null, null, null), " +
-                        "   ('comment', 1857.0, 5.0, 0.0, null, null, null), " +
+                        "   ('comment', 1857, 5.0, 0.0, null, null, null), " +
+                        "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
+                        "   ('nationkey', null, 5.0, 0.0, null, 0, 24), " +
+                        "   ('name', 177.0, 5.0, 0.0, null, null, null), " +
+                        "   ('comment', 1857.0, 5.0, 0, null, null, null), " +
                         "   (null, null, null, null, 25.0, null, null))");
 
         assertQuery("SHOW STATS FOR (SELECT regionkey FROM nation_partitioned WHERE regionkey BETWEEN 1 AND 1 + 2)",
@@ -181,28 +194,60 @@ public class TestShowStats
     }
 
     @Test
-    public void testShowStatsWithoutFromFails()
+    public void testShowStatsWithoutFrom()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT 1)", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+        assertQuery("SHOW STATS FOR (SELECT 1 AS x)",
+                "SELECT * FROM (VALUES " +
+                        "   ('x', null, 1.0, 0.0, null, 1, 1), " +
+                        "   (null, null, null, null, 1.0, null, null))");
     }
 
     @Test
-    public void testShowStatsWithMultipleFromFails()
+    public void testShowStatsWithMultipleFrom()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned, region)", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+        assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned, region)",
+                "SELECT * FROM (VALUES " +
+                        "   ('nationkey', null, 5, 0, null, 0, 24), " +
+                        "   ('name',      850, 5, 0, null, null, null), " +
+                        "   ('comment',   9285, 5, 0, null, null, null), " +
+                        // The two regionkey columns come from two different tables
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   ('name',      885, 5, 0, null, null, null), " +
+                        "   ('comment',   8250, 5, 0, null, null, null), " +
+                        "   (null, null, null, null, 125, null, null))");
     }
 
     @Test
-    public void testShowStatsWithoutTableScanFails()
+    public void testShowStatsWithoutTableScanAndImplicitColumnNames()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM (VALUES 1))", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+        assertQuery("SHOW STATS FOR (SELECT * FROM (VALUES 1))",
+                "SELECT * FROM (VALUES " +
+                        "   ('_col0', null, 1, 0, null, 1, 1), " +
+                        "   (null, null, null, null, 1, null, null))");
     }
 
     @Test
-    public void testShowStatsWithSubqueryFails()
+    public void testShowStatsWithSubquery()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation))", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation, (SELECT * FROM nation))", ".*There must be exactly one table in query passed to SHOW STATS SELECT clause");
+        assertQuery("SHOW STATS FOR (SELECT * FROM (SELECT * FROM nation))",
+                "SELECT * FROM (VALUES " +
+                        "   ('nationkey', null, 25, 0, null, 0, 24), " +
+                        "   ('name', 177, 25, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   ('comment', 1857, 25, 0, null, null, null), " +
+                        "   (null, null, null, null, 25, null, null))");
+        assertQuery("SHOW STATS FOR (SELECT * FROM nation, (SELECT * FROM nation))",
+                "SELECT * FROM (VALUES " +
+                        "   ('nationkey', null, 25, 0, null, 0, 24), " +
+                        "   ('name', 4425, 25, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   ('comment', 46425, 25, 0, null, null, null), " +
+                        "   ('nationkey', null, 25, 0, null, 0, 24), " +
+                        "   ('name', 4425, 25, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   ('comment', 46425, 25, 0, null, null, null), " +
+                        "   (null, null, null, null, 625, null, null))");
     }
 
     @Test
@@ -212,62 +257,154 @@ public class TestShowStats
     }
 
     @Test
-    public void testShowStatsForNonColumnQueryFails()
+    public void testShowStatsForNonColumnQuery()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT 1 FROM nation_partitioned)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
+        assertQuery("SHOW STATS FOR (SELECT 1 AS x FROM nation_partitioned)",
+                "SELECT * FROM (VALUES " +
+                        "   ('x', null, 1, 0, null, 1, 1), " +
+                        "   (null, null, null, null, 25, null, null))");
     }
 
     @Test
-    public void testShowStatsForAliasedColumnQueryFails()
+    public void testShowStatsForAliasedColumnQuery()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT nationkey, name, name AS name2 FROM nation_partitioned WHERE regionkey > 0 and regionkey < 4)", ".*Column aliasing is not supported in SHOW STATS SELECT clause");
+        assertQuery("SHOW STATS FOR (SELECT nationkey, name, name AS name2 FROM nation_partitioned WHERE regionkey > 0 and regionkey < 4)",
+                "SELECT * FROM (VALUES " +
+                        "   ('nationkey', null, 5, 0, null, 1, 24), " +
+                        "   ('name', 109, 5, 0, null, null, null), " +
+                        "   ('name2', 109, 5, 0, null, null, null), " +
+                        "   (null, null, null, null, 15, null, null))");
     }
 
     @Test
-    public void testShowStatsForNonIdentifierColumnFails()
+    public void testShowStatsForNonIdentifierColumn()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT CONCAT('some', 'value') FROM nation_partitioned)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
+        assertQuery("SHOW STATS FOR (SELECT CONCAT('some', 'value') AS x FROM nation_partitioned)",
+                "SELECT * FROM (VALUES " +
+                        "   ('x', null, 1, 0, null, null, null), " +
+                        "   (null, null, null, null, 25, null, null))");
     }
 
     @Test
-    public void testShowStatsForColumnExpressionFails()
+    public void testShowStatsForColumnExpression()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT nationkey + 1 FROM nation_partitioned)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
+        assertQuery("SHOW STATS FOR (SELECT nationkey + 100 AS x FROM nation_partitioned)",
+                "SELECT * FROM (VALUES " +
+                        "   ('x', null, 5, 0, null, 100, 124), " +
+                        "   (null, null, null, null, 25, null, null))");
     }
 
     @Test
-    public void testShowStatsWithGroupByFails()
+    public void testShowStatsWithGroupBy()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT avg(totalprice) FROM orders GROUP BY orderkey)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
+        // TODO calculate row count - https://github.com/prestosql/presto/issues/6323
+        assertQuery("SHOW STATS FOR (SELECT avg(totalprice) AS x FROM orders GROUP BY orderkey)",
+                "SELECT * FROM (VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null))");
     }
 
     @Test
-    public void testShowStatsWithHavingFails()
+    public void testShowStatsWithHaving()
     {
-        assertQueryFails(
-                "SHOW STATS FOR (SELECT count(nationkey) FROM nation_partitioned GROUP BY regionkey HAVING regionkey > 0)",
-                ".*Only table columns names are supported in SHOW STATS SELECT clause");
+        assertQuery(
+                "SHOW STATS FOR (SELECT count(nationkey) AS x FROM nation_partitioned GROUP BY regionkey HAVING regionkey > 0)",
+                "SELECT * FROM (VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null))");
     }
 
     @Test
-    public void testShowStatsWithSelectDistinctFails()
+    public void testShowStatsWithSelectDistinct()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT DISTINCT * FROM orders)", ".*DISTINCT is not supported by SHOW STATS SELECT clause");
+        // TODO calculate row count - https://github.com/prestosql/presto/issues/6323
+        assertQuery("SHOW STATS FOR (SELECT DISTINCT * FROM orders)",
+                "SELECT * FROM (VALUES " +
+                        "   ('orderkey', null, null, null, null, null, null), " +
+                        "   ('custkey', null, null, null, null, null, null), " +
+                        "   ('orderstatus', null, null, null, null, null, null), " +
+                        "   ('totalprice', null, null, null, null, null, null), " +
+                        "   ('orderdate', null, null, null, null, null, null), " +
+                        "   ('orderpriority', null, null, null, null, null, null), " +
+                        "   ('clerk', null, null, null, null, null, null), " +
+                        "   ('shippriority', null, null, null, null, null, null), " +
+                        "   ('comment', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null))");
+        // TODO calculate row count - https://github.com/prestosql/presto/issues/6323
+        assertQuery(
+                "SHOW STATS FOR (SELECT DISTINCT regionkey FROM region)",
+                "VALUES " +
+                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null)");
     }
 
     @Test
-    public void testShowStatsWithSelectFunctionCallFails()
+    public void testShowStatsWithSelectFunctionCall()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT sin(orderkey) FROM orders)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
-        assertQueryFails("SHOW STATS FOR (SELECT count(*) FROM orders)", ".*Only table columns names are supported in SHOW STATS SELECT clause");
+        assertQuery("SHOW STATS FOR (SELECT sin(orderkey) AS x FROM orders)",
+                "SELECT * FROM (VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, 15000, null, null))");
+        // TODO - row count should be 1 - https://github.com/prestosql/presto/issues/6323
+        assertQuery("SHOW STATS FOR (SELECT count(*) AS x FROM orders)",
+                "SELECT * FROM (VALUES " +
+                        "   ('x', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null))");
     }
 
     @Test
-    public void testShowStatsWithNonPushDownFilterFails()
+    public void testShowStatsWithPredicate()
     {
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey + 100 < 200)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey > 0 and nationkey > 0)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE nationkey = 1 and name is not null)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
-        assertQueryFails("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE sin(regionkey) > 0)", ".*Only predicates that can be pushed down are supported in the SHOW STATS WHERE clause");
+        assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey + 100 < 200)",
+                "SELECT * FROM (VALUES " +
+                        "   ('nationkey', null, 5, 0, null, 0, 24), " +
+                        "   ('name', 177, 5, 0, null, null, null), " +
+                        "   ('comment', 1857, 5, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 25, null, null))");
+        assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey > 0 and nationkey > 0)",
+                "SELECT * FROM (VALUES " +
+                        "   ('nationkey', null, 5, 0, null, 1, 24), " +
+                        "   ('name', 140, 5, 0, null, null, null), " +
+                        "   ('comment', 1547, 5, 0, null, null, null), " +
+                        "   ('regionkey', null, 4, 0, null, 1, 4), " +
+                        "   (null, null, null, null, 20, null, null))");
+        assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE nationkey = 1 and name is not null)",
+                "SELECT * FROM (VALUES " +
+                        "   ('nationkey', null, 1, 0, null, 1, 1), " +
+                        "   ('name', 35.4, 5, 0, null, null, null), " +
+                        "   ('comment', 371.4, 5, 0, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 5, null, null))");
+        assertQuery("SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE sin(regionkey) > 0)",
+                "SELECT * FROM (VALUES " +
+                        "   ('nationkey', null, null, null, null, null, null), " +
+                        "   ('name', null, null, null, null, null, null), " +
+                        "   ('comment', null, null, null, null, null, null), " +
+                        "   ('regionkey', null, null, null, null, null, null), " +
+                        "   (null, null, null, null, null, null, null))");
+    }
+
+    @Test
+    public void testShowStatsWithView()
+    {
+        assertUpdate("CREATE VIEW nation_view AS SELECT * FROM tpch.tiny.nation WHERE nationkey % 5 = 0");
+        assertQuery(
+                "SHOW STATS FOR nation_view",
+                "VALUES " +
+                        "   ('nationkey', null, 1, 0, null, 0, 24), " +
+                        "   ('name', 7.08, 1, 0, null, null, null), " +
+                        "   ('comment', 74.28, 1, 0, null, null, null), " +
+                        "   ('regionkey', null, 1, 0, null, 0, 4), " +
+                        "   (null, null, null, null, 1, null, null)");
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM nation_view WHERE regionkey = 0)",
+                "VALUES " +
+                        "   ('nationkey', null, 1, 0, null, 0, 24), " +
+                        "   ('name', 7.08, 1, 0, null, null, null), " +
+                        "   ('comment', 74.28, 1, 0, null, null, null), " +
+                        "   ('regionkey', null, 1, 0, null, 0, 0), " +
+                        "   (null, null, null, null, 1, null, null)");
+        assertUpdate("DROP VIEW nation_view");
     }
 }

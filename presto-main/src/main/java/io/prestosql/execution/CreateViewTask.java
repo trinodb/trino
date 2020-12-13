@@ -15,6 +15,7 @@ package io.prestosql.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
+import io.prestosql.cost.StatsCalculator;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
@@ -46,12 +47,14 @@ public class CreateViewTask
 {
     private final SqlParser sqlParser;
     private final GroupProvider groupProvider;
+    private final StatsCalculator statsCalculator;
 
     @Inject
-    public CreateViewTask(SqlParser sqlParser, GroupProvider groupProvider)
+    public CreateViewTask(SqlParser sqlParser, GroupProvider groupProvider, StatsCalculator statsCalculator)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
     }
 
     @Override
@@ -76,7 +79,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector())
+        Analysis analysis = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector(), statsCalculator)
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())

@@ -15,6 +15,7 @@ package io.prestosql.sql.rewrite;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
+import io.prestosql.cost.StatsCalculator;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
@@ -53,10 +54,11 @@ public final class StatementRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            StatsCalculator statsCalculator)
     {
         for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, groupProvider, accessControl, warningCollector), "Statement rewrite returned null");
+            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator), "Statement rewrite returned null");
         }
         return node;
     }
@@ -71,7 +73,9 @@ public final class StatementRewrite
                 Statement node,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
-                GroupProvider groupProvider, AccessControl accessControl,
-                WarningCollector warningCollector);
+                GroupProvider groupProvider,
+                AccessControl accessControl,
+                WarningCollector warningCollector,
+                StatsCalculator statsCalculator);
     }
 }
