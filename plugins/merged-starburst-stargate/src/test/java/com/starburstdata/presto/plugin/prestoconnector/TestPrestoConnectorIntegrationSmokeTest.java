@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
+import io.prestosql.Session;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -23,6 +24,8 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQue
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -53,6 +56,24 @@ public class TestPrestoConnectorIntegrationSmokeTest
         }
 
         return queryRunner;
+    }
+
+    @Test
+    public void testReadFromRemoteMemoryView()
+    {
+        Session memorySession = testSessionBuilder()
+                .setCatalog("memory")
+                .setSchema(TINY_SCHEMA_NAME)
+                .build();
+
+        remotePresto.executeWithQueryId(memorySession, "CREATE OR REPLACE VIEW nation_count AS SELECT COUNT(*) cnt FROM tpch.tiny.nation");
+
+        Session p2p = testSessionBuilder()
+                .setCatalog("p2p_memory")
+                .setSchema(TINY_SCHEMA_NAME)
+                .build();
+
+        assertQuery(p2p, "SELECT cnt FROM nation_count", "SELECT 25");
     }
 
     @Test
