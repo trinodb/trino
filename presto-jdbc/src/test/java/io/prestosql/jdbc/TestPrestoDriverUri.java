@@ -163,14 +163,14 @@ public class TestPrestoDriverUri
     public void testRequireUser()
             throws Exception
     {
-        new PrestoDriverUri("jdbc:presto://localhost:8080", new Properties());
+        PrestoDriverUri.create("jdbc:presto://localhost:8080", new Properties());
     }
 
     @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' value is empty")
     public void testEmptyUser()
             throws Exception
     {
-        new PrestoDriverUri("jdbc:presto://localhost:8080?user=", new Properties());
+        PrestoDriverUri.create("jdbc:presto://localhost:8080?user=", new Properties());
     }
 
     @Test
@@ -374,7 +374,7 @@ public class TestPrestoDriverUri
         Properties properties = new Properties();
         properties.setProperty("user", "test");
 
-        return new PrestoDriverUri(url, properties);
+        return PrestoDriverUri.create(url, properties);
     }
 
     private static void assertInvalid(String url, String prefix)
