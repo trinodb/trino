@@ -686,9 +686,6 @@ Procedures
   When the ``location`` argument is omitted, the partition location is
   constructed using ``partition_columns`` and ``partition_values``.
 
-  Due to security reasons, the procedure is enabled only when ``hive.allow-register-partition-procedure``
-  is set to ``true``.
-
 .. _unregister_partition:
 
 * ``system.unregister_partition(schema_name, table_name, partition_columns, partition_values)``

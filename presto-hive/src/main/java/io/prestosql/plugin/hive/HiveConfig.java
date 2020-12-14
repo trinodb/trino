@@ -936,18 +936,6 @@ public class HiveConfig
         return this;
     }
 
-    public boolean isAllowRegisterPartition()
-    {
-        return allowRegisterPartition;
-    }
-
-    @Config("hive.allow-register-partition-procedure")
-    public HiveConfig setAllowRegisterPartition(boolean allowRegisterPartition)
-    {
-        this.allowRegisterPartition = allowRegisterPartition;
-        return this;
-    }
-
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
