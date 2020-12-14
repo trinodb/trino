@@ -59,6 +59,8 @@ import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoDateColumnMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeColumnMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeWriteMapping;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampColumnMapping;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampWriteMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -283,10 +285,8 @@ public class PrestoConnectorClient
             case Types.TIME:
                 return Optional.of(prestoTimeColumnMapping(typeHandle.getRequiredDecimalDigits()));
 
-// TODO
-//            case Types.TIMESTAMP:
-//                // TODO default to `timestampColumnMapping`
-//                return Optional.of(timestampColumnMappingUsingSqlTimestamp(TIMESTAMP_MILLIS));
+            case Types.TIMESTAMP:
+                return Optional.of(prestoTimestampColumnMapping(typeHandle.getRequiredDecimalDigits()));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -361,11 +361,11 @@ public class PrestoConnectorClient
         }
 
         if (type instanceof TimestampType) {
-            return Optional.of(jdbcTypeHandleWithDecimalDigits(Types.TIME, ((TimestampType) type).getPrecision()));
+            return Optional.of(jdbcTypeHandleWithDecimalDigits(Types.TIMESTAMP, ((TimestampType) type).getPrecision()));
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
-            return Optional.of(jdbcTypeHandleWithDecimalDigits(Types.TIME_WITH_TIMEZONE, ((TimestampWithTimeZoneType) type).getPrecision()));
+            return Optional.of(jdbcTypeHandleWithDecimalDigits(Types.TIMESTAMP_WITH_TIMEZONE, ((TimestampWithTimeZoneType) type).getPrecision()));
         }
 
         log.debug("Type cannot be converted to JdbcTypeHandle: %s", type);
@@ -432,6 +432,10 @@ public class PrestoConnectorClient
 
         if (type instanceof TimeType) {
             return prestoTimeWriteMapping((TimeType) type);
+        }
+
+        if (type instanceof TimestampType) {
+            return prestoTimestampWriteMapping((TimestampType) type);
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

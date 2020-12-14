@@ -12,23 +12,38 @@ package com.starburstdata.presto.plugin.prestoconnector;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.LongReadFunction;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
+import io.prestosql.plugin.jdbc.ObjectReadFunction;
+import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.SqlTime;
+import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimestampType;
+
+import javax.annotation.Nullable;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.rescale;
 import static io.prestosql.spi.type.TimeType.createTimeType;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
 import static java.lang.Integer.parseInt;
+import static java.lang.Math.multiplyExact;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 final class PrestoColumnMappings
@@ -36,6 +51,9 @@ final class PrestoColumnMappings
     private PrestoColumnMappings() {}
 
     public static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d\\d):(?<minute>\\d\\d):(?<second>\\d\\d)(?:\\.(?<fraction>\\d{1,12}))?");
+    public static final Pattern TIMESTAMP_PATTERN = Pattern.compile("" +
+            "(?<year>[-+]?\\d{4,})-(?<month>\\d\\d)-(?<day>\\d\\d) " +
+            "(?<hour>\\d\\d):(?<minute>\\d\\d):(?<second>\\d\\d)(?:\\.(?<fraction>\\d{1,12}))?");
 
     public static ColumnMapping prestoDateColumnMapping()
     {
@@ -136,5 +154,101 @@ final class PrestoColumnMappings
             String formatted = SqlTime.newInstance(precision, value).toString();
             statement.setObject(index, formatted, Types.TIME);
         };
+    }
+
+    public static ColumnMapping prestoTimestampColumnMapping(int decimalDigits)
+    {
+        int precision = decimalDigits;
+        TimestampType timestampType = createTimestampType(precision);
+        if (timestampType.isShort()) {
+            return ColumnMapping.longMapping(
+                    timestampType,
+                    shortTimestampReadFunction(),
+                    shortTimestampWriteFunction(precision));
+        }
+        return ColumnMapping.objectMapping(
+                timestampType,
+                longTimestampReadFunction(),
+                longTimestampWriteFunction(precision));
+    }
+
+    public static WriteMapping prestoTimestampWriteMapping(TimestampType timestampType)
+    {
+        int precision = timestampType.getPrecision();
+        String dataType = format("timestamp(%s)", precision);
+        if (timestampType.isShort()) {
+            return WriteMapping.longMapping(dataType, shortTimestampWriteFunction(precision));
+        }
+        return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(precision));
+    }
+
+    private static LongReadFunction shortTimestampReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String value = resultSet.getString(columnIndex);
+            LongTimestamp longTimestamp = parseTimestamp(value);
+            verify(longTimestamp.getPicosOfMicro() == 0, "Unexpected sub-microsecond precision: %s", longTimestamp);
+            return longTimestamp.getEpochMicros();
+        };
+    }
+
+    private static ObjectReadFunction longTimestampReadFunction()
+    {
+        return ObjectReadFunction.of(LongTimestamp.class, (resultSet, columnIndex) -> {
+            String value = resultSet.getString(columnIndex);
+            return parseTimestamp(value);
+        });
+    }
+
+    private static LongTimestamp parseTimestamp(String value)
+    {
+        Matcher matcher = TIMESTAMP_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid timestamp: " + value);
+        }
+
+        String year = matcher.group("year");
+        String month = matcher.group("month");
+        String day = matcher.group("day");
+        String hour = matcher.group("hour");
+        String minute = matcher.group("minute");
+        String second = matcher.group("second");
+        @Nullable
+        String fraction = matcher.group("fraction");
+
+        long epochSecond = LocalDateTime.of(parseInt(year), parseInt(month), parseInt(day), parseInt(hour), parseInt(minute), parseInt(second))
+                .toEpochSecond(ZoneOffset.UTC);
+        long picosOfSecond;
+        if (fraction != null) {
+            picosOfSecond = rescale(Long.parseLong(fraction), fraction.length(), 12);
+        }
+        else {
+            picosOfSecond = 0;
+        }
+
+        return longTimestamp(epochSecond, picosOfSecond);
+    }
+
+    private static LongTimestamp longTimestamp(long epochSecond, long picosOfSecond)
+    {
+        return new LongTimestamp(
+                multiplyExact(epochSecond, MICROSECONDS_PER_SECOND) + picosOfSecond / PICOSECONDS_PER_MICROSECOND,
+                toIntExact(picosOfSecond % PICOSECONDS_PER_MICROSECOND));
+    }
+
+    private static LongWriteFunction shortTimestampWriteFunction(int precision)
+    {
+        return (statement, index, value) -> {
+            String formatted = SqlTimestamp.newInstance(precision, value, 0).toString();
+            statement.setObject(index, formatted, Types.TIMESTAMP);
+        };
+    }
+
+    private static ObjectWriteFunction longTimestampWriteFunction(int precision)
+    {
+        return ObjectWriteFunction.of(LongTimestamp.class, (statement, index, value) -> {
+            String formatted = SqlTimestamp.newInstance(precision, value.getEpochMicros(), value.getPicosOfMicro()).toString();
+            statement.setObject(index, formatted, Types.TIMESTAMP);
+        });
     }
 }

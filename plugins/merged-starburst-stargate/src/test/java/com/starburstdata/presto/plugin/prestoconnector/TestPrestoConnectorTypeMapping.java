@@ -56,6 +56,7 @@ import static io.prestosql.testing.datatype.DataType.integerDataType;
 import static io.prestosql.testing.datatype.DataType.realDataType;
 import static io.prestosql.testing.datatype.DataType.smallintDataType;
 import static io.prestosql.testing.datatype.DataType.timeDataType;
+import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.testing.datatype.DataType.tinyintDataType;
 import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
@@ -74,7 +75,9 @@ public class TestPrestoConnectorTypeMapping
     private DistributedQueryRunner remotePresto;
     private PrestoSqlExecutor remoteExecutor;
 
+    private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
     private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+    private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
 
     private final ZoneId jvmZone = ZoneId.systemDefault();
     private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
@@ -315,7 +318,9 @@ public class TestPrestoConnectorTypeMapping
                 .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1)) // winter on northern hemisphere (possible DST on southern hemisphere)
                 .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
                 .addRoundTrip(dateDataType(), dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
+                .addRoundTrip(dateDataType(), dateOfLocalTimeChangeBackwardAtMidnightInSomeZone)
+                // historical date, surprisingly common in actual data
+                .addRoundTrip(dateDataType(), LocalDate.of(1, 1, 1));
 
         for (String timeZoneId : List.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
             Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -419,6 +424,139 @@ public class TestPrestoConnectorTypeMapping
     private void testTimePrecision(String literal)
     {
         testCreateTableAsAndInsertConsistency(literal, literal);
+    }
+
+    /**
+     * @see #testTimestampPrecision
+     */
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestamp(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        DataTypeTest testCases = DataTypeTest.create()
+                .addRoundTrip(timestampDataType(3), beforeEpoch)
+                .addRoundTrip(timestampDataType(3), afterEpoch)
+                .addRoundTrip(timestampDataType(3), timeDoubledInJvmZone)
+                .addRoundTrip(timestampDataType(3), timeDoubledInVilnius)
+                .addRoundTrip(timestampDataType(3), epoch) // epoch also is a gap in JVM zone
+                .addRoundTrip(timestampDataType(3), timeGapInJvmZone1)
+                .addRoundTrip(timestampDataType(3), timeGapInJvmZone2)
+                .addRoundTrip(timestampDataType(3), timeGapInVilnius)
+                .addRoundTrip(timestampDataType(3), timeGapInKathmandu)
+
+                .addRoundTrip(timestampDataType(7), beforeEpoch)
+                .addRoundTrip(timestampDataType(7), afterEpoch)
+                .addRoundTrip(timestampDataType(7), timeDoubledInJvmZone)
+                .addRoundTrip(timestampDataType(7), timeDoubledInVilnius)
+                .addRoundTrip(timestampDataType(7), epoch) // epoch also is a gap in JVM zone
+                .addRoundTrip(timestampDataType(7), timeGapInJvmZone1)
+                .addRoundTrip(timestampDataType(7), timeGapInJvmZone2)
+                .addRoundTrip(timestampDataType(7), timeGapInVilnius)
+                .addRoundTrip(timestampDataType(7), timeGapInKathmandu)
+
+                // test some arbitrary time for all supported precisions
+                .addRoundTrip(timestampDataType(0), LocalDateTime.of(1970, 1, 1, 0, 0, 0))
+                .addRoundTrip(timestampDataType(1), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 100_000_000))
+                .addRoundTrip(timestampDataType(2), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 120_000_000))
+                .addRoundTrip(timestampDataType(3), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_000_000))
+                .addRoundTrip(timestampDataType(4), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_400_000))
+                .addRoundTrip(timestampDataType(5), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_450_000))
+                .addRoundTrip(timestampDataType(6), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_000))
+                .addRoundTrip(timestampDataType(7), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_700))
+                .addRoundTrip(timestampDataType(8), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_780))
+                .addRoundTrip(timestampDataType(9), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_789))
+
+                // before epoch with nanos
+                .addRoundTrip(timestampDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_000))
+                .addRoundTrip(timestampDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_700));
+
+        testCases.execute(getQueryRunner(), session, remotePrestoCreated("test_timestamp"));
+        testCases.execute(getQueryRunner(), session, remotePrestoCreatedPrestoConnectorInserted(session, "test_timestamp"));
+        testCases.execute(getQueryRunner(), session, prestoConnectorCreateAsSelect(session, "test_timestamp"));
+        testCases.execute(getQueryRunner(), session, prestoConnectorCreateAndInsert(session, "test_timestamp"));
+    }
+
+    /**
+     * Additional test supplementing {@link #testTimestamp} with timestamp precision higher than expressible with {@code LocalDateTime}.
+     *
+     * @see #testTimestamp
+     */
+    @Test
+    public void testTimestampPrecision()
+    {
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00'");
+
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.1'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.9'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.123'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.123456'");
+
+        testTimestampPrecision("TIMESTAMP '2020-09-27 12:34:56.1'");
+        testTimestampPrecision("TIMESTAMP '2020-09-27 12:34:56.9'");
+        testTimestampPrecision("TIMESTAMP '2020-09-27 12:34:56.123'");
+        testTimestampPrecision("TIMESTAMP '2020-09-27 12:34:56.999'");
+        testTimestampPrecision("TIMESTAMP '2020-09-27 12:34:56.123456'");
+
+        // minimum possible positive value for given precision
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.1'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.01'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.001'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.0001'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.00001'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.000001'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.0000001'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.00000001'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.000000001'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.0000000001'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.00000000001'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 00:00:00.000000000001'");
+
+        // maximum possible time of the day
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.9'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.99'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.9999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.99999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.999999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.9999999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.99999999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.999999999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.9999999999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.99999999999'");
+        testTimestampPrecision("TIMESTAMP '1970-01-01 23:59:59.999999999999'");
+
+        // negative epoch
+        testTimestampPrecision("TIMESTAMP '1969-12-31 23:59:59'");
+        testTimestampPrecision("TIMESTAMP '1969-12-31 23:59:59.999'");
+        testTimestampPrecision("TIMESTAMP '1969-12-31 23:59:59.999999'");
+        testTimestampPrecision("TIMESTAMP '1969-12-31 23:59:59.999999999'");
+        testTimestampPrecision("TIMESTAMP '1969-12-31 23:59:59.999999999999'");
+
+        // historical date, surprisingly common in actual data
+        testTimestampPrecision("TIMESTAMP '0001-01-01 00:00:00'");
+        testTimestampPrecision("TIMESTAMP '0001-01-01 00:00:00.000'");
+        testTimestampPrecision("TIMESTAMP '0001-01-01 00:00:00.000000'");
+        testTimestampPrecision("TIMESTAMP '0001-01-01 00:00:00.000000000'");
+        testTimestampPrecision("TIMESTAMP '0001-01-01 00:00:00.000000000000'");
+
+        // negative year
+        testTimestampPrecision("TIMESTAMP '-0042-01-01 01:23:45.123'");
+        testTimestampPrecision("TIMESTAMP '-0042-01-01 01:23:45.123456789012'");
+
+        // beyond four-digit year, rendered with a plus sign in various places, including Presto response
+        testTimestampPrecision("TIMESTAMP '123456-01-01 01:23:45.123'");
+        testTimestampPrecision("TIMESTAMP '123456-01-01 01:23:45.123456789012'");
+    }
+
+    private void testTimestampPrecision(String a)
+    {
+        testCreateTableAsAndInsertConsistency(a, a);
     }
 
     @Test
