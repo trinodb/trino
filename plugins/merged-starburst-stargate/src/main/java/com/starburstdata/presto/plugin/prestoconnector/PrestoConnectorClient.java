@@ -60,6 +60,8 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappin
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeColumnMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeWriteMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampColumnMapping;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampWithTimeZoneColumnMapping;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampWithTimeZoneWriteMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampWriteMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -287,6 +289,9 @@ public class PrestoConnectorClient
 
             case Types.TIMESTAMP:
                 return Optional.of(prestoTimestampColumnMapping(typeHandle.getRequiredDecimalDigits()));
+
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                return Optional.of(prestoTimestampWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -436,6 +441,10 @@ public class PrestoConnectorClient
 
         if (type instanceof TimestampType) {
             return prestoTimestampWriteMapping((TimestampType) type);
+        }
+
+        if (type instanceof TimestampWithTimeZoneType) {
+            return prestoTimestampWithTimeZoneWriteMapping((TimestampWithTimeZoneType) type);
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

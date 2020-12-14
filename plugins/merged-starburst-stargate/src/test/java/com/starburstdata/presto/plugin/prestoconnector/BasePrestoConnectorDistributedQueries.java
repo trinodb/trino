@@ -13,8 +13,6 @@ import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
 
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BasePrestoConnectorDistributedQueries
@@ -96,17 +94,5 @@ public abstract class BasePrestoConnectorDistributedQueries
     {
         // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4759) memory connector does not support deletes
         throw new SkipException("test TODO");
-    }
-
-    @Override
-    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        switch (dataMappingTestSetup.getPrestoTypeName()) {
-            case "timestamp(3) with time zone":
-                // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4760) implement mapping for date-time types
-                return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        return Optional.of(dataMappingTestSetup);
     }
 }

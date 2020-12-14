@@ -34,10 +34,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
@@ -47,8 +51,10 @@ import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.testing.datatype.DataType.bigintDataType;
 import static io.prestosql.testing.datatype.DataType.booleanDataType;
+import static io.prestosql.testing.datatype.DataType.dataType;
 import static io.prestosql.testing.datatype.DataType.dateDataType;
 import static io.prestosql.testing.datatype.DataType.decimalDataType;
 import static io.prestosql.testing.datatype.DataType.doubleDataType;
@@ -84,6 +90,13 @@ public class TestPrestoConnectorTypeMapping
     private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
     private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
 
+    /**
+     * The {@code UTC} zone.
+     *
+     * Note that this is logically different from {@link ZoneOffset#UTC}.
+     */
+    private final ZoneId utcZone = ZoneId.of("UTC");
+
     // no DST in 1970, but has DST in later years (e.g. 2018)
     private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
     private final LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
@@ -92,6 +105,9 @@ public class TestPrestoConnectorTypeMapping
     // minutes offset change since 1970-01-01, no DST
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
     private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
+
+    private final ZoneOffset fixedOffsetEast = ZoneOffset.ofHoursMinutes(2, 17);
+    private final ZoneOffset fixedOffsetWest = ZoneOffset.ofHoursMinutes(-7, -31);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -378,7 +394,7 @@ public class TestPrestoConnectorTypeMapping
     }
 
     /**
-     * Additional test supplementing {@link #testTime} with timestamp precision higher than expressible with {@code LocalTime}.
+     * Additional test supplementing {@link #testTime} with timestamp precision higher than expressible with {@link LocalTime}.
      *
      * @see #testTime
      */
@@ -480,7 +496,7 @@ public class TestPrestoConnectorTypeMapping
     }
 
     /**
-     * Additional test supplementing {@link #testTimestamp} with timestamp precision higher than expressible with {@code LocalDateTime}.
+     * Additional test supplementing {@link #testTimestamp} with timestamp precision higher than expressible with {@link LocalDateTime}.
      *
      * @see #testTimestamp
      */
@@ -555,6 +571,145 @@ public class TestPrestoConnectorTypeMapping
     }
 
     private void testTimestampPrecision(String a)
+    {
+        testCreateTableAsAndInsertConsistency(a, a);
+    }
+
+    /**
+     * @see #testTimestampWithTimeZonePrecision()
+     */
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestampWithTimeZone(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        DataTypeTest testCases = DataTypeTest.create()
+                .addRoundTrip(timestampWithTimeZoneDataType(3), epoch.atZone(utcZone))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), epoch.atZone(kathmandu))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), epoch.atZone(fixedOffsetEast))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), epoch.atZone(fixedOffsetWest))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), beforeEpoch.atZone(utcZone))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), beforeEpoch.atZone(kathmandu))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), beforeEpoch.atZone(fixedOffsetEast))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), beforeEpoch.atZone(fixedOffsetWest))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), afterEpoch.atZone(utcZone))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), afterEpoch.atZone(kathmandu))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), afterEpoch.atZone(fixedOffsetEast))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), afterEpoch.atZone(fixedOffsetWest))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeDoubledInJvmZone.atZone(utcZone))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeDoubledInJvmZone.atZone(jvmZone))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeDoubledInJvmZone.atZone(kathmandu))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeDoubledInVilnius.atZone(utcZone))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeDoubledInVilnius.atZone(vilnius))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeDoubledInVilnius.atZone(kathmandu))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeGapInJvmZone1.atZone(utcZone))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeGapInJvmZone1.atZone(kathmandu))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeGapInJvmZone2.atZone(utcZone))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeGapInJvmZone2.atZone(kathmandu))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeGapInVilnius.atZone(kathmandu))
+                .addRoundTrip(timestampWithTimeZoneDataType(3), timeGapInKathmandu.atZone(vilnius));
+
+        testCases.execute(getQueryRunner(), session, remotePrestoCreated("test_timestamp_with_time_zone"));
+        testCases.execute(getQueryRunner(), session, remotePrestoCreatedPrestoConnectorInserted(session, "test_timestamp_with_time_zone"));
+        testCases.execute(getQueryRunner(), session, prestoConnectorCreateAsSelect(session, "test_timestamp_with_time_zone"));
+        testCases.execute(getQueryRunner(), session, prestoConnectorCreateAndInsert(session, "test_timestamp_with_time_zone"));
+    }
+
+    // TODO replace with io.prestosql.testing.datatype.DataType#timestampWithTimeZoneDataType once https://github.com/prestosql/presto/pull/6334 is available
+    private static DataType<ZonedDateTime> timestampWithTimeZoneDataType(int precision)
+    {
+        // This code does not support precision > 9, as java.time classes support precision up to nanoseconds
+        checkArgument(precision >= 0 && precision <= 9, "Unsupported precision: %s", precision);
+        String pattern = "'TIMESTAMP '''yyyy-MM-dd HH:mm:ss" +
+                (precision == 0 ? "" : ("." + "S".repeat(precision))) +
+                " VV''";
+
+        return dataType(
+                format("timestamp(%s) with time zone", precision),
+                createTimestampWithTimeZoneType(precision),
+                DateTimeFormatter.ofPattern(pattern)::format);
+    }
+
+    /**
+     * Additional test supplementing {@link #testTimestampWithTimeZone} with timestamp precision higher than expressible with {@link ZonedDateTime}.
+     *
+     * @see #testTimestampWithTimeZone
+     */
+    @Test
+    public void testTimestampWithTimeZonePrecision()
+    {
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 UTC'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 Europe/Warsaw'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 America/Los_Angeles'");
+
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.1 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.9 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.123 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.123456 Asia/Kathmandu'");
+
+        testTimestampWithTimeZonePrecision("TIMESTAMP '2020-09-27 12:34:56.1 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '2020-09-27 12:34:56.9 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '2020-09-27 12:34:56.123 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '2020-09-27 12:34:56.999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '2020-09-27 12:34:56.123456 Asia/Kathmandu'");
+
+        // minimum possible positive value for given precision
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.1 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.01 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.001 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.0001 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.00001 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.000001 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.0000001 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.00000001 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.000000001 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.0000000001 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.00000000001 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.000000000001 Asia/Kathmandu'");
+
+        // maximum possible time of the day
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.9 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.99 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.9999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.99999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.999999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.9999999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.99999999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.999999999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.9999999999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.99999999999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 23:59:59.999999999999 Asia/Kathmandu'");
+
+        // negative epoch
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1969-12-31 23:59:59 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1969-12-31 23:59:59.999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1969-12-31 23:59:59.999999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1969-12-31 23:59:59.999999999 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1969-12-31 23:59:59.999999999999 Asia/Kathmandu'");
+
+        // historical date, surprisingly common in actual data
+        testTimestampWithTimeZonePrecision("TIMESTAMP '0001-01-01 00:00:00 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '0001-01-01 00:00:00.000 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '0001-01-01 00:00:00.000000 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '0001-01-01 00:00:00.000000000 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '0001-01-01 00:00:00.000000000000 Asia/Kathmandu'");
+
+        // negative year
+        testTimestampWithTimeZonePrecision("TIMESTAMP '-0042-01-01 01:23:45.123 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '-0042-01-01 01:23:45.123456789012 Asia/Kathmandu'");
+
+        // beyond four-digit year, rendered with a plus sign in various places, including Presto response
+        testTimestampWithTimeZonePrecision("TIMESTAMP '12345-01-01 01:23:45.123 Asia/Kathmandu'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '12345-01-01 01:23:45.123456789012 Asia/Kathmandu'");
+    }
+
+    private void testTimestampWithTimeZonePrecision(String a)
     {
         testCreateTableAsAndInsertConsistency(a, a);
     }
