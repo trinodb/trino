@@ -98,8 +98,7 @@ public class Analysis
     private final Statement root;
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private String updateType;
-    // TODO Reference by NodeRef instead name so we can distinguish actual target from other references to same table in the query
-    private Optional<QualifiedObjectName> target = Optional.empty();
+    private Optional<UpdateTarget> target = Optional.empty();
     private boolean skipMaterializedViewRefresh;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
@@ -205,13 +204,16 @@ public class Analysis
 
     public Optional<Output> getTarget()
     {
-        return target.map(table -> new Output(table.getCatalogName(), table.getSchemaName(), table.getObjectName()));
+        return target.map(target -> {
+            QualifiedObjectName name = target.getName();
+            return new Output(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+        });
     }
 
-    public void setUpdateType(String updateType, QualifiedObjectName target)
+    public void setUpdateType(String updateType, QualifiedObjectName targetName, Optional<Table> targetTable)
     {
         this.updateType = updateType;
-        this.target = Optional.of(target);
+        this.target = Optional.of(new UpdateTarget(targetName, targetTable));
     }
 
     public void resetUpdateType()
@@ -222,8 +224,9 @@ public class Analysis
 
     public boolean isDeleteTarget(Table table)
     {
-        QualifiedObjectName name = tables.get(NodeRef.of(table)).getName();
-        return "DELETE".equals(updateType) && Optional.of(name).equals(target);
+        return "DELETE".equals(updateType) &&
+                target.orElseThrow(() -> new IllegalStateException("Update target not set"))
+                        .getTable().orElseThrow(() -> new IllegalStateException("Table reference not set in update target")) == table; // intentional comparison by reference
     }
 
     public boolean isSkipMaterializedViewRefresh()
@@ -1387,6 +1390,28 @@ public class Analysis
         public String getAuthorization()
         {
             return authorization;
+        }
+    }
+
+    private static class UpdateTarget
+    {
+        private final QualifiedObjectName name;
+        private final Optional<Table> table;
+
+        public UpdateTarget(QualifiedObjectName name, Optional<Table> table)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.table = requireNonNull(table, "table is null");
+        }
+
+        public QualifiedObjectName getName()
+        {
+            return name;
+        }
+
+        public Optional<Table> getTable()
+        {
+            return table;
         }
     }
 }
