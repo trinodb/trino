@@ -354,7 +354,7 @@ public class JdbcMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return jdbcClient.getColumns(session, (JdbcTableHandle) tableHandle).stream()
-                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
+                .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
     }
 
     @Override
