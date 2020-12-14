@@ -16,6 +16,7 @@ package io.trino.server.security.oauth2;
 import io.airlift.log.Logger;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.OAuth2Service.OAuthResult;
+import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthWebUiCookie;
 
 import javax.inject.Inject;
@@ -25,10 +26,13 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.Optional;
+import java.util.UUID;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
@@ -44,11 +48,15 @@ public class OAuth2CallbackResource
     public static final String CALLBACK_ENDPOINT = "/oauth2/callback";
 
     private final OAuth2Service service;
+    private final Optional<OAuth2TokenExchange> tokenExchange;
+    private final boolean webUiOAuthEnabled;
 
     @Inject
-    public OAuth2CallbackResource(OAuth2Service service)
+    public OAuth2CallbackResource(OAuth2Service service, Optional<OAuth2TokenExchange> tokenExchange, Optional<OAuth2WebUiInstalled> webUiOAuthEnabled)
     {
         this.service = requireNonNull(service, "service is null");
+        this.tokenExchange = requireNonNull(tokenExchange, "tokenExchange is null");
+        this.webUiOAuthEnabled = requireNonNull(webUiOAuthEnabled, "webUiOAuthEnabled is null").isPresent();
     }
 
     @ResourceSecurity(PUBLIC)
@@ -88,9 +96,27 @@ public class OAuth2CallbackResource
                     .build();
         }
 
-        return Response
-                .seeOther(URI.create(UI_LOCATION))
-                .cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration(), securityContext.isSecure()))
-                .build();
+        Optional<UUID> authId = result.getAuthId();
+        if (authId.isEmpty()) {
+            return Response
+                    .seeOther(URI.create(UI_LOCATION))
+                    .cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration(), securityContext.isSecure()))
+                    .build();
+        }
+
+        if (tokenExchange.isEmpty()) {
+            LOG.debug("Token exchange is not active: state=%s", state);
+            return Response.ok()
+                    .entity(service.getInternalFailureHtml("Client token exchange is not enabled"))
+                    .build();
+        }
+
+        tokenExchange.get().setAccessToken(authId.get(), result.getAccessToken());
+
+        ResponseBuilder builder = Response.ok(service.getSuccessHtml());
+        if (webUiOAuthEnabled) {
+            builder.cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration(), securityContext.isSecure()));
+        }
+        return builder.build();
     }
 }
