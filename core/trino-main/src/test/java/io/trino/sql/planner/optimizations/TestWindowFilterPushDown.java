@@ -171,7 +171,7 @@ public class TestWindowFilterPushDown
         // optimize to TopNRanking on the basis of predicate; remove filter because predicate is satisfied
         assertPlanWithSession(
                 format(
-                        "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking < 2", rankingFunction),
+                        "SELECT * FROM (SELECT name, %s() OVER(ORDER BY name) FROM nation) t(name, ranking) WHERE ranking > 0 AND ranking < 2", rankingFunction),
                 optimizeTopNRanking(true),
                 true,
                 output(

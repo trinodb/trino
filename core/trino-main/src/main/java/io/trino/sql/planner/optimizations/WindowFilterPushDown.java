@@ -241,7 +241,7 @@ public class WindowFilterPushDown
             if (domain == null) {
                 return true;
             }
-            return domain.getValues().contains(ValueSet.ofRanges(range(domain.getType(), 0L, true, upperBound, true)));
+            return domain.getValues().contains(ValueSet.ofRanges(range(domain.getType(), 1L, true, upperBound, true)));
         }
 
         private static OptionalInt extractUpperBound(TupleDomain<Symbol> tupleDomain, Symbol symbol)
