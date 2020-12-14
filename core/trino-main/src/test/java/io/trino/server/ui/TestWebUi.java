@@ -514,7 +514,7 @@ public class TestWebUi
 
         String state = Jwts.builder()
                 .signWith(SignatureAlgorithm.HS256, Hashing.sha256().hashString("test-state-key", UTF_8).asBytes())
-                .setAudience("trino_oauth")
+                .setAudience("trino_oauth_ui")
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
                 .compact();
 
