@@ -38,7 +38,7 @@ public class PrestoConnectorPlugin
         return new DynamicFilteringJdbcConnectorFactory(
                 // "presto-connector" will be used also for the parallel variant, with implementation chosen by a configuration property
                 "presto-connector",
-                (String catalogName) -> combine(
+                combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),
                         new PrestoConnectorModule()),
