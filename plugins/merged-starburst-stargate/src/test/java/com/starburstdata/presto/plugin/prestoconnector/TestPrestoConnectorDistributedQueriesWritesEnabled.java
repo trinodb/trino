@@ -13,6 +13,7 @@ package com.starburstdata.presto.plugin.prestoconnector;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
+import org.testng.SkipException;
 
 import java.util.Map;
 
@@ -36,5 +37,11 @@ public class TestPrestoConnectorDistributedQueriesWritesEnabled
                 Map.of(
                         "connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"),
                         "allow-drop-table", "true"));
+    }
+
+    @Override
+    public void testLargeIn(int valuesCount)
+    {
+        throw new SkipException("Skipping expensive test; already run as part of TestPrestoConnectorDistributedQueries");
     }
 }
