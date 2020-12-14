@@ -52,7 +52,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
-import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -3039,7 +3038,7 @@ public class SemiTransactionalHiveMetastore
         {
             undo = true;
             if (transaction.isTransactional()) {
-                metastore.alterTransactionalTable(identity, newTable, transaction.getAcidTransactionId(), transaction.getWriteId(), new EnvironmentContext(), principalPrivileges);
+                metastore.alterTransactionalTable(identity, newTable, transaction.getAcidTransactionId(), transaction.getWriteId(), principalPrivileges);
             }
             else {
                 metastore.replaceTable(identity, newTable.getDatabaseName(), newTable.getTableName(), newTable, principalPrivileges);
@@ -3053,7 +3052,7 @@ public class SemiTransactionalHiveMetastore
             }
 
             if (transaction.isTransactional()) {
-                metastore.alterTransactionalTable(identity, oldTable, transaction.getAcidTransactionId(), transaction.getWriteId(), new EnvironmentContext(), principalPrivileges);
+                metastore.alterTransactionalTable(identity, oldTable, transaction.getAcidTransactionId(), transaction.getWriteId(), principalPrivileges);
             }
             else {
                 metastore.replaceTable(identity, oldTable.getDatabaseName(), oldTable.getTableName(), oldTable, principalPrivileges);
