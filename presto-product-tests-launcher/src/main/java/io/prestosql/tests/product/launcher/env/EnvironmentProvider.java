@@ -30,9 +30,14 @@ public abstract class EnvironmentProvider
     private static final Logger log = Logger.get(EnvironmentProvider.class);
     private final List<EnvironmentExtender> bases;
 
+    protected EnvironmentProvider(EnvironmentExtender... bases)
+    {
+        this(ImmutableList.copyOf(requireNonNull(bases, "bases is null")));
+    }
+
     protected EnvironmentProvider(List<EnvironmentExtender> bases)
     {
-        this.bases = requireNonNull(bases, "bases is null");
+        this.bases = ImmutableList.copyOf(requireNonNull(bases, "bases is null"));
     }
 
     public final Environment.Builder createEnvironment(String name, EnvironmentConfig environmentConfig)
