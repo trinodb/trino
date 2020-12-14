@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
 import io.prestosql.spi.HostAddress;
 
 import javax.validation.constraints.Max;
@@ -27,11 +28,13 @@ import java.util.Set;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
 
 public class ConfluentSchemaRegistryConfig
 {
     private Set<HostAddress> confluentSchemaRegistryUrls;
     private int confluentSchemaRegistryClientCacheSize = 1000;
+    private EmptyFieldStrategy emptyFieldStrategy = IGNORE;
 
     @Size(min = 1)
     public Set<HostAddress> getConfluentSchemaRegistryUrls()
@@ -59,6 +62,19 @@ public class ConfluentSchemaRegistryConfig
     public ConfluentSchemaRegistryConfig setConfluentSchemaRegistryClientCacheSize(int confluentSchemaRegistryClientCacheSize)
     {
         this.confluentSchemaRegistryClientCacheSize = confluentSchemaRegistryClientCacheSize;
+        return this;
+    }
+
+    public EmptyFieldStrategy getEmptyFieldStrategy()
+    {
+        return emptyFieldStrategy;
+    }
+
+    @Config("kafka.empty-field-strategy")
+    @ConfigDescription("How to handle struct types with no fields: ignore, add a boolean field named 'dummy' or fail the query")
+    public ConfluentSchemaRegistryConfig setEmptyFieldStrategy(EmptyFieldStrategy emptyFieldStrategy)
+    {
+        this.emptyFieldStrategy = emptyFieldStrategy;
         return this;
     }
 
