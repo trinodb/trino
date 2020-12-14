@@ -273,7 +273,7 @@ public class MemoryPool
     }
 
     @Managed
-    public synchronized long getMaxBytes()
+    public long getMaxBytes()
     {
         return maxBytes;
     }
