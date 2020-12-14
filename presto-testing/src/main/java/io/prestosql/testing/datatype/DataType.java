@@ -29,23 +29,28 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetTime;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimeType.createTimeType;
+import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.function.Function.identity;
 
 public class DataType<T>
@@ -180,14 +185,42 @@ public class DataType<T>
 
     public static DataType<LocalTime> timeDataType(int precision)
     {
-        String pattern = "'TIME '''HH:mm:ss" + (precision == 0 ? "" : ("." + "S".repeat(precision))) + "''";
+        DateTimeFormatterBuilder format = new DateTimeFormatterBuilder()
+                .appendPattern("'TIME '''")
+                .appendPattern("HH:mm:ss");
+        if (precision != 0) {
+            format.appendFraction(NANO_OF_SECOND, precision, precision, true);
+        }
+        format.appendPattern("''");
+
         return dataType(
                 format("time(%s)", precision),
                 createTimeType(precision),
-                DateTimeFormatter.ofPattern(pattern)::format,
-                identity());
+                format.toFormatter()::format);
     }
 
+    public static DataType<OffsetTime> timeWithTimeZoneDataType(int precision)
+    {
+        DateTimeFormatterBuilder format = new DateTimeFormatterBuilder()
+                .appendPattern("'TIME '''")
+                .appendPattern("HH:mm:ss");
+        if (precision != 0) {
+            format.appendFraction(NANO_OF_SECOND, precision, precision, true);
+        }
+        format
+                .appendOffset("+HH:mm", "+00:00")
+                .appendPattern("''");
+
+        return dataType(
+                format("time(%s) with time zone", precision),
+                createTimeWithTimeZoneType(precision),
+                format.toFormatter()::format);
+    }
+
+    /**
+     * @deprecated Use {@link #timestampDataType(int)} instead.
+     */
+    @Deprecated
     public static DataType<LocalDateTime> timestampDataType()
     {
         return dataType(
@@ -199,21 +232,36 @@ public class DataType<T>
 
     public static DataType<LocalDateTime> timestampDataType(int precision)
     {
-        // This code does not support precision > 9, due to limitations of DateTimeFormatter. For now it is not needed as
-        // none of currently supported JDBC databases supports precision over 9.
-        checkArgument(precision >= 0 && precision <= 9, "Unsupported precision: %s", precision);
-        DateTimeFormatter dateTimeFormatter;
-        if (precision == 0) {
-            dateTimeFormatter = DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss''");
+        DateTimeFormatterBuilder format = new DateTimeFormatterBuilder()
+                .appendPattern("'TIMESTAMP '''")
+                .appendPattern("yyyy-MM-dd HH:mm:ss");
+        if (precision != 0) {
+            format.appendFraction(NANO_OF_SECOND, precision, precision, true);
         }
-        else {
-            dateTimeFormatter = DateTimeFormatter.ofPattern(format("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.%s''", "n".repeat(precision)));
-        }
+        format.appendPattern("''");
+
         return dataType(
                 format("timestamp(%s)", precision),
                 createTimestampType(precision),
-                dateTimeFormatter::format,
-                identity());
+                format.toFormatter()::format);
+    }
+
+    public static DataType<ZonedDateTime> timestampWithTimeZoneDataType(int precision)
+    {
+        DateTimeFormatterBuilder format = new DateTimeFormatterBuilder()
+                .appendPattern("'TIMESTAMP '''")
+                .appendPattern("yyyy-MM-dd HH:mm:ss");
+        if (precision != 0) {
+            format.appendFraction(NANO_OF_SECOND, precision, precision, true);
+        }
+        format
+                .appendPattern(" VV")
+                .appendPattern("''");
+
+        return dataType(
+                format("timestamp(%s) with time zone", precision),
+                createTimestampWithTimeZoneType(precision),
+                format.toFormatter()::format);
     }
 
     public static DataType<String> jsonDataType()
