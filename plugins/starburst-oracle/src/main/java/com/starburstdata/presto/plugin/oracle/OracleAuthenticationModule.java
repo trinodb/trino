@@ -122,13 +122,13 @@ public class OracleAuthenticationModule
                 credentialProvider);
     }
 
-    private class ImpersonationModule
+    private static class ImpersonationModule
             implements Module
     {
         @Override
         public void configure(Binder binder)
         {
-            binder.install(new AuthToLocalModule(catalogName));
+            binder.install(new AuthToLocalModule());
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(OracleImpersonatingConnectionFactory.class).in(Scopes.SINGLETON);
         }
     }
