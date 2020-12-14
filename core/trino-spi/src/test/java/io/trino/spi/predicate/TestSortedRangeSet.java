@@ -55,7 +55,7 @@ public class TestSortedRangeSet
         assertTrue(Iterables.isEmpty(rangeSet.getOrderedRanges()));
         assertEquals(rangeSet.getRangeCount(), 0);
         assertEquals(rangeSet.complement(), SortedRangeSet.all(BIGINT));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 0L)));
+        assertFalse(rangeSet.containsValue(0L));
     }
 
     @Test
@@ -68,7 +68,7 @@ public class TestSortedRangeSet
         assertFalse(rangeSet.isSingleValue());
         assertEquals(rangeSet.getRangeCount(), 1);
         assertEquals(rangeSet.complement(), SortedRangeSet.none(BIGINT));
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 0L)));
+        assertTrue(rangeSet.containsValue(0L));
     }
 
     @Test
@@ -85,8 +85,8 @@ public class TestSortedRangeSet
         assertTrue(Iterables.elementsEqual(rangeSet.getOrderedRanges(), ImmutableList.of(Range.equal(BIGINT, 10L))));
         assertEquals(rangeSet.getRangeCount(), 1);
         assertEquals(rangeSet.complement(), complement);
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 10L)));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 9L)));
+        assertTrue(rangeSet.containsValue(10L));
+        assertFalse(rangeSet.containsValue(9L));
     }
 
     @Test
@@ -119,10 +119,10 @@ public class TestSortedRangeSet
         assertEquals(rangeSet, SortedRangeSet.copyOf(BIGINT, normalizedResult));
         assertEquals(rangeSet.getRangeCount(), 3);
         assertEquals(rangeSet.complement(), complement);
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 0L)));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 1L)));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 7L)));
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 9L)));
+        assertTrue(rangeSet.containsValue(0L));
+        assertFalse(rangeSet.containsValue(1L));
+        assertFalse(rangeSet.containsValue(7L));
+        assertTrue(rangeSet.containsValue(9L));
     }
 
     @Test
@@ -153,9 +153,9 @@ public class TestSortedRangeSet
         assertEquals(rangeSet, SortedRangeSet.copyOf(BIGINT, normalizedResult));
         assertEquals(rangeSet.getRangeCount(), 3);
         assertEquals(rangeSet.complement(), complement);
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 0L)));
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 4L)));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 7L)));
+        assertTrue(rangeSet.containsValue(0L));
+        assertTrue(rangeSet.containsValue(4L));
+        assertFalse(rangeSet.containsValue(7L));
     }
 
     @Test
