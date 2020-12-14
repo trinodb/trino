@@ -32,7 +32,6 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
-import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 
 import java.util.List;
 import java.util.Map;
@@ -351,8 +350,8 @@ public class HiveMetastoreClosure
         delegate.addDynamicPartitions(identity, dbName, tableName, partitionNames, transactionId, writeId, operation);
     }
 
-    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, EnvironmentContext context, PrincipalPrivileges principalPrivileges)
+    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
-        delegate.alterTransactionalTable(identity, table, transactionId, writeId, context, principalPrivileges);
+        delegate.alterTransactionalTable(identity, table, transactionId, writeId, principalPrivileges);
     }
 }

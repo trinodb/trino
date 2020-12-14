@@ -30,7 +30,6 @@ import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -58,7 +57,7 @@ public interface ThriftMetastore
 
     void alterTable(HiveIdentity identity, String databaseName, String tableName, Table table);
 
-    void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, EnvironmentContext context);
+    void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId);
 
     List<String> getAllDatabases();
 

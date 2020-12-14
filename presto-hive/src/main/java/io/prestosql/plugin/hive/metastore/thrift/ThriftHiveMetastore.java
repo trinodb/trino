@@ -1161,7 +1161,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, EnvironmentContext context)
+    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId)
     {
         try {
             retry()
@@ -1169,7 +1169,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("alterTransactionalTable", stats.getAlterTransactionalTable().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            client.alterTransactionalTable(table, transactionId, writeId, context);
+                            client.alterTransactionalTable(table, transactionId, writeId, new EnvironmentContext());
                         }
                         return null;
                     }));
