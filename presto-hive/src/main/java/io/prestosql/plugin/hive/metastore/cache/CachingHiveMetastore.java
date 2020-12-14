@@ -51,7 +51,6 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
-import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -1009,10 +1008,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, EnvironmentContext context, PrincipalPrivileges principalPrivileges)
+    public void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
         try {
-            delegate.alterTransactionalTable(identity, table, transactionId, writeId, context, principalPrivileges);
+            delegate.alterTransactionalTable(identity, table, transactionId, writeId, principalPrivileges);
         }
         finally {
             identity = updateIdentity(identity);

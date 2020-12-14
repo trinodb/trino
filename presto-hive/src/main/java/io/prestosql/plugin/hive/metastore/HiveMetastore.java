@@ -25,7 +25,6 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
-import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 
 import java.util.List;
 import java.util.Map;
@@ -193,7 +192,7 @@ public interface HiveMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, EnvironmentContext context, PrincipalPrivileges principalPrivileges)
+    default void alterTransactionalTable(HiveIdentity identity, Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
         throw new UnsupportedOperationException();
     }
