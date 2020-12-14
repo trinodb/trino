@@ -37,7 +37,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestGroupedTopNBuilder
+public class TestGroupedTopNRowNumberBuilder
 {
     private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
 
@@ -57,7 +57,7 @@ public class TestGroupedTopNBuilder
     @Test
     public void testEmptyInput()
     {
-        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
+        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 ImmutableList.of(BIGINT),
                 (left, leftPosition, right, rightPosition) -> {
                     throw new UnsupportedOperationException();
@@ -94,7 +94,7 @@ public class TestGroupedTopNBuilder
         }
 
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP);
-        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
+        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 2,
@@ -159,7 +159,7 @@ public class TestGroupedTopNBuilder
             page.compact();
         }
 
-        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
+        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 5,
@@ -212,7 +212,7 @@ public class TestGroupedTopNBuilder
 
         AtomicBoolean unblock = new AtomicBoolean();
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), unblock::get);
-        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
+        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 5,
