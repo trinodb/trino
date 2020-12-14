@@ -61,6 +61,8 @@
         <dep.docker-java.version>3.2.5</dep.docker-java.version>
         <dep.joda.version>2.10.6</dep.joda.version>
         <dep.coral.version>1.0.12</dep.coral.version>
+        <dep.confluent.version>5.4.3</dep.confluent.version>
+        <dep.jackson.version>2.11.1</dep.jackson.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -155,6 +157,13 @@
         <module>presto-tpch</module>
         <module>presto-verifier</module>
     </modules>
+
+    <repositories>
+        <repository>
+            <id>confluent</id>
+            <url>http://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -1078,9 +1087,36 @@
             </dependency>
 
             <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-avro-serializer</artifactId>
+                <version>${dep.confluent.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.kafka</groupId>
+                        <artifactId>kafka-clients</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt</artifactId>
                 <version>0.9.0</version>
+            </dependency>
+
+
+            <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
+            <dependency>
+                <groupId>io.swagger</groupId>
+                <artifactId>swagger-annotations</artifactId>
+                <version>1.6.2</version>
+            </dependency>
+
+            <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
+            <dependency>
+                <groupId>io.swagger</groupId>
+                <artifactId>swagger-core</artifactId>
+                <version>1.6.2</version>
             </dependency>
 
             <dependency>
@@ -1411,6 +1447,13 @@
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
                 <version>1.1.7.3</version>
+            </dependency>
+
+            <!-- Transitive dependency. Avoid different versions being used -->
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>1.26</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

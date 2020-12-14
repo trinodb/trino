@@ -15,121 +15,30 @@ package io.prestosql.testing.kafka;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.LongSerializer;
-import org.testcontainers.containers.KafkaContainer;
-import org.testcontainers.containers.Network;
 
 import java.io.Closeable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
-import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
-
-public class TestingKafka
-        implements Closeable
+public interface TestingKafka
+        extends Closeable
 {
-    private final KafkaContainer container;
+    String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.4.3";
 
-    public TestingKafka()
-    {
-        this("5.2.1");
-    }
-
-    public TestingKafka(String confluentPlatformVersion)
-    {
-        container = new KafkaContainer(confluentPlatformVersion)
-                .withNetwork(Network.SHARED)
-                .withNetworkAliases("kafka");
-    }
-
-    public void start()
-    {
-        container.start();
-    }
+    void start();
 
     @Override
-    public void close()
+    default void close() {}
+
+    void createTopic(String topic);
+
+    void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime);
+
+    String getConnectString();
+
+    default <K, V> KafkaProducer<K, V> createProducer()
     {
-        container.close();
+        return createProducer(ImmutableMap.of());
     }
 
-    public void createTopic(String topic)
-    {
-        createTopic(2, 1, topic);
-    }
-
-    private void createTopic(int partitions, int replication, String topic)
-    {
-        try {
-            List<String> command = new ArrayList<>();
-            command.add("kafka-topics");
-            command.add("--partitions");
-            command.add(Integer.toString(partitions));
-            command.add("--replication-factor");
-            command.add(Integer.toString(replication));
-            command.add("--topic");
-            command.add(topic);
-
-            container.execInContainer(command.toArray(new String[0]));
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime)
-    {
-        try {
-            List<String> command = new ArrayList<>();
-            command.add("kafka-topics");
-            command.add("--create");
-            command.add("--topic");
-            command.add(topic);
-            command.add("--partitions");
-            command.add(Integer.toString(partitions));
-            command.add("--replication-factor");
-            command.add(Integer.toString(replication));
-            command.add("--zookeeper");
-            command.add("localhost:2181");
-            if (enableLogAppendTime) {
-                command.add("--config");
-                command.add("message.timestamp.type=LogAppendTime");
-            }
-
-            container.execInContainer(command.toArray(new String[0]));
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public String getConnectString()
-    {
-        return container.getContainerIpAddress() + ":" + container.getMappedPort(KAFKA_PORT);
-    }
-
-    public KafkaProducer<Long, Object> createProducer()
-    {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getConnectString())
-                .put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
-                .put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class.getName())
-                .put(ProducerConfig.PARTITIONER_CLASS_CONFIG, NumberPartitioner.class.getName())
-                .put(ProducerConfig.ACKS_CONFIG, "1")
-                .build();
-
-        return new KafkaProducer<>(toProperties(properties));
-    }
-
-    private static Properties toProperties(Map<String, String> map)
-    {
-        Properties properties = new Properties();
-        for (Map.Entry<String, String> entry : map.entrySet()) {
-            properties.setProperty(entry.getKey(), entry.getValue());
-        }
-        return properties;
-    }
+    <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties);
 }

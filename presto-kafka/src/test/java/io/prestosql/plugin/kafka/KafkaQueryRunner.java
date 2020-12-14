@@ -31,6 +31,7 @@ import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.TestingPrestoClient;
+import io.prestosql.testing.kafka.BasicTestingKafka;
 import io.prestosql.testing.kafka.TestingKafka;
 import io.prestosql.tpch.TpchTable;
 
@@ -255,7 +256,7 @@ public final class KafkaQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = builder(new TestingKafka())
+        DistributedQueryRunner queryRunner = builder(new BasicTestingKafka())
                 .setTables(TpchTable.getTables())
                 .build();
         Logger log = Logger.get(KafkaQueryRunner.class);
