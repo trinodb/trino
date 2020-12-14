@@ -41,6 +41,7 @@ public class RowReferencePageManager
     private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowReferencePageManager.class).instanceSize();
     private static final long PAGE_ACCOUNTING_INSTANCE_SIZE = ClassLayout.parseClass(PageAccounting.class).instanceSize();
     private static final int RESERVED_ROW_ID_FOR_CURSOR = -1;
+    public static final long RESERVED_UNUSED_ROW_ID = -2;
 
     private final IdRegistry<PageAccounting> pages = new IdRegistry<>();
     private final RowIdBuffer rowIdBuffer = new RowIdBuffer();
