@@ -162,7 +162,7 @@ public class SnowflakeJdbcClientModule
                 if (buildConfigObject(SnowflakeConfig.class).getRole().isPresent()) {
                     throw new IllegalStateException("Snowflake role should not be set when impersonation is enabled");
                 }
-                install(new AuthToLocalModule(catalogName));
+                install(new AuthToLocalModule());
 
                 configBinder(binder).bindConfig(OktaConfig.class);
                 configBinder(binder).bindConfig(SnowflakeOauthConfig.class);
@@ -271,7 +271,7 @@ public class SnowflakeJdbcClientModule
             protected void setup(Binder binder)
             {
                 checkState(buildConfigObject(SnowflakeConfig.class).getRole().isEmpty(), "Snowflake role should not be set when impersonation is enabled");
-                install(new AuthToLocalModule(catalogName));
+                install(new AuthToLocalModule());
                 binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeImpersonationConnectionFactory.class).in(Scopes.SINGLETON);
             }
         };
