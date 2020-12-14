@@ -34,7 +34,7 @@ public class TestJsonUtils
     public static class TestObject
     {
         @JsonProperty
-        private TestEnum testEnum;
+        public TestEnum testEnum;
     }
 
     @Test
