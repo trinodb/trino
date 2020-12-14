@@ -224,6 +224,14 @@ public class TopNRankingOperator
                         groupByHash);
                 break;
             case RANK:
+                this.groupedTopNBuilder = new GroupedTopNRankBuilder(
+                        ImmutableList.copyOf(sourceTypes),
+                        new SimplePageWithPositionComparator(ImmutableList.copyOf(sourceTypes), sortChannels, sortOrders, typeOperators),
+                        new SimplePageWithPositionEqualsAndHash(ImmutableList.copyOf(sourceTypes), sortChannels, blockTypeOperators),
+                        maxRankingPerPartition,
+                        generateRanking,
+                        groupByHash);
+                break;
             case DENSE_RANK:
                 throw new UnsupportedOperationException();
             default:

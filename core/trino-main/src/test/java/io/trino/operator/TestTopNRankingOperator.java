@@ -42,9 +42,11 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
@@ -243,5 +245,58 @@ public class TestTopNRankingOperator
             }
         }
         assertEquals(count, 1_000 * 500);
+    }
+
+    @Test
+    public void testRankNullAndNan()
+    {
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(VARCHAR, DOUBLE);
+        List<Page> input = rowPagesBuilder
+                .row("a", null)
+                .row("b", 0.2)
+                .row("b", Double.NaN)
+                .row("c", 0.1)
+                .row("c", 0.91)
+                .pageBreak()
+                .row("a", 0.4)
+                .pageBreak()
+                .row("a", 0.5)
+                .row("a", null)
+                .row("a", 0.6)
+                .row("b", 0.7)
+                .row("b", Double.NaN)
+                .build();
+
+        TopNRankingOperatorFactory operatorFactory = new TopNRankingOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                RANK,
+                ImmutableList.of(VARCHAR, DOUBLE),
+                Ints.asList(1, 0),
+                Ints.asList(0),
+                ImmutableList.of(VARCHAR),
+                Ints.asList(1),
+                ImmutableList.of(ASC_NULLS_FIRST),
+                3,
+                false,
+                Optional.empty(),
+                10,
+                joinCompiler,
+                typeOperators,
+                blockTypeOperators);
+
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR, BIGINT)
+                .row(null, "a", 1L)
+                .row(null, "a", 1L)
+                .row(0.4, "a", 3L)
+                .row(0.2, "b", 1L)
+                .row(0.7, "b", 2L)
+                .row(Double.NaN, "b", 3L)
+                .row(Double.NaN, "b", 3L)
+                .row(0.1, "c", 1L)
+                .row(0.91, "c", 2L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 }
