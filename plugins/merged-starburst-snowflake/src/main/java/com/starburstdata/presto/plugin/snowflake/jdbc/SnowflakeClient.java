@@ -296,7 +296,8 @@ public class SnowflakeClient
             return writeMapping;
         }
 
-        return super.toWriteMapping(session, type);
+        // TODO provide explicit write type mappings
+        return legacyToWriteMapping(session, type);
     }
 
     @Override
