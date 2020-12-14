@@ -54,7 +54,7 @@ public class GroupedTopNBuilder
         this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null");
         checkArgument(topN > 0, "topN must be > 0");
         this.produceRowNumber = produceRowNumber;
-        this.groupByHash = requireNonNull(groupByHash, "groupByHash is not null");
+        this.groupByHash = requireNonNull(groupByHash, "groupByHash is null");
 
         requireNonNull(comparator, "comparator is null");
         groupedTopNRowNumberAccumulator = new GroupedTopNRowNumberAccumulator(
