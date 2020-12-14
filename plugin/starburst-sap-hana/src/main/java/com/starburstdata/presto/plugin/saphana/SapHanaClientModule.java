@@ -22,18 +22,10 @@ import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 
 public class SapHanaClientModule
         extends AbstractConfigurationAwareModule
 {
-    private final String catalogName;
-
-    public SapHanaClientModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
-
     @Override
     public void setup(Binder binder)
     {
@@ -44,6 +36,6 @@ public class SapHanaClientModule
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
 
-        install(new SapHanaAuthenticationModule(catalogName));
+        install(new SapHanaAuthenticationModule());
     }
 }

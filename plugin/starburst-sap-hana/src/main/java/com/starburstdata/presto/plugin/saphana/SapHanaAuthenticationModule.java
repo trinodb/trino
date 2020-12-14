@@ -18,6 +18,7 @@ import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
@@ -27,18 +28,10 @@ import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 
 public class SapHanaAuthenticationModule
         extends AbstractConfigurationAwareModule
 {
-    private final String catalogName;
-
-    public SapHanaAuthenticationModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
-
     @Override
     protected void setup(Binder binder)
     {
@@ -66,9 +59,9 @@ public class SapHanaAuthenticationModule
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
         {
-            return createBasicConnectionFactory(config, poolConfig, credentialProvider);
+            return createBasicConnectionFactory(catalogName, config, poolConfig, credentialProvider);
         }
     }
 
@@ -84,16 +77,16 @@ public class SapHanaAuthenticationModule
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig)
+        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig)
         {
-            return createBasicConnectionFactory(config, poolConfig, new PassThroughCredentialProvider());
+            return createBasicConnectionFactory(catalogName, config, poolConfig, new PassThroughCredentialProvider());
         }
     }
 
-    private ConnectionFactory createBasicConnectionFactory(BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
+    private ConnectionFactory createBasicConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
     {
         if (poolConfig.isConnectionPoolEnabled()) {
-            return new PoolingConnectionFactory(catalogName, Driver.class, config, poolConfig, credentialProvider);
+            return new PoolingConnectionFactory(catalogName.toString(), Driver.class, config, poolConfig, credentialProvider);
         }
         return new DriverConnectionFactory(new Driver(), config, credentialProvider);
     }
