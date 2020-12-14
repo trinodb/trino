@@ -26,6 +26,7 @@ import io.prestosql.decoder.avro.AvroBytesDeserializer;
 import io.prestosql.decoder.avro.AvroDeserializer;
 import io.prestosql.decoder.avro.AvroReaderSupplier;
 import io.prestosql.decoder.avro.AvroRowDecoderFactory;
+import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
 import io.prestosql.spi.HostAddress;
 
 import javax.inject.Singleton;
@@ -42,6 +43,7 @@ public class ConfluentModule
     {
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         install(new DecoderModule(new ConfluentAvroModule()));
+        binder.bind(ContentSchemaReader.class).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
     }
 
     @Provides
