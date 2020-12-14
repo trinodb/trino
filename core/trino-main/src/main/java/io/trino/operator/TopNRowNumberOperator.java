@@ -207,7 +207,7 @@ public class TopNRowNumberOperator
             groupByHash = new NoChannelGroupByHash();
         }
 
-        this.groupedTopNBuilder = new GroupedTopNBuilder(
+        this.groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 ImmutableList.copyOf(sourceTypes),
                 new SimplePageWithPositionComparator(ImmutableList.copyOf(sourceTypes), sortChannels, sortOrders, typeOperators),
                 maxRowCountPerPartition,

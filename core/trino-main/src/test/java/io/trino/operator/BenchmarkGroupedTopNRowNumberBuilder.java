@@ -51,7 +51,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 @Fork(4)
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-public class BenchmarkGroupedTopNBuilder
+public class BenchmarkGroupedTopNRowNumberBuilder
 {
     private static final int EXTENDED_PRICE = 0;
     private static final int DISCOUNT = 1;
@@ -78,14 +78,14 @@ public class BenchmarkGroupedTopNBuilder
         private String groupCount = "1";
 
         private Page page;
-        private GroupedTopNBuilder topNBuilder;
+        private GroupedTopNRowNumberBuilder topNBuilder;
 
         @Setup(value = Level.Invocation)
         public void setup()
         {
             page = createInputPage(Integer.valueOf(positions), types);
 
-            topNBuilder = new GroupedTopNBuilder(types, comparator, Integer.valueOf(topN), false, new CyclingGroupByHash(Integer.valueOf(groupCount)));
+            topNBuilder = new GroupedTopNRowNumberBuilder(types, comparator, Integer.valueOf(topN), false, new CyclingGroupByHash(Integer.valueOf(groupCount)));
         }
 
         public GroupedTopNBuilder getTopNBuilder()
@@ -111,11 +111,11 @@ public class BenchmarkGroupedTopNBuilder
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkGroupedTopNBuilder().topN(data);
+        new BenchmarkGroupedTopNRowNumberBuilder().topN(data);
 
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkGroupedTopNBuilder.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkGroupedTopNRowNumberBuilder.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();
