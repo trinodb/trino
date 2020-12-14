@@ -288,6 +288,10 @@ public class PostgreSqlClient
     @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
+        if (tableHandle.getColumns().isPresent()) {
+            return tableHandle.getColumns().get();
+        }
+
         try (Connection connection = connectionFactory.openConnection(session)) {
             Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
             if (getArrayMapping(session) == AS_ARRAY) {
