@@ -758,7 +758,7 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(prestoTimestampForSapHanaDataType(7), timeGapInVilnius)
                 .addRoundTrip(prestoTimestampForSapHanaDataType(7), timeGapInKathmandu)
 
-                // test arbitrary time for all supported precisions
+                // test some arbitrary time for all supported precisions
                 .addRoundTrip(prestoTimestampForSapHanaDataType(0), LocalDateTime.of(1970, 1, 1, 0, 0, 0))
                 .addRoundTrip(prestoTimestampForSapHanaDataType(1), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 100_000_000))
                 .addRoundTrip(prestoTimestampForSapHanaDataType(2), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 120_000_000))
@@ -767,6 +767,7 @@ public class TestSapHanaTypeMapping
                 .addRoundTrip(prestoTimestampForSapHanaDataType(5), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_450_000))
                 .addRoundTrip(prestoTimestampForSapHanaDataType(6), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_000))
                 .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_700))
+                .addRoundTrip(prestoTimestampForSapHanaDataType(8), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_780))
                 .addRoundTrip(prestoTimestampForSapHanaDataType(9), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_789))
 
                 // before epoch with nanos
