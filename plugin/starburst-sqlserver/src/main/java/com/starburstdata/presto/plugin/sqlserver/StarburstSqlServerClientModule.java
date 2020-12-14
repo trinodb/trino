@@ -40,18 +40,10 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
-import static java.util.Objects.requireNonNull;
 
 public class StarburstSqlServerClientModule
         extends AbstractConfigurationAwareModule
 {
-    private final String catalogName;
-
-    public StarburstSqlServerClientModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
-
     @Override
     protected void setup(Binder binder)
     {
@@ -81,13 +73,13 @@ public class StarburstSqlServerClientModule
         return new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
     }
 
-    private class ImpersonationModule
+    private static class ImpersonationModule
             implements Module
     {
         @Override
         public void configure(Binder binder)
         {
-            binder.install(new AuthToLocalModule(catalogName));
+            binder.install(new AuthToLocalModule());
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SqlServerImpersonatingConnectionFactory.class).in(Scopes.SINGLETON);
         }
     }

@@ -35,9 +35,9 @@ public class StarburstSqlServerPlugin
         requireNonNull(licenseManager, "licenseManager is null");
         return new DynamicFilteringJdbcConnectorFactory(
                 "sqlserver",
-                (String catalog) -> combine(
+                combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                        new StarburstSqlServerClientModule(catalog)),
+                        new StarburstSqlServerClientModule()),
                 licenseManager);
     }
 }
