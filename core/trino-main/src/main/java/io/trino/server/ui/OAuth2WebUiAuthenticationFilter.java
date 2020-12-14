@@ -120,7 +120,7 @@ public class OAuth2WebUiAuthenticationFilter
 
     private void needAuthentication(ContainerRequestContext request)
     {
-        URI redirectLocation = service.startChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
+        URI redirectLocation = service.startWebUiChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
         request.abortWith(Response.seeOther(redirectLocation).build());
     }
 
