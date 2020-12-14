@@ -25,7 +25,10 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
+<<<<<<< HEAD
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
+=======
+>>>>>>> Acquire lock before dropping transactional table.
 
 import java.util.List;
 import java.util.Map;
@@ -153,7 +156,7 @@ public interface HiveMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    default void acquireLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions, DataOperationType dataOperationType)
     {
         throw new UnsupportedOperationException();
     }

@@ -52,7 +52,10 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
+<<<<<<< HEAD
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
+=======
+>>>>>>> Acquire lock before dropping transactional table.
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -1251,7 +1254,7 @@ public class SemiTransactionalHiveMetastore
                 Action<TableAndMore> action = entry.getValue();
                 switch (action.getType()) {
                     case DROP:
-                        committer.prepareDropTable(action.getIdentity(), schemaTableName);
+                        committer.prepareDropTable(action.getHdfsContext(), action.getIdentity(), schemaTableName);
                         break;
                     case ALTER:
                         committer.prepareAlterTable(action.getHdfsContext(), action.getIdentity(), action.getData());
@@ -1341,6 +1344,7 @@ public class SemiTransactionalHiveMetastore
             // this section. Even if commit fails, cleanups, instead of rollbacks, will be executed.
 
             committer.executeIrreversibleMetastoreOperations();
+            committer.executeTransactionalMetastoreOperations();
 
             // If control flow reached this point, this commit is considered successful no matter
             // what happens later. The only kind of operations that haven't been carried out yet
@@ -1381,22 +1385,39 @@ public class SemiTransactionalHiveMetastore
         private final List<AlterPartitionOperation> alterPartitionOperations = new ArrayList<>();
         private final List<UpdateStatisticsOperation> updateStatisticsOperations = new ArrayList<>();
         private final List<IrreversibleMetastoreOperation> metastoreDeleteOperations = new ArrayList<>();
+        private final List<TransactionalMetastoreOperation> metastoreTransactionalOperations = new ArrayList<>();
 
         private final AcidTransaction transaction;
 
         // Flag for better error message
         private boolean deleteOnly = true;
 
+<<<<<<< HEAD
         Committer(AcidTransaction transaction)
         {
             this.transaction = transaction;
         }
 
         private void prepareDropTable(HiveIdentity identity, SchemaTableName schemaTableName)
+=======
+        private void prepareDropTable(HdfsContext context, HiveIdentity identity, SchemaTableName schemaTableName)
+>>>>>>> Acquire lock before dropping transactional table.
         {
-            metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
-                    format("drop table %s", schemaTableName),
-                    () -> delegate.dropTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), true)));
+            Table table = delegate.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName())
+                    .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+            if (AcidUtils.isTransactionalTable(table.getParameters())) {
+                metastoreTransactionalOperations.add(new TransactionalMetastoreOperation(
+                        format("drop transactional table %s", schemaTableName),
+                        context,
+                        identity,
+                        schemaTableName,
+                        () -> delegate.dropTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), true)));
+            }
+            else {
+                metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
+                        format("drop table %s", schemaTableName),
+                        () -> delegate.dropTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), true)));
+            }
         }
 
         private void prepareAlterTable(HdfsContext hdfsContext, HiveIdentity identity, TableAndMore tableAndMore)
@@ -2007,6 +2028,13 @@ public class SemiTransactionalHiveMetastore
                 PrestoException prestoException = new PrestoException(HIVE_METASTORE_ERROR, message.toString());
                 suppressedExceptions.forEach(prestoException::addSuppressed);
                 throw prestoException;
+            }
+        }
+
+        private void executeTransactionalMetastoreOperations()
+        {
+            for (TransactionalMetastoreOperation operation : metastoreTransactionalOperations) {
+                operation.run();
             }
         }
     }
@@ -2909,6 +2937,68 @@ public class SemiTransactionalHiveMetastore
         public void run()
         {
             action.run();
+        }
+    }
+
+    private class TransactionalMetastoreOperation
+    {
+        private final String description;
+        private final HdfsContext context;
+        private final HiveIdentity identity;
+        private final SchemaTableName schemaTableName;
+        private final Runnable action;
+
+        public TransactionalMetastoreOperation(String description, HdfsContext context, HiveIdentity identity, SchemaTableName schemaTableName, Runnable action)
+        {
+            this.description = requireNonNull(description, "description is null");
+            this.context = requireNonNull(context, "context is null");
+            this.identity = requireNonNull(identity, "identity is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.action = requireNonNull(action, "action is null");
+        }
+
+        public String getDescription()
+        {
+            return description;
+        }
+
+        // Performs operation on transactional table
+        // 1: Open a transaction
+        // 2: Create heartbeat for the transaction
+        // 3: Acquire exclusive lock for drop table, wait till it successfully acquires
+        // 4: Drop table
+        // 5: Close heartbeat and commit transaction.
+        public void run()
+        {
+            long heartbeatInterval = configuredTransactionHeartbeatInterval
+                    .map(Duration::toMillis)
+                    .orElseGet(SemiTransactionalHiveMetastore.this::getServerExpectedHeartbeatIntervalMillis);
+            long transactionId = delegate.openTransaction(identity);
+
+            String queryId = context.getQueryId().orElseThrow(() -> new IllegalArgumentException("query ID not present"));
+            log.debug(format("Opened transaction: %s for queryID: %s for table: %s", transactionId, queryId, schemaTableName.getTableName()));
+
+            ScheduledFuture<?> heartbeatTask = heartbeatExecutor.scheduleAtFixedRate(
+                    () -> delegate.sendTransactionHeartbeat(identity, transactionId),
+                    0,
+                    heartbeatInterval,
+                    MILLISECONDS);
+
+            delegate.acquireLock(
+                    identity,
+                    queryId,
+                    transactionId,
+                    ImmutableList.of(schemaTableName),
+                    ImmutableList.of(),
+                    DataOperationType.NO_TXN);
+
+            try {
+                action.run();
+            }
+            finally {
+                heartbeatTask.cancel(true);
+                delegate.commitTransaction(identity, transactionId);
+            }
         }
     }
 
