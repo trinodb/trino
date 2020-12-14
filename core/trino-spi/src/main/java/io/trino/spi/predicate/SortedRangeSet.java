@@ -188,7 +188,7 @@ public final class SortedRangeSet
         return includesMarker(Marker.exactly(type, value));
     }
 
-    boolean includesMarker(Marker marker)
+    private boolean includesMarker(Marker marker)
     {
         requireNonNull(marker, "marker is null");
         checkTypeCompatibility(marker);
