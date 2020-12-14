@@ -56,7 +56,7 @@ public class TopNProcessor
             outputIterator = emptyIterator();
         }
         else {
-            topNBuilder = new GroupedTopNBuilder(
+            topNBuilder = new GroupedTopNRowNumberBuilder(
                     types,
                     new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators),
                     n,
