@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.kafka.BasicTestingKafka;
 import io.prestosql.testing.kafka.TestingKafka;
 import io.prestosql.tpch.TpchTable;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -79,7 +80,7 @@ public class TestKafkaIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingKafka = new TestingKafka();
+        testingKafka = new BasicTestingKafka();
         rawFormatTopic = "test_raw_" + UUID.randomUUID().toString().replaceAll("-", "_");
         headersTopic = "test_header_" + UUID.randomUUID().toString().replaceAll("-", "_");
 

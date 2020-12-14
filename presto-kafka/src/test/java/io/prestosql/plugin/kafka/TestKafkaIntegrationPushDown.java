@@ -26,6 +26,7 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
+import io.prestosql.testing.kafka.BasicTestingKafka;
 import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -71,7 +72,7 @@ public class TestKafkaIntegrationPushDown
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingKafka = new TestingKafka();
+        testingKafka = new BasicTestingKafka();
         topicNamePartition = "test_push_down_partition_" + UUID.randomUUID().toString().replaceAll("-", "_");
         topicNameOffset = "test_push_down_offset_" + UUID.randomUUID().toString().replaceAll("-", "_");
         topicNameCreateTime = "test_push_down_create_time_" + UUID.randomUUID().toString().replaceAll("-", "_");
