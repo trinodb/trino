@@ -384,7 +384,7 @@ class StatementAnalyzer
             // analyze the query that creates the data
             Scope queryScope = analyze(insert.getQuery(), createScope(scope));
 
-            analysis.setUpdateType("INSERT", targetTable);
+            analysis.setUpdateType("INSERT", targetTable, Optional.empty());
 
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -485,7 +485,7 @@ class StatementAnalyzer
             Query query = parseView(optionalView.get().getOriginalSql(), name, refreshMaterializedView);
             Scope queryScope = process(query, scope);
 
-            analysis.setUpdateType("INSERT", targetTable);
+            analysis.setUpdateType("INSERT", targetTable, Optional.empty());
 
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -625,7 +625,7 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyzeForUpdate(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
-            analysis.setUpdateType("DELETE", tableName);
+            analysis.setUpdateType("DELETE", tableName, Optional.of(table));
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -634,7 +634,7 @@ class StatementAnalyzer
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
-            analysis.setUpdateType("ANALYZE", tableName);
+            analysis.setUpdateType("ANALYZE", tableName, Optional.empty());
 
             // verify the target table exists and it's not a view
             if (metadata.getView(session, tableName).isPresent()) {
@@ -679,7 +679,7 @@ class StatementAnalyzer
         {
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
-            analysis.setUpdateType("CREATE TABLE", targetTable);
+            analysis.setUpdateType("CREATE TABLE", targetTable, Optional.empty());
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent()) {
@@ -773,7 +773,7 @@ class StatementAnalyzer
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
-            analysis.setUpdateType("CREATE VIEW", viewName);
+            analysis.setUpdateType("CREATE VIEW", viewName, Optional.empty());
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
@@ -958,7 +958,7 @@ class StatementAnalyzer
         protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
         {
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
-            analysis.setUpdateType("CREATE MATERIALIZED VIEW", viewName);
+            analysis.setUpdateType("CREATE MATERIALIZED VIEW", viewName, Optional.empty());
 
             if (node.isReplace() && node.isNotExists()) {
                 throw semanticException(NOT_SUPPORTED, node, "'CREATE OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
