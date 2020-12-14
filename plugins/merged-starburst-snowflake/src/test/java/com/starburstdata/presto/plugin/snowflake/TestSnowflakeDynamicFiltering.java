@@ -39,7 +39,7 @@ public class TestSnowflakeDynamicFiltering
 
     @Override
     @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "java.lang.AssertionError: expected \\[3] but found \\[\\d]")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "java.lang.AssertionError: expected \\[\\d] but found \\[\\d]")
     public void testDynamicFilteringWithLimit()
     {
         super.testDynamicFilteringWithLimit();
