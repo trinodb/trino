@@ -211,6 +211,14 @@ public class QueryBuilder
     private String toPredicate(JdbcColumnHandle column, ValueSet valueSet, List<TypeAndValue> accumulator)
     {
         checkArgument(!valueSet.isNone(), "none values should be handled earlier");
+
+        if (!valueSet.isDiscreteSet()) {
+            ValueSet complement = valueSet.complement();
+            if (complement.isDiscreteSet()) {
+                return format("NOT (%s)", toPredicate(column, complement, accumulator));
+            }
+        }
+
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
         for (Range range : valueSet.getRanges().getOrderedRanges()) {
