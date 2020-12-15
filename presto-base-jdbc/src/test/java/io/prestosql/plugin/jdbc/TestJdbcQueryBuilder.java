@@ -241,12 +241,12 @@ public class TestJdbcQueryBuilder
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
-                    "WHERE ((\"col_0\" < ?) OR (\"col_0\" >= ? AND \"col_0\" <= ?) OR (\"col_0\" > ?) OR \"col_0\" IN (?,?)) " +
+                    "WHERE (\"col_0\" < ? OR (\"col_0\" >= ? AND \"col_0\" <= ?) OR \"col_0\" > ? OR \"col_0\" IN (?,?)) " +
                     "AND ((\"col_1\" >= ? AND \"col_1\" <= ?) OR (\"col_1\" >= ? AND \"col_1\" <= ?) OR \"col_1\" IN (?,?,?,?)) " +
                     "AND ((\"col_7\" >= ? AND \"col_7\" < ?) OR (\"col_7\" >= ? AND \"col_7\" < ?)) " +
                     "AND ((\"col_8\" >= ? AND \"col_8\" < ?) OR (\"col_8\" >= ? AND \"col_8\" <= ?)) " +
-                    "AND ((\"col_9\" < ?) OR \"col_9\" IN (?,?)) " +
-                    "AND (\"col_2\" = ?)");
+                    "AND (\"col_9\" < ? OR \"col_9\" IN (?,?)) " +
+                    "AND \"col_2\" = ?");
             ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
@@ -275,7 +275,7 @@ public class TestJdbcQueryBuilder
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
-                    "WHERE (\"col_10\" IN (?,?,?))");
+                    "WHERE \"col_10\" IN (?,?,?)");
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -550,7 +550,7 @@ public class TestJdbcQueryBuilder
             assertThat(lastQuery).isEqualTo("" +
                     "SELECT \"col_2\" AS \"col_2\", sum(\"col_0\") AS \"s\" " +
                     "FROM \"test_table\" " +
-                    "WHERE ((\"col_1\" < ?) OR \"col_1\" IS NULL) " +
+                    "WHERE (\"col_1\" < ? OR \"col_1\" IS NULL) " +
                     "GROUP BY \"col_2\"");
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
