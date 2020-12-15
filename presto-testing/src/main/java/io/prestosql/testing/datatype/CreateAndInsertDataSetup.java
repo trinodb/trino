@@ -18,11 +18,11 @@ import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 
 import java.util.List;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.IntStream.range;
+import static java.util.stream.Collectors.joining;
 
 public class CreateAndInsertDataSetup
         implements DataSetup
@@ -71,16 +71,27 @@ public class CreateAndInsertDataSetup
 
     private TestTable createTestTable(List<ColumnSetup> inputs)
     {
-        return new TestTable(sqlExecutor, tableNamePrefix, "(" + columnDefinitions(inputs) + ")");
+        return new TestTable(sqlExecutor, tableNamePrefix, tableDefinition(inputs));
     }
 
-    private String columnDefinitions(List<ColumnSetup> inputs)
+    private String tableDefinition(List<ColumnSetup> inputs)
     {
-        List<String> columnTypeDefinitions = inputs.stream()
-                .map(input -> input.getDeclaredType().orElseThrow(() -> new IllegalArgumentException("declared type not set")))
-                .collect(toList());
-        Stream<String> columnDefinitions = range(0, columnTypeDefinitions.size())
-                .mapToObj(i -> format("col_%d %s", i, columnTypeDefinitions.get(i)));
-        return Joiner.on(",\n").join(columnDefinitions.iterator());
+        if (inputs.stream().allMatch(input -> input.getDeclaredType().isPresent())) {
+            // When all types are explicitly specified, use ordinary CREATE TABLE
+            return IntStream.range(0, inputs.size())
+                    .mapToObj(column -> format("col_%d %s", column, inputs.get(column).getDeclaredType().orElseThrow()))
+                    .collect(joining(",\n", "(\n", ")"));
+        }
+
+        return IntStream.range(0, inputs.size())
+                .mapToObj(column -> {
+                    ColumnSetup input = inputs.get(column);
+                    if (input.getDeclaredType().isEmpty()) {
+                        return format("%s AS col_%d", input.getInputLiteral(), column);
+                    }
+
+                    return format("CAST(%s AS %s) AS col_%d", input.getInputLiteral(), input.getDeclaredType().get(), column);
+                })
+                .collect(joining(",\n", "AS\nSELECT\n", "\nWHERE 'with no' = 'data'"));
     }
 }
