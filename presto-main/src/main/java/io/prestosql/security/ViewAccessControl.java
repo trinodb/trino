@@ -26,7 +26,7 @@ import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class ViewAccessControl
-        extends DenyAllAccessControl
+        extends ForwardingAccessControl
 {
     private final AccessControl delegate;
     private final Identity invoker;
@@ -35,6 +35,12 @@ public class ViewAccessControl
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.invoker = requireNonNull(invoker, "invoker is null");
+    }
+
+    @Override
+    protected AccessControl delegate()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
