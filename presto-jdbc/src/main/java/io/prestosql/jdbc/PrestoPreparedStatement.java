@@ -87,7 +87,6 @@ public class PrestoPreparedStatement
 {
     private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
             new DateTimeFormatterBuilder()
-                    .parseCaseInsensitive()
                     .append(ISO_LOCAL_DATE)
                     .appendLiteral(' ')
                     .append(ISO_LOCAL_TIME)
