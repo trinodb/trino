@@ -33,6 +33,11 @@ public class AccessDeniedException
         super(PERMISSION_DENIED, PREFIX + message);
     }
 
+    public AccessDeniedException(String message, AccessDeniedException e)
+    {
+        super(PERMISSION_DENIED, PREFIX + message, e);
+    }
+
     public static void denyImpersonateUser(String originalUser, String newUser)
     {
         denyImpersonateUser(originalUser, newUser, null);

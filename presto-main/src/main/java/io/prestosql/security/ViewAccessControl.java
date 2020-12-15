@@ -14,7 +14,6 @@
 package io.prestosql.security;
 
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.ViewExpression;
@@ -24,7 +23,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
 public class ViewAccessControl
@@ -88,7 +86,7 @@ public class ViewAccessControl
             String prefix = AccessDeniedException.PREFIX;
             verify(e.getMessage().startsWith(prefix));
             String msg = e.getMessage().substring(prefix.length());
-            throw new PrestoException(PERMISSION_DENIED, prefix + "View owner does not have sufficient privileges: " + msg, e);
+            throw new AccessDeniedException("View owner does not have sufficient privileges: " + msg, e);
         }
     }
 }
