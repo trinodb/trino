@@ -20,7 +20,6 @@ import io.prestosql.testing.sql.TestTable;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 
@@ -40,19 +39,22 @@ public class CreateAsSelectDataSetup
     public TestTable setupTestTable(List<ColumnSetup> inputs)
     {
         List<String> columnValues = inputs.stream()
-                .map(this::literalInExplicitCast)
+                .map(this::format)
                 .collect(toList());
         Stream<String> columnValuesWithNames = range(0, columnValues.size())
-                .mapToObj(i -> format("%s col_%d", columnValues.get(i), i));
+                .mapToObj(i -> String.format("%s col_%d", columnValues.get(i), i));
         String selectBody = Joiner.on(",\n").join(columnValuesWithNames.iterator());
         return new TestTable(sqlExecutor, tableNamePrefix, "AS SELECT " + selectBody);
     }
 
-    private String literalInExplicitCast(ColumnSetup input)
+    private String format(ColumnSetup input)
     {
-        return format(
+        if (input.getDeclaredType().isEmpty()) {
+            return input.getInputLiteral();
+        }
+        return String.format(
                 "CAST(%s AS %s)",
                 input.getInputLiteral(),
-                input.getDeclaredType().orElseThrow(() -> new IllegalArgumentException("declared type not set")));
+                input.getDeclaredType().get());
     }
 }
