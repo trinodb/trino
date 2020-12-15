@@ -44,4 +44,51 @@ public class TestPrestoConnectorDistributedQueriesWritesEnabled
     {
         throw new SkipException("Skipping expensive test; already run as part of TestPrestoConnectorDistributedQueries");
     }
+
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        // this test takes ages to complete
+        throw new SkipException("test TODO");
+    }
+
+    @Override
+    public void testAddColumn()
+    {
+        // memory connector does not support adding columns
+        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4832) make sure this is tested
+        throw new SkipException("test TODO");
+    }
+
+    @Override
+    public void testDropColumn()
+    {
+        // memory connector does not support dropping columns
+        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4832) make sure this is tested
+        throw new SkipException("test TODO");
+    }
+
+    @Override
+    public void testRenameColumn()
+    {
+        // memory connector does not support renaming columns
+        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4832) make sure this is tested
+        throw new SkipException("test TODO");
+    }
+
+    @Override
+    public void testCommentColumn()
+    {
+        // memory connector does not support setting column comments
+        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4832) make sure this is tested
+        throw new SkipException("test TODO");
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // memory connector does not support deletes
+        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4832) make sure this is tested
+        throw new SkipException("test TODO");
+    }
 }

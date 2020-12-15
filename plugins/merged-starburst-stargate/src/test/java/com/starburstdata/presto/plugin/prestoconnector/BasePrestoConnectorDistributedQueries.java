@@ -46,53 +46,11 @@ public abstract class BasePrestoConnectorDistributedQueries
     }
 
     @Override
-    public void testAddColumn()
-    {
-        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4759) memory connector does not support adding columns
-        throw new SkipException("test TODO");
-    }
-
-    @Override
-    public void testDropColumn()
-    {
-        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4759) memory connector does not support dropping columns
-        throw new SkipException("test TODO");
-    }
-
-    @Override
-    public void testRenameColumn()
-    {
-        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4759) memory connector does not support renaming columns
-        throw new SkipException("test TODO");
-    }
-
-    @Override
-    public void testCommentColumn()
-    {
-        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4759) memory connector does not support setting column comments
-        throw new SkipException("test TODO");
-    }
-
-    @Override
     public void testCommentTable()
     {
         assertThatThrownBy(super::testCommentTable)
                 .hasMessage("This connector does not support setting table comments")
                 .hasStackTraceContaining("io.prestosql.spi.connector.ConnectorMetadata.setTableComment"); // not overridden, so we know this is not a remote exception
         throw new SkipException("not supported");
-    }
-
-    @Override
-    public void testCreateTableAsSelect()
-    {
-        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4759) this test takes ages to complete
-        throw new SkipException("test TODO");
-    }
-
-    @Override
-    public void testDelete()
-    {
-        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4759) memory connector does not support deletes
-        throw new SkipException("test TODO");
     }
 }
