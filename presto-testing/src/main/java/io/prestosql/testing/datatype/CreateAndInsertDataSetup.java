@@ -37,7 +37,7 @@ public class CreateAndInsertDataSetup
     }
 
     @Override
-    public TestTable setupTestTable(List<DataTypeTest.Input<?>> inputs)
+    public TestTable setupTestTable(List<ColumnSetup> inputs)
     {
         TestTable testTable = createTestTable(inputs);
         try {
@@ -50,6 +50,7 @@ public class CreateAndInsertDataSetup
         return testTable;
     }
 
+    // TODO replace with closeAllSuppress when https://github.com/airlift/airlift/pull/889 is available
     private static void closeQuietly(AutoCloseable autoCloseable)
     {
         //noinspection EmptyTryBlock
@@ -60,23 +61,23 @@ public class CreateAndInsertDataSetup
         }
     }
 
-    private void insertRows(TestTable testTable, List<DataTypeTest.Input<?>> inputs)
+    private void insertRows(TestTable testTable, List<ColumnSetup> inputs)
     {
         Stream<String> literals = inputs.stream()
-                .map(DataTypeTest.Input::toLiteral);
+                .map(ColumnSetup::getInputLiteral);
         String valueLiterals = Joiner.on(", ").join(literals.iterator());
         sqlExecutor.execute(format("INSERT INTO %s VALUES(%s)", testTable.getName(), valueLiterals));
     }
 
-    private TestTable createTestTable(List<DataTypeTest.Input<?>> inputs)
+    private TestTable createTestTable(List<ColumnSetup> inputs)
     {
         return new TestTable(sqlExecutor, tableNamePrefix, "(" + columnDefinitions(inputs) + ")");
     }
 
-    private String columnDefinitions(List<DataTypeTest.Input<?>> inputs)
+    private String columnDefinitions(List<ColumnSetup> inputs)
     {
         List<String> columnTypeDefinitions = inputs.stream()
-                .map(DataTypeTest.Input::getInsertType)
+                .map(input -> input.getDeclaredType().orElseThrow(() -> new IllegalArgumentException("declared type not set")))
                 .collect(toList());
         Stream<String> columnDefinitions = range(0, columnTypeDefinitions.size())
                 .mapToObj(i -> format("col_%d %s", i, columnTypeDefinitions.get(i)));
