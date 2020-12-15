@@ -64,6 +64,11 @@ public abstract class TimeWithTimeZoneType
         return precision;
     }
 
+    public final boolean isShort()
+    {
+        return precision <= MAX_SHORT_PRECISION;
+    }
+
     @Override
     public final boolean isComparable()
     {
