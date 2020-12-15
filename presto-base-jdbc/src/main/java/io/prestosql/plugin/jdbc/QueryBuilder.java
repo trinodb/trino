@@ -238,7 +238,12 @@ public class QueryBuilder
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 checkState(!rangeConjuncts.isEmpty());
-                disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
+                if (rangeConjuncts.size() == 1) {
+                    disjuncts.add(getOnlyElement(rangeConjuncts));
+                }
+                else {
+                    disjuncts.add("(" + Joiner.on(" AND ").join(rangeConjuncts) + ")");
+                }
             }
         }
 
@@ -260,6 +265,9 @@ public class QueryBuilder
             disjuncts.add(client.quoted(column.getColumnName()) + " IS NULL");
         }
 
+        if (disjuncts.size() == 1) {
+            return getOnlyElement(disjuncts);
+        }
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
