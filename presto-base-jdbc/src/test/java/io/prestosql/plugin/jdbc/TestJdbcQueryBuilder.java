@@ -290,8 +290,8 @@ public class TestJdbcQueryBuilder
             assertThat(lastQuery).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_3\" AS \"col_3\", \"col_9\" AS \"col_9\" " +
                     "FROM \"test_table\" " +
-                    "WHERE ((\"col_0\" < ? OR (\"col_0\" > ? AND \"col_0\" < ?) OR (\"col_0\" > ? AND \"col_0\" < ?) OR \"col_0\" > ?) OR \"col_0\" IS NULL) " +
-                    "AND (\"col_1\" < ? OR (\"col_1\" > ? AND \"col_1\" < ?) OR (\"col_1\" > ? AND \"col_1\" < ?) OR \"col_1\" > ?) " +
+                    "WHERE (NOT (\"col_0\" IN (?,?,?)) OR \"col_0\" IS NULL) " +
+                    "AND NOT (\"col_1\" IN (?,?,?)) " +
                     "AND \"col_9\" >= ?");
             ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
