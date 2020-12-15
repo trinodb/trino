@@ -47,7 +47,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.LongStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
@@ -254,6 +256,50 @@ public class TestJdbcQueryBuilder
                 }
             }
             assertEquals(builder.build(), ImmutableSet.of(68L, 180L, 196L));
+        }
+    }
+
+    /**
+     * Test query generation for domains originating from {@code NOT IN} predicates.
+     *
+     * @see Domain#complement()
+     */
+    @Test
+    public void testBuildSqlWithDomainComplement()
+            throws SQLException
+    {
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.<ColumnHandle, Domain>builder()
+                // complement of a Domain with null not allowed
+                .put(columns.get(0), Domain.create(ValueSet.of(BIGINT, 128L, 180L, 233L), false).complement())
+                // complement of a Domain with null allowed
+                .put(columns.get(1), Domain.create(ValueSet.of(DOUBLE, 200011.0, 200014.0, 200017.0), true).complement())
+                // this is here only to limit the list of results being read
+                .put(columns.get(9), Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(INTEGER, 880L)), false))
+                .build());
+
+        Connection connection = database.getConnection();
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(
+                SESSION,
+                connection,
+                TEST_TABLE,
+                Optional.empty(),
+                List.of(columns.get(0), columns.get(3), columns.get(9)),
+                tupleDomain,
+                Optional.empty(),
+                identity())) {
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_0\" AS \"col_0\", \"col_3\" AS \"col_3\", \"col_9\" AS \"col_9\" " +
+                    "FROM \"test_table\" " +
+                    "WHERE ((\"col_0\" < ? OR (\"col_0\" > ? AND \"col_0\" < ?) OR (\"col_0\" > ? AND \"col_0\" < ?) OR \"col_0\" > ?) OR \"col_0\" IS NULL) " +
+                    "AND (\"col_1\" < ? OR (\"col_1\" > ? AND \"col_1\" < ?) OR (\"col_1\" > ? AND \"col_1\" < ?) OR \"col_1\" > ?) " +
+                    "AND \"col_9\" >= ?");
+            ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    builder.add((Long) resultSet.getObject("col_0"));
+                }
+            }
+            assertEquals(builder.build(), LongStream.range(980, 1000).boxed().collect(toImmutableList()));
         }
     }
 
