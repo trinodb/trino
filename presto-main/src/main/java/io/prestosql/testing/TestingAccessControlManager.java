@@ -496,6 +496,18 @@ public class TestingAccessControlManager
     }
 
     @Override
+    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    {
+        ImmutableSet.Builder<String> visibleColumns = ImmutableSet.builder();
+        for (String column : columns) {
+            if (!shouldDenyPrivilege(context.getIdentity().getUser(), table.getSchemaTableName().getTableName() + "." + column, SELECT_COLUMN)) {
+                visibleColumns.add(column);
+            }
+        }
+        return super.filterColumns(context, table, visibleColumns.build());
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(SecurityContext context, String catalogName, String propertyName)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), catalogName + "." + propertyName, SET_SESSION)) {

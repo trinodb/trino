@@ -44,6 +44,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -316,5 +317,60 @@ public class TestAccessControl
             // There is no clean exception message for authorization failure.  We simply get a 403
             Assertions.assertContains(e.getMessage(), "statusCode=403");
         }
+    }
+
+    @Test
+    public void testDescribe()
+    {
+        assertAccessDenied("DESCRIBE orders", "Cannot show columns of table default.orders", privilege("orders", SHOW_COLUMNS));
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().deny(privilege("orders.orderkey", SELECT_COLUMN));
+                assertQuery(
+                        "DESCRIBE orders",
+                        "VALUES " +
+                                // orderkey column is filtered
+                                "('custkey', 'bigint', '', '')," +
+                                "('orderstatus', 'varchar(1)', '', '')," +
+                                "('totalprice', 'double', '', '')," +
+                                "('orderdate', 'date', '', '')," +
+                                "('orderpriority', 'varchar(15)', '', '')," +
+                                "('clerk', 'varchar(15)', '', '')," +
+                                "('shippriority', 'integer', '', '')," +
+                                "('comment', 'varchar(79)', '', '')");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+    }
+
+    @Test
+    public void testDescribeForViews()
+    {
+        String viewName = "describe_orders_view" + randomTableSuffix();
+        assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
+        assertAccessDenied("DESCRIBE " + viewName, "Cannot show columns of table default.*", privilege(viewName, SHOW_COLUMNS));
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().deny(privilege(viewName + ".orderkey", SELECT_COLUMN));
+                assertQuery(
+                        "DESCRIBE " + viewName,
+                        "VALUES " +
+                                // orderkey column is filtered
+                                "('custkey', 'bigint', '', '')," +
+                                "('orderstatus', 'varchar(1)', '', '')," +
+                                "('totalprice', 'double', '', '')," +
+                                "('orderdate', 'date', '', '')," +
+                                "('orderpriority', 'varchar(15)', '', '')," +
+                                "('clerk', 'varchar(15)', '', '')," +
+                                "('shippriority', 'integer', '', '')," +
+                                "('comment', 'varchar(79)', '', '')");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
+        assertUpdate("DROP VIEW " + viewName);
     }
 }
