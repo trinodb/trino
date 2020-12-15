@@ -64,7 +64,7 @@ public final class TimeWithTimeZoneToTimeWithTimeZoneCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("time(sourcePrecision) with time zone") LongTimeWithTimeZone timestamp)
     {
-        long nanos = round(timestamp.getPicoSeconds(), (int) (MAX_PRECISION - targetPrecision)) / PICOSECONDS_PER_NANOSECOND;
+        long nanos = round(timestamp.getPicoseconds(), (int) (MAX_PRECISION - targetPrecision)) / PICOSECONDS_PER_NANOSECOND;
 
         return packTimeWithTimeZone(nanos % NANOSECONDS_PER_DAY, timestamp.getOffsetMinutes());
     }
@@ -76,7 +76,7 @@ public final class TimeWithTimeZoneToTimeWithTimeZoneCast
             @SqlType("time(sourcePrecision) with time zone") LongTimeWithTimeZone timestamp)
     {
         return new LongTimeWithTimeZone(
-                round(timestamp.getPicoSeconds(), (int) (MAX_PRECISION - targetPrecision)) % PICOSECONDS_PER_DAY,
+                round(timestamp.getPicoseconds(), (int) (MAX_PRECISION - targetPrecision)) % PICOSECONDS_PER_DAY,
                 timestamp.getOffsetMinutes());
     }
 }

@@ -71,10 +71,10 @@ public final class ToIso8601
         return utf8Slice(format((int) precision, timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId()));
     }
 
-    private static String format(int precision, long epochMillis, int picoSecondOfMilli, ZoneId zoneId)
+    private static String format(int precision, long epochMillis, int picosOfMilli, ZoneId zoneId)
     {
         LocalDateTime dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), zoneId);
-        long picoFraction = ((long) getMillisOfSecond(epochMillis)) * PICOSECONDS_PER_MILLISECOND + picoSecondOfMilli;
+        long picoFraction = ((long) getMillisOfSecond(epochMillis)) * PICOSECONDS_PER_MILLISECOND + picosOfMilli;
 
         ZoneOffset offset = zoneId.getRules().getValidOffsets(dateTime).get(0);
         if (offset.getTotalSeconds() % 60 != 0) {

@@ -73,7 +73,7 @@ public class DateAdd
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType("time(p) with time zone") LongTimeWithTimeZone time)
     {
-        long picos = add(time.getPicoSeconds(), unit, value);
+        long picos = add(time.getPicoseconds(), unit, value);
 
         return new LongTimeWithTimeZone(picos, time.getOffsetMinutes());
     }

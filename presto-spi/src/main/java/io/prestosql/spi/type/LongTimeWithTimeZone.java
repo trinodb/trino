@@ -20,18 +20,18 @@ import static io.prestosql.spi.type.TimeWithTimeZoneTypes.normalize;
 public final class LongTimeWithTimeZone
         implements Comparable<LongTimeWithTimeZone>
 {
-    private final long picoSeconds;
+    private final long picoseconds;
     private final int offsetMinutes;
 
-    public LongTimeWithTimeZone(long picoSeconds, int offsetMinutes)
+    public LongTimeWithTimeZone(long picoseconds, int offsetMinutes)
     {
-        this.picoSeconds = picoSeconds;
+        this.picoseconds = picoseconds;
         this.offsetMinutes = offsetMinutes;
     }
 
-    public long getPicoSeconds()
+    public long getPicoseconds()
     {
-        return picoSeconds;
+        return picoseconds;
     }
 
     public int getOffsetMinutes()
@@ -49,13 +49,13 @@ public final class LongTimeWithTimeZone
             return false;
         }
         LongTimeWithTimeZone that = (LongTimeWithTimeZone) o;
-        return picoSeconds == that.picoSeconds && offsetMinutes == that.offsetMinutes;
+        return picoseconds == that.picoseconds && offsetMinutes == that.offsetMinutes;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(picoSeconds, offsetMinutes);
+        return Objects.hash(picoseconds, offsetMinutes);
     }
 
     @Override

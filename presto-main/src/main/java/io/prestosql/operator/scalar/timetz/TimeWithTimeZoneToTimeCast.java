@@ -46,7 +46,7 @@ public final class TimeWithTimeZoneToTimeCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("time(sourcePrecision) with time zone") LongTimeWithTimeZone timestamp)
     {
-        return convert(targetPrecision, timestamp.getPicoSeconds());
+        return convert(targetPrecision, timestamp.getPicoseconds());
     }
 
     private static long convert(long targetPrecision, long picos)
