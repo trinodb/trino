@@ -539,4 +539,39 @@ public class TestColumnMask
         assertThatThrownBy(() -> assertions.query("DELETE FROM orders"))
                 .hasMessageMatching("\\Qline 1:1: Delete from table with column mask");
     }
+
+    @Test
+    public void testNotReferencedAndDeniedColumnMasking()
+    {
+        // mask on not used varchar column
+        accessControl.reset();
+        accessControl.deny(privilege("orders.clerk", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "clerk"));
+        assertThat(assertions.query("SELECT orderkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '1'");
+
+        // mask on long column
+        accessControl.reset();
+        accessControl.deny(privilege("orders.totalprice", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "totalprice",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "totalprice"));
+        assertThat(assertions.query("SELECT orderkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '1'");
+
+        // mask on not used varchar column with subquery masking
+        accessControl.reset();
+        accessControl.deny(privilege("orders.clerk", SELECT_COLUMN));
+        accessControl.deny(privilege("orders.orderstatus", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "(SELECT orderstatus FROM local.tiny.orders)"));
+        assertThat(assertions.query("SELECT orderkey FROM orders WHERE orderkey = 1")).matches("VALUES BIGINT '1'");
+    }
 }
