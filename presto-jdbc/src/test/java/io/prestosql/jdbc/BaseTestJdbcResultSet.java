@@ -1290,10 +1290,11 @@ public abstract class BaseTestJdbcResultSet
         }
     }
 
-    private static Time toSqlTime(LocalTime localTime)
+    static Time toSqlTime(LocalTime localTime)
     {
         // Time.valueOf does not preserve second fraction.
         // Expect no rounding, since this is used to create tests' expected values.
+        // Also, java.sql.Time has millisecond precision.
         return new Time(Time.valueOf(localTime).getTime() + IntMath.divide(localTime.getNano(), NANOSECONDS_PER_MILLISECOND, UNNECESSARY));
     }
 
