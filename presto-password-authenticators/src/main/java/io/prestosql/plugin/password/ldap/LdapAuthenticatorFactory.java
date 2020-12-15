@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.password.ldap;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
@@ -35,6 +36,12 @@ public class LdapAuthenticatorFactory
     @Override
     public PasswordAuthenticator create(Map<String, String> config)
     {
+        return create(config, LdapAuthenticator.class);
+    }
+
+    @VisibleForTesting
+    <T> T create(Map<String, String> config, Class<T> type)
+    {
         Bootstrap app = new Bootstrap(
                 binder -> {
                     configBinder(binder).bindConfig(LdapConfig.class);
@@ -48,6 +55,6 @@ public class LdapAuthenticatorFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return injector.getInstance(LdapAuthenticator.class);
+        return injector.getInstance(type);
     }
 }
