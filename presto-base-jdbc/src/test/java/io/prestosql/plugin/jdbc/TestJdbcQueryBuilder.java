@@ -75,7 +75,6 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
@@ -237,11 +236,22 @@ public class TestJdbcQueryBuilder
                 .build());
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
-                ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
+                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "FROM \"test_table\" " +
+                    "WHERE ((\"col_0\" < ?) OR (\"col_0\" >= ? AND \"col_0\" <= ?) OR (\"col_0\" > ?) OR \"col_0\" IN (?,?)) " +
+                    "AND ((\"col_1\" >= ? AND \"col_1\" <= ?) OR (\"col_1\" >= ? AND \"col_1\" <= ?) OR \"col_1\" IN (?,?,?,?)) " +
+                    "AND ((\"col_7\" >= ? AND \"col_7\" < ?) OR (\"col_7\" >= ? AND \"col_7\" < ?)) " +
+                    "AND ((\"col_8\" >= ? AND \"col_8\" < ?) OR (\"col_8\" >= ? AND \"col_8\" <= ?)) " +
+                    "AND ((\"col_9\" < ?) OR \"col_9\" IN (?,?)) " +
+                    "AND (\"col_2\" = ?)");
             ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
-            while (resultSet.next()) {
-                builder.add((Long) resultSet.getObject("col_0"));
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    builder.add((Long) resultSet.getObject("col_0"));
+                }
             }
             assertEquals(builder.build(), ImmutableSet.of(68L, 180L, 196L));
         }
@@ -260,13 +270,19 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
-                ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
+                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "FROM \"test_table\" " +
+                    "WHERE (\"col_10\" IN (?,?,?))");
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
-            while (resultSet.next()) {
-                longBuilder.add((Long) resultSet.getObject("col_0"));
-                floatBuilder.add((Float) resultSet.getObject("col_10"));
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    longBuilder.add((Long) resultSet.getObject("col_0"));
+                    floatBuilder.add((Float) resultSet.getObject("col_10"));
+                }
             }
             assertEquals(longBuilder.build(), ImmutableSet.of(0L, 14L));
             assertEquals(floatBuilder.build(), ImmutableSet.of(100.0f, 114.0f));
@@ -286,11 +302,17 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
-                ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
+                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "FROM \"test_table\" " +
+                    "WHERE ((\"col_3\" >= ? AND \"col_3\" < ?) OR \"col_3\" IN (?,?))");
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-            while (resultSet.next()) {
-                builder.add((String) resultSet.getObject("col_3"));
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    builder.add((String) resultSet.getObject("col_3"));
+                }
             }
             assertEquals(builder.build(), ImmutableSet.of("test_str_700", "test_str_701", "test_str_180", "test_str_196"));
 
@@ -314,11 +336,17 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
-                ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
+                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "FROM \"test_table\" " +
+                    "WHERE ((\"col_11\" >= ? AND \"col_11\" < ?) OR \"col_11\" IN (?,?))");
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-            while (resultSet.next()) {
-                builder.add((String) resultSet.getObject("col_11"));
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    builder.add((String) resultSet.getObject("col_11"));
+                }
             }
             assertEquals(builder.build(), ImmutableSet.of("test_str_700", "test_str_701", "test_str_180", "test_str_196"));
 
@@ -347,13 +375,19 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
-                ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
+                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "FROM \"test_table\" " +
+                    "WHERE ((\"col_4\" >= ? AND \"col_4\" < ?) OR \"col_4\" IN (?,?)) AND ((\"col_5\" > ? AND \"col_5\" <= ?) OR \"col_5\" IN (?,?))");
             ImmutableSet.Builder<Date> dateBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Time> timeBuilder = ImmutableSet.builder();
-            while (resultSet.next()) {
-                dateBuilder.add((Date) resultSet.getObject("col_4"));
-                timeBuilder.add((Time) resultSet.getObject("col_5"));
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    dateBuilder.add((Date) resultSet.getObject("col_4"));
+                    timeBuilder.add((Time) resultSet.getObject("col_5"));
+                }
             }
             assertEquals(dateBuilder.build(), ImmutableSet.of(toDate(2016, 6, 7), toDate(2016, 6, 13), toDate(2016, 10, 21)));
             assertEquals(timeBuilder.build(), ImmutableSet.of(toTime(8, 23, 37), toTime(20, 23, 37)));
@@ -380,11 +414,17 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
-                ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
+                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "FROM \"test_table\" " +
+                    "WHERE ((\"col_6\" > ? AND \"col_6\" <= ?) OR \"col_6\" IN (?,?))");
             ImmutableSet.Builder<Timestamp> builder = ImmutableSet.builder();
-            while (resultSet.next()) {
-                builder.add((Timestamp) resultSet.getObject("col_6"));
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    builder.add((Timestamp) resultSet.getObject("col_6"));
+                }
             }
             assertEquals(builder.build(), ImmutableSet.of(
                     toTimestamp(2016, 6, 3, 0, 23, 37),
@@ -404,11 +444,17 @@ public class TestJdbcQueryBuilder
     {
         Connection connection = database.getConnection();
         Function<String, String> function = sql -> sql + " LIMIT 10";
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, TupleDomain.all(), Optional.empty(), function);
-                ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, TupleDomain.all(), Optional.empty(), function)) {
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
+                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "FROM \"test_table\" " +
+                    "LIMIT 10");
             long count = 0;
-            while (resultSet.next()) {
-                count++;
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    count++;
+                }
             }
             assertEquals(count, 10);
         }
@@ -423,9 +469,15 @@ public class TestJdbcQueryBuilder
                 columns.get(1), Domain.onlyNull(DOUBLE)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
-                ResultSet resultSet = preparedStatement.executeQuery()) {
-            assertEquals(resultSet.next(), false);
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
+                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "FROM \"test_table\" " +
+                    "WHERE \"col_1\" IS NULL");
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                assertEquals(resultSet.next(), false);
+            }
         }
     }
 
@@ -453,11 +505,10 @@ public class TestJdbcQueryBuilder
                 TupleDomain.all(),
                 Optional.empty(),
                 identity())) {
-            assertThat(lastQuery)
-                    .isEqualTo("" +
-                            "SELECT \"col_2\" AS \"col_2\", sum(\"col_0\") AS \"s\" " +
-                            "FROM \"test_table\" " +
-                            "GROUP BY \"col_2\"");
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_2\" AS \"col_2\", sum(\"col_0\") AS \"s\" " +
+                    "FROM \"test_table\" " +
+                    "GROUP BY \"col_2\"");
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 Multiset<List<Object>> actual = read(resultSet);
@@ -496,12 +547,11 @@ public class TestJdbcQueryBuilder
                 tupleDomain,
                 Optional.empty(),
                 identity())) {
-            assertThat(lastQuery)
-                    .isEqualTo("" +
-                            "SELECT \"col_2\" AS \"col_2\", sum(\"col_0\") AS \"s\" " +
-                            "FROM \"test_table\" " +
-                            "WHERE ((\"col_1\" < ?) OR \"col_1\" IS NULL) " +
-                            "GROUP BY \"col_2\"");
+            assertThat(lastQuery).isEqualTo("" +
+                    "SELECT \"col_2\" AS \"col_2\", sum(\"col_0\") AS \"s\" " +
+                    "FROM \"test_table\" " +
+                    "WHERE ((\"col_1\" < ?) OR \"col_1\" IS NULL) " +
+                    "GROUP BY \"col_2\"");
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 Multiset<List<Object>> actual = read(resultSet);
