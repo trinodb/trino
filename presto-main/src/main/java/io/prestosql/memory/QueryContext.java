@@ -70,6 +70,10 @@ public class QueryContext
     private final SpillSpaceTracker spillSpaceTracker;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
 
+    @GuardedBy("this")
+    private boolean resourceOverCommit;
+    private volatile boolean memoryLimitsInitialized;
+
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
     @GuardedBy("this")
     private long maxUserMemory;
@@ -110,13 +114,28 @@ public class QueryContext
                 newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateSystemMemory, this::tryReserveMemoryNotSupported), 0L));
     }
 
-    // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
-    public synchronized void setResourceOvercommit()
+    public boolean isMemoryLimitsInitialized()
     {
-        // Allow the query to use the entire pool. This way the worker will kill the query, if it uses the entire local general pool.
-        // The coordinator will kill the query if the cluster runs out of memory.
-        maxUserMemory = memoryPool.getMaxBytes();
-        maxTotalMemory = memoryPool.getMaxBytes();
+        return memoryLimitsInitialized;
+    }
+
+    // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
+    public synchronized void initializeMemoryLimits(boolean resourceOverCommit, long maxUserMemory, long maxTotalMemory)
+    {
+        checkArgument(maxUserMemory >= 0, "maxUserMemory must be >= 0, found: %s", maxUserMemory);
+        checkArgument(maxTotalMemory >= 0, "maxTotalMemory must be >= 0, found: %s", maxTotalMemory);
+        this.resourceOverCommit = resourceOverCommit;
+        if (resourceOverCommit) {
+            // Allow the query to use the entire pool. This way the worker will kill the query, if it uses the entire local general pool.
+            // The coordinator will kill the query if the cluster runs out of memory.
+            this.maxUserMemory = memoryPool.getMaxBytes();
+            this.maxTotalMemory = memoryPool.getMaxBytes();
+        }
+        else {
+            this.maxUserMemory = maxUserMemory;
+            this.maxTotalMemory = maxTotalMemory;
+        }
+        memoryLimitsInitialized = true;
     }
 
     @VisibleForTesting
@@ -236,20 +255,15 @@ public class QueryContext
         }
         ListenableFuture<?> future = memoryPool.moveQuery(queryId, newMemoryPool);
         memoryPool = newMemoryPool;
+        if (resourceOverCommit) {
+            // Reset the memory limits based on the new pool assignment
+            maxUserMemory = memoryPool.getMaxBytes();
+            maxTotalMemory = memoryPool.getMaxBytes();
+        }
         future.addListener(() -> {
             // Unblock all the tasks, if they were waiting for memory, since we're in a new pool.
             taskContexts.values().forEach(TaskContext::moreMemoryAvailable);
         }, directExecutor());
-    }
-
-    public synchronized void setMaxUserMemory(long maxUserMemory)
-    {
-        this.maxUserMemory = maxUserMemory;
-    }
-
-    public synchronized void setMaxTotalMemory(long maxTotalMemory)
-    {
-        this.maxTotalMemory = maxTotalMemory;
     }
 
     public synchronized MemoryPool getMemoryPool()
