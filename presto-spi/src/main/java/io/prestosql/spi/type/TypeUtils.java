@@ -19,6 +19,8 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 
+import javax.annotation.Nullable;
+
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -62,7 +64,7 @@ public final class TypeUtils
     /**
      * Write a native value object to the current entry of {@code blockBuilder}.
      */
-    public static void writeNativeValue(Type type, BlockBuilder blockBuilder, Object value)
+    public static void writeNativeValue(Type type, BlockBuilder blockBuilder, @Nullable Object value)
     {
         if (value == null) {
             blockBuilder.appendNull();
