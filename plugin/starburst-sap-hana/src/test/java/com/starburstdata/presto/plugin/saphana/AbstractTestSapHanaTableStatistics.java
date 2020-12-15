@@ -112,10 +112,10 @@ public abstract class AbstractTestSapHanaTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', null, null, null, null, null, null)," +
-                            "('custkey', null, null, null, null, null, null)," +
-                            "('orderpriority', null, null, null, null, null, null)," +
-                            "('comment', null, null, null, null, null, null)," +
+                            "('orderkey', 0, 0, 1, null, null, null)," +
+                            "('custkey', 0, 0, 1, null, null, null)," +
+                            "('orderpriority', 0, 0, 1, null, null, null)," +
+                            "('comment', 0, 0, 1, null, null, null)," +
                             "(null, null, null, null, 0, null, null)");
         }
         finally {
@@ -135,10 +135,10 @@ public abstract class AbstractTestSapHanaTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', null, 0, 1, null, null, null)," +
-                            "('custkey', null, 0, 1, null, null, null)," +
-                            "('orderpriority', null, 0, 1, null, null, null)," +
-                            "('comment', null, 0, 1, null, null, null)," +
+                            "('orderkey', 0, 0, 1, null, null, null)," +
+                            "('custkey', 0, 0, 1, null, null, null)," +
+                            "('orderpriority', 0, 0, 1, null, null, null)," +
+                            "('comment', 0, 0, 1, null, null, null)," +
                             "(null, null, null, null, 3, null, null)");
         }
         finally {
