@@ -27,6 +27,7 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
+import io.prestosql.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -264,11 +265,15 @@ public class TestMemorySmoke
     }
 
     @Test
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "Lists differ at element")
     public void testCrossJoinDynamicFiltering()
     {
+        assertUpdate("DROP TABLE IF EXISTS probe");
         assertUpdate("CREATE TABLE probe (k VARCHAR, v INTEGER)");
-        assertUpdate("CREATE TABLE build (vmin INTEGER, vmax INTEGER)");
         assertUpdate("INSERT INTO probe VALUES ('a', 0), ('b', 1), ('c', 2), ('d', 3)", 4);
+
+        assertUpdate("DROP TABLE IF EXISTS build");
+        assertUpdate("CREATE TABLE build (vmin INTEGER, vmax INTEGER)");
         assertUpdate("INSERT INTO build VALUES (1, 2)", 1);
 
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin", withBroadcastJoin(), 3, 3, 1);
