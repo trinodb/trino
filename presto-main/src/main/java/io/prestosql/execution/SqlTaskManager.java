@@ -77,6 +77,7 @@ import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
 import static io.prestosql.spi.StandardErrorCode.ABANDONED_TASK;
 import static io.prestosql.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -372,24 +373,18 @@ public class SqlTaskManager
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
 
-        if (resourceOvercommit(session)) {
-            // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.
-            queryContexts.getUnchecked(taskId.getQueryId()).setResourceOvercommit();
-        }
-        else {
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        QueryContext queryContext = sqlTask.getQueryContext();
+        if (!queryContext.isMemoryLimitsInitialized()) {
             long sessionQueryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
             long sessionQueryTotalMaxMemoryPerNode = getQueryMaxTotalMemoryPerNode(session).toBytes();
             // Session property query_max_memory_per_node is used to only decrease memory limit
-            if (sessionQueryMaxMemoryPerNode <= queryMaxMemoryPerNode) {
-                queryContexts.getUnchecked(taskId.getQueryId()).setMaxUserMemory(sessionQueryMaxMemoryPerNode);
-            }
-
-            if (sessionQueryTotalMaxMemoryPerNode <= queryMaxTotalMemoryPerNode) {
-                queryContexts.getUnchecked(taskId.getQueryId()).setMaxTotalMemory(sessionQueryTotalMaxMemoryPerNode);
-            }
+            queryContext.initializeMemoryLimits(
+                    resourceOvercommit(session),
+                    min(sessionQueryMaxMemoryPerNode, queryMaxMemoryPerNode),
+                    min(sessionQueryTotalMaxMemoryPerNode, queryMaxTotalMemoryPerNode));
         }
 
-        SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, sources, outputBuffers, totalPartitions);
     }
