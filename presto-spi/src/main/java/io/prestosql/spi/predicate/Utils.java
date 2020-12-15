@@ -18,6 +18,8 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
 
+import javax.annotation.Nullable;
+
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
@@ -31,10 +33,13 @@ public final class Utils
     // just for this use case.
     static final TypeOperators TUPLE_DOMAIN_TYPE_OPERATORS = new TypeOperators();
 
-    public static Block nativeValueToBlock(Type type, Object object)
+    public static Block nativeValueToBlock(Type type, @Nullable Object object)
     {
-        if (object != null && !Primitives.wrap(type.getJavaType()).isInstance(object)) {
-            throw new IllegalArgumentException(format("Object '%s' does not match type %s", object, type.getJavaType()));
+        if (object != null) {
+            Class<?> expectedClass = Primitives.wrap(type.getJavaType());
+            if (!expectedClass.isInstance(object)) {
+                throw new IllegalArgumentException(format("Object '%s' (%s) is not instance of %s", object, object.getClass().getName(), expectedClass.getName()));
+            }
         }
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, object);
