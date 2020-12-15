@@ -90,14 +90,14 @@ public class TestSqlServerTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', 120000, 15000, 0, null, null, null)," +
-                            "('custkey', 120000, 1000, 0, null, null, null)," +
+                            "('orderkey', null, 15000, 0, null, null, null)," +
+                            "('custkey', null, 1000, 0, null, null, null)," +
                             "('orderstatus', 30000, 3, 0, null, null, null)," +
-                            "('totalprice', 120000, 14996, 0, null, null, null)," +
-                            "('orderdate', 45000, 2401, 0, null, null, null)," +
+                            "('totalprice', null, 14996, 0, null, null, null)," +
+                            "('orderdate', null, 2401, 0, null, null, null)," +
                             "('orderpriority', 252376, 5, 0, null, null, null)," +
                             "('clerk', 450000, 1000, 0, null, null, null)," +
-                            "('shippriority', 60000, 1, 0, null, null, null)," +
+                            "('shippriority', null, 1, 0, null, null, null)," +
                             "('comment', 1454727, 14994, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
@@ -169,8 +169,8 @@ public class TestSqlServerTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', 120000, 15000, 0, null, null, null)," +
-                            "('custkey', 80000, 1000, 0.3333333333333333, null, null, null)," +
+                            "('orderkey', null, 15000, 0, null, null, null)," +
+                            "('custkey', null, 1000, 0.3333333333333333, null, null, null)," +
                             "('orderpriority', 201914, 5, 0.2, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
@@ -200,7 +200,7 @@ public class TestSqlServerTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', 800, 100, 0, null, null, null)," +
+                            "('orderkey', null, 100, 0, null, null, null)," +
                             "('v3_in_3', 600, 1, 0, null, null, null)," +
                             "('v3_in_42', 600, 1, 0, null, null, null)," +
                             "('single_10v_value', 20, 1, 0.99, null, null, null)," +
@@ -261,8 +261,8 @@ public class TestSqlServerTableStatistics
                 assertQuery(
                         "SHOW STATS FOR " + tableName,
                         "VALUES " +
-                                "('orderkey', 120000, 15000, 0, null, null, null)," +
-                                "('custkey', 120000, 1000, 0, null, null, null)," +
+                                "('orderkey', null, 15000, 0, null, null, null)," +
+                                "('custkey', null, 1000, 0, null, null, null)," +
                                 "('orderpriority', 252376, 5, 0, null, null, null)," +
                                 "('comment', 1454727, 14994, 0, null, null, null)," +
                                 "(null, null, null, null, 15000, null, null)");
@@ -291,11 +291,11 @@ public class TestSqlServerTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('case_unquoted_upper', 120000, 15000, 0, null, null, null)," +
-                            "('case_unquoted_lower', 120000, 1000, 0, null, null, null)," +
+                            "('case_unquoted_upper', null, 15000, 0, null, null, null)," +
+                            "('case_unquoted_lower', null, 1000, 0, null, null, null)," +
                             "('case_unquoted_mixed', 30000, 3, 0, null, null, null)," +
-                            "('case_quoted_upper', 120000, 14996, 0, null, null, null)," +
-                            "('case_quoted_lower', 45000, 2401, 0, null, null, null)," +
+                            "('case_quoted_upper', null, 14996, 0, null, null, null)," +
+                            "('case_quoted_lower', null, 2401, 0, null, null, null)," +
                             "('case_quoted_mixed', 252376, 5, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
