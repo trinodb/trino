@@ -44,7 +44,6 @@ import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
@@ -343,6 +342,13 @@ public class MockThriftMetastoreClient
     }
 
     @Override
+    public void alterPartitionsWithEnvironmentContext(String dbName, String tableName, List<Partition> partitions, EnvironmentContext context)
+    {
+        accessCount.incrementAndGet();
+        // No-op
+    }
+
+    @Override
     public int addPartitions(List<Partition> newPartitions)
     {
         throw new UnsupportedOperationException();
@@ -486,13 +492,6 @@ public class MockThriftMetastoreClient
 
     @Override
     public String get_config_value(String name, String defaultValue)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-            throws TException
     {
         throw new UnsupportedOperationException();
     }

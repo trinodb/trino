@@ -129,6 +129,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRE
 import static io.prestosql.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
@@ -184,6 +185,8 @@ public class ThriftHiveMetastore
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosesGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenAlterTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenAlterPartitionsAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
     private final AtomicReference<Optional<Boolean>> metastoreSupportsDateStatistics = new AtomicReference<>(Optional.empty());
     private final CoalescingCounter metastoreSetDateStatisticsFailures = new CoalescingCounter(new Duration(1, SECONDS));
@@ -1168,9 +1171,18 @@ public class ThriftHiveMetastore
                     .stopOn(InvalidOperationException.class, MetaException.class)
                     .stopOnIllegalExceptions()
                     .run("alterTransactionalTable", stats.getAlterTransactionalTable().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            client.alterTransactionalTable(table, transactionId, writeId, context);
-                        }
+                        alternativeCall(
+                                () -> createMetastoreClient(identity),
+                                exception -> !isUnknownMethodExceptionalResponse(exception),
+                                chosenAlterTableAlternative,
+                                client -> {
+                                    client.alterTransactionalTable(table, transactionId, writeId, context);
+                                    return null;
+                                },
+                                client -> {
+                                    client.alterTableWithEnvironmentContext(table.getDbName(), table.getTableName(), table, context);
+                                    return null;
+                                });
                         return null;
                     }));
         }
@@ -1805,12 +1817,14 @@ public class ThriftHiveMetastore
         requireNonNull(tableName, "tableName is null");
         checkArgument(writeId > 0, "writeId should be a positive integer, but was %s", writeId);
         try {
+            Table table = getTable(identity, dbName, tableName)
+                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(dbName, tableName)));
+            rowCountChange.ifPresent(rowCount ->
+                    table.setParameters(adjustRowCount(table.getParameters(), tableName, rowCount)));
             retry()
                     .stopOnIllegalExceptions()
                     .run("updateTableWriteId", stats.getUpdateTableWriteId().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient(identity)) {
-                            metastoreClient.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
-                        }
+                        alterTransactionalTable(identity, table, transactionId, writeId, new EnvironmentContext());
                         return null;
                     }));
         }
@@ -1830,9 +1844,18 @@ public class ThriftHiveMetastore
             retry()
                     .stopOnIllegalExceptions()
                     .run("alterPartitions", stats.getAlterPartitions().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient(identity)) {
-                            metastoreClient.alterPartitions(dbName, tableName, partitions, writeId);
-                        }
+                        alternativeCall(
+                                () -> createMetastoreClient(identity),
+                                exception -> !isUnknownMethodExceptionalResponse(exception),
+                                chosenAlterPartitionsAlternative,
+                                client -> {
+                                    client.alterPartitions(dbName, tableName, partitions, writeId);
+                                    return null;
+                                },
+                                client -> {
+                                    client.alterPartitionsWithEnvironmentContext(dbName, tableName, partitions, new EnvironmentContext());
+                                    return null;
+                                });
                         return null;
                     }));
         }

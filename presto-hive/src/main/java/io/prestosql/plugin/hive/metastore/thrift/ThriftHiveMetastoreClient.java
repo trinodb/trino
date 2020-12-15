@@ -70,11 +70,9 @@ import org.apache.thrift.transport.TTransport;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
-import static io.prestosql.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.txn.TxnUtils.createValidTxnWriteIdList;
@@ -184,6 +182,13 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         client.alter_table_with_environment_context(databaseName, tableName, newTable, context);
+    }
+
+    @Override
+    public void alterPartitionsWithEnvironmentContext(String dbName, String tableName, List<Partition> partitions, EnvironmentContext context)
+            throws TException
+    {
+        client.alter_partitions_with_environment_context(dbName, tableName, partitions, context);
     }
 
     @Override
@@ -540,16 +545,6 @@ public class ThriftHiveMetastoreClient
         request.setTxnIds(transactionIds);
         AllocateTableWriteIdsResponse response = client.allocate_table_write_ids(request);
         return response.getTxnToWriteIds();
-    }
-
-    @Override
-    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-            throws TException
-    {
-        Table table = getTableWithCapabilities(dbName, tableName);
-        rowCountChange.ifPresent(rowCount ->
-                table.setParameters(adjustRowCount(table.getParameters(), tableName, rowCount)));
-        alterTransactionalTable(table, transactionId, writeId, new EnvironmentContext());
     }
 
     @Override
