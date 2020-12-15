@@ -726,7 +726,7 @@ public class TestJdbcPreparedStatement
                 .isInvalid("Cannot convert instance of java.time.LocalDate to timestamp");
 
         assertBind((ps, i) -> ps.setObject(i, date, Types.TIMESTAMP_WITH_TIMEZONE))
-                .isInvalid("Unsupported target SQL type: " + Types.TIMESTAMP_WITH_TIMEZONE);
+                .isInvalid("Cannot convert instance of java.time.LocalDate to timestamp with time zone");
 
         LocalDate jvmGapDate = LocalDate.of(1970, 1, 1);
         checkIsGap(ZoneId.systemDefault(), jvmGapDate.atTime(LocalTime.MIDNIGHT));
@@ -941,6 +941,26 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, timestampWithMillisecond, Types.TIMESTAMP))
                 .resultsIn("timestamp(3)", "TIMESTAMP '2001-05-06 12:34:56.123'")
                 .roundTripsAs(Types.TIMESTAMP, timestampWithMillisecond);
+    }
+
+    @Test
+    public void testConvertTimestampWithTimeZone()
+            throws SQLException
+    {
+        // TODO (https://github.com/prestosql/presto/issues/6299) support ZonedDateTime
+
+        // String as TIMESTAMP WITH TIME ZONE
+        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123 +05:45", Types.TIMESTAMP_WITH_TIMEZONE))
+                .resultsIn("timestamp(3) with time zone", "TIMESTAMP '1970-01-01 12:34:56.123 +05:45'");
+
+        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123456 +05:45", Types.TIMESTAMP_WITH_TIMEZONE))
+                .resultsIn("timestamp(6) with time zone", "TIMESTAMP '1970-01-01 12:34:56.123456 +05:45'");
+
+        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123456789 +05:45", Types.TIMESTAMP_WITH_TIMEZONE))
+                .resultsIn("timestamp(9) with time zone", "TIMESTAMP '1970-01-01 12:34:56.123456789 +05:45'");
+
+        assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123456789012 +05:45", Types.TIMESTAMP_WITH_TIMEZONE))
+                .resultsIn("timestamp(12) with time zone", "TIMESTAMP '1970-01-01 12:34:56.123456789012 +05:45'");
     }
 
     @Test

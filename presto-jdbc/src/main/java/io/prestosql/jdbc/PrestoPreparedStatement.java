@@ -410,6 +410,26 @@ public class PrestoPreparedStatement
         throw invalidConversion(value, "timestamp");
     }
 
+    private void setAsTimestampWithTimeZone(int parameterIndex, Object value)
+            throws SQLException
+    {
+        requireNonNull(value, "value is null");
+
+        String literal = toTimestampWithTimeZoneLiteral(value);
+        setParameter(parameterIndex, formatLiteral("TIMESTAMP", literal));
+    }
+
+    private String toTimestampWithTimeZoneLiteral(Object value)
+            throws SQLException
+    {
+        // TODO (https://github.com/prestosql/presto/issues/6299) support ZonedDateTime
+        if (value instanceof String) {
+            // TODO validate proper format
+            return (String) value;
+        }
+        throw invalidConversion(value, "timestamp with time zone");
+    }
+
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)
             throws SQLException
@@ -515,7 +535,9 @@ public class PrestoPreparedStatement
             case Types.TIMESTAMP:
                 setAsTimestamp(parameterIndex, x);
                 return;
-            // TODO Types.TIMESTAMP_WITH_TIMEZONE
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                setAsTimestampWithTimeZone(parameterIndex, x);
+                return;
         }
         throw new SQLException("Unsupported target SQL type: " + targetSqlType);
     }
