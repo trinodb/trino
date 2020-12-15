@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.Type;
 
 import java.sql.Connection;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -199,9 +201,19 @@ public class QueryBuilder
             return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(column.getColumnName()) + " IS NOT NULL";
         }
 
+        String predicate = toPredicate(column, domain.getValues(), accumulator);
+        if (!domain.isNullAllowed()) {
+            return predicate;
+        }
+        return format("(%s OR %s IS NULL)", predicate, client.quoted(column.getColumnName()));
+    }
+
+    private String toPredicate(JdbcColumnHandle column, ValueSet valueSet, List<TypeAndValue> accumulator)
+    {
+        checkArgument(!valueSet.isNone(), "none values should be handled earlier");
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
-        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+        for (Range range : valueSet.getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
                 singleValues.add(range.getLow().getValue());
@@ -259,12 +271,7 @@ public class QueryBuilder
             disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
         }
 
-        // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
-        if (domain.isNullAllowed()) {
-            disjuncts.add(client.quoted(column.getColumnName()) + " IS NULL");
-        }
-
         if (disjuncts.size() == 1) {
             return getOnlyElement(disjuncts);
         }
