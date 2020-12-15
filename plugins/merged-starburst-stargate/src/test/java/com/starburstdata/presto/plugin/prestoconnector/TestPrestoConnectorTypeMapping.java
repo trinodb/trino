@@ -33,10 +33,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -50,6 +52,7 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQue
 import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.testing.datatype.DataType.bigintDataType;
@@ -92,7 +95,7 @@ public class TestPrestoConnectorTypeMapping
 
     /**
      * The {@code UTC} zone.
-     *
+     * <p>
      * Note that this is logically different from {@link ZoneOffset#UTC}.
      */
     private final ZoneId utcZone = ZoneId.of("UTC");
@@ -440,6 +443,142 @@ public class TestPrestoConnectorTypeMapping
     private void testTimePrecision(String literal)
     {
         testCreateTableAsAndInsertConsistency(literal, literal);
+    }
+
+    /**
+     * @see #testTimeWithTimeZonePrecision()
+     */
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimeWithTimeZone(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34);
+        checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
+
+        DataTypeTest testCases = DataTypeTest.create()
+                .addRoundTrip(timeWithTimeZoneDataType(0), OffsetTime.of(1, 12, 34, 0, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(0), OffsetTime.of(1, 12, 34, 0, ZoneOffset.ofHoursMinutes(7, 35)))
+                .addRoundTrip(timeWithTimeZoneDataType(0), OffsetTime.of(1, 12, 34, 0, ZoneOffset.ofHoursMinutes(-7, -35)))
+
+                .addRoundTrip(timeWithTimeZoneDataType(9), OffsetTime.of(23, 59, 59, 0, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(9), OffsetTime.of(23, 59, 59, 123_456_789, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(1), OffsetTime.of(2, 12, 34, 100_000_000, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(2), OffsetTime.of(2, 12, 34, 10_000_000, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(3), OffsetTime.of(2, 12, 34, 1_000_000, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(4), OffsetTime.of(2, 12, 34, 100_000, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(5), OffsetTime.of(2, 12, 34, 10_000, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(6), OffsetTime.of(2, 12, 34, 1_000, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(7), OffsetTime.of(2, 12, 34, 100, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(8), OffsetTime.of(2, 12, 34, 10, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(9), OffsetTime.of(2, 12, 34, 1, UTC))
+                // maximum possible value for given precision
+                .addRoundTrip(timeWithTimeZoneDataType(0), OffsetTime.of(23, 59, 59, 0, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(3), OffsetTime.of(23, 59, 59, 999_000_000, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(6), OffsetTime.of(23, 59, 59, 999_999_000, UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(9), OffsetTime.of(23, 59, 59, 999_999_999, UTC))
+                // epoch is also a gap in JVM zone
+                .addRoundTrip(timeWithTimeZoneDataType(0), epoch.toLocalTime().atOffset(UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(3), epoch.toLocalTime().atOffset(UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(6), epoch.toLocalTime().atOffset(UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(9), epoch.toLocalTime().atOffset(UTC))
+
+                .addRoundTrip(timeWithTimeZoneDataType(0), epoch.toLocalTime().atOffset(ZoneOffset.ofHoursMinutes(7, 35)))
+                .addRoundTrip(timeWithTimeZoneDataType(3), epoch.toLocalTime().atOffset(ZoneOffset.ofHoursMinutes(7, 35)))
+                .addRoundTrip(timeWithTimeZoneDataType(6), epoch.toLocalTime().atOffset(ZoneOffset.ofHoursMinutes(7, 35)))
+                .addRoundTrip(timeWithTimeZoneDataType(9), epoch.toLocalTime().atOffset(ZoneOffset.ofHoursMinutes(7, 35)))
+
+                .addRoundTrip(timeWithTimeZoneDataType(3), timeGapInJvmZone.withNano(567_000_000).atOffset(UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(9), timeGapInJvmZone.withNano(567_123_456).atOffset(UTC))
+                .addRoundTrip(timeWithTimeZoneDataType(3), timeGapInJvmZone.withNano(567_000_000).atOffset(ZoneOffset.ofHoursMinutes(7, 35)))
+                .addRoundTrip(timeWithTimeZoneDataType(9), timeGapInJvmZone.withNano(567_123_456).atOffset(ZoneOffset.ofHoursMinutes(7, 35)));
+
+        testCases.execute(getQueryRunner(), session, remotePrestoCreated("test_time_with_time_zone"));
+        testCases.execute(getQueryRunner(), session, remotePrestoCreatedPrestoConnectorInserted(session, "test_time_with_time_zone"));
+        testCases.execute(getQueryRunner(), session, prestoConnectorCreateAsSelect(session, "test_time_with_time_zone"));
+        testCases.execute(getQueryRunner(), session, prestoConnectorCreateAndInsert(session, "test_time_with_time_zone"));
+    }
+
+    // TODO replace with io.prestosql.testing.datatype.DataType#timeWithTimeZoneDataType once https://github.com/prestosql/presto/pull/6334 is available
+    private static DataType<OffsetTime> timeWithTimeZoneDataType(int precision)
+    {
+        // This code does not support precision > 9, as java.time classes support precision up to nanoseconds
+        checkArgument(precision >= 0 && precision <= 9, "Unsupported precision: %s", precision);
+
+        return dataType(
+                format("time(%s) with time zone", precision),
+                createTimeWithTimeZoneType(precision),
+                new DateTimeFormatterBuilder()
+                        .appendPattern("'TIME '''HH:mm:ss" + (precision == 0 ? "" : ("." + "S".repeat(precision))))
+                        .appendOffset("+HH:mm", "+00:00")
+                        .appendPattern("''")
+                        .toFormatter()::format);
+    }
+
+    /**
+     * Additional test supplementing {@link #testTimeWithTimeZone} with timestamp precision higher than expressible with {@link OffsetTime}.
+     *
+     * @see #testTimeWithTimeZone
+     */
+    @Test
+    public void testTimeWithTimeZonePrecision()
+    {
+        testTimeWithTimeZonePrecision("TIME '00:00:00 +00:00'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00 -00:00'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00 +02:00'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00 -08:00'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00 +00:00'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00 +03:34'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00 -07:12'");
+
+        testTimeWithTimeZonePrecision("TIME '00:00:00.1 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.9 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.123 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.123456 +05:45'");
+
+        testTimeWithTimeZonePrecision("TIME '12:34:56.1 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '12:34:56.9 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '12:34:56.123 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '12:34:56.999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '12:34:56.123456 +05:45'");
+
+        // minimum possible positive value for given precision
+        testTimeWithTimeZonePrecision("TIME '00:00:00 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.1 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.01 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.001 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.0001 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.00001 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.000001 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.0000001 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.00000001 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.000000001 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.0000000001 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.00000000001 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '00:00:00.000000000001 +05:45'");
+
+        // maximum possible value for given precision
+        testTimeWithTimeZonePrecision("TIME '23:59:59 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.9 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.99 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.9999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.99999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.999999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.9999999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.99999999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.999999999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.9999999999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.99999999999 +05:45'");
+        testTimeWithTimeZonePrecision("TIME '23:59:59.999999999999 +05:45'");
+    }
+
+    private void testTimeWithTimeZonePrecision(String a)
+    {
+        testCreateTableAsAndInsertConsistency(a, a);
     }
 
     /**

@@ -15,12 +15,15 @@ import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.ObjectReadFunction;
 import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.spi.type.LongTimeWithTimeZone;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.SqlTime;
+import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
@@ -41,17 +44,23 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.rescale;
 import static io.prestosql.spi.type.TimeType.createTimeType;
+import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.SECONDS_PER_MINUTE;
 import static java.lang.Integer.parseInt;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
@@ -62,6 +71,9 @@ final class PrestoColumnMappings
     private PrestoColumnMappings() {}
 
     public static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d\\d):(?<minute>\\d\\d):(?<second>\\d\\d)(?:\\.(?<fraction>\\d{1,12}))?");
+    public static final Pattern TIME_TZ_PATTERN = Pattern.compile("" +
+            "(?<hour>\\d\\d):(?<minute>\\d\\d):(?<second>\\d\\d)(?:\\.(?<fraction>\\d{1,12}))?\\b" +
+            "\\s*(?<zoneOffset>.+)");
     public static final Pattern TIMESTAMP_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d\\d)-(?<day>\\d\\d) " +
             "(?<hour>\\d\\d):(?<minute>\\d\\d):(?<second>\\d\\d)(?:\\.(?<fraction>\\d{1,12}))?");
@@ -157,6 +169,93 @@ final class PrestoColumnMappings
             String formatted = SqlTime.newInstance(precision, value).toString();
             statement.setObject(index, formatted, Types.TIME);
         };
+    }
+
+    public static ColumnMapping prestoTimeWithTimeZoneColumnMapping(int decimalDigits)
+    {
+        int precision = decimalDigits;
+        TimeWithTimeZoneType timeWithTimeZoneType = createTimeWithTimeZoneType(precision);
+        // TODO use timeWithTimeZoneType.isShort() after https://github.com/prestosql/presto/pull/6352
+        if (timeWithTimeZoneType.getPrecision() <= TimeWithTimeZoneType.MAX_SHORT_PRECISION) {
+            return ColumnMapping.longMapping(
+                    timeWithTimeZoneType,
+                    shortTimeWithTimeZoneReadFunction(),
+                    shortTimeWithTimeZoneWriteFunction(precision));
+        }
+        return ColumnMapping.objectMapping(
+                timeWithTimeZoneType,
+                longTimeWithTimeZoneReadFunction(),
+                longTimeWithTimeZoneWriteFunction(precision));
+    }
+
+    private static LongReadFunction shortTimeWithTimeZoneReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            String value = resultSet.getString(columnIndex);
+            LongTimeWithTimeZone longTimeWithTimeZone = parseTimeWithTimeZone(value);
+            verify(longTimeWithTimeZone.getPicoSeconds() % PICOSECONDS_PER_NANOSECOND == 0, "Unexpected sub-nanosecond precision: %s", longTimeWithTimeZone);
+            return packTimeWithTimeZone(longTimeWithTimeZone.getPicoSeconds() / PICOSECONDS_PER_NANOSECOND, longTimeWithTimeZone.getOffsetMinutes());
+        };
+    }
+
+    private static ObjectReadFunction longTimeWithTimeZoneReadFunction()
+    {
+        return ObjectReadFunction.of(LongTimeWithTimeZone.class, (resultSet, columnIndex) -> {
+            String value = resultSet.getString(columnIndex);
+            return parseTimeWithTimeZone(value);
+        });
+    }
+
+    private static LongTimeWithTimeZone parseTimeWithTimeZone(String value)
+    {
+        Matcher matcher = TIME_TZ_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+        }
+
+        int hour = parseInt(matcher.group("hour"));
+        int minute = parseInt(matcher.group("minute"));
+        int second = parseInt(matcher.group("second"));
+        @Nullable
+        String fraction = matcher.group("fraction");
+        String zoneOffset = matcher.group("zoneOffset");
+
+        long picoseconds = makePicosOfDay(value, hour, minute, second, fraction);
+
+        int offsetSeconds = ZoneOffset.of(zoneOffset).getTotalSeconds();
+        verify(offsetSeconds % SECONDS_PER_MINUTE == 0, "Unsupported offset seconds: %s", value);
+        int offsetMinutes = toIntExact(offsetSeconds / SECONDS_PER_MINUTE);
+
+        return new LongTimeWithTimeZone(picoseconds, offsetMinutes);
+    }
+
+    public static WriteMapping prestoTimeWithTimeZoneWriteMapping(TimeWithTimeZoneType timeWithTimeZoneType)
+    {
+        int precision = timeWithTimeZoneType.getPrecision();
+        String dataType = format("time(%s) with time zone", precision);
+        // TODO use timeWithTimeZoneType.isShort() after https://github.com/prestosql/presto/pull/6352
+        if (timeWithTimeZoneType.getPrecision() <= TimeWithTimeZoneType.MAX_SHORT_PRECISION) {
+            return WriteMapping.longMapping(dataType, shortTimeWithTimeZoneWriteFunction(precision));
+        }
+        return WriteMapping.objectMapping(dataType, longTimeWithTimeZoneWriteFunction(precision));
+    }
+
+    private static LongWriteFunction shortTimeWithTimeZoneWriteFunction(int precision)
+    {
+        return (statement, index, value) -> {
+            String formatted = SqlTimeWithTimeZone.newInstance(precision, unpackTimeNanos(value) * PICOSECONDS_PER_NANOSECOND, unpackOffsetMinutes(value)).toString();
+            // TODO this should use Types.TIME_WITH_TIMEZONE after https://github.com/prestosql/presto/pull/6352
+            statement.setObject(index, formatted, Types.TIME);
+        };
+    }
+
+    private static ObjectWriteFunction longTimeWithTimeZoneWriteFunction(int precision)
+    {
+        return ObjectWriteFunction.of(LongTimeWithTimeZone.class, (statement, index, value) -> {
+            String formatted = SqlTimeWithTimeZone.newInstance(precision, value.getPicoSeconds(), value.getOffsetMinutes()).toString();
+            // TODO this should use Types.TIME_WITH_TIMEZONE after https://github.com/prestosql/presto/pull/6352
+            statement.setObject(index, formatted, Types.TIME);
+        });
     }
 
     public static ColumnMapping prestoTimestampColumnMapping(int decimalDigits)
@@ -342,6 +441,7 @@ final class PrestoColumnMappings
     {
         return (statement, index, value) -> {
             String formatted = SqlTimestampWithTimeZone.newInstance(precision, unpackMillisUtc(value), 0, unpackZoneKey(value)).toString();
+            // TODO this should use Types.TIMESTAMP_WITH_TIMEZONE after https://github.com/prestosql/presto/pull/6352
             statement.setObject(index, formatted, Types.TIMESTAMP);
         };
     }
@@ -350,6 +450,7 @@ final class PrestoColumnMappings
     {
         return ObjectWriteFunction.of(LongTimestampWithTimeZone.class, (statement, index, value) -> {
             String formatted = SqlTimestampWithTimeZone.newInstance(precision, value.getEpochMillis(), value.getPicosOfMilli(), getTimeZoneKey(value.getTimeZoneKey())).toString();
+            // TODO this should use Types.TIMESTAMP_WITH_TIMEZONE after https://github.com/prestosql/presto/pull/6352
             statement.setObject(index, formatted, Types.TIMESTAMP);
         });
     }

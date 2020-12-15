@@ -58,6 +58,8 @@ import java.util.function.BiFunction;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoDateColumnMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeColumnMapping;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeWithTimeZoneColumnMapping;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeWithTimeZoneWriteMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeWriteMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampColumnMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampWithTimeZoneColumnMapping;
@@ -287,6 +289,9 @@ public class PrestoConnectorClient
             case Types.TIME:
                 return Optional.of(prestoTimeColumnMapping(typeHandle.getRequiredDecimalDigits()));
 
+            case Types.TIME_WITH_TIMEZONE:
+                return Optional.of(prestoTimeWithTimeZoneColumnMapping(typeHandle.getRequiredDecimalDigits()));
+
             case Types.TIMESTAMP:
                 return Optional.of(prestoTimestampColumnMapping(typeHandle.getRequiredDecimalDigits()));
 
@@ -437,6 +442,10 @@ public class PrestoConnectorClient
 
         if (type instanceof TimeType) {
             return prestoTimeWriteMapping((TimeType) type);
+        }
+
+        if (type instanceof TimeWithTimeZoneType) {
+            return prestoTimeWithTimeZoneWriteMapping((TimeWithTimeZoneType) type);
         }
 
         if (type instanceof TimestampType) {
