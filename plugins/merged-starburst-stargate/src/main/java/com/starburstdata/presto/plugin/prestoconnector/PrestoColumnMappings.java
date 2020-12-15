@@ -65,7 +65,7 @@ final class PrestoColumnMappings
     public static final Pattern TIMESTAMP_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d\\d)-(?<day>\\d\\d) " +
             "(?<hour>\\d\\d):(?<minute>\\d\\d):(?<second>\\d\\d)(?:\\.(?<fraction>\\d{1,12}))?");
-    public static final Pattern TIMESTAMP_WITH_WITH_TIME_ZONE_PATTERN = Pattern.compile("" +
+    public static final Pattern TIMESTAMP_TZ_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d\\d)-(?<day>\\d\\d) " +
             "(?<hour>\\d\\d):(?<minute>\\d\\d):(?<second>\\d\\d)(?:\\.(?<fraction>\\d{1,12}))?\\b" +
             "\\s*(?<timezone>.+)");
@@ -303,7 +303,7 @@ final class PrestoColumnMappings
 
     private static LongTimestampWithTimeZone parseTimestampWithTimeZone(String value)
     {
-        Matcher matcher = TIMESTAMP_WITH_WITH_TIME_ZONE_PATTERN.matcher(value);
+        Matcher matcher = TIMESTAMP_TZ_PATTERN.matcher(value);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid timestamp with time zone: " + value);
         }
