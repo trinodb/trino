@@ -34,6 +34,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -496,5 +498,45 @@ public class TestColumnMask
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey * 2"));
 
         assertThat(assertions.query("SELECT count(*) FROM orders JOIN orders USING (orderkey)")).matches("VALUES BIGINT '15000'");
+    }
+
+    @Test
+    public void testColumnMaskingUsingRestrictedColumn()
+    {
+        accessControl.reset();
+        accessControl.deny(privilege("orders.custkey", SELECT_COLUMN));
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderkey",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "custkey"));
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+                .hasMessageMatching("\\QAccess Denied: Cannot select from columns [orderkey, custkey] in table or view local.tiny.orders");
+    }
+
+    @Test
+    public void testInsertWithColumnMasking()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "clerk"));
+        assertThatThrownBy(() -> assertions.query("INSERT INTO orders SELECT * FROM orders"))
+                .hasMessageMatching("\\QInsert into table with column masks");
+    }
+
+    @Test
+    public void testDeleteWithColumnMasking()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "clerk"));
+        assertThatThrownBy(() -> assertions.query("DELETE FROM orders"))
+                .hasMessageMatching("\\Qline 1:1: Delete from table with column mask");
     }
 }
