@@ -22,6 +22,7 @@ import io.prestosql.testing.sql.TestTable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -133,6 +134,7 @@ public class DataTypeTest
     }
 
     public static class Input<T>
+            implements ColumnSetup
     {
         private final DataType<T> dataType;
         private final T value;
@@ -150,6 +152,12 @@ public class DataTypeTest
             return useInWhereClause;
         }
 
+        @Override
+        public Optional<String> getDeclaredType()
+        {
+            return Optional.of(getInsertType());
+        }
+
         public String getInsertType()
         {
             return dataType.getInsertType();
@@ -163,6 +171,12 @@ public class DataTypeTest
         Object toPrestoQueryResult()
         {
             return dataType.toPrestoQueryResult(value);
+        }
+
+        @Override
+        public String getInputLiteral()
+        {
+            return toLiteral();
         }
 
         public String toLiteral()

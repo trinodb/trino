@@ -37,7 +37,7 @@ public class CreateAsSelectDataSetup
     }
 
     @Override
-    public TestTable setupTestTable(List<DataTypeTest.Input<?>> inputs)
+    public TestTable setupTestTable(List<ColumnSetup> inputs)
     {
         List<String> columnValues = inputs.stream()
                 .map(this::literalInExplicitCast)
@@ -48,8 +48,11 @@ public class CreateAsSelectDataSetup
         return new TestTable(sqlExecutor, tableNamePrefix, "AS SELECT " + selectBody);
     }
 
-    private String literalInExplicitCast(DataTypeTest.Input<?> input)
+    private String literalInExplicitCast(ColumnSetup input)
     {
-        return format("CAST(%s AS %s)", input.toLiteral(), input.getInsertType());
+        return format(
+                "CAST(%s AS %s)",
+                input.getInputLiteral(),
+                input.getDeclaredType().orElseThrow(() -> new IllegalArgumentException("declared type not set")));
     }
 }

@@ -13,11 +13,11 @@
  */
 package io.prestosql.testing.datatype;
 
-import io.prestosql.testing.sql.TestTable;
+import java.util.Optional;
 
-import java.util.List;
-
-public interface DataSetup
+public interface ColumnSetup
 {
-    TestTable setupTestTable(List<ColumnSetup> inputs);
+    Optional<String> getDeclaredType();
+
+    String getInputLiteral();
 }
