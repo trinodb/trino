@@ -32,7 +32,10 @@ public class TestPrestoConnectorDistributedQueriesWithPostgreSql
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithPostgreSql(
                 postgreSqlServer,
                 Map.of(),
-                Map.of("connection-url", postgreSqlServer.getJdbcUrl()),
+                Map.of(
+                        "connection-url", postgreSqlServer.getJdbcUrl(),
+                        "connection-user", postgreSqlServer.getUser(),
+                        "connection-password", postgreSqlServer.getPassword()),
                 TpchTable.getTables()));
         return createPrestoConnectorQueryRunner(
                 false,

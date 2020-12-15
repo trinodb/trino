@@ -95,6 +95,8 @@ public final class PrestoConnectorQueryRunner
         try {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
+            connectorProperties.putIfAbsent("connection-user", server.getUser());
+            connectorProperties.putIfAbsent("connection-password", server.getPassword());
             connectorProperties.putIfAbsent("allow-drop-table", "true");
             connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
 
