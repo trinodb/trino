@@ -37,13 +37,10 @@ import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
@@ -52,12 +49,9 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQue
 import static io.airlift.testing.Closeables.closeAll;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.testing.datatype.DataType.bigintDataType;
 import static io.prestosql.testing.datatype.DataType.booleanDataType;
-import static io.prestosql.testing.datatype.DataType.dataType;
 import static io.prestosql.testing.datatype.DataType.dateDataType;
 import static io.prestosql.testing.datatype.DataType.decimalDataType;
 import static io.prestosql.testing.datatype.DataType.doubleDataType;
@@ -65,7 +59,9 @@ import static io.prestosql.testing.datatype.DataType.integerDataType;
 import static io.prestosql.testing.datatype.DataType.realDataType;
 import static io.prestosql.testing.datatype.DataType.smallintDataType;
 import static io.prestosql.testing.datatype.DataType.timeDataType;
+import static io.prestosql.testing.datatype.DataType.timeWithTimeZoneDataType;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
+import static io.prestosql.testing.datatype.DataType.timestampWithTimeZoneDataType;
 import static io.prestosql.testing.datatype.DataType.tinyintDataType;
 import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
@@ -501,22 +497,6 @@ public class TestPrestoConnectorTypeMapping
         testCases.execute(getQueryRunner(), session, prestoConnectorCreateAndInsert(session, "test_time_with_time_zone"));
     }
 
-    // TODO replace with io.prestosql.testing.datatype.DataType#timeWithTimeZoneDataType once https://github.com/prestosql/presto/pull/6334 is available
-    private static DataType<OffsetTime> timeWithTimeZoneDataType(int precision)
-    {
-        // This code does not support precision > 9, as java.time classes support precision up to nanoseconds
-        checkArgument(precision >= 0 && precision <= 9, "Unsupported precision: %s", precision);
-
-        return dataType(
-                format("time(%s) with time zone", precision),
-                createTimeWithTimeZoneType(precision),
-                new DateTimeFormatterBuilder()
-                        .appendPattern("'TIME '''HH:mm:ss" + (precision == 0 ? "" : ("." + "S".repeat(precision))))
-                        .appendOffset("+HH:mm", "+00:00")
-                        .appendPattern("''")
-                        .toFormatter()::format);
-    }
-
     /**
      * Additional test supplementing {@link #testTimeWithTimeZone} with timestamp precision higher than expressible with {@link OffsetTime}.
      *
@@ -754,21 +734,6 @@ public class TestPrestoConnectorTypeMapping
         testCases.execute(getQueryRunner(), session, remotePrestoCreatedPrestoConnectorInserted(session, "test_timestamp_with_time_zone"));
         testCases.execute(getQueryRunner(), session, prestoConnectorCreateAsSelect(session, "test_timestamp_with_time_zone"));
         testCases.execute(getQueryRunner(), session, prestoConnectorCreateAndInsert(session, "test_timestamp_with_time_zone"));
-    }
-
-    // TODO replace with io.prestosql.testing.datatype.DataType#timestampWithTimeZoneDataType once https://github.com/prestosql/presto/pull/6334 is available
-    private static DataType<ZonedDateTime> timestampWithTimeZoneDataType(int precision)
-    {
-        // This code does not support precision > 9, as java.time classes support precision up to nanoseconds
-        checkArgument(precision >= 0 && precision <= 9, "Unsupported precision: %s", precision);
-        String pattern = "'TIMESTAMP '''yyyy-MM-dd HH:mm:ss" +
-                (precision == 0 ? "" : ("." + "S".repeat(precision))) +
-                " VV''";
-
-        return dataType(
-                format("timestamp(%s) with time zone", precision),
-                createTimestampWithTimeZoneType(precision),
-                DateTimeFormatter.ofPattern(pattern)::format);
     }
 
     /**

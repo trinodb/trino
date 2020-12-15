@@ -175,8 +175,7 @@ final class PrestoColumnMappings
     {
         int precision = decimalDigits;
         TimeWithTimeZoneType timeWithTimeZoneType = createTimeWithTimeZoneType(precision);
-        // TODO use timeWithTimeZoneType.isShort() after https://github.com/prestosql/presto/pull/6352
-        if (timeWithTimeZoneType.getPrecision() <= TimeWithTimeZoneType.MAX_SHORT_PRECISION) {
+        if (timeWithTimeZoneType.isShort()) {
             return ColumnMapping.longMapping(
                     timeWithTimeZoneType,
                     shortTimeWithTimeZoneReadFunction(),
@@ -233,8 +232,7 @@ final class PrestoColumnMappings
     {
         int precision = timeWithTimeZoneType.getPrecision();
         String dataType = format("time(%s) with time zone", precision);
-        // TODO use timeWithTimeZoneType.isShort() after https://github.com/prestosql/presto/pull/6352
-        if (timeWithTimeZoneType.getPrecision() <= TimeWithTimeZoneType.MAX_SHORT_PRECISION) {
+        if (timeWithTimeZoneType.isShort()) {
             return WriteMapping.longMapping(dataType, shortTimeWithTimeZoneWriteFunction(precision));
         }
         return WriteMapping.objectMapping(dataType, longTimeWithTimeZoneWriteFunction(precision));
@@ -244,8 +242,7 @@ final class PrestoColumnMappings
     {
         return (statement, index, value) -> {
             String formatted = SqlTimeWithTimeZone.newInstance(precision, unpackTimeNanos(value) * PICOSECONDS_PER_NANOSECOND, unpackOffsetMinutes(value)).toString();
-            // TODO this should use Types.TIME_WITH_TIMEZONE after https://github.com/prestosql/presto/pull/6352
-            statement.setObject(index, formatted, Types.TIME);
+            statement.setObject(index, formatted, Types.TIME_WITH_TIMEZONE);
         };
     }
 
@@ -253,8 +250,7 @@ final class PrestoColumnMappings
     {
         return ObjectWriteFunction.of(LongTimeWithTimeZone.class, (statement, index, value) -> {
             String formatted = SqlTimeWithTimeZone.newInstance(precision, value.getPicoseconds(), value.getOffsetMinutes()).toString();
-            // TODO this should use Types.TIME_WITH_TIMEZONE after https://github.com/prestosql/presto/pull/6352
-            statement.setObject(index, formatted, Types.TIME);
+            statement.setObject(index, formatted, Types.TIME_WITH_TIMEZONE);
         });
     }
 
@@ -441,8 +437,7 @@ final class PrestoColumnMappings
     {
         return (statement, index, value) -> {
             String formatted = SqlTimestampWithTimeZone.newInstance(precision, unpackMillisUtc(value), 0, unpackZoneKey(value)).toString();
-            // TODO this should use Types.TIMESTAMP_WITH_TIMEZONE after https://github.com/prestosql/presto/pull/6352
-            statement.setObject(index, formatted, Types.TIMESTAMP);
+            statement.setObject(index, formatted, Types.TIMESTAMP_WITH_TIMEZONE);
         };
     }
 
@@ -450,8 +445,7 @@ final class PrestoColumnMappings
     {
         return ObjectWriteFunction.of(LongTimestampWithTimeZone.class, (statement, index, value) -> {
             String formatted = SqlTimestampWithTimeZone.newInstance(precision, value.getEpochMillis(), value.getPicosOfMilli(), getTimeZoneKey(value.getTimeZoneKey())).toString();
-            // TODO this should use Types.TIMESTAMP_WITH_TIMEZONE after https://github.com/prestosql/presto/pull/6352
-            statement.setObject(index, formatted, Types.TIMESTAMP);
+            statement.setObject(index, formatted, Types.TIMESTAMP_WITH_TIMEZONE);
         });
     }
 
