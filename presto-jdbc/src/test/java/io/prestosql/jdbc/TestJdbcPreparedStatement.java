@@ -949,7 +949,7 @@ public class TestJdbcPreparedStatement
 
                 try (ResultSet rs = statement.executeQuery()) {
                     verify(rs.next(), "no row returned");
-                    assertEquals(expectedValue, rs.getObject(1));
+                    assertEquals(rs.getObject(1), expectedValue);
                     verify(!rs.next(), "unexpected second row");
 
                     assertEquals(rs.getMetaData().getColumnType(1), expectedSqlType);
