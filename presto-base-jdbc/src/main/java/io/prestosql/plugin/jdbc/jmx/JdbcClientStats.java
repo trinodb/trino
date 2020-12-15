@@ -49,6 +49,7 @@ public final class JdbcClientStats
     private final JdbcApiStats getColumnMappings = new JdbcApiStats();
     private final JdbcApiStats toWriteMapping = new JdbcApiStats();
     private final JdbcApiStats implementAggregation = new JdbcApiStats();
+    private final JdbcApiStats getTableScanRedirection = new JdbcApiStats();
 
     @Managed
     @Nested
@@ -265,5 +266,12 @@ public final class JdbcClientStats
     public JdbcApiStats getImplementAggregation()
     {
         return implementAggregation;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getGetTableScanRedirection()
+    {
+        return getTableScanRedirection;
     }
 }
