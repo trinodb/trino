@@ -144,22 +144,10 @@ final class PrestoColumnMappings
             int hour = parseInt(matcher.group("hour"));
             int minute = parseInt(matcher.group("minute"));
             int second = parseInt(matcher.group("second"));
-
-            if (hour > 23 || minute > 59 || second > 59) {
-                throw new IllegalArgumentException("Invalid time: " + value);
-            }
-
-            long picosOfSecond;
+            @Nullable
             String fraction = matcher.group("fraction");
-            if (fraction != null) {
-                long fractionValue = Long.parseLong(fraction);
-                picosOfSecond = rescale(fractionValue, fraction.length(), 12);
-            }
-            else {
-                picosOfSecond = 0;
-            }
 
-            return (((hour * 60L) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + picosOfSecond;
+            return makePicosOfDay(value, hour, minute, second, fraction);
         }
     }
 
@@ -364,5 +352,24 @@ final class PrestoColumnMappings
             String formatted = SqlTimestampWithTimeZone.newInstance(precision, value.getEpochMillis(), value.getPicosOfMilli(), getTimeZoneKey(value.getTimeZoneKey())).toString();
             statement.setObject(index, formatted, Types.TIMESTAMP);
         });
+    }
+
+    private static long makePicosOfDay(String originalValue, int hour, int minute, int second, @Nullable String unparsedFraction)
+    {
+        if (hour > 23 || minute > 59 || second > 59) {
+            throw new IllegalArgumentException("Invalid time: " + originalValue);
+        }
+
+        long picosOfSecond;
+        if (unparsedFraction != null) {
+            long fractionValue = Long.parseLong(unparsedFraction);
+            verify(unparsedFraction.length() <= 12, "Fraction too long: %s", unparsedFraction);
+            picosOfSecond = rescale(fractionValue, unparsedFraction.length(), 12);
+        }
+        else {
+            picosOfSecond = 0;
+        }
+
+        return (((hour * 60L) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + picosOfSecond;
     }
 }
