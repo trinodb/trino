@@ -77,14 +77,14 @@ public class TestOracleTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', 75000, 15000, 0, null, null, null)," +
-                            "('custkey', 60000, 1000, 0, null, null, null)," +
+                            "('orderkey', null, 15000, 0, null, null, null)," +
+                            "('custkey', null, 1000, 0, null, null, null)," +
                             "('orderstatus', 30000, 3, 0, null, null, null)," +
-                            "('totalprice', 120000, 14996, 0, null, null, null)," +
-                            "('orderdate', 120000, 2401, 0, null, null, null)," +
+                            "('totalprice', null, 14996, 0, null, null, null)," +
+                            "('orderdate', null, 2401, 0, null, null, null)," +
                             "('orderpriority', 150000, 5, 0, null, null, null)," +
                             "('clerk', 240000, 1000, 0, null, null, null)," +
-                            "('shippriority', 30000, 1, 0, null, null, null)," +
+                            "('shippriority', null, 1, 0, null, null, null)," +
                             "('comment', 750000, 14995, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
@@ -104,10 +104,10 @@ public class TestOracleTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', null, null, null, null, null, null)," +
-                            "('custkey', null, null, null, null, null, null)," +
-                            "('orderpriority', null, null, null, null, null, null)," +
-                            "('comment', null, null, null, null, null, null)," +
+                            "('orderkey', 0, 0, 1, null, null, null)," +
+                            "('custkey', 0, 0, 1, null, null, null)," +
+                            "('orderpriority', 0, 0, 1, null, null, null)," +
+                            "('comment', 0, 0, 1, null, null, null)," +
                             "(null, null, null, null, 0, null, null)");
         }
         finally {
@@ -156,8 +156,8 @@ public class TestOracleTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', 75000, 15000, 0, null, null, null)," +
-                            "('custkey', 45000, 1000, 0.3333333333333333, null, null, null)," +
+                            "('orderkey', null, 15000, 0, null, null, null)," +
+                            "('custkey', null, 1000, 0.3333333333333333, null, null, null)," +
                             "('orderpriority', 120000, 5, 0.2, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
@@ -187,7 +187,7 @@ public class TestOracleTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', 400, 100, 0, null, null, null)," +
+                            "('orderkey', null, 100, 0, null, null, null)," +
                             "('v3_in_3', 400, 1, 0, null, null, null)," +
                             "('v3_in_42', 400, 1, 0, null, null, null)," +
                             "('single_10v_value', 200, 1, 0.99, null, null, null)," +
@@ -212,14 +212,14 @@ public class TestOracleTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', 75000, 15000, 0, null, null, null)," +
-                            "('custkey', 60000, 1000, 0, null, null, null)," +
+                            "('orderkey', null, 15000, 0, null, null, null)," +
+                            "('custkey', null, 1000, 0, null, null, null)," +
                             "('orderstatus', 30000, 3, 0, null, null, null)," +
-                            "('totalprice', 120000, 14996, 0, null, null, null)," +
-                            "('orderdate', 120000, 2401, 0, null, null, null)," +
+                            "('totalprice', null, 14996, 0, null, null, null)," +
+                            "('orderdate', null, 2401, 0, null, null, null)," +
                             "('orderpriority', 150000, 5, 0, null, null, null)," +
                             "('clerk', 240000, 1000, 0, null, null, null)," +
-                            "('shippriority', 30000, 1, 0, null, null, null)," +
+                            "('shippriority', null, 1, 0, null, null, null)," +
                             "('comment', 750000, 14995, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
@@ -262,8 +262,8 @@ public class TestOracleTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', 75000, 15000, 0, null, null, null)," +
-                            "('custkey', 60000, 1000, 0, null, null, null)," +
+                            "('orderkey', null, 15000, 0, null, null, null)," +
+                            "('custkey', null, 1000, 0, null, null, null)," +
                             "('orderpriority', 150000, 5, 0, null, null, null)," +
                             "('comment', 750000, 14995, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
@@ -291,11 +291,11 @@ public class TestOracleTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('case_unquoted_upper', 75000, 15000, 0, null, null, null)," +
-                            "('case_unquoted_lower', 60000, 1000, 0, null, null, null)," +
+                            "('case_unquoted_upper', null, 15000, 0, null, null, null)," +
+                            "('case_unquoted_lower', null, 1000, 0, null, null, null)," +
                             "('case_unquoted_mixed', 30000, 3, 0, null, null, null)," +
-                            "('case_quoted_upper', 120000, 14996, 0, null, null, null)," +
-                            "('case_quoted_lower', 120000, 2401, 0, null, null, null)," +
+                            "('case_quoted_upper', null, 14996, 0, null, null, null)," +
+                            "('case_quoted_lower', null, 2401, 0, null, null, null)," +
                             "('case_quoted_mixed', 150000, 5, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
@@ -328,14 +328,14 @@ public class TestOracleTableStatistics
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +
-                            "('orderkey', 75000, 15000, 0, null, null, null)," +
-                            "('custkey', 60000, 1000, 0, null, null, null)," +
+                            "('orderkey', null, 15000, 0, null, null, null)," +
+                            "('custkey', null, 1000, 0, null, null, null)," +
                             "('orderstatus', 30000, 3, 0, null, null, null)," +
-                            "('totalprice', 120000, 14996, 0, null, null, null)," +
-                            "('orderdate', 120000, 2401, 0, null, null, null)," +
+                            "('totalprice', null, 14996, 0, null, null, null)," +
+                            "('orderdate', null, 2401, 0, null, null, null)," +
                             "('orderpriority', 150000, 5, 0, null, null, null)," +
                             "('clerk', 240000, 1000, 0, null, null, null)," +
-                            "('shippriority', 30000, 1, 0, null, null, null)," +
+                            "('shippriority', null, 1, 0, null, null, null)," +
                             "('comment', 750000, 14995, 0, null, null, null)," +
                             "(null, null, null, null, 15000, null, null)");
         }
