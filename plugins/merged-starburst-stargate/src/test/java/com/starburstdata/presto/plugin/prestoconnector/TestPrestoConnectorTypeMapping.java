@@ -640,9 +640,13 @@ public class TestPrestoConnectorTypeMapping
     @Test
     public void testTimestampWithTimeZonePrecision()
     {
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 Z'");
         testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 UTC'");
         testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 Europe/Warsaw'");
         testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 America/Los_Angeles'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 +00:00'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 +03:34'");
+        testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00 -07:12'");
 
         testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.1 Asia/Kathmandu'");
         testTimestampWithTimeZonePrecision("TIMESTAMP '1970-01-01 00:00:00.9 Asia/Kathmandu'");
