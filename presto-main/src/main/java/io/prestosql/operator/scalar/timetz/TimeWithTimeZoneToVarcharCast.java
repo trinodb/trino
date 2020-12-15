@@ -55,7 +55,7 @@ public final class TimeWithTimeZoneToVarcharCast
     @SqlType("varchar(x)")
     public static Slice cast(@LiteralParameter("p") long precision, @SqlType("time(p) with time zone") LongTimeWithTimeZone time)
     {
-        return formatAsString((int) precision, time.getPicoSeconds(), time.getOffsetMinutes());
+        return formatAsString((int) precision, time.getPicoseconds(), time.getOffsetMinutes());
     }
 
     // Can't name this format() because we can't have a qualified reference to String.format() below

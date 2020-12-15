@@ -42,6 +42,6 @@ public class ExtractMinute
     @SqlType(StandardTypes.BIGINT)
     public static long extract(@SqlType("time(p) with time zone") LongTimeWithTimeZone time)
     {
-        return (time.getPicoSeconds() / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR;
+        return (time.getPicoseconds() / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR;
     }
 }

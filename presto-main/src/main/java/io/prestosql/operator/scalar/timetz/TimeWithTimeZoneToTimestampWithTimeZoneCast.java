@@ -65,7 +65,7 @@ public final class TimeWithTimeZoneToTimestampWithTimeZoneCast
     {
         // source precision > 9
         // target precision <= 3
-        long picos = normalizeAndRound(targetPrecision, time.getPicoSeconds(), time.getOffsetMinutes());
+        long picos = normalizeAndRound(targetPrecision, time.getPicoseconds(), time.getOffsetMinutes());
 
         return packDateTimeWithZone(calculateEpochMillis(session, picos), getTimeZoneKeyForOffset(time.getOffsetMinutes()));
     }
@@ -96,7 +96,7 @@ public final class TimeWithTimeZoneToTimestampWithTimeZoneCast
     {
         // source precision > 9
         // target precision > 3
-        long picos = normalizeAndRound(targetPrecision, time.getPicoSeconds(), time.getOffsetMinutes());
+        long picos = normalizeAndRound(targetPrecision, time.getPicoseconds(), time.getOffsetMinutes());
 
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(
                 calculateEpochMillis(session, picos),

@@ -62,7 +62,7 @@ public final class TimeWithTimeZoneToTimestampCast
     {
         // source precision > 9
         // target precision <= 6
-        long picos = time.getPicoSeconds();
+        long picos = time.getPicoseconds();
         picos = round(picos, (int) (12 - targetPrecision));
 
         return calculateEpochMicros(session, picos);
@@ -94,7 +94,7 @@ public final class TimeWithTimeZoneToTimestampCast
     {
         // source precision > 9
         // target precision > 6
-        long picos = time.getPicoSeconds();
+        long picos = time.getPicoseconds();
         picos = round(picos, (int) (12 - targetPrecision));
 
         long epochMicros = calculateEpochMicros(session, picos);

@@ -54,7 +54,7 @@ public class AtTimeZoneWithOffset
             @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
         int offsetMinutes = getZoneOffsetMinutes(zoneOffset);
-        long picos = time.getPicoSeconds() - (time.getOffsetMinutes() - offsetMinutes) * PICOSECONDS_PER_MINUTE;
+        long picos = time.getPicoseconds() - (time.getOffsetMinutes() - offsetMinutes) * PICOSECONDS_PER_MINUTE;
         return new LongTimeWithTimeZone(floorMod(picos, PICOSECONDS_PER_DAY), getZoneOffsetMinutes(zoneOffset));
     }
 

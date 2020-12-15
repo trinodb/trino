@@ -112,7 +112,7 @@ class LongTimeWithTimeZoneType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         LongTimeWithTimeZone timestamp = (LongTimeWithTimeZone) value;
-        blockBuilder.writeLong(timestamp.getPicoSeconds());
+        blockBuilder.writeLong(timestamp.getPicoseconds());
         blockBuilder.writeInt(timestamp.getOffsetMinutes());
         blockBuilder.closeEntry();
     }
@@ -141,9 +141,9 @@ class LongTimeWithTimeZoneType
     private static boolean equalOperator(LongTimeWithTimeZone left, LongTimeWithTimeZone right)
     {
         return equal(
-                left.getPicoSeconds(),
+                left.getPicoseconds(),
                 left.getOffsetMinutes(),
-                right.getPicoSeconds(),
+                right.getPicoseconds(),
                 right.getOffsetMinutes());
     }
 
@@ -165,7 +165,7 @@ class LongTimeWithTimeZoneType
     @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(LongTimeWithTimeZone value)
     {
-        return hashCodeOperator(value.getPicoSeconds(), value.getOffsetMinutes());
+        return hashCodeOperator(value.getPicoseconds(), value.getOffsetMinutes());
     }
 
     @ScalarOperator(HASH_CODE)
@@ -182,7 +182,7 @@ class LongTimeWithTimeZoneType
     @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(LongTimeWithTimeZone value)
     {
-        return xxHash64(value.getPicoSeconds(), value.getOffsetMinutes());
+        return xxHash64(value.getPicoseconds(), value.getOffsetMinutes());
     }
 
     @ScalarOperator(XX_HASH_64)
@@ -200,9 +200,9 @@ class LongTimeWithTimeZoneType
     private static long comparisonOperator(LongTimeWithTimeZone left, LongTimeWithTimeZone right)
     {
         return comparison(
-                left.getPicoSeconds(),
+                left.getPicoseconds(),
                 left.getOffsetMinutes(),
-                right.getPicoSeconds(),
+                right.getPicoseconds(),
                 right.getOffsetMinutes());
     }
 
@@ -225,9 +225,9 @@ class LongTimeWithTimeZoneType
     private static boolean lessThanOperator(LongTimeWithTimeZone left, LongTimeWithTimeZone right)
     {
         return lessThan(
-                left.getPicoSeconds(),
+                left.getPicoseconds(),
                 left.getOffsetMinutes(),
-                right.getPicoSeconds(),
+                right.getPicoseconds(),
                 right.getOffsetMinutes());
     }
 
@@ -250,9 +250,9 @@ class LongTimeWithTimeZoneType
     private static boolean lessThanOrEqualOperator(LongTimeWithTimeZone left, LongTimeWithTimeZone right)
     {
         return lessThanOrEqual(
-                left.getPicoSeconds(),
+                left.getPicoseconds(),
                 left.getOffsetMinutes(),
-                right.getPicoSeconds(),
+                right.getPicoseconds(),
                 right.getOffsetMinutes());
     }
 

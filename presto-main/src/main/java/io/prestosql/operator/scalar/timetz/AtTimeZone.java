@@ -77,7 +77,7 @@ public class AtTimeZone
         }
 
         int offsetMinutes = getOffsetMinutes(session.getStart(), zoneKey);
-        long picos = time.getPicoSeconds() - (time.getOffsetMinutes() - offsetMinutes) * PICOSECONDS_PER_MINUTE;
+        long picos = time.getPicoseconds() - (time.getOffsetMinutes() - offsetMinutes) * PICOSECONDS_PER_MINUTE;
         return new LongTimeWithTimeZone(floorMod(picos, PICOSECONDS_PER_DAY), offsetMinutes);
     }
 }

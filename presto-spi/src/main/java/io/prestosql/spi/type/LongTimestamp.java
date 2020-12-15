@@ -23,7 +23,7 @@ public final class LongTimestamp
     private static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
 
     private final long epochMicros;
-    private final int picosOfMicro; // number of picoSeconds of the microsecond corresponding to epochMicros. It represents an increment towards the positive side.
+    private final int picosOfMicro; // number of picoseconds of the microsecond corresponding to epochMicros. It represents an increment towards the positive side.
 
     public LongTimestamp(long epochMicros, int picosOfMicro)
     {
