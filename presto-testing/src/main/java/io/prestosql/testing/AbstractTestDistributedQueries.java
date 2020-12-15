@@ -208,23 +208,23 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
 
         // Some connectors support CREATE TABLE AS but not the ordinary CREATE TABLE. Let's test CTAS IF NOT EXISTS with a table that is guaranteed to exist.
-        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT orderkey, discount FROM lineitem", 0);
+        assertUpdate("CREATE TABLE IF NOT EXISTS nation AS SELECT custkey, acctbal FROM customer", 0);
         assertTableColumnNames("nation", "nationkey", "name", "regionkey", "comment");
 
         assertCreateTableAsSelect(
-                "SELECT orderdate, orderkey, totalprice FROM orders",
-                "SELECT count(*) FROM orders");
+                "SELECT custkey, address, acctbal FROM customer",
+                "SELECT count(*) FROM customer");
 
         assertCreateTableAsSelect(
-                "SELECT orderstatus, sum(totalprice) x FROM orders GROUP BY orderstatus",
-                "SELECT count(DISTINCT orderstatus) FROM orders");
+                "SELECT mktsegment, sum(acctbal) x FROM customer GROUP BY mktsegment",
+                "SELECT count(DISTINCT mktsegment) FROM customer");
 
         assertCreateTableAsSelect(
-                "SELECT count(*) x FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey",
+                "SELECT count(*) x FROM customer JOIN nation ON customer.nationkey = nation.nationkey",
                 "SELECT 1");
 
         assertCreateTableAsSelect(
-                "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
+                "SELECT custkey FROM customer ORDER BY custkey LIMIT 10",
                 "SELECT 10");
 
         assertCreateTableAsSelect(
@@ -232,41 +232,41 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT 1");
 
         assertCreateTableAsSelect(
-                "SELECT * FROM orders WITH DATA",
-                "SELECT * FROM orders",
-                "SELECT count(*) FROM orders");
+                "SELECT * FROM customer WITH DATA",
+                "SELECT * FROM customer",
+                "SELECT count(*) FROM customer");
 
         assertCreateTableAsSelect(
-                "SELECT * FROM orders WITH NO DATA",
-                "SELECT * FROM orders LIMIT 0",
+                "SELECT * FROM customer WITH NO DATA",
+                "SELECT * FROM customer LIMIT 0",
                 "SELECT 0");
 
         // Tests for CREATE TABLE with UNION ALL: exercises PushTableWriteThroughUnion optimizer
 
         assertCreateTableAsSelect(
-                "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 0 UNION ALL " +
-                        "SELECT orderdate, orderkey, totalprice FROM orders WHERE orderkey % 2 = 1",
-                "SELECT orderdate, orderkey, totalprice FROM orders",
-                "SELECT count(*) FROM orders");
+                "SELECT name, custkey, acctbal FROM customer WHERE custkey % 2 = 0 UNION ALL " +
+                        "SELECT name, custkey, acctbal FROM customer WHERE custkey % 2 = 1",
+                "SELECT name, custkey, acctbal FROM customer",
+                "SELECT count(*) FROM customer");
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "true").build(),
-                "SELECT CAST(orderdate AS DATE) orderdate, orderkey, totalprice FROM orders UNION ALL " +
-                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
-                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM orders");
+                "SELECT CAST(custkey AS BIGINT) custkey, acctbal FROM customer UNION ALL " +
+                        "SELECT 1234567890, 1.23",
+                "SELECT custkey, acctbal FROM customer UNION ALL " +
+                        "SELECT 1234567890, 1.23",
+                "SELECT count(*) + 1 FROM customer");
 
         assertCreateTableAsSelect(
                 Session.builder(getSession()).setSystemProperty("redistribute_writes", "false").build(),
-                "SELECT CAST(orderdate AS DATE) orderdate, orderkey, totalprice FROM orders UNION ALL " +
-                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT orderdate, orderkey, totalprice FROM orders UNION ALL " +
-                        "SELECT DATE '2000-01-01', 1234567890, 1.23",
-                "SELECT count(*) + 1 FROM orders");
+                "SELECT CAST(custkey AS BIGINT) custkey, acctbal FROM customer UNION ALL " +
+                        "SELECT 1234567890, 1.23",
+                "SELECT custkey, acctbal FROM customer UNION ALL " +
+                        "SELECT 1234567890, 1.23",
+                "SELECT count(*) + 1 FROM customer");
 
-        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT orderstatus FROM orders");
-        assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders");
+        assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT mktsegment FROM customer");
+        assertQuery("SELECT * from " + tableName, "SELECT mktsegment FROM customer");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -513,39 +513,39 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsert()
     {
-        @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
+        String query = "SELECT phone, custkey, acctbal FROM customer";
 
         String tableName = "test_insert_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS " + query + " WITH NO DATA", 0);
         assertQuery("SELECT count(*) FROM " + tableName + "", "SELECT 0");
 
-        assertUpdate("INSERT INTO " + tableName + " " + query, "SELECT count(*) FROM orders");
+        assertUpdate("INSERT INTO " + tableName + " " + query, "SELECT count(*) FROM customer");
 
         assertQuery("SELECT * FROM " + tableName + "", query);
 
-        assertUpdate("INSERT INTO " + tableName + " (orderkey) VALUES (-1)", 1);
-        assertUpdate("INSERT INTO " + tableName + " (orderkey) VALUES (null)", 1);
-        assertUpdate("INSERT INTO " + tableName + " (orderdate) VALUES (DATE '2001-01-01')", 1);
-        assertUpdate("INSERT INTO " + tableName + " (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
-        assertUpdate("INSERT INTO " + tableName + " (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
-        assertUpdate("INSERT INTO " + tableName + " (totalprice) VALUES (1234)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (custkey) VALUES (-1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (custkey) VALUES (null)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (phone) VALUES ('3283-2001-01-01')", 1);
+        assertUpdate("INSERT INTO " + tableName + " (custkey, phone) VALUES (-2, '3283-2001-01-02')", 1);
+        assertUpdate("INSERT INTO " + tableName + " (phone, custkey) VALUES ('3283-2001-01-03', -3)", 1);
+        assertUpdate("INSERT INTO " + tableName + " (acctbal) VALUES (1234)", 1);
 
         assertQuery("SELECT * FROM " + tableName + "", query
                 + " UNION ALL SELECT null, -1, null"
                 + " UNION ALL SELECT null, null, null"
-                + " UNION ALL SELECT DATE '2001-01-01', null, null"
-                + " UNION ALL SELECT DATE '2001-01-02', -2, null"
-                + " UNION ALL SELECT DATE '2001-01-03', -3, null"
+                + " UNION ALL SELECT '3283-2001-01-01', null, null"
+                + " UNION ALL SELECT '3283-2001-01-02', -2, null"
+                + " UNION ALL SELECT '3283-2001-01-03', -3, null"
                 + " UNION ALL SELECT null, null, 1234");
 
         // UNION query produces columns in the opposite order
         // of how they are declared in the table schema
         assertUpdate(
-                "INSERT INTO " + tableName + " (orderkey, orderdate, totalprice) " +
-                        "SELECT orderkey, orderdate, totalprice FROM orders " +
+                "INSERT INTO " + tableName + " (custkey, phone, acctbal) " +
+                        "SELECT custkey, phone, acctbal FROM customer " +
                         "UNION ALL " +
-                        "SELECT orderkey, orderdate, totalprice FROM orders",
-                "SELECT 2 * count(*) FROM orders");
+                        "SELECT custkey, phone, acctbal FROM customer",
+                "SELECT 2 * count(*) FROM customer");
 
         assertUpdate("DROP TABLE " + tableName);
     }
