@@ -1278,9 +1278,15 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(fields))
                     .build();
 
+            Set<String> allColumns = fields.stream()
+                    .flatMap(field -> field.getName().stream())
+                    .collect(toImmutableSet());
+
+            Set<String> visibleColumns = filterColumns(name, allColumns);
+
             ImmutableMap.Builder<Field, List<ViewExpression>> columnMasks = ImmutableMap.builder();
             for (Field field : fields) {
-                if (field.getName().isPresent()) {
+                if (field.getName().isPresent() && visibleColumns.contains(field.getName().orElseThrow())) {
                     List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
                     columnMasks.put(field, masks);
 
@@ -1292,6 +1298,21 @@ class StatementAnalyzer
             filters.forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
 
             analysis.registerTable(table, tableHandle, name, filters, columnMasks.build(), authorization, accessControlScope);
+        }
+
+        private Set<String> filterColumns(QualifiedObjectName name, Set<String> allColumns)
+        {
+            return allColumns.stream()
+                    .filter(column -> {
+                        try {
+                            accessControl.checkCanSelectFromColumns(session.toSecurityContext(), name, ImmutableSet.of(column));
+                            return true;
+                        }
+                        catch (AccessDeniedException e) {
+                            return false;
+                        }
+                    })
+                    .collect(toImmutableSet());
         }
 
         private Scope createScopeForCommonTableExpression(Table table, Optional<Scope> scope, WithQuery withQuery)
