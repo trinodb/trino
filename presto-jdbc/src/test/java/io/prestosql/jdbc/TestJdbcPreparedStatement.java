@@ -29,6 +29,7 @@ import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
+import java.sql.JDBCType;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -41,7 +42,9 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.TimeZone;
 
@@ -49,10 +52,12 @@ import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.primitives.Ints.asList;
 import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
+import static io.prestosql.jdbc.BaseTestJdbcResultSet.toSqlTime;
 import static io.prestosql.jdbc.TestingJdbcUtils.list;
 import static io.prestosql.jdbc.TestingJdbcUtils.readRows;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -715,7 +720,7 @@ public class TestJdbcPreparedStatement
                 .isInvalid("Cannot convert instance of java.time.LocalDate to time");
 
         assertBind((ps, i) -> ps.setObject(i, date, Types.TIME_WITH_TIMEZONE))
-                .isInvalid("Unsupported target SQL type: " + Types.TIME_WITH_TIMEZONE);
+                .isInvalid("Cannot convert instance of java.time.LocalDate to time with time zone");
 
         assertBind((ps, i) -> ps.setObject(i, date, Types.TIMESTAMP))
                 .isInvalid("Cannot convert instance of java.time.LocalDate to timestamp");
@@ -799,6 +804,56 @@ public class TestJdbcPreparedStatement
         assertBind((ps, i) -> ps.setObject(i, timeWithMillisecond, Types.TIME))
                 .resultsIn("time(3)", "TIME '12:34:56.123'")
                 .roundTripsAs(Types.TIME, timeWithMillisecond);
+    }
+
+    @Test
+    public void testConvertTimeWithTimeZone()
+            throws SQLException
+    {
+        // zero fraction
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC), Types.TIME_WITH_TIMEZONE))
+                .resultsIn("time(0) with time zone", "TIME '12:34:56+00:00'")
+                .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(5, 34, 56)));
+
+        // setObject with implicit type
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC)))
+                .resultsIn("time(0) with time zone", "TIME '12:34:56+00:00'");
+
+        // setObject with JDBCType
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 0, UTC), JDBCType.TIME_WITH_TIMEZONE))
+                .resultsIn("time(0) with time zone", "TIME '12:34:56+00:00'");
+
+        // millisecond precision
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_000_000, UTC), Types.TIME_WITH_TIMEZONE))
+                .resultsIn("time(3) with time zone", "TIME '12:34:56.555+00:00'")
+                .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(5, 34, 56, 555_000_000)));
+
+        // microsecond precision
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_555_000, UTC), Types.TIME_WITH_TIMEZONE))
+                .resultsIn("time(6) with time zone", "TIME '12:34:56.555555+00:00'")
+                .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(5, 34, 56, 556_000_000)));
+
+        // nanosecond precision
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 555_555_555, UTC), Types.TIME_WITH_TIMEZONE))
+                .resultsIn("time(9) with time zone", "TIME '12:34:56.555555555+00:00'")
+                .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(5, 34, 56, 556_000_000)));
+
+        // positive offset
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 123_456_789, ZoneOffset.ofHoursMinutes(7, 35)), Types.TIME_WITH_TIMEZONE))
+                .resultsIn("time(9) with time zone", "TIME '12:34:56.123456789+07:35'");
+        // TODO (https://github.com/prestosql/presto/issues/6351) the result is not as expected here:
+        //      .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(20, 59, 56, 123_000_000)));
+
+        // negative offset
+        assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 123_456_789, ZoneOffset.ofHoursMinutes(-7, -35)), Types.TIME_WITH_TIMEZONE))
+                .resultsIn("time(9) with time zone", "TIME '12:34:56.123456789-07:35'")
+                .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(13, 9, 56, 123_000_000)));
+
+        // String as TIME WITH TIME ZONE
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123 +05:45", Types.TIME_WITH_TIMEZONE)).resultsIn("time(3) with time zone", "TIME '12:34:56.123 +05:45'");
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456 +05:45", Types.TIME_WITH_TIMEZONE)).resultsIn("time(6) with time zone", "TIME '12:34:56.123456 +05:45'");
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789 +05:45", Types.TIME_WITH_TIMEZONE)).resultsIn("time(9) with time zone", "TIME '12:34:56.123456789 +05:45'");
+        assertBind((ps, i) -> ps.setObject(i, "12:34:56.123456789012 +05:45", Types.TIME_WITH_TIMEZONE)).resultsIn("time(12) with time zone", "TIME '12:34:56.123456789012 +05:45'");
     }
 
     @Test

@@ -48,6 +48,7 @@ import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
@@ -90,6 +91,12 @@ public class PrestoPreparedStatement
                     .append(ISO_LOCAL_DATE)
                     .appendLiteral(' ')
                     .append(ISO_LOCAL_TIME)
+                    .toFormatter();
+
+    private static final DateTimeFormatter OFFSET_TIME_FORMATTER =
+            new DateTimeFormatterBuilder()
+                    .append(ISO_LOCAL_TIME)
+                    .appendOffset("+HH:mm", "+00:00")
                     .toFormatter();
 
     private static final Pattern TOP_LEVEL_TYPE_PATTERN = Pattern.compile("(.+?)\\((.+)\\)");
@@ -343,6 +350,28 @@ public class PrestoPreparedStatement
         throw invalidConversion(value, "time");
     }
 
+    private void setAsTimeWithTimeZone(int parameterIndex, Object value)
+            throws SQLException
+    {
+        requireNonNull(value, "value is null");
+
+        String literal = toTimeWithTimeZoneLiteral(value);
+        setParameter(parameterIndex, formatLiteral("TIME", literal));
+    }
+
+    private String toTimeWithTimeZoneLiteral(Object value)
+            throws SQLException
+    {
+        if (value instanceof OffsetTime) {
+            return OFFSET_TIME_FORMATTER.format((OffsetTime) value);
+        }
+        if (value instanceof String) {
+            // TODO validate proper format
+            return (String) value;
+        }
+        throw invalidConversion(value, "time with time zone");
+    }
+
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x)
             throws SQLException
@@ -480,10 +509,12 @@ public class PrestoPreparedStatement
             case Types.TIME:
                 setAsTime(parameterIndex, x);
                 return;
+            case Types.TIME_WITH_TIMEZONE:
+                setAsTimeWithTimeZone(parameterIndex, x);
+                return;
             case Types.TIMESTAMP:
                 setAsTimestamp(parameterIndex, x);
                 return;
-            // TODO Types.TIME_WITH_TIMEZONE
             // TODO Types.TIMESTAMP_WITH_TIMEZONE
         }
         throw new SQLException("Unsupported target SQL type: " + targetSqlType);
@@ -542,6 +573,10 @@ public class PrestoPreparedStatement
         }
         else if (x instanceof Time) {
             setTime(parameterIndex, (Time) x);
+        }
+        // TODO (https://github.com/prestosql/presto/issues/6299) LocalTime -> setAsTime
+        else if (x instanceof OffsetTime) {
+            setAsTimeWithTimeZone(parameterIndex, x);
         }
         else if (x instanceof Timestamp) {
             setTimestamp(parameterIndex, (Timestamp) x);
