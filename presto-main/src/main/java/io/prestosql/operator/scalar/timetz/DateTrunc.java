@@ -54,7 +54,7 @@ public final class DateTrunc
             @SqlType("varchar(x)") Slice unit,
             @SqlType("time(p) with time zone") LongTimeWithTimeZone time)
     {
-        return new LongTimeWithTimeZone(truncate(time.getPicoSeconds(), unit), time.getOffsetMinutes());
+        return new LongTimeWithTimeZone(truncate(time.getPicoseconds(), unit), time.getOffsetMinutes());
     }
 
     private static long truncate(long picos, Slice unit)

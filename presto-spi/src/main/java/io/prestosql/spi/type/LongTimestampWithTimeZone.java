@@ -21,7 +21,7 @@ public final class LongTimestampWithTimeZone
         implements Comparable<LongTimestampWithTimeZone>
 {
     private final long epochMillis;
-    private final int picosOfMilli; // number of picoSeconds of the millisecond corresponding to epochMillis
+    private final int picosOfMilli; // number of picoseconds of the millisecond corresponding to epochMillis
     private final short timeZoneKey;
 
     public static LongTimestampWithTimeZone fromEpochSecondsAndFraction(long epochSecond, long fractionInPicos, TimeZoneKey timeZoneKey)

@@ -59,7 +59,7 @@ public final class TimeWithTimeZoneOperators
      */
     static long normalize(LongTimeWithTimeZone time)
     {
-        return floorMod(time.getPicoSeconds() - time.getOffsetMinutes() * PICOSECONDS_PER_MINUTE, PICOSECONDS_PER_DAY);
+        return floorMod(time.getPicoseconds() - time.getOffsetMinutes() * PICOSECONDS_PER_MINUTE, PICOSECONDS_PER_DAY);
     }
 
     @ScalarOperator(ADD)
@@ -85,7 +85,7 @@ public final class TimeWithTimeZoneOperators
                 @SqlType("time(p) with time zone") LongTimeWithTimeZone time,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            long picos = TimeOperators.add(time.getPicoSeconds(), interval * PICOSECONDS_PER_MILLISECOND);
+            long picos = TimeOperators.add(time.getPicoseconds(), interval * PICOSECONDS_PER_MILLISECOND);
             return new LongTimeWithTimeZone(picos, time.getOffsetMinutes());
         }
     }

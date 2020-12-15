@@ -303,11 +303,11 @@ public final class DateTimes
         return formatTimestamp(precision, dateTime, picoFraction, yearToSecondFormatter, builder -> {});
     }
 
-    public static String formatTimestampWithTimeZone(int precision, long epochMillis, int picoSecondOfMilli, ZoneId zoneId)
+    public static String formatTimestampWithTimeZone(int precision, long epochMillis, int picosOfMilli, ZoneId zoneId)
     {
         Instant instant = Instant.ofEpochMilli(epochMillis);
         LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zoneId);
-        long picoFraction = ((long) getMillisOfSecond(epochMillis)) * PICOSECONDS_PER_MILLISECOND + picoSecondOfMilli;
+        long picoFraction = ((long) getMillisOfSecond(epochMillis)) * PICOSECONDS_PER_MILLISECOND + picosOfMilli;
 
         return formatTimestamp(precision, dateTime, picoFraction, TIMESTAMP_FORMATTER, builder -> builder.append(" ").append(zoneId));
     }

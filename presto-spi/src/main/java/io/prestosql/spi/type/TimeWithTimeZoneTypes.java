@@ -58,6 +58,6 @@ public final class TimeWithTimeZoneTypes
      */
     static long normalize(LongTimeWithTimeZone time)
     {
-        return floorMod(time.getPicoSeconds() - time.getOffsetMinutes() * PICOSECONDS_PER_MINUTE, PICOSECONDS_PER_DAY);
+        return floorMod(time.getPicoseconds() - time.getOffsetMinutes() * PICOSECONDS_PER_MINUTE, PICOSECONDS_PER_DAY);
     }
 }
