@@ -141,6 +141,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryColumnMap
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
@@ -471,7 +472,11 @@ public class PostgreSqlClient
                 break;
         }
 
-        return legacyToPrestoType(session, connection, typeHandle);
+        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
+            return mapToUnboundedVarchar(typeHandle);
+        }
+
+        return Optional.empty();
     }
 
     private Optional<ColumnMapping> arrayToPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
@@ -616,7 +621,8 @@ public class PostgreSqlClient
             String elementDataType = toWriteMapping(session, elementType).getDataType();
             return WriteMapping.objectMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
         }
-        return legacyToWriteMapping(session, type);
+
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override
