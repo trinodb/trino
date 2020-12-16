@@ -13,8 +13,8 @@
  */
 package io.trino.tests.hive;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.tempto.ProductTest;
@@ -68,6 +68,140 @@ public class TestHiveStorageFormats
     @Inject(optional = true)
     @Named("databases.presto.admin_role_enabled")
     private boolean adminRoleEnabled;
+
+    private static final List<TimestampAndPrecision> TIMESTAMPS_FROM_HIVE = List.of(
+            // write precision is not relevant here, as Hive always uses nanos
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.111", // millis, no rounding
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111000",
+                    "1967-01-02 12:01:00.111000000"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.1114", // hundreds of micros, rounds down in millis, (pre-epoch)
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111400",
+                    "1967-01-02 12:01:00.111400000"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.1115", // hundreds of micros, rounds up in millis (smallest), pre-epoch
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.112",
+                    "1967-01-02 12:01:00.111500",
+                    "1967-01-02 12:01:00.111500000"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.111499", // micros, rounds down (largest), pre-epoch
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111499",
+                    "1967-01-02 12:01:00.111499000"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.1113334", // hundreds of nanos, rounds down
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111333",
+                    "1967-01-02 12:01:00.111333400"),
+            timestampAndPrecision(
+                    "1967-01-02 23:59:59.999999999", // nanos, rounds up to next day
+                    NANOSECONDS,
+                    "1967-01-03 00:00:00.000",
+                    "1967-01-03 00:00:00.000000",
+                    "1967-01-02 23:59:59.999999999"),
+
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.1110019", // hundreds of nanos, rounds down in millis and up in micros, pre-epoch
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111002",
+                    "1967-01-02 12:01:00.111001900"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.111901001", // nanos, rounds up in millis and down in micros, pre-epoch
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.112",
+                    "1967-01-02 12:01:00.111901",
+                    "1967-01-02 12:01:00.111901001"),
+            timestampAndPrecision(
+                    "1967-12-31 23:59:59.999999499", // nanos, rounds micros down (largest), rounds millis up to next year, pre-epoch
+                    NANOSECONDS,
+                    "1968-01-01 00:00:00.000",
+                    "1967-12-31 23:59:59.999999",
+                    "1967-12-31 23:59:59.999999499"),
+
+            timestampAndPrecision(
+                    "2027-01-02 12:01:00.1110019", // hundreds of nanos, rounds down in millis and up in micros, post-epoch
+                    NANOSECONDS,
+                    "2027-01-02 12:01:00.111",
+                    "2027-01-02 12:01:00.111002",
+                    "2027-01-02 12:01:00.111001900"),
+            timestampAndPrecision(
+                    "2027-01-02 12:01:00.111901001", // nanos, rounds up in millis and down in micros, post-epoch
+                    NANOSECONDS,
+                    "2027-01-02 12:01:00.112",
+                    "2027-01-02 12:01:00.111901",
+                    "2027-01-02 12:01:00.111901001"),
+            timestampAndPrecision(
+                    "2027-12-31 23:59:59.999999499", // nanos, rounds micros down (largest), rounds millis up to next year, post-epoch
+                    NANOSECONDS,
+                    "2028-01-01 00:00:00.000",
+                    "2027-12-31 23:59:59.999999",
+                    "2027-12-31 23:59:59.999999499"));
+
+    // These check that values are correctly rounded on insertion
+    private static final List<TimestampAndPrecision> TIMESTAMPS_FROM_PRESTO = List.of(
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.999", // millis as millis (no rounding)
+                    MILLISECONDS,
+                    "2020-01-02 12:01:00.999",
+                    "2020-01-02 12:01:00.999000",
+                    "2020-01-02 12:01:00.999000000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.111499999", // nanos as millis rounds down (largest)
+                    MILLISECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111000",
+                    "2020-01-02 12:01:00.111000000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.1115", // micros as millis rounds up (smallest)
+                    MILLISECONDS,
+                    "2020-01-02 12:01:00.112",
+                    "2020-01-02 12:01:00.112000",
+                    "2020-01-02 12:01:00.112000000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.111333", // micros as micros (no rounding)
+                    MICROSECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111333",
+                    "2020-01-02 12:01:00.111333000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.1113334", // nanos as micros rounds down
+                    MICROSECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111333",
+                    "2020-01-02 12:01:00.111333000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.111333777", // nanos as micros rounds up
+                    MICROSECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111334",
+                    "2020-01-02 12:01:00.111334000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.111333444", // nanos as nanos (no rounding)
+                    NANOSECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111333",
+                    "2020-01-02 12:01:00.111333444"),
+            timestampAndPrecision(
+                    "2020-01-02 23:59:59.999911333", // nanos as millis rounds up to next day
+                    MILLISECONDS,
+                    "2020-01-03 00:00:00.000",
+                    "2020-01-03 00:00:00.000000",
+                    "2020-01-03 00:00:00.000000000"),
+            timestampAndPrecision(
+                    "2020-12-31 23:59:59.99999", // micros as millis rounds up to next year
+                    MILLISECONDS,
+                    "2021-01-01 00:00:00.000",
+                    "2021-01-01 00:00:00.000000",
+                    "2021-01-01 00:00:00.000000000"));
 
     @DataProvider(name = "storage_formats")
     public static Object[][] storageFormats()
@@ -351,100 +485,14 @@ public class TestHiveStorageFormats
     {
         String tableName = "test_timestamp_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
         createSimpleTimestampTable(tableName, storageFormat);
-        // write precision is not relevant here, as Hive always uses nanos
-        List<TimestampAndPrecision> data = ImmutableList.of(
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.123",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123000",
-                        "1967-01-02 12:34:56.123000000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123000",
-                        "2020-01-02 12:34:56.123000000"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.1234",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123400",
-                        "1967-01-02 12:34:56.123400000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123400",
-                        "2020-01-02 12:34:56.123400000"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.1236",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.124",
-                        "1967-01-02 12:34:56.123600",
-                        "1967-01-02 12:34:56.123600000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1236",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.124",
-                        "2020-01-02 12:34:56.123600",
-                        "2020-01-02 12:34:56.123600000"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.123456",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123456",
-                        "1967-01-02 12:34:56.123456000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123456",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123456",
-                        "2020-01-02 12:34:56.123456000"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.1234564",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123456",
-                        "1967-01-02 12:34:56.123456400"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234564",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123456",
-                        "2020-01-02 12:34:56.123456400"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.1234567",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123457",
-                        "1967-01-02 12:34:56.123456700"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234567",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123457",
-                        "2020-01-02 12:34:56.123456700"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.123456789",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123457",
-                        "1967-01-02 12:34:56.123456789"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123456789",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123457",
-                        "2020-01-02 12:34:56.123456789"));
 
         // insert records one by one so that we have one file per record, which allows us to exercise predicate push-down in Parquet
         // (which only works when the value range has a min = max)
-        for (TimestampAndPrecision entry : data) {
+        for (TimestampAndPrecision entry : TIMESTAMPS_FROM_HIVE) {
             onHive().executeQuery(format("INSERT INTO %s VALUES (%s, '%s')", tableName, entry.getId(), entry.getWriteValue()));
         }
 
-        runTimestampQueries(tableName, data);
+        runTimestampQueries(tableName, TIMESTAMPS_FROM_HIVE);
     }
 
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
@@ -454,51 +502,7 @@ public class TestHiveStorageFormats
         String tableName = "test_timestamp_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
         createSimpleTimestampTable(tableName, storageFormat);
 
-        List<TimestampAndPrecision> data = ImmutableList.of(
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123",
-                        MILLISECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123000",
-                        "2020-01-02 12:34:56.123000000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234",
-                        MILLISECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123000",
-                        "2020-01-02 12:34:56.123000000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1236",
-                        MILLISECONDS,
-                        "2020-01-02 12:34:56.124",
-                        "2020-01-02 12:34:56.124000",
-                        "2020-01-02 12:34:56.124000000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123456",
-                        MICROSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123456",
-                        "2020-01-02 12:34:56.123456000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234564",
-                        MICROSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123456",
-                        "2020-01-02 12:34:56.123456000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234567",
-                        MICROSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123457",
-                        "2020-01-02 12:34:56.123457000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123456789",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123457",
-                        "2020-01-02 12:34:56.123456789"));
-
-        for (TimestampAndPrecision entry : data) {
+        for (TimestampAndPrecision entry : TIMESTAMPS_FROM_PRESTO) {
             // insert timestamps with different precisions
             setSessionProperty(onPresto().getConnection(), "hive.timestamp_precision", entry.getPrecision());
             // insert records one by one so that we have one file per record, which allows us to exercise predicate push-down in Parquet
@@ -506,7 +510,7 @@ public class TestHiveStorageFormats
             onPresto().executeQuery(format("INSERT INTO %s VALUES (%s, TIMESTAMP'%s')", tableName, entry.getId(), entry.getWriteValue()));
         }
 
-        runTimestampQueries(tableName, data);
+        runTimestampQueries(tableName, TIMESTAMPS_FROM_PRESTO);
     }
 
     private void createSimpleTimestampTable(String tableName, StorageFormat storageFormat)
