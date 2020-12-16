@@ -26,6 +26,14 @@ import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRule;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgDecimal;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgFloatingPoint;
+import io.prestosql.plugin.jdbc.expression.ImplementCount;
+import io.prestosql.plugin.jdbc.expression.ImplementCountAll;
+import io.prestosql.plugin.jdbc.expression.ImplementMinMax;
+import io.prestosql.plugin.jdbc.expression.ImplementSum;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -126,6 +134,8 @@ public class OracleClient
 
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
 
+    private final AggregateFunctionRewriter aggregateFunctionRewriter;
+
     private static final Set<String> INTERNAL_SCHEMAS = ImmutableSet.<String>builder()
             .add("ctxsys")
             .add("flows_files")
@@ -162,6 +172,18 @@ public class OracleClient
 
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
+
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), 40, 0, Optional.empty(), Optional.empty());
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+                this::quoted,
+                ImmutableSet.<AggregateFunctionRule>builder()
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementMinMax())
+                        .add(new ImplementSum(OracleClient::toTypeHandle))
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementAvgDecimal())
+                        .build());
     }
 
     private String[] getTableTypes()
@@ -274,7 +296,14 @@ public class OracleClient
                 int scale = max(decimalDigits, 0);
                 Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
                 RoundingMode roundingMode = getNumberRoundingMode(session);
-                if (precision < scale) {
+                if (precision == 40 && decimalDigits == 0) {
+                    return Optional.of(ColumnMapping.longMapping(
+                            BIGINT,
+                            ResultSet::getLong,
+                            bigintWriteFunction(),
+                            FULL_PUSHDOWN));
+                }
+                else if (precision < scale) {
                     if (roundingMode == RoundingMode.UNNECESSARY) {
                         break;
                     }
@@ -474,5 +503,10 @@ public class OracleClient
                 quoted(column.getColumnName()),
                 comment.orElse(""));
         execute(session, sql);
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty(), Optional.empty()));
     }
 }
