@@ -507,7 +507,7 @@ public class TestHiveStorageFormats
 
         for (TimestampAndPrecision entry : TIMESTAMPS_FROM_PRESTO) {
             // insert timestamps with different precisions
-            setSessionProperty(onPresto().getConnection(), "hive.timestamp_precision", entry.getPrecision());
+            setSessionProperty(onPresto().getConnection(), "hive.timestamp_precision", entry.getPrecision().name());
             // insert records one by one so that we have one file per record, which allows us to exercise predicate push-down in Parquet
             // (which only works when the value range has a min = max)
             onPresto().executeQuery(format("INSERT INTO %s VALUES (%s, TIMESTAMP'%s')", tableName, entry.getId(), entry.getWriteValue()));
@@ -836,9 +836,9 @@ public class TestHiveStorageFormats
             return id;
         }
 
-        public String getPrecision()
+        public HiveTimestampPrecision getPrecision()
         {
-            return precision.name();
+            return precision;
         }
 
         public String getWriteValue()
