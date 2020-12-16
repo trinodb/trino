@@ -360,7 +360,14 @@ include ``SYNONYM``, add the following configuration property:
 Pushdown
 --------
 
-The connector supports :doc:`pushdown </optimizer/pushdown>` for optimized query processing.
+The connector supports :doc:`pushdown </optimizer/pushdown>` for processing the
+following aggregate functions:
+
+* :func:`avg`
+* :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
 
 Limitations
 -----------
