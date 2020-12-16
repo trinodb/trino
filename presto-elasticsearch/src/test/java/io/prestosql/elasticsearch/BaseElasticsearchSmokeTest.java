@@ -912,6 +912,12 @@ public abstract class BaseElasticsearchSmokeTest
         assertTableDoesNotExist(aliasName);
     }
 
+    @Test
+    public void testMissingIndex()
+    {
+        assertTableDoesNotExist("nonexistent_table");
+    }
+
     protected void assertTableDoesNotExist(String name)
     {
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
