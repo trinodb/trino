@@ -407,6 +407,15 @@ Accessors
 
     Returns the great-circle distance between two points on Earth's surface in kilometers.
 
+.. function:: to_geojson_geometry(SphericalGeography) -> varchar
+
+    Returns the GeoJSON encoded defined by the input spherical geography.
+
+.. function:: from_geojson_geometry(varchar) -> SphericalGeography
+
+    Returns the spherical geography type object from the GeoJSON representation stripping non geometry key/values.
+    Feature and FeatureCollection are not supported.
+
 Aggregations
 ------------
 .. function:: convex_hull_agg(Geometry) -> Geometry
