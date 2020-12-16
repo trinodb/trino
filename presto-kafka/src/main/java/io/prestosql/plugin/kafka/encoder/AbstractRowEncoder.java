@@ -18,6 +18,9 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
@@ -33,6 +36,7 @@ import io.prestosql.spi.type.VarcharType;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -118,6 +122,15 @@ public abstract class AbstractRowEncoder
         else if (type instanceof TimestampWithTimeZoneType) {
             appendSqlTimestampWithTimeZone((SqlTimestampWithTimeZone) type.getObjectValue(session, block, position));
         }
+        else if (type instanceof ArrayType) {
+            appendArray((List<Object>) type.getObjectValue(session, block, position));
+        }
+        else if (type instanceof MapType) {
+            appendMap((Map<Object, Object>) type.getObjectValue(session, block, position));
+        }
+        else if (type instanceof RowType) {
+            appendRow((List<Object>) type.getObjectValue(session, block, position));
+        }
         else {
             throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", type, columnHandles.get(currentColumnIndex).getName()));
         }
@@ -197,6 +210,21 @@ public abstract class AbstractRowEncoder
     }
 
     protected void appendSqlTimestampWithTimeZone(SqlTimestampWithTimeZone value)
+    {
+        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+    }
+
+    protected void appendArray(List<Object> value)
+    {
+        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+    }
+
+    protected void appendMap(Map<Object, Object> value)
+    {
+        throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
+    }
+
+    protected void appendRow(List<Object> value)
     {
         throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", value.getClass().getName(), columnHandles.get(currentColumnIndex).getName()));
     }
