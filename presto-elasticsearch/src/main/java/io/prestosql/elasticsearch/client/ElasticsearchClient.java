@@ -445,6 +445,27 @@ public class ElasticsearchClient
         return left.isPrimary() ? 1 : -1;
     }
 
+    public boolean indexExists(String index)
+    {
+        String path = format("/%s/_mappings", index);
+
+        try {
+            Response response = client.getLowLevelClient()
+                    .performRequest("GET", path);
+
+            return response.getStatusLine().getStatusCode() == 200;
+        }
+        catch (ResponseException e) {
+            if (e.getResponse().getStatusLine().getStatusCode() == 404) {
+                return false;
+            }
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+        catch (IOException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+        }
+    }
+
     public List<String> getIndexes()
     {
         return doRequest("/_cat/indices?h=index,docs.count,docs.deleted&format=json&s=index:asc", body -> {
