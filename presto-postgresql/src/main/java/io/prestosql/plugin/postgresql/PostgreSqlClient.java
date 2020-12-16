@@ -471,7 +471,6 @@ public class PostgreSqlClient
                 break;
         }
 
-        // TODO support PostgreSQL's TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
         return legacyToPrestoType(session, connection, typeHandle);
     }
 
