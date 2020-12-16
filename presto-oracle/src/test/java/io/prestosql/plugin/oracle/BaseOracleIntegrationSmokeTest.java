@@ -172,6 +172,20 @@ public abstract class BaseOracleIntegrationSmokeTest
                 "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
     }
 
+    @Test
+    public void testAggregationPushdown()
+            throws Exception
+    {
+        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
+    }
+
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
     {
         String tableName = "test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", "");
