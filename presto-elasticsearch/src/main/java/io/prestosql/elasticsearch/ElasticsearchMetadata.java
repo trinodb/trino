@@ -152,7 +152,7 @@ public class ElasticsearchMetadata
                 }
             }
 
-            if (listTables(session, Optional.of(schemaName)).contains(new SchemaTableName(schemaName, table))) {
+            if (client.indexExists(table) && !client.getIndexMetadata(table).getSchema().getFields().isEmpty()) {
                 return new ElasticsearchTableHandle(type, schemaName, table, query);
             }
         }
