@@ -735,12 +735,10 @@ public class PostgreSqlClient
                     shortTimestampWithTimeZoneReadFunction(),
                     shortTimestampWithTimeZoneWriteFunction());
         }
-        else {
-            return ColumnMapping.objectMapping(
-                    prestoType,
-                    longTimestampWithTimeZoneReadFunction(),
-                    longTimestampWithTimeZoneWriteFunction());
-        }
+        return ColumnMapping.objectMapping(
+                prestoType,
+                longTimestampWithTimeZoneReadFunction(),
+                longTimestampWithTimeZoneWriteFunction());
     }
 
     private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
