@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.sqlserver.TestingSqlServer;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.SkipException;
@@ -26,6 +27,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.prestosql.testing.sql.TestTable.fromColumns;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
@@ -315,6 +317,49 @@ public class TestSqlServerTableStatistics
                 {"\"test_stats_mixed_quoted_lower\""},
                 {"\"test_stats_mixed_QuoTeD_miXED\""},
         };
+    }
+
+    @Test
+    public void testNumericCornerCasesFromPresto()
+    {
+        try (TestTable table = fromColumns(
+                getQueryRunner()::execute,
+                "test_numeric_corner_cases_",
+                ImmutableMap.<String, List<String>>builder()
+// TODO infinity and NaNs are not supported by SQLServer
+//                        .put("only_negative_infinity double", List.of("-infinity()", "-infinity()", "-infinity()", "-infinity()"))
+//                        .put("only_positive_infinity double", List.of("infinity()", "infinity()", "infinity()", "infinity()"))
+//                        .put("mixed_infinities double", List.of("-infinity()", "infinity()", "-infinity()", "infinity()"))
+//                        .put("mixed_infinities_and_numbers double", List.of("-infinity()", "infinity()", "-5.0", "7.0"))
+//                        .put("nans_only double", List.of("nan()", "nan()"))
+//                        .put("nans_and_numbers double", List.of("nan()", "nan()", "-5.0", "7.0"))
+                        .put("large_doubles double", List.of("CAST(-50371909150609548946090.0 AS DOUBLE)", "CAST(50371909150609548946090.0 AS DOUBLE)")) // 2^77 DIV 3
+                        .put("short_decimals_big_fraction decimal(16,15)", List.of("-1.234567890123456", "1.234567890123456"))
+                        .put("short_decimals_big_integral decimal(16,1)", List.of("-123456789012345.6", "123456789012345.6"))
+                        .put("long_decimals_big_fraction decimal(38,37)", List.of("-1.2345678901234567890123456789012345678", "1.2345678901234567890123456789012345678"))
+                        .put("long_decimals_middle decimal(38,16)", List.of("-1234567890123456.7890123456789012345678", "1234567890123456.7890123456789012345678"))
+                        .put("long_decimals_big_integral decimal(38,1)", List.of("-1234567890123456789012345678901234567.8", "1234567890123456789012345678901234567.8"))
+                        .build(),
+                "null")) {
+            gatherStats(table.getName());
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    "VALUES " +
+// TODO infinity and NaNs are not supported by SQLServer
+//                            "('only_negative_infinity', null, 1, 0, null, null, null)," +
+//                            "('only_positive_infinity', null, 1, 0, null, null, null)," +
+//                            "('mixed_infinities', null, 2, 0, null, null, null)," +
+//                            "('mixed_infinities_and_numbers', null, 4.0, 0.0, null, null, null)," +
+//                            "('nans_only', null, 1.0, 0.5, null, null, null)," +
+//                            "('nans_and_numbers', null, 3.0, 0.0, null, null, null)," +
+                            "('large_doubles', null, 2.0, 0.0, null, null, null)," +
+                            "('short_decimals_big_fraction', null, 2.0, 0.0, null, null, null)," +
+                            "('short_decimals_big_integral', null, 2.0, 0.0, null, null, null)," +
+                            "('long_decimals_big_fraction', null, 2.0, 0.0, null, null, null)," +
+                            "('long_decimals_middle', null, 2.0, 0.0, null, null, null)," +
+                            "('long_decimals_big_integral', null, 2.0, 0.0, null, null, null)," +
+                            "(null, null, null, null, 2, null, null)");
+        }
     }
 
     private void gatherStats(String tableName)
