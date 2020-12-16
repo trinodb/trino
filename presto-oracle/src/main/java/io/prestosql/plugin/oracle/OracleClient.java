@@ -185,7 +185,7 @@ public class OracleClient
                         .add(new ImplementAvgDecimal())
                         .build());
     }
-    
+
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
