@@ -382,7 +382,7 @@ public class TestPhoenixSqlTypeMapping
         return dataType(
                 "date",
                 DATE,
-                value -> format("TO_DATE('%s', 'yyyy-MM-dd', 'local')", DateTimeFormatter.ofPattern("yyyy-MM-dd").format(value)),
+                value -> format("TO_DATE('%s', 'yyyy-MM-dd', 'local')", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(value)),
                 identity());
     }
 
