@@ -726,7 +726,7 @@ public class PostgreSqlClient
 
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
     {
-        // PosgreSQL supports timestamptz precision up to microseconds
+        // PostgreSQL supports timestamptz precision up to microseconds
         checkArgument(precision <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION, "unsupported precision value %d", precision);
         TimestampWithTimeZoneType prestoType = createTimestampWithTimeZoneType(precision);
         if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
