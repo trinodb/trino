@@ -119,7 +119,7 @@ public abstract class AbstractRowEncoder
             appendSqlTimestampWithTimeZone((SqlTimestampWithTimeZone) type.getObjectValue(session, block, position));
         }
         else {
-            throw new UnsupportedOperationException(format("Column '%s' does not support 'null' value", columnHandles.get(currentColumnIndex).getName()));
+            throw new UnsupportedOperationException(format("Unsupported type '%s' for column '%s'", type, columnHandles.get(currentColumnIndex).getName()));
         }
         currentColumnIndex++;
     }
