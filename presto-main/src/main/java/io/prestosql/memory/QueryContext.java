@@ -126,7 +126,7 @@ public class QueryContext
         checkArgument(maxTotalMemory >= 0, "maxTotalMemory must be >= 0, found: %s", maxTotalMemory);
         this.resourceOverCommit = resourceOverCommit;
         if (resourceOverCommit) {
-            // Allow the query to use the entire pool. This way the worker will kill the query, if it uses the entire local general pool.
+            // Allow the query to use the entire pool. This way the worker will kill the query, if it uses the entire local memory pool.
             // The coordinator will kill the query if the cluster runs out of memory.
             this.maxUserMemory = memoryPool.getMaxBytes();
             this.maxTotalMemory = memoryPool.getMaxBytes();
@@ -148,7 +148,7 @@ public class QueryContext
      * Deadlock is possible for concurrent user and system allocations when updateSystemMemory()/updateUserMemory
      * calls queryMemoryContext.getUserMemory()/queryMemoryContext.getSystemMemory(), respectively.
      *
-     * @see this##updateSystemMemory(long) for details.
+     * @see this#updateSystemMemory(String, long) for details.
      */
     private synchronized ListenableFuture<?> updateUserMemory(String allocationTag, long delta)
     {
