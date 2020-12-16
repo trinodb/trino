@@ -378,7 +378,7 @@ public class SqlTaskManager
         if (!queryContext.isMemoryLimitsInitialized()) {
             long sessionQueryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
             long sessionQueryTotalMaxMemoryPerNode = getQueryMaxTotalMemoryPerNode(session).toBytes();
-            // Session property query_max_memory_per_node is used to only decrease memory limit
+            // Session properties are only allowed to decrease memory limits, not increase them
             queryContext.initializeMemoryLimits(
                     resourceOvercommit(session),
                     min(sessionQueryMaxMemoryPerNode, queryMaxMemoryPerNode),
