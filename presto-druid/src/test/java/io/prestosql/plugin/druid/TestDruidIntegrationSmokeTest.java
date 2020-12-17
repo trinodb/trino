@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.druid;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
 
 import static io.prestosql.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
@@ -31,7 +32,7 @@ public class TestDruidIntegrationSmokeTest
             throws Exception
     {
         this.druidServer = new TestingDruidServer();
-        QueryRunner runner = DruidQueryRunner.createDruidQueryRunnerTpch(druidServer);
+        QueryRunner runner = DruidQueryRunner.createDruidQueryRunnerTpch(druidServer, ImmutableMap.of());
         copyAndIngestTpchData(runner.execute(SELECT_FROM_ORDERS), this.druidServer, ORDERS.getTableName());
         copyAndIngestTpchData(runner.execute(SELECT_FROM_LINEITEM), this.druidServer, LINE_ITEM.getTableName());
         copyAndIngestTpchData(runner.execute(SELECT_FROM_NATION), this.druidServer, NATION.getTableName());

@@ -13,12 +13,14 @@
  */
 package io.prestosql.plugin.druid;
 
+import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.testing.QueryRunner;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -37,12 +39,14 @@ public class DruidQueryRunner
 {
     private DruidQueryRunner() {}
 
-    public static QueryRunner createDruidQueryRunnerTpch(TestingDruidServer testingDruidServer)
+    public static DistributedQueryRunner createDruidQueryRunnerTpch(TestingDruidServer testingDruidServer, Map<String, String> extraProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession()).build();
+            queryRunner = DistributedQueryRunner.builder(createSession())
+                    .setExtraProperties(extraProperties)
+                    .build();
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
@@ -96,5 +100,19 @@ public class DruidQueryRunner
         return data.stream()
                 .map(String::valueOf)
                 .collect(Collectors.joining("\t"));
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+
+        DistributedQueryRunner queryRunner = createDruidQueryRunnerTpch(
+                new TestingDruidServer(),
+                ImmutableMap.of("http-server.http.port", "8080"));
+
+        Logger log = Logger.get(DruidQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
