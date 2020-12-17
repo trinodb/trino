@@ -74,7 +74,6 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
-import org.postgresql.util.PGobject;
 
 import javax.inject.Inject;
 
@@ -185,6 +184,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Collections.addAll;
+import static java.util.Objects.requireNonNull;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -197,6 +197,8 @@ public class PostgreSqlClient
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
     private static final int POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
+
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
 
     private final Type jsonType;
     private final Type uuidType;
@@ -668,18 +670,27 @@ public class PostgreSqlClient
     public static LongWriteFunction timeWriteFunction(int precision)
     {
         checkArgument(precision <= 6, "Unsupported precision: %s", precision); // PostgreSQL limit but also assumption within this method
-        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
-        return (statement, index, picosOfDay) -> {
-            picosOfDay = round(picosOfDay, 12 - precision);
-            if (picosOfDay == PICOSECONDS_PER_DAY) {
-                picosOfDay = 0;
+        String bindExpression = format("CAST(? AS time(%s))", precision);
+        return new LongWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
             }
-            LocalTime localTime = LocalTime.ofNanoOfDay(picosOfDay / PICOSECONDS_PER_NANOSECOND);
-            // statement.setObject(.., localTime) would yield incorrect end result for 23:59:59.999000
-            PGobject pgObject = new PGobject();
-            pgObject.setType("time");
-            pgObject.setValue(dateTimeFormatter.format(localTime));
-            statement.setObject(index, pgObject);
+
+            @Override
+            public void set(PreparedStatement statement, int index, long picosOfDay)
+                    throws SQLException
+            {
+                picosOfDay = round(picosOfDay, 12 - precision);
+                if (picosOfDay == PICOSECONDS_PER_DAY) {
+                    picosOfDay = 0;
+                }
+                LocalTime localTime = LocalTime.ofNanoOfDay(picosOfDay / PICOSECONDS_PER_NANOSECOND);
+                // statement.setObject(.., localTime) would yield incorrect end result for 23:59:59.999000
+                statement.setString(index, TIME_FORMATTER.format(localTime));
+            }
         };
     }
 
@@ -955,11 +966,21 @@ public class PostgreSqlClient
 
     private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
     {
-        return (statement, index, value) -> {
-            PGobject pgObject = new PGobject();
-            pgObject.setType(jdbcTypeName);
-            pgObject.setValue(value.toStringUtf8());
-            statement.setObject(index, pgObject);
+        String bindExpression = format("CAST(? AS %s)", requireNonNull(jdbcTypeName, "jdbcTypeName is null"));
+        return new SliceWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                return bindExpression;
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, Slice value)
+                    throws SQLException
+            {
+                statement.setString(index, value.toStringUtf8());
+            }
         };
     }
 
