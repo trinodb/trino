@@ -14,12 +14,17 @@
 package io.prestosql.tests.hive;
 
 import io.prestosql.tempto.ProductTest;
+import org.intellij.lang.annotations.Language;
 
 import javax.inject.Inject;
 
 public class HiveProductTest
         extends ProductTest
 {
+    static final String ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE = "https://github.com/prestosql/presto/issues/4936";
+    @Language("RegExp")
+    static final String ERROR_COMMITTING_WRITE_TO_HIVE_MATCH = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication";
+
     @Inject
     private HiveVersionProvider hiveVersionProvider;
 
