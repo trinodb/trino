@@ -24,7 +24,6 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -56,25 +55,18 @@ public class QueryBuilder
 
     private static class BoundValue
     {
-        private final Type type;
-        private final JdbcTypeHandle typeHandle;
+        private final WriteFunction writeFunction;
         private final Object value;
 
-        public BoundValue(Type type, JdbcTypeHandle typeHandle, Object value)
+        public BoundValue(WriteFunction writeFunction, Object value)
         {
-            this.type = requireNonNull(type, "type is null");
-            this.typeHandle = requireNonNull(typeHandle, "typeHandle is null");
+            this.writeFunction = requireNonNull(writeFunction, "writeFunction is null");
             this.value = requireNonNull(value, "value is null");
         }
 
-        public Type getType()
+        public WriteFunction getWriteFunction()
         {
-            return type;
-        }
-
-        public JdbcTypeHandle getTypeHandle()
-        {
-            return typeHandle;
+            return writeFunction;
         }
 
         public Object getValue()
@@ -124,11 +116,8 @@ public class QueryBuilder
         for (int i = 0; i < accumulator.size(); i++) {
             BoundValue boundValue = accumulator.get(i);
             int parameterIndex = i + 1;
-            Type type = boundValue.getType();
-            WriteFunction writeFunction = client.toPrestoType(session, connection, boundValue.getTypeHandle())
-                    .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, boundValue.getTypeHandle())))
-                    .getWriteFunction();
-            Class<?> javaType = type.getJavaType();
+            WriteFunction writeFunction = boundValue.getWriteFunction();
+            Class<?> javaType = writeFunction.getJavaType();
             Object value = boundValue.getValue();
             if (javaType == boolean.class) {
                 ((BooleanWriteFunction) writeFunction).set(statement, parameterIndex, (boolean) value);
@@ -186,12 +175,12 @@ public class QueryBuilder
         for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             JdbcColumnHandle column = ((JdbcColumnHandle) entry.getKey());
             Domain domain = pushDownDomain(client, session, connection, column, entry.getValue());
-            builder.add(toPredicate(column, domain, accumulator));
+            builder.add(toPredicate(session, connection, column, domain, accumulator));
         }
         return builder.build();
     }
 
-    private String toPredicate(JdbcColumnHandle column, Domain domain, List<BoundValue> accumulator)
+    private String toPredicate(ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain, List<BoundValue> accumulator)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? client.quoted(column.getColumnName()) + " IS NULL" : ALWAYS_FALSE;
@@ -201,23 +190,25 @@ public class QueryBuilder
             return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(column.getColumnName()) + " IS NOT NULL";
         }
 
-        String predicate = toPredicate(column, domain.getValues(), accumulator);
+        String predicate = toPredicate(session, connection, column, domain.getValues(), accumulator);
         if (!domain.isNullAllowed()) {
             return predicate;
         }
         return format("(%s OR %s IS NULL)", predicate, client.quoted(column.getColumnName()));
     }
 
-    private String toPredicate(JdbcColumnHandle column, ValueSet valueSet, List<BoundValue> accumulator)
+    private String toPredicate(ConnectorSession session, Connection connection, JdbcColumnHandle column, ValueSet valueSet, List<BoundValue> accumulator)
     {
         checkArgument(!valueSet.isNone(), "none values should be handled earlier");
 
         if (!valueSet.isDiscreteSet()) {
             ValueSet complement = valueSet.complement();
             if (complement.isDiscreteSet()) {
-                return format("NOT (%s)", toPredicate(column, complement, accumulator));
+                return format("NOT (%s)", toPredicate(session, connection, column, complement, accumulator));
             }
         }
+
+        WriteFunction writeFunction = getWriteFunction(session, connection, column);
 
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
@@ -231,10 +222,10 @@ public class QueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeConjuncts.add(toPredicate(column, ">", range.getLow().getValue(), accumulator));
+                            rangeConjuncts.add(toPredicate(column, writeFunction, ">", range.getLow().getValue(), accumulator));
                             break;
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(column, ">=", range.getLow().getValue(), accumulator));
+                            rangeConjuncts.add(toPredicate(column, writeFunction, ">=", range.getLow().getValue(), accumulator));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -247,10 +238,10 @@ public class QueryBuilder
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(column, "<=", range.getHigh().getValue(), accumulator));
+                            rangeConjuncts.add(toPredicate(column, writeFunction, "<=", range.getHigh().getValue(), accumulator));
                             break;
                         case BELOW:
-                            rangeConjuncts.add(toPredicate(column, "<", range.getHigh().getValue(), accumulator));
+                            rangeConjuncts.add(toPredicate(column, writeFunction, "<", range.getHigh().getValue(), accumulator));
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -269,13 +260,13 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(column, "=", getOnlyElement(singleValues), accumulator));
+            disjuncts.add(toPredicate(column, writeFunction, "=", getOnlyElement(singleValues), accumulator));
         }
         else if (singleValues.size() > 1) {
             for (Object value : singleValues) {
-                bindValue(value, column, accumulator);
+                bindValue(writeFunction, value, accumulator);
             }
-            String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
+            String values = Joiner.on(",").join(nCopies(singleValues.size(), writeFunction.getBindExpression()));
             disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
         }
 
@@ -286,15 +277,19 @@ public class QueryBuilder
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(JdbcColumnHandle column, String operator, Object value, List<BoundValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, WriteFunction writeFunction, String operator, Object value, List<BoundValue> accumulator)
     {
-        bindValue(value, column, accumulator);
-        return toPredicate(column, operator);
+        bindValue(writeFunction, value, accumulator);
+        return format("%s %s %s", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
     }
 
-    protected String toPredicate(JdbcColumnHandle column, String operator)
+    private WriteFunction getWriteFunction(ConnectorSession session, Connection connection, JdbcColumnHandle column)
     {
-        return client.quoted(column.getColumnName()) + " " + operator + " ?";
+        WriteFunction writeFunction = client.toPrestoType(session, connection, column.getJdbcTypeHandle())
+                .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s for %s", column.getColumnType(), column.getJdbcTypeHandle(), column)))
+                .getWriteFunction();
+        verify(writeFunction.getJavaType() == column.getColumnType().getJavaType(), "Java type mismatch for %s: %s, %s", column, writeFunction, column.getColumnType());
+        return writeFunction;
     }
 
     private String getGroupBy(Optional<List<List<JdbcColumnHandle>>> groupingSets)
@@ -324,9 +319,8 @@ public class QueryBuilder
                         .collect(joining(", ", "(", ")"));
     }
 
-    private static void bindValue(Object value, JdbcColumnHandle column, List<BoundValue> accumulator)
+    private static void bindValue(WriteFunction writeFunction, Object value, List<BoundValue> accumulator)
     {
-        Type type = column.getColumnType();
-        accumulator.add(new BoundValue(type, column.getJdbcTypeHandle(), value));
+        accumulator.add(new BoundValue(writeFunction, value));
     }
 }

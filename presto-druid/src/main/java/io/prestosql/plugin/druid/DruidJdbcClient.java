@@ -25,6 +25,7 @@ import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.plugin.jdbc.RemoteTableName;
+import io.prestosql.plugin.jdbc.WriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -256,7 +257,7 @@ public class DruidJdbcClient
     }
 
     @Override
-    public String buildInsertSql(JdbcOutputTableHandle handle)
+    public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
         throw new PrestoException(DruidErrorCode.DRUID_DML_NOT_SUPPORTED, "DML operations are not supported in the presto-druid connector");
     }

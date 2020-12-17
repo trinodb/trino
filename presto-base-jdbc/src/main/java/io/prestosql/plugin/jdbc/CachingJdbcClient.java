@@ -253,9 +253,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public String buildInsertSql(JdbcOutputTableHandle handle)
+    public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
-        return delegate.buildInsertSql(handle);
+        return delegate.buildInsertSql(handle, columnWriters);
     }
 
     @Override
