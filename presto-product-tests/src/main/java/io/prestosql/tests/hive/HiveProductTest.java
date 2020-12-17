@@ -23,7 +23,9 @@ public class HiveProductTest
 {
     static final String ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE = "https://github.com/prestosql/presto/issues/4936";
     @Language("RegExp")
-    static final String ERROR_COMMITTING_WRITE_TO_HIVE_MATCH = "Error committing write to Hive(?s:.*)could only be replicated to 0 nodes instead of minReplication";
+    static final String ERROR_COMMITTING_WRITE_TO_HIVE_MATCH = "Error committing write to Hive(?s:.*)" +
+            // "could only be written to 0 of the 1 minReplication" is the error wording used by e.g. HDP 3
+            "(could only be replicated to 0 nodes instead of minReplication|could only be written to 0 of the 1 minReplication)";
 
     @Inject
     private HiveVersionProvider hiveVersionProvider;
