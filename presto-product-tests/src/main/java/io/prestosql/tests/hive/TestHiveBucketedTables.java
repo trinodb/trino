@@ -21,6 +21,7 @@ import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.fulfillment.table.MutableTableRequirement;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -92,6 +93,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testSelectStar()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
@@ -101,6 +103,7 @@ public class TestHiveBucketedTables
     }
 
     @Test(groups = BIG_QUERY)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testIgnorePartitionBucketingIfNotBucketed()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -118,6 +121,7 @@ public class TestHiveBucketedTables
     }
 
     @Test(groups = BIG_QUERY)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testAllowMultipleFilesPerBucket()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -134,6 +138,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testSelectAfterMultipleInserts()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
@@ -151,6 +156,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testSelectAfterMultipleInsertsForSortedTable()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_SORTED_NATION).getNameInDatabase();
@@ -168,6 +174,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testSelectAfterMultipleInsertsForPartitionedTable()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -192,6 +199,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testSelectFromEmptyBucketedTableEmptyTablesAllowed()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
@@ -200,6 +208,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testSelectFromIncompleteBucketedTableEmptyTablesAllowed()
     {
         String tableName = mutableTableInstanceOf(BUCKETED_NATION).getNameInDatabase();
@@ -212,6 +221,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertPartitionedBucketed()
     {
         String tableName = mutableTablesState().get(BUCKETED_NATION_PREPARED).getNameInDatabase();
@@ -227,6 +237,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedBucketedTableAsSelect()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -240,6 +251,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoBucketedTables()
     {
         String tableName = mutableTablesState().get(BUCKETED_NATION).getNameInDatabase();
@@ -253,6 +265,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateBucketedTableAsSelect()
     {
         String tableName = mutableTablesState().get(BUCKETED_NATION_PREPARED).getNameInDatabase();
@@ -265,6 +278,7 @@ public class TestHiveBucketedTables
     }
 
     @Test
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testBucketingVersion()
     {
         String value = "prestosql rocks";
