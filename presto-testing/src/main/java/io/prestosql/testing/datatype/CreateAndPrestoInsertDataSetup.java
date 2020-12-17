@@ -13,15 +13,14 @@
  */
 package io.prestosql.testing.datatype;
 
-import com.google.common.base.Joiner;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 
 import java.util.List;
-import java.util.stream.Stream;
 
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 
@@ -55,9 +54,9 @@ public class CreateAndPrestoInsertDataSetup
 
     private void insertRows(TestTable testTable, List<ColumnSetup> inputs)
     {
-        Stream<String> literals = inputs.stream()
-                .map(ColumnSetup::getInputLiteral);
-        String valueLiterals = Joiner.on(", ").join(literals.iterator());
+        String valueLiterals = inputs.stream()
+                .map(ColumnSetup::getInputLiteral)
+                .collect(joining(", "));
         prestoSqlExecutor.execute(format("INSERT INTO %s VALUES(%s)", testTable.getName(), valueLiterals));
     }
 
@@ -71,8 +70,8 @@ public class CreateAndPrestoInsertDataSetup
         List<String> columnTypeDefinitions = inputs.stream()
                 .map(input -> input.getDeclaredType().orElseThrow(() -> new IllegalArgumentException("declared type not set")))
                 .collect(toList());
-        Stream<String> columnDefinitions = range(0, columnTypeDefinitions.size())
-                .mapToObj(i -> format("col_%d %s", i, columnTypeDefinitions.get(i)));
-        return Joiner.on(",\n").join(columnDefinitions.iterator());
+        return range(0, columnTypeDefinitions.size())
+                .mapToObj(i -> format("col_%d %s", i, columnTypeDefinitions.get(i)))
+                .collect(joining(",\n"));
     }
 }
