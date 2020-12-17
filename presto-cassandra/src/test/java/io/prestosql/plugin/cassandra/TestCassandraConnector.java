@@ -16,6 +16,8 @@ package io.prestosql.plugin.cassandra;
 import com.datastax.driver.core.utils.Bytes;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Connector;
@@ -34,6 +36,7 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.TestingConnectorContext;
@@ -60,9 +63,12 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
@@ -213,11 +219,20 @@ public class TestCassandraConnector
                 if (BOOLEAN.equals(type)) {
                     cursor.getBoolean(columnIndex);
                 }
+                else if (TINYINT.equals(type)) {
+                    SignedBytes.checkedCast(cursor.getLong(columnIndex));
+                }
+                else if (SMALLINT.equals(type)) {
+                    Shorts.checkedCast(cursor.getLong(columnIndex));
+                }
                 else if (INTEGER.equals(type)) {
-                    cursor.getLong(columnIndex);
+                    toIntExact(cursor.getLong(columnIndex));
                 }
                 else if (BIGINT.equals(type)) {
                     cursor.getLong(columnIndex);
+                }
+                else if (DateType.DATE.equals(type)) {
+                    toIntExact(cursor.getLong(columnIndex));
                 }
                 else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                     cursor.getLong(columnIndex);
