@@ -25,7 +25,7 @@ public class TestStarburstSqlServerPlugin
     {
         Plugin plugin = new StarburstSqlServerPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:sqlserver:test"), new TestingConnectorContext());
     }
 
     @Test
@@ -37,7 +37,7 @@ public class TestStarburstSqlServerPlugin
         assertThatThrownBy(() -> factory.create(
                 "test",
                 ImmutableMap.of(
-                        "connection-url", "test",
+                        "connection-url", "jdbc:sqlserver:test",
                         "sqlserver.impersonation.enabled", "true"),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
