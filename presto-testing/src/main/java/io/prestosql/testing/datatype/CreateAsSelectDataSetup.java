@@ -13,13 +13,12 @@
  */
 package io.prestosql.testing.datatype;
 
-import com.google.common.base.Joiner;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 
 import java.util.List;
-import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 
@@ -41,9 +40,9 @@ public class CreateAsSelectDataSetup
         List<String> columnValues = inputs.stream()
                 .map(this::format)
                 .collect(toList());
-        Stream<String> columnValuesWithNames = range(0, columnValues.size())
-                .mapToObj(i -> String.format("%s col_%d", columnValues.get(i), i));
-        String selectBody = Joiner.on(",\n").join(columnValuesWithNames.iterator());
+        String selectBody = range(0, columnValues.size())
+                .mapToObj(i -> String.format("%s col_%d", columnValues.get(i), i))
+                .collect(joining(",\n"));
         return new TestTable(sqlExecutor, tableNamePrefix, "AS SELECT " + selectBody);
     }
 
