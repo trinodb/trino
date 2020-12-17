@@ -13,13 +13,11 @@
  */
 package io.prestosql.testing.datatype;
 
-import com.google.common.base.Joiner;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 
 import java.util.List;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -63,9 +61,9 @@ public class CreateAndInsertDataSetup
 
     private void insertRows(TestTable testTable, List<ColumnSetup> inputs)
     {
-        Stream<String> literals = inputs.stream()
-                .map(ColumnSetup::getInputLiteral);
-        String valueLiterals = Joiner.on(", ").join(literals.iterator());
+        String valueLiterals = inputs.stream()
+                .map(ColumnSetup::getInputLiteral)
+                .collect(joining(", "));
         sqlExecutor.execute(format("INSERT INTO %s VALUES(%s)", testTable.getName(), valueLiterals));
     }
 
