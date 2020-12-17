@@ -54,13 +54,13 @@ public class QueryBuilder
 
     private final JdbcClient client;
 
-    private static class TypeAndValue
+    private static class BoundValue
     {
         private final Type type;
         private final JdbcTypeHandle typeHandle;
         private final Object value;
 
-        public TypeAndValue(Type type, JdbcTypeHandle typeHandle, Object value)
+        public BoundValue(Type type, JdbcTypeHandle typeHandle, Object value)
         {
             this.type = requireNonNull(type, "type is null");
             this.typeHandle = requireNonNull(typeHandle, "typeHandle is null");
@@ -102,7 +102,7 @@ public class QueryBuilder
         String sql = "SELECT " + getProjection(columns);
         sql += " FROM " + getRelation(remoteTableName);
 
-        List<TypeAndValue> accumulator = new ArrayList<>();
+        List<BoundValue> accumulator = new ArrayList<>();
 
         List<String> clauses = toConjuncts(client, session, connection, tupleDomain, accumulator);
         if (additionalPredicate.isPresent()) {
@@ -122,14 +122,14 @@ public class QueryBuilder
         PreparedStatement statement = client.getPreparedStatement(connection, query);
 
         for (int i = 0; i < accumulator.size(); i++) {
-            TypeAndValue typeAndValue = accumulator.get(i);
+            BoundValue boundValue = accumulator.get(i);
             int parameterIndex = i + 1;
-            Type type = typeAndValue.getType();
-            WriteFunction writeFunction = client.toPrestoType(session, connection, typeAndValue.getTypeHandle())
-                    .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, typeAndValue.getTypeHandle())))
+            Type type = boundValue.getType();
+            WriteFunction writeFunction = client.toPrestoType(session, connection, boundValue.getTypeHandle())
+                    .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, boundValue.getTypeHandle())))
                     .getWriteFunction();
             Class<?> javaType = type.getJavaType();
-            Object value = typeAndValue.getValue();
+            Object value = boundValue.getValue();
             if (javaType == boolean.class) {
                 ((BooleanWriteFunction) writeFunction).set(statement, parameterIndex, (boolean) value);
             }
@@ -177,7 +177,7 @@ public class QueryBuilder
             ConnectorSession session,
             Connection connection,
             TupleDomain<ColumnHandle> tupleDomain,
-            List<TypeAndValue> accumulator)
+            List<BoundValue> accumulator)
     {
         if (tupleDomain.isNone()) {
             return ImmutableList.of(ALWAYS_FALSE);
@@ -191,7 +191,7 @@ public class QueryBuilder
         return builder.build();
     }
 
-    private String toPredicate(JdbcColumnHandle column, Domain domain, List<TypeAndValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, Domain domain, List<BoundValue> accumulator)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? client.quoted(column.getColumnName()) + " IS NULL" : ALWAYS_FALSE;
@@ -208,7 +208,7 @@ public class QueryBuilder
         return format("(%s OR %s IS NULL)", predicate, client.quoted(column.getColumnName()));
     }
 
-    private String toPredicate(JdbcColumnHandle column, ValueSet valueSet, List<TypeAndValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, ValueSet valueSet, List<BoundValue> accumulator)
     {
         checkArgument(!valueSet.isNone(), "none values should be handled earlier");
 
@@ -286,7 +286,7 @@ public class QueryBuilder
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(JdbcColumnHandle column, String operator, Object value, List<TypeAndValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, String operator, Object value, List<BoundValue> accumulator)
     {
         bindValue(value, column, accumulator);
         return toPredicate(column, operator);
@@ -324,9 +324,9 @@ public class QueryBuilder
                         .collect(joining(", ", "(", ")"));
     }
 
-    private static void bindValue(Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)
+    private static void bindValue(Object value, JdbcColumnHandle column, List<BoundValue> accumulator)
     {
         Type type = column.getColumnType();
-        accumulator.add(new TypeAndValue(type, column.getJdbcTypeHandle(), value));
+        accumulator.add(new BoundValue(type, column.getJdbcTypeHandle(), value));
     }
 }
