@@ -21,8 +21,6 @@ import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -79,7 +77,12 @@ import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_AR
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.padSpaces;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
@@ -181,15 +184,15 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testBasicTypes()
     {
-        DataTypeTest.create(true)
-                .addRoundTrip(booleanDataType(), true)
-                .addRoundTrip(booleanDataType(), false)
-                .addRoundTrip(bigintDataType(), 123_456_789_012L)
-                .addRoundTrip(integerDataType(), 1_234_567_890)
-                .addRoundTrip(smallintDataType(), (short) 32_456)
-                .addRoundTrip(doubleDataType(), 123.45d)
-                .addRoundTrip(realDataType(), 123.45f)
-                .addRoundTrip(dataType("tinyint", SMALLINT, Object::toString, result -> (short) result), (byte) 5)
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", BOOLEAN)
+                .addRoundTrip("boolean", "false", BOOLEAN)
+                .addRoundTrip("bigint", "123456789012", BIGINT)
+                .addRoundTrip("integer", "123456789", INTEGER)
+                .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
+                .addRoundTrip("tinyint", "5", SMALLINT, "SMALLINT '5'")
+                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
+                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
     }
 
@@ -1879,7 +1882,7 @@ public class TestPostgreSqlTypeMapping
 
     private static DataType<Float> postgreSqlRealDataType()
     {
-        return dataType("real", RealType.REAL,
+        return dataType("real", REAL,
                 value -> {
                     if (Float.isFinite(value)) {
                         return value.toString();
@@ -1895,7 +1898,7 @@ public class TestPostgreSqlTypeMapping
 
     private static DataType<Double> postgreSqlDoubleDataType()
     {
-        return dataType("double precision", DoubleType.DOUBLE,
+        return dataType("double precision", DOUBLE,
                 value -> {
                     if (Double.isFinite(value)) {
                         return value.toString();
