@@ -13,11 +13,15 @@
  */
 package io.prestosql.spi.block;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 
 import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
 import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.prestosql.spi.block.EncoderUtil.retrieveNullBits;
+import static java.lang.System.arraycopy;
 
 public class IntArrayBlockEncoding
         implements BlockEncoding
@@ -38,10 +42,21 @@ public class IntArrayBlockEncoding
 
         encodeNullsAsBits(sliceOutput, block);
 
-        for (int position = 0; position < positionCount; position++) {
-            if (!block.isNull(position)) {
-                sliceOutput.writeInt(block.getInt(position, 0));
+        if (!block.mayHaveNull()) {
+            sliceOutput.writeBytes(getValuesSlice(block));
+        }
+        else {
+            int[] valuesWithoutNull = new int[positionCount];
+            int nonNullPositionCount = 0;
+            for (int i = 0; i < positionCount; i++) {
+                valuesWithoutNull[nonNullPositionCount] = block.getInt(i, 0);
+                if (!block.isNull(i)) {
+                    nonNullPositionCount++;
+                }
             }
+
+            sliceOutput.writeInt(nonNullPositionCount);
+            sliceOutput.writeBytes(Slices.wrappedIntArray(valuesWithoutNull, 0, nonNullPositionCount));
         }
     }
 
@@ -50,15 +65,56 @@ public class IntArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
-
+        byte[] valueIsNullPacked = retrieveNullBits(sliceInput, positionCount);
         int[] values = new int[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull == null || !valueIsNull[position]) {
-                values[position] = sliceInput.readInt();
+
+        if (valueIsNullPacked == null) {
+            sliceInput.readBytes(Slices.wrappedIntArray(values));
+            return new IntArrayBlock(0, positionCount, null, values);
+        }
+        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
+
+        int nonNullPositionCount = sliceInput.readInt();
+        sliceInput.readBytes(Slices.wrappedIntArray(values, 0, nonNullPositionCount));
+        int position = nonNullPositionCount - 1;
+
+        // Handle Last (positionCount % 8) values
+        for (int i = positionCount - 1; i >= (positionCount & ~0b111) && position >= 0; i--) {
+            values[i] = values[position];
+            if (!valueIsNull[i]) {
+                position--;
             }
         }
 
+        // Handle the remaining positions.
+        for (int i = (positionCount & ~0b111) - 8; i >= 0 && position >= 0; i -= 8) {
+            byte packed = valueIsNullPacked[i >>> 3];
+            if (packed == 0) { // Only values
+                arraycopy(values, position - 7, values, i, 8);
+                position -= 8;
+            }
+            else if (packed != -1) { // At least one non-null
+                for (int j = i + 7; j >= i && position >= 0; j--) {
+                    values[j] = values[position];
+                    if (!valueIsNull[j]) {
+                        position--;
+                    }
+                }
+            }
+            // Do nothing if there are only nulls
+        }
         return new IntArrayBlock(0, positionCount, valueIsNull, values);
+    }
+
+    private Slice getValuesSlice(Block block)
+    {
+        if (block instanceof IntArrayBlock) {
+            return ((IntArrayBlock) block).getValuesSlice();
+        }
+        else if (block instanceof IntArrayBlockBuilder) {
+            return ((IntArrayBlockBuilder) block).getValuesSlice();
+        }
+
+        throw new IllegalArgumentException("Unexpected block type " + block.getClass().getSimpleName());
     }
 }

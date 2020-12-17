@@ -491,7 +491,7 @@ public abstract class BaseJdbcClient
             }
 
             RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), tableName);
-            String sql = createTableSql(remoteTableName, columnList.build());
+            String sql = createTableSql(remoteTableName, columnList.build(), tableMetadata);
             execute(connection, sql);
 
             return new JdbcOutputTableHandle(
@@ -505,8 +505,9 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns)
+    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
+        checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
         return format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns));
     }
 

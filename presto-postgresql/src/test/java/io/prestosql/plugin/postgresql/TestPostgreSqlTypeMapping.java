@@ -1698,7 +1698,7 @@ public class TestPostgreSqlTypeMapping
         return dataType(
                 format("timestamp(%d) with time zone", precision),
                 createTimestampWithTimeZoneType(precision),
-                zonedDateTime -> DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSSSSS VV''").format(zonedDateTime),
+                zonedDateTime -> DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSSSSS VV''").format(zonedDateTime),
                 // PostgreSQL does not store zone, only the point in time
                 zonedDateTime -> zonedDateTime.withZoneSameInstant(ZoneId.of("UTC")));
     }
@@ -1711,10 +1711,10 @@ public class TestPostgreSqlTypeMapping
                 // PostgreSQL never examines the content of a literal string before determining its type, so `TIMESTAMP '.... {zone}'` won't work.
                 // PostgreSQL does not store zone, only the point in time
                 zonedDateTime -> {
-                    String pattern = format("'TIMESTAMP (%d) WITH TIME ZONE '''yyyy-MM-dd HH:mm:ss.SSSSSS VV''", precision);
+                    String pattern = format("'TIMESTAMP (%d) WITH TIME ZONE '''uuuu-MM-dd HH:mm:ss.SSSSSS VV''", precision);
                     return DateTimeFormatter.ofPattern(pattern).format(zonedDateTime.withZoneSameInstant(UTC));
                 },
-                zonedDateTime -> DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSSSSS VV''").format(zonedDateTime),
+                zonedDateTime -> DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSSSSS VV''").format(zonedDateTime),
                 zonedDateTime -> zonedDateTime.withZoneSameInstant(ZoneId.of("UTC")));
     }
 

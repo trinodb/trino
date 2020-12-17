@@ -22,9 +22,14 @@ import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import static io.prestosql.plugin.sqlserver.DataCompression.NONE;
+import static io.prestosql.plugin.sqlserver.DataCompression.PAGE;
+import static io.prestosql.plugin.sqlserver.DataCompression.ROW;
 import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -33,6 +38,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -338,6 +344,77 @@ public class TestSqlServerIntegrationSmokeTest
                 .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
                 .collect(joining(" OR "));
         sqlServer.execute("SELECT count(*) FROM dbo.orders WHERE " + longInClauses);
+    }
+
+    @Test
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
+                        "   orderkey bigint,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderstatus varchar(1),\n" +
+                        "   totalprice double,\n" +
+                        "   orderdate date,\n" +
+                        "   orderpriority varchar(15),\n" +
+                        "   clerk varchar(15),\n" +
+                        "   shippriority integer,\n" +
+                        "   comment varchar(79)\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   data_compression = 'NONE'\n" +
+                        ")");
+    }
+
+    @Test(dataProvider = "dataCompression")
+    public void testCreateWithDataCompression(DataCompression dataCompression)
+    {
+        String tableName = "test_create_with_compression_" + randomTableSuffix();
+        String createQuery = format("CREATE TABLE sqlserver.dbo.%s (\n" +
+                        "   a bigint,\n" +
+                        "   b bigint\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   data_compression = '%s'\n" +
+                        ")",
+                tableName,
+                dataCompression);
+        assertUpdate(createQuery);
+
+        assertEquals(getQueryRunner().execute("SHOW CREATE TABLE " + tableName).getOnlyValue(), createQuery);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] dataCompression()
+    {
+        return new Object[][] {
+                {NONE},
+                {ROW},
+                {PAGE}
+        };
+    }
+
+    @Test
+    public void testShowCreateForPartitionedTablesWithDataCompression()
+    {
+        sqlServer.execute("CREATE PARTITION FUNCTION pfSales (DATE)\n" +
+                "AS RANGE LEFT FOR VALUES \n" +
+                "('2013-01-01', '2014-01-01', '2015-01-01')");
+        sqlServer.execute("CREATE PARTITION SCHEME psSales\n" +
+                "AS PARTITION pfSales \n" +
+                "ALL TO ([Primary])");
+        sqlServer.execute("CREATE TABLE partitionedSales (\n" +
+                "   SalesDate DATE,\n" +
+                "   Quantity INT\n" +
+                ") ON psSales(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
+        assertThat((String) computeActual("SHOW CREATE TABLE partitionedSales").getOnlyValue())
+                .matches("CREATE TABLE \\w+\\.\\w+\\.partitionedsales \\Q(\n" +
+                        "   salesdate date,\n" +
+                        "   quantity integer\n" +
+                        ")");
     }
 
     private String getLongInClause(int start, int length)

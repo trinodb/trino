@@ -168,7 +168,7 @@ public final class LiteralInterpreter
             if (type instanceof TimeType) {
                 return parseTime(node.getValue());
             }
-            else if (type instanceof TimeWithTimeZoneType) {
+            if (type instanceof TimeWithTimeZoneType) {
                 return parseTimeWithTimeZone(((TimeWithTimeZoneType) type).getPrecision(), node.getValue());
             }
 
@@ -184,7 +184,7 @@ public final class LiteralInterpreter
                 int precision = ((TimestampType) type).getPrecision();
                 return parseTimestamp(precision, node.getValue());
             }
-            else if (type instanceof TimestampWithTimeZoneType) {
+            if (type instanceof TimestampWithTimeZoneType) {
                 int precision = ((TimestampWithTimeZoneType) type).getPrecision();
                 return parseTimestampWithTimeZone(precision, node.getValue());
             }
@@ -198,9 +198,7 @@ public final class LiteralInterpreter
             if (node.isYearToMonth()) {
                 return node.getSign().multiplier() * parseYearMonthInterval(node.getValue(), node.getStartField(), node.getEndField());
             }
-            else {
-                return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
-            }
+            return node.getSign().multiplier() * parseDayTimeInterval(node.getValue(), node.getStartField(), node.getEndField());
         }
 
         @Override

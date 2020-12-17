@@ -590,7 +590,8 @@ The following table defines which temporal data types are supported by
 | ``TIMESTAMP``                       | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
 |                                     | ``milliseconds-since-epoch``, ``seconds-since-epoch``                          |
 +-------------------------------------+--------------------------------------------------------------------------------+
-| ``TIMESTAMP WITH TIME ZONE``        | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
+| ``TIMESTAMP WITH TIME ZONE``        | ``custom-date-time``, ``iso8601``, ``rfc2822``, ``milliseconds-since-epoch``,  |
+|                                     | ``seconds-since-epoch``                                                        |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
 Example JSON field definition in a `table definition file <#table-definition-files>`__
@@ -904,7 +905,8 @@ which can be specified via ``dataFormat`` attribute.
 | | ``TIMESTAMP``                     | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
 | |                                   | ``milliseconds-since-epoch``, ``seconds-since-epoch``                          |
 +-------------------------------------+--------------------------------------------------------------------------------+
-| | ``TIMESTAMP WITH TIME ZONE``      | ``custom-date-time``, ``iso8601``, ``rfc2822``                                 |
+| | ``TIMESTAMP WITH TIME ZONE``      | ``custom-date-time``, ``iso8601``, ``rfc2822``, ``milliseconds-since-epoch``   |
+| |                                   | ``seconds-since-epoch``                                                        |
 +-------------------------------------+--------------------------------------------------------------------------------+
 
 

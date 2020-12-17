@@ -223,7 +223,7 @@ public final class OracleDataTypes
     public static DataType<LocalDate> dateDataType()
     {
         return dataType("DATE", TimestampType.TIMESTAMP_MILLIS,
-                DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''")::format,
+                DateTimeFormatter.ofPattern("'DATE '''uuuu-MM-dd''")::format,
                 LocalDate::atStartOfDay);
     }
 
@@ -232,7 +232,7 @@ public final class OracleDataTypes
         return dataType(
                 "timestamp with time zone",
                 TIMESTAMP_TZ_MILLIS,
-                DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
+                DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS VV''")::format,
                 OracleDataTypes::normalizeForOracleStorage);
     }
 
@@ -249,7 +249,7 @@ public final class OracleDataTypes
                     }
                     return format(
                             "from_tz(TIMESTAMP '%s', '%s')",
-                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS").format(zonedDateTime.toLocalDateTime()),
+                            DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSSSSS").format(zonedDateTime.toLocalDateTime()),
                             zoneId);
                 },
                 OracleDataTypes::normalizeForOracleStorage);

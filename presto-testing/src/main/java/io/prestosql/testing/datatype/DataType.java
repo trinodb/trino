@@ -179,7 +179,7 @@ public class DataType<T>
         return dataType(
                 "date",
                 DATE,
-                DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''")::format,
+                DateTimeFormatter.ofPattern("'DATE '''uuuu-MM-dd''")::format,
                 identity());
     }
 
@@ -226,7 +226,7 @@ public class DataType<T>
         return dataType(
                 "timestamp",
                 TIMESTAMP_MILLIS,
-                DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS''")::format,
+                DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''")::format,
                 identity());
     }
 
@@ -234,7 +234,7 @@ public class DataType<T>
     {
         DateTimeFormatterBuilder format = new DateTimeFormatterBuilder()
                 .appendPattern("'TIMESTAMP '''")
-                .appendPattern("yyyy-MM-dd HH:mm:ss");
+                .appendPattern("uuuu-MM-dd HH:mm:ss");
         if (precision != 0) {
             format.appendFraction(NANO_OF_SECOND, precision, precision, true);
         }
@@ -250,7 +250,7 @@ public class DataType<T>
     {
         DateTimeFormatterBuilder format = new DateTimeFormatterBuilder()
                 .appendPattern("'TIMESTAMP '''")
-                .appendPattern("yyyy-MM-dd HH:mm:ss");
+                .appendPattern("uuuu-MM-dd HH:mm:ss");
         if (precision != 0) {
             format.appendFraction(NANO_OF_SECOND, precision, precision, true);
         }

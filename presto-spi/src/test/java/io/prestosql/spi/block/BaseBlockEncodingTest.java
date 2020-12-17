@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Random;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static io.prestosql.spi.block.BlockTestUtils.assertBlockEquals;
 
@@ -61,10 +62,35 @@ public abstract class BaseBlockEncodingTest<T>
         roundTrip(null, null, randomValue(random), null, randomValue(random), null, null);
     }
 
+    @Test
+    public void testBlocksOf8()
+    {
+        Random random = getRandom();
+
+        Object[] values = Stream.of(
+                BlockFill.MIXED,
+                BlockFill.ONLY_NULLS,
+                BlockFill.MIXED,
+                BlockFill.ONLY_VALUES,
+                BlockFill.MIXED,
+                BlockFill.ONLY_NULLS,
+                BlockFill.ONLY_VALUES,
+                BlockFill.MIXED)
+                .map(fill -> getObjects(8, fill, random))
+                .flatMap(Arrays::stream)
+                .toArray();
+
+        roundTrip(values);
+    }
+
     @Test(dataProvider = "testRandomDataDataProvider")
     public void testRandomData(int size, BlockFill fill)
     {
-        Random random = getRandom();
+        roundTrip(getObjects(size, fill, getRandom()));
+    }
+
+    private Object[] getObjects(int size, BlockFill fill, Random random)
+    {
         Object[] values = new Object[size];
         for (int i = 0; i < size; i++) {
             switch (fill) {
@@ -84,8 +110,7 @@ public abstract class BaseBlockEncodingTest<T>
                     break;
             }
         }
-
-        roundTrip(values);
+        return values;
     }
 
     @DataProvider

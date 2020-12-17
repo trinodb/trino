@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.util;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
@@ -78,7 +77,7 @@ final class HiveBucketingV2
             case PRIMITIVE:
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                Type prestoType = requireNonNull(HiveType.getPrimitiveType(typeInfo));
+                Type prestoType = requireNonNull(HiveTypeTranslator.fromPrimitiveType(typeInfo));
                 switch (primitiveCategory) {
                     case BOOLEAN:
                         return prestoType.getBoolean(block, position) ? 1 : 0;

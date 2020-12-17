@@ -29,6 +29,7 @@ import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.prestosql.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
 
 public class SqlServerClientModule
@@ -38,6 +39,7 @@ public class SqlServerClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SqlServerClient.class).in(Scopes.SINGLETON);
+        bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
     }
 

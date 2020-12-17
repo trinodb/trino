@@ -16,6 +16,8 @@ package io.prestosql.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
@@ -74,17 +76,12 @@ final class EncoderUtil
      */
     public static Optional<boolean[]> decodeNullBits(SliceInput sliceInput, int positionCount)
     {
-        if (!sliceInput.readBoolean()) {
-            return Optional.empty();
-        }
-        byte[] packedIsNull;
-        try {
-            packedIsNull = sliceInput.readNBytes(((positionCount & ~0b111) + 1) / 8);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return Optional.ofNullable(retrieveNullBits(sliceInput, positionCount))
+                .map(packedIsNull -> decodeNullBits(packedIsNull, positionCount));
+    }
 
+    public static boolean[] decodeNullBits(byte[] packedIsNull, int positionCount)
+    {
         // read null bits 8 at a time
         boolean[] valueIsNull = new boolean[positionCount];
         int currentByte = 0;
@@ -102,7 +99,7 @@ final class EncoderUtil
 
         // read last null bits
         if ((positionCount & 0b111) > 0) {
-            byte value = sliceInput.readByte();
+            byte value = packedIsNull[packedIsNull.length - 1];
             int mask = 0b1000_0000;
             for (int position = positionCount & ~0b111; position < positionCount; position++) {
                 valueIsNull[position] = ((value & mask) != 0);
@@ -110,6 +107,20 @@ final class EncoderUtil
             }
         }
 
-        return Optional.of(valueIsNull);
+        return valueIsNull;
+    }
+
+    @Nullable
+    public static byte[] retrieveNullBits(SliceInput sliceInput, int positionCount)
+    {
+        if (!sliceInput.readBoolean()) {
+            return null;
+        }
+        try {
+            return sliceInput.readNBytes((positionCount + 7) / 8);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
