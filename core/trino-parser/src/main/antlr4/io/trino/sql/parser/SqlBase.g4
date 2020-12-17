@@ -191,7 +191,7 @@ limitRowCount
 
 rowCount
     : INTEGER_VALUE
-    | PARAMETER
+    | QUESTION_MARK
     ;
 
 queryTerm
@@ -351,7 +351,7 @@ primaryExpression
     | booleanValue                                                                        #booleanLiteral
     | string                                                                              #stringLiteral
     | BINARY_LITERAL                                                                      #binaryLiteral
-    | PARAMETER                                                                           #parameter
+    | QUESTION_MARK                                                                       #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
@@ -806,6 +806,7 @@ ASTERISK: '*';
 SLASH: '/';
 PERCENT: '%';
 CONCAT: '||';
+QUESTION_MARK : '?';
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''
@@ -874,10 +875,6 @@ BRACKETED_COMMENT
 
 WS
     : [ \r\n\t]+ -> channel(HIDDEN)
-    ;
-
-PARAMETER
-    : '?'
     ;
 
 // Catch-all for anything we can't recognize.
