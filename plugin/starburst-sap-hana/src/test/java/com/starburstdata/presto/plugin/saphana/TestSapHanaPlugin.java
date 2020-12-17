@@ -25,7 +25,7 @@ public class TestSapHanaPlugin
     {
         Plugin plugin = new SapHanaPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:sap:test"), new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
                 .hasToString("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: sap-hana");
     }
@@ -35,6 +35,6 @@ public class TestSapHanaPlugin
     {
         Plugin plugin = new TestingSapHanaPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:sap:test"), new TestingConnectorContext());
     }
 }
