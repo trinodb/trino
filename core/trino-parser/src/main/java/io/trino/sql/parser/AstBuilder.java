@@ -797,7 +797,7 @@ class AstBuilder
                 rowCount = new LongLiteral(getLocation(context.offset.INTEGER_VALUE()), context.offset.getText());
             }
             else {
-                rowCount = new Parameter(getLocation(context.offset.PARAMETER()), parameterPosition);
+                rowCount = new Parameter(getLocation(context.offset.QUESTION_MARK()), parameterPosition);
                 parameterPosition++;
             }
             offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), rowCount));
@@ -811,7 +811,7 @@ class AstBuilder
                     rowCount = Optional.of(new LongLiteral(getLocation(context.fetchFirst.INTEGER_VALUE()), context.fetchFirst.getText()));
                 }
                 else {
-                    rowCount = Optional.of(new Parameter(getLocation(context.fetchFirst.PARAMETER()), parameterPosition));
+                    rowCount = Optional.of(new Parameter(getLocation(context.fetchFirst.QUESTION_MARK()), parameterPosition));
                     parameterPosition++;
                 }
             }
@@ -829,7 +829,7 @@ class AstBuilder
                 rowCount = new LongLiteral(getLocation(context.limit.rowCount().INTEGER_VALUE()), context.limit.getText());
             }
             else {
-                rowCount = new Parameter(getLocation(context.limit.rowCount().PARAMETER()), parameterPosition);
+                rowCount = new Parameter(getLocation(context.limit.rowCount().QUESTION_MARK()), parameterPosition);
                 parameterPosition++;
             }
 
