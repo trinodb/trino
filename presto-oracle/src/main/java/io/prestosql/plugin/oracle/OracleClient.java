@@ -21,6 +21,7 @@ import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DoubleWriteFunction;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
+import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
@@ -35,6 +36,8 @@ import io.prestosql.plugin.jdbc.expression.ImplementCountAll;
 import io.prestosql.plugin.jdbc.expression.ImplementMinMax;
 import io.prestosql.plugin.jdbc.expression.ImplementSum;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.CharType;
@@ -86,8 +89,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunc
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.prestosql.plugin.oracle.OracleSessionProperties.getNumberDefaultScale;
-import static io.prestosql.plugin.oracle.OracleSessionProperties.getNumberRoundingMode;
+import static io.prestosql.plugin.oracle.OracleSessionProperties.*;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -147,6 +149,7 @@ public class OracleClient
             .add("xs$null")
             .build();
 
+    private final int fetchSize;
     private final boolean synonymsEnabled;
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
@@ -171,6 +174,7 @@ public class OracleClient
         super(config, "\"", connectionFactory);
 
         requireNonNull(oracleConfig, "oracle config is null");
+        this.fetchSize = oracleConfig.getFetchSize();
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), 40, 0, Optional.empty(), Optional.empty());
@@ -183,7 +187,14 @@ public class OracleClient
                         .add(new ImplementSum(OracleClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgBigint())
                         .build());
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     private String[] getTableTypes()
@@ -221,7 +232,7 @@ public class OracleClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(1000);
+        statement.setFetchSize(fetchSize);
         return statement;
     }
 

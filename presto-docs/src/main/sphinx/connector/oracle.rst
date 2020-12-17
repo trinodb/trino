@@ -42,6 +42,11 @@ To disable connection pooling, update properties to include the following:
 
     oracle.connection-pool.enabled=false
 
+To change fetch size (default 1000), update the following:
+.. code-block:: text
+
+    oracle.default-fetch-size=1000
+
 Multiple Oracle servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
