@@ -35,6 +35,7 @@ import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
 import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
+import io.prestosql.testing.datatype.SqlDataTypeTest;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
@@ -44,7 +45,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -102,7 +102,6 @@ import static io.prestosql.testing.datatype.DataType.timeDataType;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
 import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UuidType.UUID;
 import static java.lang.String.format;
@@ -1027,77 +1026,83 @@ public class TestPostgreSqlTypeMapping
      */
     @Test
     public void testTimeCoercion()
-            throws SQLException
     {
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00'", "TIME '00:00:00'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.000000'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.123456'", "TIME '00:00:00.123456'");
-        testCreateTableAsAndInsertConsistency("TIME '12:34:56'", "TIME '12:34:56'");
-        testCreateTableAsAndInsertConsistency("TIME '12:34:56.123456'", "TIME '12:34:56.123456'");
+        SqlDataTypeTest.create()
 
-        // Cases which require using PGobject instead of e.g. LocalTime with PostgreSQL JDBC driver
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.000000'", "TIME '23:59:59.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.900000'", "TIME '23:59:59.900000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.990000'", "TIME '23:59:59.990000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999000'", "TIME '23:59:59.999000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999900'", "TIME '23:59:59.999900'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999990'", "TIME '23:59:59.999990'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999'", "TIME '23:59:59.999999'");
+                .addRoundTrip("TIME '00:00:00'", "TIME '00:00:00'")
+                .addRoundTrip("TIME '00:00:00.000000'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.123456'", "TIME '00:00:00.123456'")
+                .addRoundTrip("TIME '12:34:56'", "TIME '12:34:56'")
+                .addRoundTrip("TIME '12:34:56.123456'", "TIME '12:34:56.123456'")
 
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59'", "TIME '23:59:59'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9'", "TIME '23:59:59.9'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99'", "TIME '23:59:59.99'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999'", "TIME '23:59:59.999'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9999'", "TIME '23:59:59.9999'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99999'", "TIME '23:59:59.99999'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999'", "TIME '23:59:59.999999'");
+                // Cases which require using PGobject instead of e.g. LocalTime with PostgreSQL JDBC driver
+                .addRoundTrip("TIME '23:59:59.000000'", "TIME '23:59:59.000000'")
+                .addRoundTrip("TIME '23:59:59.900000'", "TIME '23:59:59.900000'")
+                .addRoundTrip("TIME '23:59:59.990000'", "TIME '23:59:59.990000'")
+                .addRoundTrip("TIME '23:59:59.999000'", "TIME '23:59:59.999000'")
+                .addRoundTrip("TIME '23:59:59.999900'", "TIME '23:59:59.999900'")
+                .addRoundTrip("TIME '23:59:59.999990'", "TIME '23:59:59.999990'")
+                .addRoundTrip("TIME '23:59:59.999999'", "TIME '23:59:59.999999'")
 
-        // round down
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.0000001'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.000000000001'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '12:34:56.1234561'", "TIME '12:34:56.123456'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9999994'", "TIME '23:59:59.999999'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999499999'", "TIME '23:59:59.999999'");
+                .addRoundTrip("TIME '23:59:59'", "TIME '23:59:59'")
+                .addRoundTrip("TIME '23:59:59.9'", "TIME '23:59:59.9'")
+                .addRoundTrip("TIME '23:59:59.99'", "TIME '23:59:59.99'")
+                .addRoundTrip("TIME '23:59:59.999'", "TIME '23:59:59.999'")
+                .addRoundTrip("TIME '23:59:59.9999'", "TIME '23:59:59.9999'")
+                .addRoundTrip("TIME '23:59:59.99999'", "TIME '23:59:59.99999'")
+                .addRoundTrip("TIME '23:59:59.999999'", "TIME '23:59:59.999999'")
 
-        // round down, maximal value
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.0000004'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.00000049'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.000000449'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.0000004449'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.00000044449'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.000000444449'", "TIME '00:00:00.000000'");
+                // round down
+                .addRoundTrip("TIME '00:00:00.0000001'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.000000000001'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '12:34:56.1234561'", "TIME '12:34:56.123456'")
+                .addRoundTrip("TIME '23:59:59.9999994'", "TIME '23:59:59.999999'")
+                .addRoundTrip("TIME '23:59:59.999999499999'", "TIME '23:59:59.999999'")
 
-        // round up, minimal value
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.0000005'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.00000050'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.000000500'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.0000005000'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.00000050000'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.000000500000'", "TIME '00:00:00.000001'");
+                // round down, maximal value
+                .addRoundTrip("TIME '00:00:00.0000004'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.00000049'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.000000449'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.0000004449'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.00000044449'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.000000444449'", "TIME '00:00:00.000000'")
 
-        // round up, maximal value
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.0000009'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.00000099'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.000000999'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.0000009999'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.00000099999'", "TIME '00:00:00.000001'");
-        testCreateTableAsAndInsertConsistency("TIME '00:00:00.000000999999'", "TIME '00:00:00.000001'");
+                // round up, minimal value
+                .addRoundTrip("TIME '00:00:00.0000005'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.00000050'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.000000500'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.0000005000'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.00000050000'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.000000500000'", "TIME '00:00:00.000001'")
 
-        // round up to next day, minimal value
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9999995'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99999950'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999500'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9999995000'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99999950000'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999500000'", "TIME '00:00:00.000000'");
+                // round up, maximal value
+                .addRoundTrip("TIME '00:00:00.0000009'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.00000099'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.000000999'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.0000009999'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.00000099999'", "TIME '00:00:00.000001'")
+                .addRoundTrip("TIME '00:00:00.000000999999'", "TIME '00:00:00.000001'")
 
-        // round up to next day, maximal value
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9999999'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99999999'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999999'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.9999999999'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.99999999999'", "TIME '00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIME '23:59:59.999999999999'", "TIME '00:00:00.000000'");
+                // round up to next day, minimal value
+                .addRoundTrip("TIME '23:59:59.9999995'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.99999950'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.999999500'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.9999995000'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.99999950000'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.999999500000'", "TIME '00:00:00.000000'")
+
+                // round up to next day, maximal value
+                .addRoundTrip("TIME '23:59:59.9999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.99999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.999999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.9999999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.99999999999'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '23:59:59.999999999999'", "TIME '00:00:00.000000'")
+
+                // CTAS with Presto, where the coercion is done by the connector
+                .execute(getQueryRunner(), prestoCreateAsSelect(getSession(), "test_time_coercion"))
+                // INSERT with Presto, where the coercion is done by the engine
+                .execute(getQueryRunner(), prestoCreateAndInsert(getSession(), "test_time_coercion"));
     }
 
     @Test
@@ -1202,50 +1207,56 @@ public class TestPostgreSqlTypeMapping
      */
     @Test
     public void testTimestampCoercion()
-            throws SQLException
     {
-        // precision 0 ends up as precision 0
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
+        SqlDataTypeTest.create()
 
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 00:00:00.1'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'");
-        // max supported precision
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+                // precision 0 ends up as precision 0
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'")
 
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'");
-        // max supported precision
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 00:00:00.1'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123000'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'")
+                // max supported precision
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'")
 
-        // round down
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123000'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'")
+                // max supported precision
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'")
 
-        // nanoc round up, end result rounds down
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
+                // round down
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'")
 
-        // round up
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
+                // nanoc round up, end result rounds down
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'")
 
-        // max precision
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
+                // round up
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'")
 
-        // round up to next second
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
+                // max precision
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'")
 
-        // round up to next day
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
+                // round up to next second
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'")
 
-        // negative epoch
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
+                // round up to next day
+                .addRoundTrip("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'")
+
+                // negative epoch
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
+
+                // CTAS with Presto, where the coercion is done by the connector
+                .execute(getQueryRunner(), prestoCreateAsSelect(getSession(), "test_timestamp_coercion"))
+                // INSERT with Presto, where the coercion is done by the engine
+                .execute(getQueryRunner(), prestoCreateAndInsert(getSession(), "test_timestamp_coercion"));
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
@@ -1382,49 +1393,55 @@ public class TestPostgreSqlTypeMapping
      */
     @Test
     public void testTimestampWithTimeZoneCoercion()
-            throws SQLException
     {
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00 UTC'", "TIMESTAMP '1970-01-01 00:00:00 UTC'");
+        SqlDataTypeTest.create()
 
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9 UTC'", "TIMESTAMP '1970-01-01 00:00:00.9 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123000 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123000 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.999 UTC'", "TIMESTAMP '1970-01-01 00:00:00.999 UTC'");
-        // max supported precision
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00 UTC'", "TIMESTAMP '1970-01-01 00:00:00 UTC'")
 
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.1 UTC'", "TIMESTAMP '2020-09-27 12:34:56.1 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.9 UTC'", "TIMESTAMP '2020-09-27 12:34:56.9 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123000 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123000 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.999 UTC'", "TIMESTAMP '2020-09-27 12:34:56.999 UTC'");
-        // max supported precision
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123456 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123456 UTC'");
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9 UTC'", "TIMESTAMP '1970-01-01 00:00:00.9 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123000 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123000 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.999 UTC'", "TIMESTAMP '1970-01-01 00:00:00.999 UTC'")
+                // max supported precision
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'")
 
-        // round down
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234561 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.1 UTC'", "TIMESTAMP '2020-09-27 12:34:56.1 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.9 UTC'", "TIMESTAMP '2020-09-27 12:34:56.9 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123000 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123000 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.999 UTC'", "TIMESTAMP '2020-09-27 12:34:56.999 UTC'")
+                // max supported precision
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123456 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123456 UTC'")
 
-        // nanoc round up, end result rounds down
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456499 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456499999 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'");
+                // round down
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1234561 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'")
 
-        // round up
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234565 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123457 UTC'");
+                // nanoc round up, end result rounds down
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456499 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456499999 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'")
 
-        // max precision
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.111222333444 UTC'", "TIMESTAMP '1970-01-01 00:00:00.111222 UTC'");
+                // round up
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1234565 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123457 UTC'")
 
-        // round up to next second
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9999995 UTC'", "TIMESTAMP '1970-01-01 00:00:01.000000 UTC'");
+                // max precision
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.111222333444 UTC'", "TIMESTAMP '1970-01-01 00:00:00.111222 UTC'")
 
-        // round up to next day
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 23:59:59.9999995 UTC'", "TIMESTAMP '1970-01-02 00:00:00.000000 UTC'");
+                // round up to next second
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9999995 UTC'", "TIMESTAMP '1970-01-01 00:00:01.000000 UTC'")
 
-        // negative epoch
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.9999995 UTC'", "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.999999499999 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.9999994 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'");
+                // round up to next day
+                .addRoundTrip("TIMESTAMP '1970-01-01 23:59:59.9999995 UTC'", "TIMESTAMP '1970-01-02 00:00:00.000000 UTC'")
+
+                // negative epoch
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999995 UTC'", "TIMESTAMP '1970-01-01 00:00:00.000000 UTC'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999499999 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999994 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'")
+
+                // CTAS with Presto, where the coercion is done by the connector
+                .execute(getQueryRunner(), prestoCreateAsSelect(getSession(), "test_timestamp_tz_coercion"))
+                // INSERT with Presto, where the coercion is done by the engine
+                .execute(getQueryRunner(), prestoCreateAndInsert(getSession(), "test_timestamp_tz_coercion"));
     }
 
     @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
@@ -1662,25 +1679,6 @@ public class TestPostgreSqlTypeMapping
                     "SELECT * FROM " + table.getName(),
                     format("VALUES ('1', NULL), ('2', %s), ('3', NULL), ('5', NULL)", prestoValue));
         }
-    }
-
-    private void testCreateTableAsAndInsertConsistency(String inputLiteral, String expectedResult)
-            throws SQLException
-    {
-        String tableName = "test_ctas_and_insert_" + randomTableSuffix();
-
-        // CTAS
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT " + inputLiteral + " a", 1);
-        assertThat(query("SELECT a FROM " + tableName))
-                .matches("VALUES " + expectedResult);
-
-        // INSERT as a control query, where the coercion is done by the engine
-        postgreSqlServer.execute("DELETE FROM tpch." + tableName);
-        assertUpdate("INSERT INTO " + tableName + " (a) VALUES (" + inputLiteral + ")", 1);
-        assertThat(query("SELECT a FROM " + tableName))
-                .matches("VALUES " + expectedResult);
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     public static DataType<ZonedDateTime> timestampWithTimeZoneDataType(int precision, boolean insertWithPresto)
