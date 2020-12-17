@@ -817,6 +817,49 @@ public class TestBackgroundHiveSplitLoader
         assertTrue(splitIterator.isEmpty());
     }
 
+    @Test
+    public void testHiveSubDirectories()
+            throws Exception
+    {
+        java.nio.file.Path tablePath = Files.createTempDirectory("TestBackgroundHiveSplitLoader");
+        List<String> filePaths = ImmutableList.of(
+                tablePath + "/dir/subdir1/file1",
+                tablePath + "/dir/subdir2/file2");
+
+        for (String path : filePaths) {
+            File file = new File(path);
+            assertTrue(file.getParentFile().exists() || file.getParentFile().mkdirs(), "Failed creating directory " + file.getParentFile());
+            checkState(file.createNewFile(), "Failed to create file %s", file);
+        }
+
+        Table table = table(
+                tablePath.toString(),
+                ImmutableList.of(),
+                Optional.empty(),
+                ImmutableMap.of());
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = testBackgroundHiveSplitLoaderBuilder()
+                .setTable(table)
+                .build();
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+        List<String> splits = drain(hiveSplitSource);
+        assertEquals(splits.size(), 0);
+
+        backgroundHiveSplitLoader = testBackgroundHiveSplitLoaderBuilder()
+                .setTable(table)
+                .setRecursiveDirWalkerEnabled(true)
+                .build();
+        hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+        splits = drain(hiveSplitSource);
+        assertEquals(splits.size(), 2);
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(0))), format("%s not found in splits %s", filePaths.get(0), splits));
+        assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(1))), format("%s not found in splits %s", filePaths.get(1), splits));
+
+        deleteRecursively(tablePath, ALLOW_INSECURE);
+    }
+
     private static void createOrcAcidFile(File file)
             throws IOException
     {
