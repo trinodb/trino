@@ -59,7 +59,6 @@ public class JdbcPageSink
 
         try {
             connection.setAutoCommit(false);
-            statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle));
         }
         catch (SQLException e) {
             closeWithSuppression(connection, e);
@@ -90,6 +89,14 @@ public class JdbcPageSink
                             .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, "Underlying type is not supported for INSERT: " + typeHandle)))
                     .map(ColumnMapping::getWriteFunction)
                     .collect(toImmutableList());
+        }
+
+        try {
+            statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle, columnWriters));
+        }
+        catch (SQLException e) {
+            closeWithSuppression(connection, e);
+            throw new PrestoException(JDBC_ERROR, e);
         }
     }
 

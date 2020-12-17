@@ -22,6 +22,7 @@ import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.RemoteTableName;
+import io.prestosql.plugin.jdbc.WriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -231,9 +232,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public String buildInsertSql(JdbcOutputTableHandle handle)
+    public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
-        return stats.getBuildInsertSql().wrap(() -> delegate().buildInsertSql(handle));
+        return stats.getBuildInsertSql().wrap(() -> delegate().buildInsertSql(handle, columnWriters));
     }
 
     @Override

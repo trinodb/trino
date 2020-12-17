@@ -27,6 +27,7 @@ import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.ObjectReadFunction;
 import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.plugin.jdbc.WriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -169,7 +170,6 @@ import static java.sql.Types.TIMESTAMP;
 import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.Types.TIME_WITH_TIMEZONE;
 import static java.sql.Types.VARCHAR;
-import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
@@ -271,10 +271,12 @@ public class PhoenixClient
     }
 
     @Override
-    public String buildInsertSql(JdbcOutputTableHandle handle)
+    public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
         PhoenixOutputTableHandle outputHandle = (PhoenixOutputTableHandle) handle;
-        String params = join(",", nCopies(handle.getColumnNames().size(), "?"));
+        String params = columnWriters.stream()
+                .map(WriteFunction::getBindExpression)
+                .collect(joining(","));
         String columns = handle.getColumnNames().stream()
                 .map(SchemaUtil::getEscapedArgument)
                 .collect(joining(","));

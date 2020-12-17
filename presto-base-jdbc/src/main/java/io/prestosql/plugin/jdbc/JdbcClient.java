@@ -116,7 +116,7 @@ public interface JdbcClient
 
     void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle);
 
-    String buildInsertSql(JdbcOutputTableHandle handle);
+    String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters);
 
     Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException;

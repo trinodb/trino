@@ -105,7 +105,6 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Collections.emptyMap;
-import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -709,15 +708,18 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public String buildInsertSql(JdbcOutputTableHandle handle)
+    public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
+        checkArgument(handle.getColumnNames().size() == columnWriters.size(), "handle and columnWriters mismatch: %s, %s", handle, columnWriters);
         return format(
                 "INSERT INTO %s (%s) VALUES (%s)",
                 quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getColumnNames().stream()
                         .map(this::quoted)
                         .collect(joining(", ")),
-                join(",", nCopies(handle.getColumnNames().size(), "?")));
+                columnWriters.stream()
+                        .map(WriteFunction::getBindExpression)
+                        .collect(joining(",")));
     }
 
     @Override
