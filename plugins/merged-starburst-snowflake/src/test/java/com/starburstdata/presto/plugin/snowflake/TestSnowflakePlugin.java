@@ -35,7 +35,7 @@ public class TestSnowflakePlugin
         assertThat(connectorFactories).isNotEmpty();
 
         for (ConnectorFactory factory : connectorFactories) {
-            assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext()))
+            assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:snowflake:test"), new TestingConnectorContext()))
                     .isInstanceOf(RuntimeException.class)
                     .hasToString("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: snowflake");
         }
@@ -51,7 +51,7 @@ public class TestSnowflakePlugin
         connectorFactories.get(0).create(
                 "test",
                 ImmutableMap.of(
-                        "connection-url", "test",
+                        "connection-url", "jdbc:snowflake:test",
                         "snowflake.role", "test",
                         "snowflake.database", "test",
                         "snowflake.warehouse", "test"),
@@ -60,7 +60,7 @@ public class TestSnowflakePlugin
         connectorFactories.get(1).create(
                 "test",
                 ImmutableMap.of(
-                        "connection-url", "test",
+                        "connection-url", "jdbc:snowflake:test",
                         "snowflake.impersonation-type", "ROLE",
                         "snowflake.database", "test",
                         "snowflake.stage-schema", "test",
@@ -85,7 +85,7 @@ public class TestSnowflakePlugin
             assertThatThrownBy(() -> factory.create(
                     "test",
                     ImmutableMap.of(
-                            "connection-url", "test",
+                            "connection-url", "jdbc:snowflake:test",
                             "snowflake.role", "test",
                             "snowflake.database", "test",
                             "snowflake.warehouse", "test",
