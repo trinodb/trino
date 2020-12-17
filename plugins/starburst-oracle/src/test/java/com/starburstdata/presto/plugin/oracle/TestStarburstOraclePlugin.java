@@ -28,7 +28,7 @@ public class TestStarburstOraclePlugin
     {
         Plugin plugin = new StarburstOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:oracle:thin:@test"), new TestingConnectorContext());
     }
 
     @Test
@@ -39,7 +39,7 @@ public class TestStarburstOraclePlugin
         expectThrows(ApplicationConfigurationException.class, () -> factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("connection-url", "test")
+                        .put("connection-url", "jdbc:oracle:thin:@test")
                         .put("oracle.authentication.type", "KERBEROS")
                         .put("kerberos.client.principal", "test@TESTING-KRB.STARBURSTDATA.COM")
                         .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
@@ -59,7 +59,7 @@ public class TestStarburstOraclePlugin
         assertThatThrownBy(() -> factory.create(
                 "test",
                 ImmutableMap.of(
-                        "connection-url", "test",
+                        "connection-url", "jdbc:oracle:thin:@test",
                         "oracle.impersonation.enabled", "true"),
                 new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
@@ -75,7 +75,7 @@ public class TestStarburstOraclePlugin
         assertThatThrownBy(() -> factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("connection-url", "test")
+                        .put("connection-url", "jdbc:oracle:thin:@test")
                         .put("oracle.authentication.type", "KERBEROS")
                         .put("kerberos.client.principal", "test@TESTING-KRB.STARBURSTDATA.COM")
                         .put("kerberos.client.keytab", getResource("krb/client/test.keytab").getPath())
@@ -95,7 +95,7 @@ public class TestStarburstOraclePlugin
         assertThatThrownBy(() -> factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("connection-url", "test")
+                        .put("connection-url", "jdbc:oracle:thin:@test")
                         .put("aggregation-pushdown.enabled", "true")
                         .build(),
                 new TestingConnectorContext()))
@@ -113,7 +113,7 @@ public class TestStarburstOraclePlugin
         factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("connection-url", "test")
+                        .put("connection-url", "jdbc:oracle:thin:@test")
                         .build(),
                 new TestingConnectorContext())
                 .shutdown();
@@ -122,7 +122,7 @@ public class TestStarburstOraclePlugin
         factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("connection-url", "test")
+                        .put("connection-url", "jdbc:oracle:thin:@test")
                         .put("oracle.parallelism-type", "no_parallelism")
                         .build(),
                 new TestingConnectorContext())
@@ -133,7 +133,7 @@ public class TestStarburstOraclePlugin
                 factory.create(
                         "test",
                         ImmutableMap.<String, String>builder()
-                                .put("connection-url", "test")
+                                .put("connection-url", "jdbc:oracle:thin:@test")
                                 .put("oracle.parallelism-type", "partitions")
                                 .build(),
                         new TestingConnectorContext())
