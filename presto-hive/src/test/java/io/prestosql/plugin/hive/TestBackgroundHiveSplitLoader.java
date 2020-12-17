@@ -36,6 +36,7 @@ import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.testing.TestingConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -103,6 +104,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
+import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
@@ -846,9 +848,12 @@ public class TestBackgroundHiveSplitLoader
         List<String> splits = drain(hiveSplitSource);
         assertEquals(splits.size(), 0);
 
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(getHiveSessionProperties(new HiveConfig().setRecursiveDirWalkerEnabled(true)).getSessionProperties())
+                .build();
         backgroundHiveSplitLoader = testBackgroundHiveSplitLoaderBuilder()
                 .setTable(table)
-                .setRecursiveDirWalkerEnabled(true)
+                .setConnectorSession(session)
                 .build();
         hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);

@@ -102,6 +102,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HivePartitionManager.partitionMatches;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isForceLocalScheduling;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isRecursiveDirWalkerEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isValidateBucketing;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
@@ -198,7 +199,6 @@ public class BackgroundHiveSplitLoader
             DirectoryLister directoryLister,
             Executor executor,
             int loaderConcurrency,
-            boolean recursiveDirWalkerEnabled,
             boolean ignoreAbsentPartitions,
             boolean optimizeSymlinkListing,
             Optional<ValidWriteIdList> validWriteIds)
@@ -215,7 +215,7 @@ public class BackgroundHiveSplitLoader
         this.hdfsEnvironment = hdfsEnvironment;
         this.namenodeStats = namenodeStats;
         this.directoryLister = directoryLister;
-        this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+        this.recursiveDirWalkerEnabled = isRecursiveDirWalkerEnabled(session);
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
         this.optimizeSymlinkListing = optimizeSymlinkListing;
         this.executor = executor;
@@ -1025,7 +1025,6 @@ public class BackgroundHiveSplitLoader
         private DirectoryLister directoryLister;
         private Executor executor;
         private int loaderConcurrency;
-        private boolean recursiveDirWalkerEnabled;
         private boolean ignoreAbsentPartitions;
         private boolean optimizeSymlinkListing;
         private Optional<ValidWriteIdList> validWriteIds;
@@ -1114,12 +1113,6 @@ public class BackgroundHiveSplitLoader
             return this;
         }
 
-        public Builder setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
-        {
-            this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
-            return this;
-        }
-
         public Builder setIgnoreAbsentPartitions(boolean ignoreAbsentPartitions)
         {
             this.ignoreAbsentPartitions = ignoreAbsentPartitions;
@@ -1171,7 +1164,6 @@ public class BackgroundHiveSplitLoader
                     directoryLister,
                     executor,
                     loaderConcurrency,
-                    recursiveDirWalkerEnabled,
                     ignoreAbsentPartitions,
                     optimizeSymlinkListing,
                     validWriteIds);
