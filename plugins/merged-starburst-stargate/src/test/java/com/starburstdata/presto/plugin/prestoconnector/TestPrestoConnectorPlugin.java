@@ -25,7 +25,7 @@ public class TestPrestoConnectorPlugin
     {
         Plugin plugin = new PrestoConnectorPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:presto:test"), new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
                 .hasToString("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: presto-connector");
     }
@@ -35,6 +35,6 @@ public class TestPrestoConnectorPlugin
     {
         Plugin plugin = new TestingPrestoConnectorPlugin(false);
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:presto:test"), new TestingConnectorContext());
     }
 }
