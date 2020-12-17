@@ -132,6 +132,40 @@ public abstract class BasePrestoConnectorIntegrationSmokeTest
                 .hasMessage("This connector does not support creating views");
     }
 
+    @Test
+    public void testPredicatePushdown()
+    {
+        // varchar equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar range
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar different case
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        // bigint equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // bigint range, with decimal to bigint simplification
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // date equality
+        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
+                .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
+                .isFullyPushedDown();
+    }
+
     protected abstract String getRemoteCatalogName();
 
     protected abstract SqlExecutor getSqlExecutor();
