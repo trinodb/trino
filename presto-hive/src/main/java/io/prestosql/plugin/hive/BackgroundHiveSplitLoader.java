@@ -183,7 +183,7 @@ public class BackgroundHiveSplitLoader
     private Stopwatch stopwatch;
     private volatile boolean stopped;
 
-    public BackgroundHiveSplitLoader(
+    private BackgroundHiveSplitLoader(
             Table table,
             AcidTransaction transaction,
             Iterable<HivePartitionMetadata> partitions,
@@ -204,14 +204,13 @@ public class BackgroundHiveSplitLoader
             Optional<ValidWriteIdList> validWriteIds)
     {
         this.table = table;
-        this.transaction = requireNonNull(transaction, "tranaction is null");
+        this.transaction = transaction;
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.dynamicFilter = dynamicFilter;
         this.dynamicFilteringProbeBlockingTimeoutMillis = dynamicFilteringProbeBlockingTimeout.toMillis();
         this.typeManager = typeManager;
         this.tableBucketInfo = tableBucketInfo;
         this.loaderConcurrency = loaderConcurrency;
-        checkArgument(loaderConcurrency > 0, "loaderConcurrency must be > 0, found: %s", loaderConcurrency);
         this.session = session;
         this.hdfsEnvironment = hdfsEnvironment;
         this.namenodeStats = namenodeStats;
@@ -222,7 +221,7 @@ public class BackgroundHiveSplitLoader
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
-        this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
+        this.validWriteIds = validWriteIds;
     }
 
     @Override
@@ -1002,6 +1001,180 @@ public class BackgroundHiveSplitLoader
         public boolean isTableBucketEnabled(int tableBucketNumber)
         {
             return bucketFilter.test(tableBucketNumber);
+        }
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private Table table;
+        private AcidTransaction transaction;
+        private Iterable<HivePartitionMetadata> partitions;
+        private TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
+        private DynamicFilter dynamicFilter;
+        private Duration dynamicFilteringProbeBlockingTimeout;
+        private TypeManager typeManager;
+        private Optional<BucketSplitInfo> bucketSplitInfo;
+        private ConnectorSession connectorSession;
+        private HdfsEnvironment hdfsEnvironment;
+        private NamenodeStats namenodeStats;
+        private DirectoryLister directoryLister;
+        private Executor executor;
+        private int loaderConcurrency;
+        private boolean recursiveDirWalkerEnabled;
+        private boolean ignoreAbsentPartitions;
+        private boolean optimizeSymlinkListing;
+        private Optional<ValidWriteIdList> validWriteIds;
+
+        public Builder setTable(Table table)
+        {
+            this.table = requireNonNull(table, "table is null");
+            return this;
+        }
+
+        public Builder setAcidTransaction(AcidTransaction transaction)
+        {
+            this.transaction = requireNonNull(transaction, "transaction is null");
+            return this;
+        }
+
+        public Builder setHivePartitionMetadatas(Iterable<HivePartitionMetadata> partitions)
+        {
+            this.partitions = requireNonNull(partitions, "hivePartitionMetadatas is null");
+            return this;
+        }
+
+        public Builder setCompactEffectivePredicate(TupleDomain<? extends ColumnHandle> compactEffectivePredicate)
+        {
+            this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
+            return this;
+        }
+
+        public Builder setDynamicFilter(DynamicFilter dynamicFilter)
+        {
+            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+            return this;
+        }
+
+        public Builder setDynamicFilteringProbeBlockingTimeout(Duration dynamicFilteringProbeBlockingTimeout)
+        {
+            this.dynamicFilteringProbeBlockingTimeout = requireNonNull(dynamicFilteringProbeBlockingTimeout, "dynamicFilteringProbeBlockingTimeout is null");
+            return this;
+        }
+
+        public Builder setTypeManager(TypeManager typeManager)
+        {
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            return this;
+        }
+
+        public Builder setBucketSplitInfo(Optional<BucketSplitInfo> bucketSplitInfo)
+        {
+            this.bucketSplitInfo = requireNonNull(bucketSplitInfo, "bucketSplitInfo is null");
+            return this;
+        }
+
+        public Builder setConnectorSession(ConnectorSession connectorSession)
+        {
+            this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
+            return this;
+        }
+
+        public Builder setHdfsEnvironment(HdfsEnvironment hdfsEnvironment)
+        {
+            this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+            return this;
+        }
+
+        public Builder setNamenodeStats(NamenodeStats namenodeStats)
+        {
+            this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
+            return this;
+        }
+
+        public Builder setDirectoryLister(DirectoryLister directoryLister)
+        {
+            this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
+            return this;
+        }
+
+        public Builder setExecutor(Executor executor)
+        {
+            this.executor = requireNonNull(executor, "executor is null");
+            return this;
+        }
+
+        public Builder setLoaderConcurrency(int loaderConcurrency)
+        {
+            this.loaderConcurrency = loaderConcurrency;
+            return this;
+        }
+
+        public Builder setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
+        {
+            this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
+            return this;
+        }
+
+        public Builder setIgnoreAbsentPartitions(boolean ignoreAbsentPartitions)
+        {
+            this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+            return this;
+        }
+
+        public Builder setOptimizeSymlinkListing(boolean optimizeSymlinkListing)
+        {
+            this.optimizeSymlinkListing = optimizeSymlinkListing;
+            return this;
+        }
+
+        public Builder setValidWriteIds(Optional<ValidWriteIdList> validWriteIds)
+        {
+            this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
+            return this;
+        }
+
+        public BackgroundHiveSplitLoader build()
+        {
+            requireNonNull(table, "table is null");
+            requireNonNull(transaction, "transaction is null");
+            requireNonNull(partitions, "partitions is null");
+            requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
+            requireNonNull(dynamicFilter, "dynamicFilter is null");
+            requireNonNull(dynamicFilteringProbeBlockingTimeout, "dynamicFilteringProbeBlockingTimeout is null");
+            requireNonNull(typeManager, "typeManager is null");
+            requireNonNull(bucketSplitInfo, "bucketSplitInfo is null");
+            requireNonNull(connectorSession, "connectorSession is null");
+            requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+            requireNonNull(namenodeStats, "namenodeStats is null");
+            requireNonNull(directoryLister, "directoryLister is null");
+            requireNonNull(executor, "executor is null");
+            checkArgument(loaderConcurrency > 0, "loaderConcurrency must be > 0, found: %s", loaderConcurrency);
+            requireNonNull(validWriteIds, "validWriteIds is null");
+
+            return new BackgroundHiveSplitLoader(
+                    table,
+                    transaction,
+                    partitions,
+                    compactEffectivePredicate,
+                    dynamicFilter,
+                    dynamicFilteringProbeBlockingTimeout,
+                    typeManager,
+                    bucketSplitInfo,
+                    connectorSession,
+                    hdfsEnvironment,
+                    namenodeStats,
+                    directoryLister,
+                    executor,
+                    loaderConcurrency,
+                    recursiveDirWalkerEnabled,
+                    ignoreAbsentPartitions,
+                    optimizeSymlinkListing,
+                    validWriteIds);
         }
     }
 }

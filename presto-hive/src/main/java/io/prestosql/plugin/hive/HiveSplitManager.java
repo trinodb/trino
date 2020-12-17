@@ -220,26 +220,27 @@ public class HiveSplitManager
 
         // Only one thread per partition is usable when a table is not transactional
         int concurrency = isTransactionalTable(table.getParameters()) ? splitLoaderConcurrency : min(splitLoaderConcurrency, partitions.size());
-        HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
-                table,
-                hiveTable.getTransaction(),
-                hivePartitions,
-                hiveTable.getCompactEffectivePredicate(),
-                dynamicFilter,
-                getDynamicFilteringProbeBlockingTimeout(session),
-                typeManager,
-                createBucketSplitInfo(bucketHandle, bucketFilter),
-                session,
-                hdfsEnvironment,
-                namenodeStats,
-                directoryLister,
-                executor,
-                concurrency,
-                recursiveDfsWalkerEnabled,
-                !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
-                isOptimizeSymlinkListing(session),
-                metastore.getValidWriteIds(session, hiveTable)
-                        .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())));
+        HiveSplitLoader hiveSplitLoader = BackgroundHiveSplitLoader.builder()
+                .setTable(table)
+                .setAcidTransaction(hiveTable.getTransaction())
+                .setHivePartitionMetadatas(hivePartitions)
+                .setCompactEffectivePredicate(hiveTable.getCompactEffectivePredicate())
+                .setDynamicFilter(dynamicFilter)
+                .setDynamicFilteringProbeBlockingTimeout(getDynamicFilteringProbeBlockingTimeout(session))
+                .setTypeManager(typeManager)
+                .setBucketSplitInfo(createBucketSplitInfo(bucketHandle, bucketFilter))
+                .setConnectorSession(session)
+                .setHdfsEnvironment(hdfsEnvironment)
+                .setNamenodeStats(namenodeStats)
+                .setDirectoryLister(directoryLister)
+                .setExecutor(executor)
+                .setLoaderConcurrency(concurrency)
+                .setRecursiveDirWalkerEnabled(recursiveDfsWalkerEnabled)
+                .setIgnoreAbsentPartitions(!hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session))
+                .setOptimizeSymlinkListing(isOptimizeSymlinkListing(session))
+                .setValidWriteIds(metastore.getValidWriteIds(session, hiveTable)
+                        .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())))
+                .build();
 
         HiveSplitSource splitSource;
         switch (splitSchedulingStrategy) {
