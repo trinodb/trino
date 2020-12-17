@@ -41,7 +41,6 @@ public class TestOracleConfig
                 .setNumberRoundingMode(RoundingMode.UNNECESSARY)
                 .setConnectionPoolEnabled(true)
                 .setConnectionPoolMinSize(1)
-                .setFetchSize(1000)
                 .setConnectionPoolMaxSize(30)
                 .setInactiveConnectionTimeout(Duration.valueOf("20m")));
     }
@@ -67,7 +66,6 @@ public class TestOracleConfig
                 .setNumberRoundingMode(RoundingMode.CEILING)
                 .setConnectionPoolEnabled(false)
                 .setConnectionPoolMinSize(10)
-                .setFetchSize(1000)
                 .setConnectionPoolMaxSize(20)
                 .setInactiveConnectionTimeout(new Duration(30, SECONDS));
 
@@ -102,13 +100,6 @@ public class TestOracleConfig
                 new OracleConfig()
                         .setConnectionPoolMaxSize(0),
                 "connectionPoolMaxSize",
-                "must be greater than or equal to 1",
-                Min.class);
-
-        assertFailsValidation(
-                new OracleConfig()
-                        .setFetchSize(-1),
-                "fetchSize",
                 "must be greater than or equal to 1",
                 Min.class);
     }

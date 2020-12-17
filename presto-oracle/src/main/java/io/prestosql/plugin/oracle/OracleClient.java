@@ -150,7 +150,6 @@ public class OracleClient
             .add("xs$null")
             .build();
 
-    private final int fetchSize;
     private final boolean synonymsEnabled;
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
@@ -175,7 +174,6 @@ public class OracleClient
         super(config, "\"", connectionFactory);
 
         requireNonNull(oracleConfig, "oracle config is null");
-        this.fetchSize = oracleConfig.getFetchSize();
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), 40, 0, Optional.empty(), Optional.empty());
@@ -233,7 +231,6 @@ public class OracleClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(fetchSize);
         return statement;
     }
 
