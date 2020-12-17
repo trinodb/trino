@@ -20,6 +20,11 @@ public interface WriteFunction
 {
     Class<?> getJavaType();
 
+    default String getBindExpression()
+    {
+        return "?";
+    }
+
     default void setNull(PreparedStatement statement, int index)
             throws SQLException
     {
