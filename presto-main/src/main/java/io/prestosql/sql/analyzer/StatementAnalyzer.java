@@ -1280,15 +1280,15 @@ class StatementAnalyzer
 
             ImmutableMap.Builder<Field, List<ViewExpression>> columnMasks = ImmutableMap.builder();
             for (Field field : fields) {
-                if (field.getName().isPresent()) {
-                    List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, field.getName().get(), field.getType());
+                field.getName().ifPresent(column -> {
+                    List<ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, column, field.getType());
 
-                    if (!masks.isEmpty() && checkCanSelectFromColumn(name, field.getName().orElseThrow())) {
+                    if (!masks.isEmpty() && checkCanSelectFromColumn(name, column)) {
                         columnMasks.put(field, masks);
 
                         masks.forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
                     }
-                }
+                });
             }
 
             List<ViewExpression> filters = accessControl.getRowFilters(session.toSecurityContext(), name);
