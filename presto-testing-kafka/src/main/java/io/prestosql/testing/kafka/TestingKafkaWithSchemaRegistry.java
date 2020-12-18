@@ -66,13 +66,7 @@ public class TestingKafkaWithSchemaRegistry
     public void start()
     {
         delegate.start();
-        try {
-            schemaRegistryContainer.start();
-        }
-        catch (Throwable e) {
-            delegate.close();
-            throw e;
-        }
+        schemaRegistryContainer.start();
     }
 
     @Override
