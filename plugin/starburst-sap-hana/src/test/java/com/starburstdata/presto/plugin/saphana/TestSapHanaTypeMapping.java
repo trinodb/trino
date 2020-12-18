@@ -772,13 +772,17 @@ public class TestSapHanaTypeMapping
 
                 // before epoch with nanos
                 .addRoundTrip(prestoTimestampForSapHanaDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_000))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_700))
+                .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_700));
 
+                // Since https://github.com/prestosql/presto/pull/6334 toLiteral impl. for TIMESTAMPs correctly truncates the value according to precision of the type.
+                // The toPrestoQueryResult impl. in prestoTimestampForSapHanaDataType tries to round the value. The rounding is now incorrect for values with precision
+                // greater than the data type because the original value is truncated and hence it's effectively always rounded down for such cases.
+                // TODO replace with SQL-literal based tests (https://starburstdata.atlassian.net/browse/PRESTO-5009)
                 // precision loss
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_712))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_789))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_712))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_789));
+                // .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_712))
+                // .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_789))
+                // .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_712))
+                // .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_789));
 
         dataTypeTest.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
         dataTypeTest.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_timestamp"));
