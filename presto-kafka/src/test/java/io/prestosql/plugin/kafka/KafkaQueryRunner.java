@@ -44,7 +44,9 @@ import java.util.Optional;
 
 import static com.google.common.io.ByteStreams.toByteArray;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -124,14 +126,16 @@ public final class KafkaQueryRunner
                     .putAll(tpchTopicDescriptions)
                     .putAll(testTopicDescriptions.build())
                     .build();
-            addModules(installModuleIf(
-                    KafkaConfig.class,
-                    kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
-                    binder -> binder.bind(TableDescriptionSupplier.class)
-                            .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
+            setExtension(combine(
+                    DEFAULT_EXTENSION,
+                    installModuleIf(
+                            KafkaConfig.class,
+                            kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
+                            binder -> binder.bind(TableDescriptionSupplier.class)
+                                    .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
                     binder -> binder.bind(ContentSchemaReader.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON),
                     new DecoderModule(),
-                    new EncoderModule());
+                    new EncoderModule()));
             Map<String, String> properties = new HashMap<>(extraKafkaProperties);
             properties.putIfAbsent("kafka.table-description-supplier", TEST);
             setExtraKafkaProperties(properties);
