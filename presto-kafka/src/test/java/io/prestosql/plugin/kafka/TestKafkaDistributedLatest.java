@@ -18,9 +18,7 @@ import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.kafka.BasicTestingKafka;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
-@Test
 public class TestKafkaDistributedLatest
         extends AbstractTestQueries
 {
