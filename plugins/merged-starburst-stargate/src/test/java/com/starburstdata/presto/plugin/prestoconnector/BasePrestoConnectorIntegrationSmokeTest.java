@@ -89,13 +89,13 @@ public abstract class BasePrestoConnectorIntegrationSmokeTest
     public void testAggregationWithUnsupportedResultType()
     {
         // array_agg returns array, which is not supported
-        assertThat(query("SELECT array_agg(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT array_agg(regionkey) FROM nation WHERE nationkey = 3")).isNotFullyPushedDown(AggregationNode.class);
 
         // histogram returns map, which is not supported
         assertThat(query("SELECT histogram(regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
 
         // multimap_agg returns multimap, which is not supported
-        assertThat(query("SELECT multimap_agg(regionkey, nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT multimap_agg(nationkey, regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
 
         // approx_set returns HyperLogLog, which is not supported
         assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
