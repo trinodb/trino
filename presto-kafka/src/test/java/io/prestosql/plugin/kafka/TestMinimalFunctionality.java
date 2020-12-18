@@ -19,7 +19,6 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.kafka.BasicTestingKafka;
-import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
@@ -34,7 +33,7 @@ import static org.testng.Assert.assertTrue;
 public class TestMinimalFunctionality
         extends AbstractTestQueryFramework
 {
-    private TestingKafka testingKafka;
+    private BasicTestingKafka testingKafka;
     private String topicName;
 
     @Override

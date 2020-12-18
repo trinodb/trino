@@ -15,6 +15,7 @@
 package io.prestosql.plugin.kafka.schema;
 
 import io.prestosql.plugin.kafka.KafkaTopicDescription;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Optional;
@@ -24,5 +25,5 @@ public interface TableDescriptionSupplier
 {
     Set<SchemaTableName> listTables();
 
-    Optional<KafkaTopicDescription> getTopicDescription(SchemaTableName schemaTableName);
+    Optional<KafkaTopicDescription> getTopicDescription(ConnectorSession session, SchemaTableName schemaTableName);
 }
