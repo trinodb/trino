@@ -24,7 +24,6 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -71,13 +70,9 @@ public class TestingKafkaWithSchemaRegistry
 
     @Override
     public void close()
+            throws IOException
     {
-        try {
-            closer.close();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        closer.close();
     }
 
     @Override
