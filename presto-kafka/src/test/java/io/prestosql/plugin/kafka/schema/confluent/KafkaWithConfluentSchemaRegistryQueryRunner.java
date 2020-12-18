@@ -13,22 +13,16 @@
  */
 package io.prestosql.plugin.kafka.schema.confluent;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.plugin.kafka.KafkaPlugin;
 import io.prestosql.plugin.kafka.KafkaQueryRunnerBuilder;
-import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.kafka.TestingKafkaWithSchemaRegistry;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
-
-public class KafkaWithConfluentSchemaRegistryQueryRunner
+public final class KafkaWithConfluentSchemaRegistryQueryRunner
 {
     private KafkaWithConfluentSchemaRegistryQueryRunner() {}
 
@@ -54,37 +48,6 @@ public class KafkaWithConfluentSchemaRegistryQueryRunner
             properties.putIfAbsent("kafka.table-description-supplier", "confluent");
             properties.putIfAbsent("kafka.confluent-schema-registry-url", testingKafka.getSchemaRegistryConnectString());
             setExtraKafkaProperties(properties);
-        }
-    }
-
-    private static DistributedQueryRunner createKafkaQueryRunner(
-            DistributedQueryRunner queryRunner,
-            TestingKafkaWithSchemaRegistry testingKafkaWithSchemaRegistry,
-            Map<String, String> extraKafkaProperties,
-            Module extensions)
-    {
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            testingKafkaWithSchemaRegistry.start();
-
-            KafkaPlugin kafkaPlugin = new KafkaPlugin(extensions);
-            queryRunner.installPlugin(kafkaPlugin);
-
-            Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
-            kafkaProperties.putIfAbsent("kafka.nodes", testingKafkaWithSchemaRegistry.getConnectString());
-            kafkaProperties.putIfAbsent("kafka.table-description-supplier", "confluent");
-            kafkaProperties.putIfAbsent("kafka.confluent-schema-registry-url", testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString());
-            kafkaProperties.putIfAbsent("kafka.default-schema", DEFAULT_SCHEMA);
-            kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
-            queryRunner.createCatalog("kafka", "kafka", kafkaProperties);
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
         }
     }
 

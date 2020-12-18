@@ -220,7 +220,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
     private boolean schemaExists()
     {
-        return computeActual(format("SHOW SCHEMAS FROM %s LIKE '%s'", getSession().getCatalog().get(), getSession().getSchema().get())).getRowCount() == 1;
+        return computeActual(format("SHOW SCHEMAS FROM %s LIKE '%s'", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow())).getRowCount() == 1;
     }
 
     private boolean tableExists(String tableName)
@@ -247,7 +247,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     private static void sendMessages(List<ProducerRecord<Long, GenericRecord>> messages, Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier)
     {
         try (KafkaProducer<Long, GenericRecord> producer = producerSupplier.get()) {
-            messages.stream().forEach(producer::send);
+            messages.forEach(producer::send);
         }
     }
 

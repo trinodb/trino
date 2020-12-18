@@ -37,7 +37,7 @@ public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>
     protected final T testingKafka;
     protected Map<String, String> extraKafkaProperties = ImmutableMap.of();
     protected Module extension = DEFAULT_EXTENSION;
-    protected ImmutableList.Builder<Module> additionalModulesBuilder = ImmutableList.builder();
+    private ImmutableList.Builder<Module> additionalModulesBuilder = ImmutableList.builder();
 
     public KafkaQueryRunnerBuilder(T testingKafka, String defaultSessionSchema)
     {
@@ -48,19 +48,19 @@ public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>
         this.testingKafka = requireNonNull(testingKafka, "testingKafka is null");
     }
 
-    public KafkaQueryRunnerBuilder setExtraKafkaProperties(Map<String, String> extraKafkaProperties)
+    public KafkaQueryRunnerBuilder<?> setExtraKafkaProperties(Map<String, String> extraKafkaProperties)
     {
         this.extraKafkaProperties = ImmutableMap.copyOf(requireNonNull(extraKafkaProperties, "extraKafkaProperties is null"));
         return this;
     }
 
-    public KafkaQueryRunnerBuilder setExtension(Module extension)
+    public KafkaQueryRunnerBuilder<?> setExtension(Module extension)
     {
         this.extension = requireNonNull(extension, "extension is null");
         return this;
     }
 
-    public KafkaQueryRunnerBuilder addModules(Module... modules)
+    public KafkaQueryRunnerBuilder<?> addModules(Module... modules)
     {
         for (Module module : modules) {
             additionalModulesBuilder.add(module);
@@ -80,11 +80,15 @@ public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>
             testingKafka.start();
             preInit(queryRunner);
             List<Module> extensions = additionalModulesBuilder.add(extension).build();
-            createKafkaQueryRunner(queryRunner, testingKafka, extraKafkaProperties, extensions);
+            queryRunner.installPlugin(new KafkaPlugin(combine(extensions)));
+            Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
+            kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
+            kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
+            queryRunner.createCatalog("kafka", "kafka", kafkaProperties);
             postInit(queryRunner);
             return queryRunner;
         }
-        catch (Throwable e) {
+        catch (RuntimeException e) {
             closeAllSuppress(e, queryRunner);
             throw e;
         }
@@ -92,21 +96,5 @@ public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>
 
     protected void preInit(DistributedQueryRunner queryRunner) throws Exception {}
 
-    protected void postInit(DistributedQueryRunner queryRunner) throws Exception {}
-
-    private static DistributedQueryRunner createKafkaQueryRunner(
-            DistributedQueryRunner queryRunner,
-            TestingKafka testingKafka,
-            Map<String, String> extraKafkaProperties,
-            List<Module> extensions)
-            throws Exception
-    {
-        KafkaPlugin kafkaPlugin = new KafkaPlugin(combine(extensions));
-        queryRunner.installPlugin(kafkaPlugin);
-        Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
-        kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
-        kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
-        queryRunner.createCatalog("kafka", "kafka", kafkaProperties);
-        return queryRunner;
-    }
+    protected void postInit(DistributedQueryRunner queryRunner) {}
 }
