@@ -26,7 +26,9 @@ import io.prestosql.spi.transaction.IsolationLevel;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
@@ -39,7 +41,7 @@ public class KafkaConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
-    private final KafkaSessionProperties sessionProperties;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public KafkaConnector(
@@ -48,14 +50,16 @@ public class KafkaConnector
             ConnectorSplitManager splitManager,
             ConnectorRecordSetProvider recordSetProvider,
             ConnectorPageSinkProvider pageSinkProvider,
-            KafkaSessionProperties sessionProperties)
+            Set<SessionPropertiesProvider> sessionProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
+                .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
+                .collect(toImmutableList());
     }
 
     @Override
@@ -92,7 +96,7 @@ public class KafkaConnector
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
-        return sessionProperties.getSessionProperties();
+        return sessionProperties;
     }
 
     @Override

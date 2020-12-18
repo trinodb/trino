@@ -22,6 +22,7 @@ import javax.inject.Inject;
 import java.util.List;
 
 public final class KafkaSessionProperties
+        implements SessionPropertiesProvider
 {
     private static final String TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED = "timestamp_upper_bound_force_push_down_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -30,11 +31,12 @@ public final class KafkaSessionProperties
     public KafkaSessionProperties(KafkaConfig kafkaConfig)
     {
         sessionProperties = ImmutableList.of(PropertyMetadata.booleanProperty(
-                TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
-                "Enable or disable timestamp upper bound push down for topic createTime mode",
-                kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
+                        TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
+                        "Enable or disable timestamp upper bound push down for topic createTime mode",
+                        kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
     }
 
+    @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
