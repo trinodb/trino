@@ -20,7 +20,7 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQue
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 
-public class TestPrestoConnectorIntegrationSmokeTest
+public class TestPrestoConnectorIntegrationSmokeTestWithMemory
         extends BasePrestoConnectorIntegrationSmokeTest
 {
     private DistributedQueryRunner remotePresto;

@@ -25,7 +25,7 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQue
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithHive;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 
-public class TestPrestoConnectorDistributedQueries
+public class TestPrestoConnectorDistributedQueriesWithHive
         extends BasePrestoConnectorDistributedQueriesWithoutWrites
 {
     @Override
