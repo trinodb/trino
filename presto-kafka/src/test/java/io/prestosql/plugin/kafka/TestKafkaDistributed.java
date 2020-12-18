@@ -36,6 +36,7 @@ public class TestKafkaDistributed
 
     @AfterClass(alwaysRun = true)
     public void destroy()
+            throws Exception
     {
         if (testingKafka != null) {
             testingKafka.close();

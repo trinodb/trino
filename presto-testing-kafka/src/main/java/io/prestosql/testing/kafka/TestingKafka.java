@@ -26,9 +26,6 @@ public interface TestingKafka
 
     void start();
 
-    @Override
-    default void close() {}
-
     void createTopic(String topic);
 
     void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime);
