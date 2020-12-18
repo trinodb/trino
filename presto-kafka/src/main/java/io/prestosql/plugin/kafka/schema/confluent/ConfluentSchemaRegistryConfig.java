@@ -17,6 +17,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 import io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
 import io.prestosql.spi.HostAddress;
 
@@ -29,12 +32,14 @@ import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ConfluentSchemaRegistryConfig
 {
     private Set<HostAddress> confluentSchemaRegistryUrls;
     private int confluentSchemaRegistryClientCacheSize = 1000;
     private EmptyFieldStrategy emptyFieldStrategy = IGNORE;
+    private Duration confluentSubjectsCacheRefreshInterval = new Duration(1, SECONDS);
 
     @Size(min = 1)
     public Set<HostAddress> getConfluentSchemaRegistryUrls()
@@ -75,6 +80,21 @@ public class ConfluentSchemaRegistryConfig
     public ConfluentSchemaRegistryConfig setEmptyFieldStrategy(EmptyFieldStrategy emptyFieldStrategy)
     {
         this.emptyFieldStrategy = emptyFieldStrategy;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @MaxDuration("30s")
+    public Duration getConfluentSubjectsCacheRefreshInterval()
+    {
+        return confluentSubjectsCacheRefreshInterval;
+    }
+
+    @Config("kafka.confluent-subjects-cache-refresh-interval")
+    @ConfigDescription("The interval that the topic to subjects cache will be refreshed")
+    public ConfluentSchemaRegistryConfig setConfluentSubjectsCacheRefreshInterval(Duration confluentSubjectsCacheRefreshInterval)
+    {
+        this.confluentSubjectsCacheRefreshInterval = confluentSubjectsCacheRefreshInterval;
         return this;
     }
 

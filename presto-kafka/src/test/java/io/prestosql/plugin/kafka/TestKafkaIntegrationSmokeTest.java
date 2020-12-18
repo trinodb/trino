@@ -20,7 +20,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.kafka.BasicTestingKafka;
-import io.prestosql.testing.kafka.TestingKafka;
 import io.prestosql.tpch.TpchTable;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -67,7 +66,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_
 public class TestKafkaIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private TestingKafka testingKafka;
+    private BasicTestingKafka testingKafka;
     private String rawFormatTopic;
     private String headersTopic;
     private static final String JSON_CUSTOM_DATE_TIME_TABLE_NAME = "custom_date_time_table";

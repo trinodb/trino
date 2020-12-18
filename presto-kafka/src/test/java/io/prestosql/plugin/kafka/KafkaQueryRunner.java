@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.decoder.DecoderModule;
@@ -47,13 +46,9 @@ import java.util.Optional;
 
 import static com.google.common.io.ByteStreams.toByteArray;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
-import static io.airlift.configuration.ConfigurationAwareModule.combine;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -67,33 +62,20 @@ public final class KafkaQueryRunner
     private static final String TPCH_SCHEMA = "tpch";
     private static final String TEST = "test";
 
-    public static Builder builder(TestingKafka testingKafka)
+    public static Builder builder(BasicTestingKafka testingKafka)
     {
         return new Builder(testingKafka);
     }
 
     public static class Builder
-            extends DistributedQueryRunner.Builder
+            extends KafkaQueryRunnerBuilder<BasicTestingKafka>
     {
-        private final TestingKafka testingKafka;
-        private Map<String, String> extraKafkaProperties = ImmutableMap.of();
         private List<TpchTable<?>> tables = ImmutableList.of();
         private Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription = ImmutableMap.of();
-        private Module extension = DEFAULT_EXTENSION;
 
-        protected Builder(TestingKafka testingKafka)
+        protected Builder(BasicTestingKafka testingKafka)
         {
-            super(testSessionBuilder()
-                    .setCatalog("kafka")
-                    .setSchema(TPCH_SCHEMA)
-                    .build());
-            this.testingKafka = requireNonNull(testingKafka, "testingKafka is null");
-        }
-
-        public Builder setExtraKafkaProperties(Map<String, String> extraKafkaProperties)
-        {
-            this.extraKafkaProperties = ImmutableMap.copyOf(requireNonNull(extraKafkaProperties, "extraKafkaProperties is null"));
-            return this;
+            super(testingKafka, TPCH_SCHEMA);
         }
 
         public Builder setTables(Iterable<TpchTable<?>> tables)
@@ -108,6 +90,7 @@ public final class KafkaQueryRunner
             return this;
         }
 
+        @Override
         public Builder setExtension(Module extension)
         {
             this.extension = requireNonNull(extension, "extension is null");
@@ -115,36 +98,14 @@ public final class KafkaQueryRunner
         }
 
         @Override
-        public DistributedQueryRunner build()
+        public void preInit(DistributedQueryRunner queryRunner)
                 throws Exception
         {
-            Logging logging = Logging.initialize();
-            logging.setLevel("org.apache.kafka", Level.WARN);
-
-            DistributedQueryRunner queryRunner = super.build();
-            return createKafkaQueryRunner(queryRunner, testingKafka, extraKafkaProperties, tables, extraTopicDescription, extension);
-        }
-    }
-
-    private static DistributedQueryRunner createKafkaQueryRunner(
-            DistributedQueryRunner queryRunner,
-            TestingKafka testingKafka,
-            Map<String, String> extraKafkaProperties,
-            Iterable<TpchTable<?>> tables,
-            Map<SchemaTableName, KafkaTopicDescription> extraTopicDescription,
-            Module extensions)
-            throws Exception
-    {
-        try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-
-            testingKafka.start();
-
             for (TpchTable<?> table : tables) {
                 testingKafka.createTopic(kafkaTopicName(table));
             }
-
             Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
 
             List<SchemaTableName> tableNames = new ArrayList<>();
@@ -166,24 +127,21 @@ public final class KafkaQueryRunner
                     .putAll(tpchTopicDescriptions)
                     .putAll(testTopicDescriptions.build())
                     .build();
-            KafkaPlugin kafkaPlugin = new KafkaPlugin(combine(
-                    extensions,
-                    installModuleIf(
-                            KafkaConfig.class,
-                            kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
-                            binder -> binder.bind(TableDescriptionSupplier.class)
-                                    .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
+            addModules(installModuleIf(
+                    KafkaConfig.class,
+                    kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
+                    binder -> binder.bind(TableDescriptionSupplier.class)
+                            .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
                     binder -> binder.bind(ContentSchemaReader.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON),
-                    new DecoderModule()));
-            queryRunner.installPlugin(kafkaPlugin);
+                    new DecoderModule());
+            Map<String, String> properties = new HashMap<>(extraKafkaProperties);
+            properties.putIfAbsent("kafka.table-description-supplier", TEST);
+            setExtraKafkaProperties(properties);
+        }
 
-            Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
-            kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
-            kafkaProperties.put("kafka.table-description-supplier", TEST);
-            kafkaProperties.putIfAbsent("kafka.default-schema", "default");
-            kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
-            queryRunner.createCatalog("kafka", "kafka", kafkaProperties);
-
+        @Override
+        public void postInit(DistributedQueryRunner queryRunner)
+        {
             TestingPrestoClient prestoClient = queryRunner.getClient();
 
             log.info("Loading data...");
@@ -192,12 +150,6 @@ public final class KafkaQueryRunner
                 loadTpchTopic(testingKafka, prestoClient, table);
             }
             log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
         }
     }
 
