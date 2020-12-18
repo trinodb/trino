@@ -26,13 +26,16 @@ import io.prestosql.decoder.avro.AvroBytesDeserializer;
 import io.prestosql.decoder.avro.AvroDeserializer;
 import io.prestosql.decoder.avro.AvroReaderSupplier;
 import io.prestosql.decoder.avro.AvroRowDecoderFactory;
+import io.prestosql.plugin.kafka.SessionPropertiesProvider;
 import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
+import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
 import io.prestosql.spi.HostAddress;
 
 import javax.inject.Singleton;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class ConfluentModule
@@ -44,6 +47,8 @@ public class ConfluentModule
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         install(new DecoderModule(new ConfluentAvroModule()));
         binder.bind(ContentSchemaReader.class).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
+        binder.bind(TableDescriptionSupplier.class).toProvider(ConfluentSchemaRegistryTableDescriptionSupplier.Factory.class).in(Scopes.SINGLETON);
     }
 
     @Provides

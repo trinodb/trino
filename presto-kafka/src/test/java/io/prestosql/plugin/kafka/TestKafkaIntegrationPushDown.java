@@ -27,7 +27,6 @@ import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.ResultWithQueryId;
 import io.prestosql.testing.kafka.BasicTestingKafka;
-import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -62,7 +61,7 @@ public class TestKafkaIntegrationPushDown
     private static final int TIMESTAMP_TEST_START_INDEX = 2;
     private static final int TIMESTAMP_TEST_END_INDEX = 4;
 
-    private TestingKafka testingKafka;
+    private BasicTestingKafka testingKafka;
     private String topicNamePartition;
     private String topicNameOffset;
     private String topicNameCreateTime;

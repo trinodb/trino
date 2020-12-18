@@ -24,6 +24,8 @@ import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetPro
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
 import io.prestosql.plugin.kafka.encoder.EncoderModule;
+import io.prestosql.plugin.kafka.schema.confluent.ConfluentModule;
+import io.prestosql.plugin.kafka.schema.confluent.ConfluentSchemaRegistryTableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplierModule;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -63,6 +65,7 @@ public class KafkaConnectorModule
 
         configBinder(binder).bindConfig(KafkaConfig.class);
         bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule());
+        bindTopicSchemaProviderModule(ConfluentSchemaRegistryTableDescriptionSupplier.NAME, new ConfluentModule());
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(KafkaSessionProperties.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
