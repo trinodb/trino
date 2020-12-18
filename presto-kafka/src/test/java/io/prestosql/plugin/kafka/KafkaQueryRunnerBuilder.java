@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.kafka;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.airlift.log.Level;
@@ -22,10 +21,8 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.kafka.TestingKafka;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.prestosql.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -37,7 +34,6 @@ public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>
     protected final T testingKafka;
     protected Map<String, String> extraKafkaProperties = ImmutableMap.of();
     protected Module extension = DEFAULT_EXTENSION;
-    private ImmutableList.Builder<Module> additionalModulesBuilder = ImmutableList.builder();
 
     public KafkaQueryRunnerBuilder(T testingKafka, String defaultSessionSchema)
     {
@@ -60,14 +56,6 @@ public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>
         return this;
     }
 
-    public KafkaQueryRunnerBuilder<?> addModules(Module... modules)
-    {
-        for (Module module : modules) {
-            additionalModulesBuilder.add(module);
-        }
-        return this;
-    }
-
     @Override
     public final DistributedQueryRunner build()
             throws Exception
@@ -79,8 +67,7 @@ public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>
         try {
             testingKafka.start();
             preInit(queryRunner);
-            List<Module> extensions = additionalModulesBuilder.add(extension).build();
-            queryRunner.installPlugin(new KafkaPlugin(combine(extensions)));
+            queryRunner.installPlugin(new KafkaPlugin(extension));
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
             kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
             kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
