@@ -344,7 +344,7 @@ public final class OracleDataTypes
             Type prestoResultType,
             Function<T, String> toLiteral)
     {
-        return dataType(insertType, prestoResultType, toLiteral, Function.identity());
+        return DataType.dataType(insertType, prestoResultType, toLiteral);
     }
 
     private static <T> DataType<T> dataType(

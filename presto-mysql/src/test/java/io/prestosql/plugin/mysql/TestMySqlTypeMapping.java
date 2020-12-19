@@ -617,8 +617,7 @@ public class TestMySqlTypeMapping
         return dataType(
                 "json",
                 JSON,
-                toLiteral,
-                identity());
+                toLiteral);
     }
 
     private static DataType<Float> mysqlFloatDataType()
