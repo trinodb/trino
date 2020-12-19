@@ -292,11 +292,19 @@ public class DataType<T>
         return new DataType<>(insertType, prestoResultType, toLiteral, toLiteral, Function.identity());
     }
 
+    /**
+     * @deprecated {@code toPrestoQueryResult} concept is deprecated. Use {@link SqlDataTypeTest} instead.
+     */
+    @Deprecated
     public static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, ?> toPrestoQueryResult)
     {
         return new DataType<>(insertType, prestoResultType, toLiteral, toLiteral, toPrestoQueryResult);
     }
 
+    /**
+     * @deprecated {@code toPrestoQueryResult} concept is deprecated. Use {@link SqlDataTypeTest} instead.
+     */
+    @Deprecated
     public static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, String> toPrestoLiteral, Function<T, ?> toPrestoQueryResult)
     {
         return new DataType<>(insertType, prestoResultType, toLiteral, toPrestoLiteral, toPrestoQueryResult);
