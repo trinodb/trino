@@ -51,7 +51,6 @@ import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
-import static java.util.function.Function.identity;
 
 public class DataType<T>
 {
@@ -139,7 +138,7 @@ public class DataType<T>
 
     public static DataType<String> stringDataType(String insertType, Type prestoResultType)
     {
-        return dataType(insertType, prestoResultType, DataType::formatStringLiteral, Function.identity());
+        return dataType(insertType, prestoResultType, DataType::formatStringLiteral);
     }
 
     public static DataType<String> charDataType(int length)
@@ -161,7 +160,7 @@ public class DataType<T>
 
     public static DataType<byte[]> varbinaryDataType()
     {
-        return dataType("varbinary", VarbinaryType.VARBINARY, DataType::binaryLiteral, Function.identity());
+        return dataType("varbinary", VarbinaryType.VARBINARY, DataType::binaryLiteral);
     }
 
     public static DataType<BigDecimal> decimalDataType(int precision, int scale)
@@ -179,8 +178,7 @@ public class DataType<T>
         return dataType(
                 "date",
                 DATE,
-                DateTimeFormatter.ofPattern("'DATE '''uuuu-MM-dd''")::format,
-                identity());
+                DateTimeFormatter.ofPattern("'DATE '''uuuu-MM-dd''")::format);
     }
 
     public static DataType<LocalTime> timeDataType(int precision)
@@ -226,8 +224,7 @@ public class DataType<T>
         return dataType(
                 "timestamp",
                 TIMESTAMP_MILLIS,
-                DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''")::format,
-                identity());
+                DateTimeFormatter.ofPattern("'TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''")::format);
     }
 
     public static DataType<LocalDateTime> timestampDataType(int precision)
@@ -269,8 +266,7 @@ public class DataType<T>
         return dataType(
                 "json",
                 JSON,
-                value -> "JSON " + formatStringLiteral(value),
-                identity());
+                value -> "JSON " + formatStringLiteral(value));
     }
 
     public static String formatStringLiteral(String value)

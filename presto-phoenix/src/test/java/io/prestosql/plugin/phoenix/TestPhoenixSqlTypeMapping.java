@@ -64,7 +64,6 @@ import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
 public class TestPhoenixSqlTypeMapping
@@ -114,7 +113,7 @@ public class TestPhoenixSqlTypeMapping
 
     public static DataType<byte[]> phoenixVarbinaryDataType()
     {
-        return dataType("varbinary", VarbinaryType.VARBINARY, value -> format("DECODE('%s', 'HEX')", base16().encode(value)), Function.identity());
+        return dataType("varbinary", VarbinaryType.VARBINARY, value -> format("DECODE('%s', 'HEX')", base16().encode(value)));
     }
 
     private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
@@ -382,8 +381,7 @@ public class TestPhoenixSqlTypeMapping
         return dataType(
                 "date",
                 DATE,
-                value -> format("TO_DATE('%s', 'yyyy-MM-dd', 'local')", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(value)),
-                identity());
+                value -> format("TO_DATE('%s', 'yyyy-MM-dd', 'local')", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(value)));
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
@@ -403,7 +401,7 @@ public class TestPhoenixSqlTypeMapping
 
     private DataType<Integer> primaryKey()
     {
-        return dataType("integer primary key", INTEGER, Object::toString, Function.identity());
+        return dataType("integer primary key", INTEGER, Object::toString);
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
