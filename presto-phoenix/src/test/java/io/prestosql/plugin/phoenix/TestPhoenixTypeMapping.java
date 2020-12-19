@@ -66,7 +66,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
-public class TestPhoenixSqlTypeMapping
+public class TestPhoenixTypeMapping
         extends AbstractTestQueryFramework
 {
     private TestingPhoenixServer phoenixServer;
@@ -166,7 +166,7 @@ public class TestPhoenixSqlTypeMapping
         decimalTests(DataType::decimalDataType)
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_decimal"));
 
-        decimalTests(TestPhoenixSqlTypeMapping::phoenixDecimalDataType)
+        decimalTests(TestPhoenixTypeMapping::phoenixDecimalDataType)
                 .addRoundTrip(primaryKey(), 1)
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_decimal"));
     }
@@ -255,29 +255,29 @@ public class TestPhoenixSqlTypeMapping
                 .addRoundTrip(arrayDataType(realDataType()), asList(123.45f))
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_array_basic"));
 
-        arrayDateTest(TestPhoenixSqlTypeMapping::arrayDataType, dateDataType())
+        arrayDateTest(TestPhoenixTypeMapping::arrayDataType, dateDataType())
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_array_date"));
-        arrayDateTest(TestPhoenixSqlTypeMapping::phoenixArrayDataType, phoenixDateDataType())
+        arrayDateTest(TestPhoenixTypeMapping::phoenixArrayDataType, phoenixDateDataType())
                 .addRoundTrip(primaryKey(), 1)
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_date"));
 
-        arrayDecimalTest(TestPhoenixSqlTypeMapping::arrayDataType, DataType::decimalDataType)
+        arrayDecimalTest(TestPhoenixTypeMapping::arrayDataType, DataType::decimalDataType)
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_array_decimal"));
-        arrayDecimalTest(TestPhoenixSqlTypeMapping::phoenixArrayDataType, TestPhoenixSqlTypeMapping::phoenixDecimalDataType)
+        arrayDecimalTest(TestPhoenixTypeMapping::phoenixArrayDataType, TestPhoenixTypeMapping::phoenixDecimalDataType)
                 .addRoundTrip(primaryKey(), 1)
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_decimal"));
 
-        arrayStringDataTypeTest(TestPhoenixSqlTypeMapping::arrayDataType, DataType::charDataType)
+        arrayStringDataTypeTest(TestPhoenixTypeMapping::arrayDataType, DataType::charDataType)
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_array_char"));
-        arrayStringDataTypeTest(TestPhoenixSqlTypeMapping::phoenixArrayDataType, DataType::charDataType)
+        arrayStringDataTypeTest(TestPhoenixTypeMapping::phoenixArrayDataType, DataType::charDataType)
                 .addRoundTrip(primaryKey(), 1)
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_char"));
 
-        arrayStringDataTypeTest(TestPhoenixSqlTypeMapping::arrayDataType, DataType::varcharDataType)
+        arrayStringDataTypeTest(TestPhoenixTypeMapping::arrayDataType, DataType::varcharDataType)
                 .addRoundTrip(arrayDataType(varcharDataType(10485760)), asList("text_f"))
                 .addRoundTrip(arrayDataType(varcharDataType()), asList("unbounded"))
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_array_varchar"));
-        arrayStringDataTypeTest(TestPhoenixSqlTypeMapping::phoenixArrayDataType, DataType::varcharDataType)
+        arrayStringDataTypeTest(TestPhoenixTypeMapping::phoenixArrayDataType, DataType::varcharDataType)
                 .addRoundTrip(phoenixArrayDataType(varcharDataType(10485760)), asList("text_f"))
                 .addRoundTrip(phoenixArrayDataType(varcharDataType()), asList("unbounded"))
                 .addRoundTrip(primaryKey(), 1)
