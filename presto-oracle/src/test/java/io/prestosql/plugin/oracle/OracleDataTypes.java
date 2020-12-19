@@ -19,6 +19,7 @@ import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.testing.datatype.DataType;
+import io.prestosql.testing.datatype.SqlDataTypeTest;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -347,6 +348,10 @@ public final class OracleDataTypes
         return DataType.dataType(insertType, prestoResultType, toLiteral);
     }
 
+    /**
+     * @deprecated {@code toPrestoQueryResult} concept is deprecated. Use {@link SqlDataTypeTest} instead.
+     */
+    @Deprecated
     private static <T> DataType<T> dataType(
             String insertType,
             Type prestoResultType,
