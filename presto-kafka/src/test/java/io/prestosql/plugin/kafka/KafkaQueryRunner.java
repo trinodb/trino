@@ -22,17 +22,14 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.decoder.DecoderModule;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
 import io.prestosql.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schema.file.FileContentSchemaReader;
 import io.prestosql.plugin.kafka.util.CodecSupplier;
-import io.prestosql.plugin.kafka.util.TestUtils;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.TestingPrestoClient;
 import io.prestosql.testing.kafka.BasicTestingKafka;
 import io.prestosql.testing.kafka.TestingKafka;
 import io.prestosql.tpch.TpchTable;
@@ -48,7 +45,6 @@ import static com.google.common.io.ByteStreams.toByteArray;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -142,12 +138,13 @@ public final class KafkaQueryRunner
         @Override
         public void postInit(DistributedQueryRunner queryRunner)
         {
-            TestingPrestoClient prestoClient = queryRunner.getClient();
-
             log.info("Loading data...");
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
-                loadTpchTopic(testingKafka, prestoClient, table);
+                long start = System.nanoTime();
+                log.info("Running import for %s", table.getTableName());
+                queryRunner.execute(format("INSERT INTO %1$s SELECT * FROM tpch.tiny.%1$s", table.getTableName()));
+                log.info("Imported %s in %s", 0, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
             }
             log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
         }
@@ -180,14 +177,6 @@ public final class KafkaQueryRunner
                 table.toString(),
                 key,
                 message);
-    }
-
-    private static void loadTpchTopic(TestingKafka testingKafka, TestingPrestoClient prestoClient, TpchTable<?> table)
-    {
-        long start = System.nanoTime();
-        log.info("Running import for %s", table.getTableName());
-        TestUtils.loadTpchTopic(testingKafka, prestoClient, kafkaTopicName(table), new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)));
-        log.info("Imported %s in %s", 0, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     private static String kafkaTopicName(TpchTable<?> table)
