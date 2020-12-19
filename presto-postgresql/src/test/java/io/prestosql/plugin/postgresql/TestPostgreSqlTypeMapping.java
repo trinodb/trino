@@ -905,8 +905,7 @@ public class TestPostgreSqlTypeMapping
                 value -> value
                         .replace("[", "ARRAY[")
                         .replace("\"", "'")
-                        + "::" + insertType,
-                identity());
+                        + "::" + insertType);
     }
 
     private static DataType<String> hstoreArrayAsJsonDataType()
@@ -916,8 +915,7 @@ public class TestPostgreSqlTypeMapping
                 JSON,
                 json -> HSTORE_CODEC.fromJson(json).stream()
                         .map(TestPostgreSqlTypeMapping::hstoreLiteral)
-                        .collect(joining(",", "ARRAY[", "]")),
-                identity());
+                        .collect(joining(",", "ARRAY[", "]")));
     }
 
     @Test
@@ -1734,8 +1732,7 @@ public class TestPostgreSqlTypeMapping
         return dataType(
                 "jsonb",
                 JSON,
-                value -> "JSON " + formatStringLiteral(value),
-                identity());
+                value -> "JSON " + formatStringLiteral(value));
     }
 
     private DataType<Map<String, String>> hstoreDataType()
@@ -1743,8 +1740,7 @@ public class TestPostgreSqlTypeMapping
         return dataType(
                 "hstore",
                 getQueryRunner().getMetadata().getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
-                TestPostgreSqlTypeMapping::hstoreLiteral,
-                identity());
+                TestPostgreSqlTypeMapping::hstoreLiteral);
     }
 
     private static String hstoreLiteral(Map<String, String> value)
@@ -1777,8 +1773,7 @@ public class TestPostgreSqlTypeMapping
                         values.add(formatted.get(i + 1));
                     }
                     return format("MAP(ARRAY[%s], ARRAY[%s])", Joiner.on(',').join(keys.build()), Joiner.on(',').join(values.build()));
-                },
-                identity());
+                });
     }
 
     public static DataType<java.util.UUID> uuidDataType()
@@ -1786,8 +1781,7 @@ public class TestPostgreSqlTypeMapping
         return dataType(
                 "uuid",
                 UUID,
-                value -> "UUID " + formatStringLiteral(value.toString()),
-                identity());
+                value -> "UUID " + formatStringLiteral(value.toString()));
     }
 
     private static DataType<byte[]> byteaDataType()

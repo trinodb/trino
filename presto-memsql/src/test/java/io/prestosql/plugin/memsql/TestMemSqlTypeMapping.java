@@ -79,7 +79,6 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.asList;
-import static java.util.function.Function.identity;
 
 public class TestMemSqlTypeMapping
         extends AbstractTestQueryFramework
@@ -575,12 +574,12 @@ public class TestMemSqlTypeMapping
 
     private static DataType<LocalDate> memSqlDateDataType(Function<LocalDate, String> toLiteral)
     {
-        return dataType("date", DATE, toLiteral, identity());
+        return dataType("date", DATE, toLiteral);
     }
 
     private static DataType<String> memSqlJsonDataType(Function<String, String> toLiteral)
     {
-        return dataType("json", JSON, toLiteral, identity());
+        return dataType("json", JSON, toLiteral);
     }
 
     private static DataType<Float> memSqlFloatDataType()
