@@ -22,6 +22,7 @@ import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DataProviders;
@@ -64,7 +65,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_DEFAULT_SCALE;
@@ -79,7 +79,7 @@ import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISAB
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.Chars.padSpaces;
+import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -219,31 +219,27 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testPostgreSqlCreatedChar()
+    public void testChar()
     {
-        characterDataTypeTest(DataType::charDataType)
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"));
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "'text_a'", createCharType(10), "CAST('text_a' AS char(10))")
+                .addRoundTrip("char(255)", "'text_b'", createCharType(255), "CAST('text_b' AS char(255))")
+                .addRoundTrip("char(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")
+                .addRoundTrip("char(32)", "'攻殻機動隊'", createCharType(32), "CAST('攻殻機動隊' AS char(32))")
+                .addRoundTrip("char(1)", "'😂'", createCharType(1), "CAST('😂' AS char(1))")
+                .addRoundTrip("char(77)", "'Ну, погоди!'", createCharType(77), "CAST('Ну, погоди!' AS char(77))")
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"))
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_char"));
 
         // too long for a char in Presto
         int length = CharType.MAX_LENGTH + 1;
-        DataType<String> longChar = dataType(
-                format("char(%s)", length),
-                createVarcharType(length),
-                DataType::formatStringLiteral,
-                input -> padSpaces(utf8Slice(input), length).toStringUtf8());
-        String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
-        DataTypeTest.create()
-                .addRoundTrip(longChar, "text_f")
-                .addRoundTrip(longChar, "a".repeat(length))
-                .addRoundTrip(longChar, sampleFourByteUnicodeCharacter.repeat(length))
+        String postgresqlType = format("char(%s)", length);
+        Type prestoType = createVarcharType(length);
+        SqlDataTypeTest.create()
+                .addRoundTrip(postgresqlType, "'test_f'", prestoType, format("'test_f%s'", " ".repeat(length - 6)))
+                .addRoundTrip(postgresqlType, format("'%s'", "a".repeat(length)), prestoType, format("'%s'", "a".repeat(length)))
+                .addRoundTrip(postgresqlType, "'\uD83D\uDE02'", prestoType, format("'\uD83D\uDE02%s'", " ".repeat(length - 1)))
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"));
-    }
-
-    @Test
-    public void testPrestoCreatedChar()
-    {
-        characterDataTypeTest(DataType::charDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_char"));
     }
 
     @Test
