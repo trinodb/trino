@@ -189,9 +189,49 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("integer", "123456789", INTEGER)
                 .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
                 .addRoundTrip("tinyint", "5", SMALLINT, "SMALLINT '5'")
-                .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
-                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
+    }
+
+    @Test
+    public void testReal()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
+                .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
+                .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'")
+                .addRoundTrip("real", "'NaN'::real", REAL, "CAST(nan() AS real)")
+                .addRoundTrip("real", "'-Infinity'::real", REAL, "CAST(-infinity() AS real)")
+                .addRoundTrip("real", "'+Infinity'::real", REAL, "CAST(+infinity() AS real)")
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_real"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
+                .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
+                .addRoundTrip("real", "3.1415927", REAL, "REAL '3.1415927'")
+                .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS real)")
+                .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS real)")
+                .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS real)")
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_real"));
+    }
+
+    @Test
+    public void testDouble()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("double precision", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("double precision", "1.0E100", DOUBLE, "1.0E100")
+                .addRoundTrip("double precision", "'NaN'::double precision", DOUBLE, "nan()")
+                .addRoundTrip("double precision", "'+Infinity'::double precision", DOUBLE, "+infinity()")
+                .addRoundTrip("double precision", "'-Infinity'::double precision", DOUBLE, "-infinity()")
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_double"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("double", "1.0E100", DOUBLE, "1.0E100")
+                .addRoundTrip("double", "nan()", DOUBLE, "nan()")
+                .addRoundTrip("double", "+infinity()", DOUBLE, "+infinity()")
+                .addRoundTrip("double", "-infinity()", DOUBLE, "-infinity()")
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
     }
 
     @Test
@@ -1559,47 +1599,6 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.presto_test_money"));
     }
 
-    @Test
-    public void testReal()
-    {
-        singlePrecisionFloatingPointTests(postgreSqlRealDataType())
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_real"));
-
-        singlePrecisionFloatingPointTests(realDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_real"));
-    }
-
-    @Test
-    public void testDouble()
-    {
-        doublePrecisionFloatingPointTests(postgreSqlDoubleDataType())
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_double"));
-
-        doublePrecisionFloatingPointTests(doubleDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
-    }
-
-    private static DataTypeTest singlePrecisionFloatingPointTests(DataType<Float> floatType)
-    {
-        return DataTypeTest.create(true)
-                .addRoundTrip(floatType, 3.14f)
-                .addRoundTrip(floatType, 3.1415927f)
-                .addRoundTrip(floatType, Float.NaN)
-                .addRoundTrip(floatType, Float.NEGATIVE_INFINITY)
-                .addRoundTrip(floatType, Float.POSITIVE_INFINITY)
-                .addRoundTrip(floatType, null);
-    }
-
-    private static DataTypeTest doublePrecisionFloatingPointTests(DataType<Double> doubleType)
-    {
-        return DataTypeTest.create(true)
-                .addRoundTrip(doubleType, 1.0e100d)
-                .addRoundTrip(doubleType, Double.NaN)
-                .addRoundTrip(doubleType, Double.POSITIVE_INFINITY)
-                .addRoundTrip(doubleType, Double.NEGATIVE_INFINITY)
-                .addRoundTrip(doubleType, null);
-    }
-
     private void testUnsupportedDataTypeAsIgnored(String dataTypeName, String databaseValue)
     {
         testUnsupportedDataTypeAsIgnored(getSession(), dataTypeName, databaseValue);
@@ -1852,37 +1851,5 @@ public class TestPostgreSqlTypeMapping
     private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
     {
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
-    }
-
-    private static DataType<Float> postgreSqlRealDataType()
-    {
-        return dataType("real", REAL,
-                value -> {
-                    if (Float.isFinite(value)) {
-                        return value.toString();
-                    }
-                    if (Float.isNaN(value)) {
-                        return "'NaN'::real";
-                    }
-                    return format("'%sInfinity'::real", value > 0 ? "+" : "-");
-                },
-                realDataType()::toPrestoLiteral,
-                Function.identity());
-    }
-
-    private static DataType<Double> postgreSqlDoubleDataType()
-    {
-        return dataType("double precision", DOUBLE,
-                value -> {
-                    if (Double.isFinite(value)) {
-                        return value.toString();
-                    }
-                    if (Double.isNaN(value)) {
-                        return "'NaN'::double precision";
-                    }
-                    return format("'%sInfinity'::double precision", value > 0 ? "+" : "-");
-                },
-                doubleDataType()::toPrestoLiteral,
-                Function.identity());
     }
 }
