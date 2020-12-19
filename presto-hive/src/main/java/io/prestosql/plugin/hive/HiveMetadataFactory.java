@@ -26,6 +26,7 @@ import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -59,6 +60,8 @@ public class HiveMetadataFactory
     private final AccessControlMetadataFactory accessControlMetadataFactory;
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
     private final ScheduledExecutorService heartbeatService;
+    private final List<String> visibleSchemas;
+    private final List<String> hiddenSchemas;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -99,7 +102,9 @@ public class HiveMetadataFactory
                 executorService,
                 heartbeatService,
                 nodeVersion.toString(),
-                accessControlMetadataFactory);
+                accessControlMetadataFactory,
+                metastoreConfig.getVisibleSchemas(),
+                metastoreConfig.getHiddenSchemas());
     }
 
     public HiveMetadataFactory(
@@ -124,7 +129,9 @@ public class HiveMetadataFactory
             ExecutorService executorService,
             ScheduledExecutorService heartbeatService,
             String prestoVersion,
-            AccessControlMetadataFactory accessControlMetadataFactory)
+            AccessControlMetadataFactory accessControlMetadataFactory,
+            List<String> visibleSchemas,
+            List<String> hiddenSchemas)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -134,6 +141,8 @@ public class HiveMetadataFactory
         this.translateHiveViews = translateHiveViews;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
+        this.visibleSchemas = visibleSchemas;
+        this.hiddenSchemas = hiddenSchemas;
 
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -185,6 +194,8 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
-                accessControlMetadataFactory.create(metastore));
+                accessControlMetadataFactory.create(metastore),
+                visibleSchemas,
+                hiddenSchemas);
     }
 }

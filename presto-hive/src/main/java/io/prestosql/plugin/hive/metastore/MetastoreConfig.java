@@ -15,10 +15,16 @@ package io.prestosql.plugin.hive.metastore;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import java.util.List;
 
 public class MetastoreConfig
 {
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private boolean hideDeltaLakeTables;
+    private List<String> visibleSchemas = ImmutableList.of();
+    private List<String> hiddenSchemas = ImmutableList.of();
 
     public boolean isHideDeltaLakeTables()
     {
@@ -30,6 +36,32 @@ public class MetastoreConfig
     public MetastoreConfig setHideDeltaLakeTables(boolean hideDeltaLakeTables)
     {
         this.hideDeltaLakeTables = hideDeltaLakeTables;
+        return this;
+    }
+
+    public List<String> getVisibleSchemas()
+    {
+        return visibleSchemas;
+    }
+
+    @Config("hive.visible-schemas")
+    @ConfigDescription("Visible hive schemas")
+    public MetastoreConfig setVisibleSchemas(String visibleSchemas)
+    {
+        this.visibleSchemas = SPLITTER.splitToList(visibleSchemas);
+        return this;
+    }
+
+    public List<String> getHiddenSchemas()
+    {
+        return hiddenSchemas;
+    }
+
+    @Config("hive.hidden-schemas")
+    @ConfigDescription("Hidden hive schemas")
+    public MetastoreConfig setHiddenSchemas(String hiddenSchemas)
+    {
+        this.hiddenSchemas = SPLITTER.splitToList(hiddenSchemas);
         return this;
     }
 }
