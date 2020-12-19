@@ -80,6 +80,7 @@ import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgre
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.padSpaces;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -194,6 +195,30 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
+    public void testDecimal()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.0' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('-10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2' AS decimal(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2.3' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2.3' AS decimal(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('123456789.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('123456789.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "CAST('12345678901234567890.31' AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
+                .addRoundTrip("decimal(30, 5)", "CAST('3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_decimal"))
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_decimal"));
+    }
+
+    @Test
     public void testPostgreSqlCreatedChar()
     {
         characterDataTypeTest(DataType::charDataType)
@@ -262,41 +287,6 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(dataTypeFactory.apply(20000), sampleUnicodeText)
                 .addRoundTrip(dataTypeFactory.apply(1), sampleFourByteUnicodeCharacter)
                 .addRoundTrip(dataTypeFactory.apply(77), "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!");
-    }
-
-    @Test
-    public void testPostgreSqlCreatedDecimal()
-    {
-        decimalTests()
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_decimal"));
-    }
-
-    @Test
-    public void testPrestoCreatedDecimal()
-    {
-        decimalTests()
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_decimal"));
-    }
-
-    private DataTypeTest decimalTests()
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("193"))
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("19"))
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("-193"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("10.0"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("10.1"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("-10.1"))
-                .addRoundTrip(decimalDataType(4, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalDataType(4, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("123456789.3"))
-                .addRoundTrip(decimalDataType(24, 4), new BigDecimal("12345678901234567890.31"))
-                .addRoundTrip(decimalDataType(30, 5), new BigDecimal("3141592653589793238462643.38327"))
-                .addRoundTrip(decimalDataType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
-                .addRoundTrip(decimalDataType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
-                .addRoundTrip(decimalDataType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
     }
 
     @Test
