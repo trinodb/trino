@@ -15,12 +15,8 @@ package io.prestosql.plugin.kafka.util;
 
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
-import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.KafkaTopicDescription;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.testing.TestingPrestoClient;
-import io.prestosql.testing.kafka.TestingKafka;
-import org.apache.kafka.clients.producer.KafkaProducer;
 
 import java.io.IOException;
 import java.util.AbstractMap;
@@ -32,14 +28,6 @@ import static java.lang.String.format;
 public final class TestUtils
 {
     private TestUtils() {}
-
-    public static void loadTpchTopic(TestingKafka testingKafka, TestingPrestoClient prestoClient, String topicName, QualifiedObjectName tpchTableName)
-    {
-        try (KafkaProducer<Long, Object> producer = testingKafka.createProducer();
-                KafkaLoader tpchLoader = new KafkaLoader(producer, topicName, prestoClient.getServer(), prestoClient.getDefaultSession())) {
-            tpchLoader.execute(format("SELECT * from %s", tpchTableName));
-        }
-    }
 
     public static Map.Entry<SchemaTableName, KafkaTopicDescription> loadTpchTopicDescription(JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec, String topicName, SchemaTableName schemaTableName)
             throws IOException
