@@ -103,19 +103,16 @@ import static io.prestosql.testing.datatype.DataType.realDataType;
 import static io.prestosql.testing.datatype.DataType.smallintDataType;
 import static io.prestosql.testing.datatype.DataType.timeDataType;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
-import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UuidType.UUID;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
-import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -194,27 +191,6 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
                 .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
-    }
-
-    @Test
-    public void testVarbinary()
-    {
-        varbinaryTestCases(byteaDataType())
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases(varbinaryDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
-    }
-
-    private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
-    {
-        return DataTypeTest.create()
-                .addRoundTrip(varbinaryDataType, "hello".getBytes(UTF_8))
-                .addRoundTrip(varbinaryDataType, "Piękna łąka w 東京都".getBytes(UTF_8))
-                .addRoundTrip(varbinaryDataType, "Bag full of 💰".getBytes(UTF_16LE))
-                .addRoundTrip(varbinaryDataType, null)
-                .addRoundTrip(varbinaryDataType, new byte[] {})
-                .addRoundTrip(varbinaryDataType, new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, -7, 54, 122, -89, 0, 0, 0});
     }
 
     @Test
@@ -321,6 +297,34 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(decimalDataType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
                 .addRoundTrip(decimalDataType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
                 .addRoundTrip(decimalDataType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
+    }
+
+    @Test
+    public void testVarbinary()
+    {
+        // PostgreSQL's BYTEA is mapped to Presto VARBINARY. PostgreSQL does not have VARBINARY type.
+        SqlDataTypeTest.create()
+                .addRoundTrip("bytea", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("bytea", utf8ByteaLiteral("hello"), VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("bytea", utf8ByteaLiteral("Piękna łąka w 東京都"), VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("bytea", utf8ByteaLiteral("Bag full of 💰"), VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip("bytea", "bytea E'\\\\x'", VARBINARY, "X''")
+                .addRoundTrip("bytea", "bytea E'\\\\x0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'")
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varbinary"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("varbinary", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("varbinary", "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip("varbinary", "X''", VARBINARY, "X''")
+                .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'")
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
+    }
+
+    private static String utf8ByteaLiteral(String string)
+    {
+        return format("bytea E'\\\\x%s'", base16().encode(string.getBytes(UTF_8)));
     }
 
     @Test
@@ -1782,16 +1786,6 @@ public class TestPostgreSqlTypeMapping
                 "uuid",
                 UUID,
                 value -> "UUID " + formatStringLiteral(value.toString()));
-    }
-
-    private static DataType<byte[]> byteaDataType()
-    {
-        return dataType(
-                "bytea",
-                VARBINARY,
-                bytes -> format("bytea E'\\\\x%s'", base16().encode(bytes)),
-                DataType::binaryLiteral,
-                identity());
     }
 
     private static DataType<Double> moneyDataType()
