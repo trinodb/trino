@@ -279,7 +279,7 @@ public class KafkaMetadata
         // TODO: support transactional inserts https://github.com/prestosql/presto/issues/4303
         KafkaTableHandle table = (KafkaTableHandle) tableHandle;
         List<KafkaColumnHandle> actualColumns = table.getColumns().stream()
-                .filter(col -> !col.isInternal())
+                .filter(columnHandle -> !columnHandle.isInternal() && !columnHandle.isHidden())
                 .collect(toImmutableList());
 
         checkArgument(columns.equals(actualColumns), "Unexpected columns!\nexpected: %s\ngot: %s", actualColumns, columns);
