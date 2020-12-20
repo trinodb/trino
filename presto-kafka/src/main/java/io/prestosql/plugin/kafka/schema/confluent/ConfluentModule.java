@@ -60,7 +60,7 @@ public class ConfluentModule
 
     @Provides
     @Singleton
-    public SchemaRegistryClient getSchemaRegistryClient(ConfluentSchemaRegistryConfig confluentConfig, Set<SchemaProvider> schemaProviders)
+    public static SchemaRegistryClient getSchemaRegistryClient(ConfluentSchemaRegistryConfig confluentConfig, Set<SchemaProvider> schemaProviders)
     {
         return new CachedSchemaRegistryClient(
                 confluentConfig.getConfluentSchemaRegistryUrls().stream()

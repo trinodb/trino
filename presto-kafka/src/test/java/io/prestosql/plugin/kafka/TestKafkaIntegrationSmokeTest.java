@@ -296,23 +296,23 @@ public class TestKafkaIntegrationSmokeTest
                         ")");
     }
 
-    private KafkaTopicDescription createDescription(String name, String schema, String topic, Optional<KafkaTopicFieldGroup> message)
+    private static KafkaTopicDescription createDescription(String name, String schema, String topic, Optional<KafkaTopicFieldGroup> message)
     {
         return new KafkaTopicDescription(name, Optional.of(schema), topic, Optional.empty(), message);
     }
 
-    private Optional<KafkaTopicFieldGroup> createFieldGroup(String dataFormat, List<KafkaTopicFieldDescription> fields)
+    private static Optional<KafkaTopicFieldGroup> createFieldGroup(String dataFormat, List<KafkaTopicFieldDescription> fields)
     {
         return Optional.of(new KafkaTopicFieldGroup(dataFormat, Optional.empty(), Optional.empty(), fields));
     }
 
-    private KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String dataFormat, Optional<String> formatHint)
+    private static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String dataFormat, Optional<String> formatHint)
     {
         return formatHint.map(s -> new KafkaTopicFieldDescription(name, type, name, null, dataFormat, s, false))
                 .orElseGet(() -> new KafkaTopicFieldDescription(name, type, name, null, dataFormat, null, false));
     }
 
-    private KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String mapping, String dataFormat)
+    private static KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String mapping, String dataFormat)
     {
         return new KafkaTopicFieldDescription(name, type, mapping, null, dataFormat, null, false);
     }
@@ -353,13 +353,13 @@ public class TestKafkaIntegrationSmokeTest
     }
 
     @DataProvider
-    public final Object[][] jsonDateTimeFormatsDataProvider()
+    public static Object[][] jsonDateTimeFormatsDataProvider()
     {
         return jsonDateTimeFormatsData().stream()
                 .collect(toDataProvider());
     }
 
-    private List<JsonDateTimeTestCase> jsonDateTimeFormatsData()
+    private static List<JsonDateTimeTestCase> jsonDateTimeFormatsData()
     {
         return ImmutableList.<JsonDateTimeTestCase>builder()
                 .add(JsonDateTimeTestCase.builder()
@@ -396,7 +396,7 @@ public class TestKafkaIntegrationSmokeTest
                 .build();
     }
 
-    private Map<SchemaTableName, KafkaTopicDescription> createJsonDateTimeTestTopic()
+    private static Map<SchemaTableName, KafkaTopicDescription> createJsonDateTimeTestTopic()
     {
         return jsonDateTimeFormatsData().stream().collect(toImmutableMap(
                 testCase -> new SchemaTableName("write_test", testCase.getTopicName()),
@@ -549,13 +549,13 @@ public class TestKafkaIntegrationSmokeTest
     }
 
     @DataProvider
-    public final Object[][] roundTripAllFormatsDataProvider()
+    public static Object[][] roundTripAllFormatsDataProvider()
     {
         return roundTripAllFormatsData().stream()
                 .collect(toDataProvider());
     }
 
-    private List<RoundTripTestCase> roundTripAllFormatsData()
+    private static List<RoundTripTestCase> roundTripAllFormatsData()
     {
         return ImmutableList.<RoundTripTestCase>builder()
                 .add(new RoundTripTestCase(

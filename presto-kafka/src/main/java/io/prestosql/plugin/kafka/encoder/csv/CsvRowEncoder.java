@@ -61,7 +61,7 @@ public class CsvRowEncoder
         this.row = new String[this.columnHandles.size()];
     }
 
-    private boolean isSupportedType(Type type)
+    private static boolean isSupportedType(Type type)
     {
         return type instanceof VarcharType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }

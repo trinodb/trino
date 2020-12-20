@@ -54,14 +54,14 @@ public class TestJsonEncoder
     private static final ConnectorSession SESSION = TestingConnectorSession.builder().build();
     private static final JsonRowEncoderFactory ENCODER_FACTORY = new JsonRowEncoderFactory(new ObjectMapper());
 
-    private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)
+    private static void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)
     {
         assertThatThrownBy(callable)
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching("Unsupported column type .* for column .*");
     }
 
-    private void assertUnsupportedDataFormatException(ThrowableAssert.ThrowingCallable callable)
+    private static void assertUnsupportedDataFormatException(ThrowableAssert.ThrowingCallable callable)
     {
         assertThatThrownBy(callable)
                 .isInstanceOf(IllegalArgumentException.class)
@@ -74,17 +74,17 @@ public class TestJsonEncoder
         void apply();
     }
 
-    private void assertSupportedDataType(EmptyFunctionalInterface functionalInterface)
+    private static void assertSupportedDataType(EmptyFunctionalInterface functionalInterface)
     {
         functionalInterface.apply();
     }
 
-    private void singleColumnEncoder(Type type)
+    private static void singleColumnEncoder(Type type)
     {
         ENCODER_FACTORY.create(SESSION, Optional.empty(), ImmutableList.of(new KafkaColumnHandle("default", type, "default", null, null, false, false, false)));
     }
 
-    private void singleColumnEncoder(Type type, DateTimeFormat dataFormat, String formatHint)
+    private static void singleColumnEncoder(Type type, DateTimeFormat dataFormat, String formatHint)
     {
         requireNonNull(dataFormat, "dataFormat is null");
         if (dataFormat.equals(CUSTOM_DATE_TIME)) {

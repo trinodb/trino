@@ -100,14 +100,14 @@ public class JsonRowEncoder
         this.node = objectMapper.createObjectNode();
     }
 
-    private boolean isSupportedType(Type type)
+    private static boolean isSupportedType(Type type)
     {
         return type instanceof VarcharType ||
                 SUPPORTED_PRIMITIVE_TYPES.contains(type) ||
                 isSupportedTemporalType(type);
     }
 
-    private boolean isSupportedTemporalType(Type type)
+    private static boolean isSupportedTemporalType(Type type)
     {
         return type.equals(DATE) ||
                 type.equals(TIME_MILLIS) ||
@@ -116,7 +116,7 @@ public class JsonRowEncoder
                 type.equals(TIMESTAMP_TZ_MILLIS);
     }
 
-    private DateTimeFormat parseDataFormat(String dataFormat, String columnName)
+    private static DateTimeFormat parseDataFormat(String dataFormat, String columnName)
     {
         try {
             return DateTimeFormat.valueOf(dataFormat.toUpperCase(ENGLISH).replaceAll("-", "_").strip());

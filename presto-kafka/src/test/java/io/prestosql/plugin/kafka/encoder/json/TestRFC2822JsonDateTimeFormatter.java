@@ -29,18 +29,18 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestRFC2822JsonDateTimeFormatter
 {
-    private JsonDateTimeFormatter getFormatter()
+    private static JsonDateTimeFormatter getFormatter()
     {
         return RFC2822.getFormatter(Optional.empty());
     }
 
-    private void testTimestamp(SqlTimestamp value, String expectedLiteral)
+    private static void testTimestamp(SqlTimestamp value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimestamp(value);
         assertEquals(actualLiteral, expectedLiteral);
     }
 
-    private void testTimestampWithTZ(SqlTimestampWithTimeZone value, String expectedLiteral)
+    private static void testTimestampWithTZ(SqlTimestampWithTimeZone value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimestampWithZone(value);
         assertEquals(actualLiteral, expectedLiteral);
