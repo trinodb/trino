@@ -2,7 +2,7 @@
 Event Listener
 ==============
 
-Presto supports custom event listeners that are invoked for the following
+Trino supports custom event listeners that are invoked for the following
 events:
 
 * Query creation
@@ -10,7 +10,7 @@ events:
 * Split completion (success or failure)
 
 This functionality enables development of custom logging, debugging and
-performance analysis plugins. In a Presto cluster, only a single event
+performance analysis plugins. In a Trino cluster, only a single event
 listener plugin can be active at a time .
 
 Implementation
@@ -18,12 +18,12 @@ Implementation
 
 ``EventListenerFactory`` is responsible for creating an
 ``EventListener`` instance. It also defines an ``EventListener``
-name which is used by the administrator in a Presto configuration.
+name which is used by the administrator in a Trino configuration.
 Implementations of ``EventListener`` implement methods for the event types
 they are interested in handling.
 
 The implementation of ``EventListener`` and ``EventListenerFactory``
-must be wrapped as a plugin and installed on the Presto cluster.
+must be wrapped as a plugin and installed on the Trino cluster.
 
 Configuration
 -------------
@@ -34,7 +34,7 @@ configured using an ``etc/event-listener.properties`` file. All of the
 properties other than ``event-listener.name`` are specific to the
 ``EventListener`` implementation.
 
-The ``event-listener.name`` property is used by Presto to find a registered
+The ``event-listener.name`` property is used by Trino to find a registered
 ``EventListenerFactory`` based on the name returned by
 ``EventListenerFactory.getName()``. The remaining properties are passed
 as a map to ``EventListenerFactory.create()``.

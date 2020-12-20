@@ -3,7 +3,7 @@ Memory Connector
 ================
 
 The Memory connector stores all data and metadata in RAM on workers
-and both are discarded when Presto restarts.
+and both are discarded when Trino restarts.
 
 
 Configuration

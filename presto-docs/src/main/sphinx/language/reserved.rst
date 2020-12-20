@@ -2,7 +2,7 @@
 Reserved Keywords
 =================
 
-The following table lists all of the keywords that are reserved in Presto,
+The following table lists all of the keywords that are reserved in Trino,
 along with their status in the SQL standard. These reserved keywords must
 be quoted (using double quotes) in order to be used as an identifier.
 

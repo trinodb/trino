@@ -2,7 +2,7 @@
 Certificate Authenticator
 =========================
 
-Presto supports TLS-based authentication with X509 certificates via a custom
+Trino supports TLS-based authentication with X509 certificates via a custom
 certificate authenticator that extracts the principal from a client certificate.
 
 Implementation
@@ -10,14 +10,14 @@ Implementation
 
 ``CertificateAuthenticatorFactory`` is responsible for creating a
 ``CertificateAuthenticator`` instance. It also defines the name of this
-authenticator which is used by the administrator in a Presto configuration.
+authenticator which is used by the administrator in a Trino configuration.
 
 ``CertificateAuthenticator`` contains a single method, ``authenticate()``,
 which authenticates the client certificate and returns a ``Principal``, which is then
 authorized by the :doc:`system-access-control`.
 
 The implementation of ``CertificateAuthenticatorFactory`` must be wrapped
-as a plugin and installed on the Presto cluster.
+as a plugin and installed on the Trino cluster.
 
 Configuration
 -------------
@@ -28,7 +28,7 @@ installed on the coordinator, it is configured using an
 properties other than ``certificate-authenticator.name`` are specific to the
 ``CertificateAuthenticatorFactory`` implementation.
 
-The ``certificate-authenticator.name`` property is used by Presto to find a
+The ``certificate-authenticator.name`` property is used by Trino to find a
 registered ``CertificateAuthenticatorFactory`` based on the name returned by
 ``CertificateAuthenticatorFactory.getName()``. The remaining properties are
 passed as a map to ``CertificateAuthenticatorFactory.create()``.

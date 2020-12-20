@@ -28,13 +28,13 @@ Multiple MySQL Servers
 You can have as many catalogs as you need, so if you have additional
 MySQL servers, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``. For
-example, if you name the property file ``sales.properties``, Presto
+example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
 Decimal Type Handling
 ---------------------
 
-``DECIMAL`` types with precision larger than 38 can be mapped to a Presto ``DECIMAL``
+``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
 by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
 ``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
 configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.

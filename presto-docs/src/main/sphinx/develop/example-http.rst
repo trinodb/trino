@@ -11,7 +11,7 @@ Code
 ----
 
 The Example HTTP connector can be found in the ``presto-example-http``
-directory in the root of the Presto source tree.
+directory in the root of the Trino source tree.
 
 Plugin Implementation
 ---------------------
@@ -37,14 +37,14 @@ and returns an ``ExampleConnectorFactory``.
 ConnectorFactory Implementation
 -------------------------------
 
-In Presto, the primary object that handles the connection between
-Presto and a particular type of data source is the ``Connector`` object,
+In Trino, the primary object that handles the connection between
+Trino and a particular type of data source is the ``Connector`` object,
 which are created using ``ConnectorFactory``.
 
 This implementation is available in the class ``ExampleConnectorFactory``.
 The first thing the connector factory implementation does is specify the
 name of this connector. This is the same string used to reference this
-connector in Presto configuration.
+connector in Trino configuration.
 
 .. code-block:: java
 
@@ -78,7 +78,7 @@ and exception handling:
 Connector: ExampleConnector
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This class allows Presto to obtain references to the various services
+This class allows Trino to obtain references to the various services
 provided by the connector.
 
 Metadata: ExampleMetadata
@@ -87,7 +87,7 @@ Metadata: ExampleMetadata
 This class is responsible for reporting table names, table metadata,
 column names, column metadata and other information about the schemas
 that are provided by this connector. ``ConnectorMetadata`` is also called
-by Presto to ensure that a particular connector can understand and
+by Trino to ensure that a particular connector can understand and
 handle a given table name.
 
 The ``ExampleMetadata`` implementation delegates many of these calls to
@@ -98,7 +98,7 @@ Split Manager: ExampleSplitManager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The split manager partitions the data for a table into the individual
-chunks that Presto will distribute to workers for processing.
+chunks that Trino will distribute to workers for processing.
 In the case of the Example HTTP connector, each table contains one or
 more URIs pointing at the actual data. One split is created per URI.
 
@@ -106,7 +106,7 @@ Record Set Provider: ExampleRecordSetProvider
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The record set provider creates a record set which in turn creates a
-record cursor that returns the actual data to Presto.
+record cursor that returns the actual data to Trino.
 ``ExampleRecordCursor`` reads data from a URI via HTTP. Each line
 corresponds to a single row. Lines are split on comma into individual
-field values which are then returned to Presto.
+field values which are then returned to Trino.

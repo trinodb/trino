@@ -21,7 +21,7 @@ table ``format`` defaults to ``ORC``.
 
 Iceberg is designed to improve on the known scalability limitations of Hive, which stores
 table metadata in a metastore that is backed by a relational database such as MySQL.  It tracks
-partition locations in the metastore, but not individual data files.  Presto queries
+partition locations in the metastore, but not individual data files.  Trino queries
 using the :doc:`/connector/hive` must first call the metastore to get partition locations,
 then call the underlying filesystem to list all data files inside each partition,
 and then read metadata from each data file.
@@ -126,7 +126,7 @@ Migrating Existing Tables
 -------------------------
 
 The connector can read from or write to Hive tables that have been migrated to Iceberg.
-Currently, there is no Presto support to migrate Hive tables to Presto, so you will
+Currently, there is no Trino support to migrate Hive tables to Trino, so you will
 need to use either the Iceberg API or Spark.
 
 System Tables and Columns

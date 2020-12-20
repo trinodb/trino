@@ -5,16 +5,16 @@ Kafka Connector Tutorial
 Introduction
 ============
 
-The :doc:`kafka` for Presto allows access to live topic data from
-Apache Kafka using Presto. This tutorial shows how to set up topics, and
-how to create the topic description files that back Presto tables.
+The :doc:`kafka` for Trino allows access to live topic data from
+Apache Kafka using Trino. This tutorial shows how to set up topics, and
+how to create the topic description files that back Trino tables.
 
 Installation
 ============
 
-This tutorial assumes familiarity with Presto and a working local Presto
+This tutorial assumes familiarity with Trino and a working local Trino
 installation (see :doc:`/installation/deployment`). It focuses on
-setting up Apache Kafka and integrating it with Presto.
+setting up Apache Kafka and integrating it with Trino.
 
 Step 1: Install Apache Kafka
 ----------------------------
@@ -87,10 +87,10 @@ Now run the ``kafka-tpch`` program to preload a number of topics with tpch data:
 
 Kafka now has a number of topics that are preloaded with data to query.
 
-Step 3: Make the Kafka topics known to Presto
+Step 3: Make the Kafka topics known to Trino
 ---------------------------------------------
 
-In your Presto installation, add a catalog properties file
+In your Trino installation, add a catalog properties file
 ``etc/catalog/kafka.properties`` for the Kafka connector.
 This file lists the Kafka nodes and topics:
 
@@ -101,7 +101,7 @@ This file lists the Kafka nodes and topics:
     kafka.table-names=tpch.customer,tpch.orders,tpch.lineitem,tpch.part,tpch.partsupp,tpch.supplier,tpch.nation,tpch.region
     kafka.hide-internal-columns=false
 
-Now start Presto:
+Now start Trino:
 
 .. code-block:: text
 
@@ -111,7 +111,7 @@ Because the Kafka tables all have the ``tpch.`` prefix in the configuration,
 the tables are in the ``tpch`` schema. The connector is mounted into the
 ``kafka`` catalog, because the properties file is named ``kafka.properties``.
 
-Start the :doc:`Presto CLI </installation/cli>`:
+Start the :doc:`Trino CLI </installation/cli>`:
 
 .. code-block:: text
 
@@ -179,10 +179,10 @@ built-in ones:
      6681865.59
     (1 row)
 
-The data from Kafka can be queried using Presto, but it is not yet in
+The data from Kafka can be queried using Trino, but it is not yet in
 actual table shape. The raw data is available through the ``_message`` and
 ``_key`` columns, but it is not decoded into columns. As the sample data is
-in JSON format, the :doc:`/functions/json` built into Presto can be used
+in JSON format, the :doc:`/functions/json` built into Trino can be used
 to slice the data.
 
 Step 5: Add a topic description file
@@ -190,10 +190,10 @@ Step 5: Add a topic description file
 
 The Kafka connector supports topic description files to turn raw data into
 table format. These files are located in the ``etc/kafka`` folder in the
-Presto installation and must end with ``.json``. It is recommended that
+Trino installation and must end with ``.json``. It is recommended that
 the file name matches the table name, but this is not necessary.
 
-Add the following file as ``etc/kafka/tpch.customer.json`` and restart Presto:
+Add the following file as ``etc/kafka/tpch.customer.json`` and restart Trino:
 
 .. code-block:: json
 
@@ -249,13 +249,13 @@ The customer table now has an additional column: ``kafka_key``.
     (10 rows)
 
 The topic definition file maps the internal Kafka key, which is a raw long
-in eight bytes, onto a Presto ``BIGINT`` column.
+in eight bytes, onto a Trino ``BIGINT`` column.
 
 Step 6: Map all the values from the topic message onto columns
 --------------------------------------------------------------
 
 Update the ``etc/kafka/tpch.customer.json`` file to add fields for the
-message, and restart Presto. As the fields in the message are JSON, it uses
+message, and restart Trino. As the fields in the message are JSON, it uses
 the ``json`` data format. This is an example, where different data formats
 are used for the key and the message.
 
@@ -374,12 +374,12 @@ the sum query from earlier can operate on the ``account_balance`` column directl
     (1 row)
 
 Now all the fields from the ``customer`` topic messages are available as
-Presto table columns.
+Trino table columns.
 
 Step 7: Use live data
 ---------------------
 
-Presto can query live data in Kafka as it arrives. To simulate a live feed
+Trino can query live data in Kafka as it arrives. To simulate a live feed
 of data, this tutorial sets up a feed of live tweets into Kafka.
 
 Setup a live Twitter feed
@@ -406,7 +406,7 @@ Setup a live Twitter feed
     twistr.consumer-secret=...
     twistr.kafka.brokers=localhost:9092
 
-Create a tweets table on Presto
+Create a tweets table on Trino
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Add the tweets table to the ``etc/catalog/kafka.properties`` file:
@@ -549,7 +549,7 @@ Now run queries against live data:
      494227750388256769 | jmolas          | es   | 2014-07-29 14:07:32.000
     (10 rows)
 
-There is now a live feed into Kafka, which can be queried using Presto.
+There is now a live feed into Kafka, which can be queried using Trino.
 
 Epilogue: Time stamps
 ---------------------
@@ -584,7 +584,7 @@ timestamp using the ``rfc2822`` converter:
     },
     ...
 
-This allows the raw data to be mapped onto a Presto timestamp column:
+This allows the raw data to be mapped onto a Trino timestamp column:
 
 .. code-block:: text
 

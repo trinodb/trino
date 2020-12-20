@@ -2,8 +2,8 @@
 Conversion Functions
 ====================
 
-Presto will implicitly convert numeric and character values to the
-correct type if such a conversion is possible. Presto will not convert
+Trino will implicitly convert numeric and character values to the
+correct type if such a conversion is possible. Trino will not convert
 between character and numeric types. For example, a query that expects
 a varchar will not automatically convert a bigint value to an
 equivalent varchar.

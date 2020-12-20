@@ -5,9 +5,9 @@ Black Hole Connector
 Primarily Black Hole connector is designed for high performance testing of
 other components. It works like the ``/dev/null`` device on Unix-like
 operating systems for data writing and like ``/dev/null`` or ``/dev/zero``
-for data reading. However, it also has some other features that allow testing Presto
+for data reading. However, it also has some other features that allow testing Trino
 in a more controlled manner. Metadata for any tables created via this connector
-is kept in memory on the coordinator and discarded when Presto restarts.
+is kept in memory on the coordinator and discarded when Trino restarts.
 Created tables are by default always empty, and any data written to them
 is ignored and data reads return no rows.
 

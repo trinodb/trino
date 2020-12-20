@@ -60,7 +60,7 @@ evaluate any orderable type.  For example, a ``VARCHAR``::
     SELECT 'Paul' BETWEEN 'John' AND 'Ringo'; -- true
 
 Not that the value, min, and max parameters to ``BETWEEN`` and ``NOT
-BETWEEN`` must be the same type.  For example, Presto will produce an
+BETWEEN`` must be the same type.  For example, Trino will produce an
 error if you ask it if John is between 2.3 and 35.2.
 
 .. _is_null_operator:
@@ -114,7 +114,7 @@ GREATEST and LEAST
 ------------------
 
 These functions are not in the SQL standard, but are a common extension.
-Like most other functions in Presto, they return null if any argument is
+Like most other functions in Trino, they return null if any argument is
 null. Note that in some other databases, such as PostgreSQL, they only
 return null if all arguments are null.
 

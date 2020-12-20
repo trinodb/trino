@@ -2,8 +2,8 @@
 Table Statistics
 ================
 
-Presto supports statistics based optimizations for queries. For a query to take
-advantage of these optimizations, Presto must have statistical information for
+Trino supports statistics based optimizations for queries. For a query to take
+advantage of these optimizations, Trino must have statistical information for
 the tables in that query.
 
 Table statistics are provided to the query planner by connectors.
@@ -11,7 +11,7 @@ Table statistics are provided to the query planner by connectors.
 Available Statistics
 --------------------
 
-The following statistics are available in Presto:
+The following statistics are available in Trino:
 
 * For a table:
 
@@ -29,7 +29,7 @@ The set of statistics available for a particular query depends on the connector
 being used and can also vary by table. For example, the
 Hive connector does not currently provide statistics on data size.
 
-Table statistics can be displayed via the Presto SQL interface using the
+Table statistics can be displayed via the Trino SQL interface using the
 :doc:`/sql/show-stats` command. For the Hive connector, refer to the
 :ref:`Hive connector <hive_analyze>` documentation to learn how to update table
 statistics.

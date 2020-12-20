@@ -2,18 +2,18 @@
 Salesforce Authentication
 =========================
 
-Presto can be configured to enable frontend password authentication over
+Trino can be configured to enable frontend password authentication over
 HTTPS for clients, such as the CLI, or the JDBC and ODBC drivers. The
 username and password (or password and `security token <#security-token>`__ concatenation)
-are validated by having the Presto coordinator perform a login to Salesforce.
+are validated by having the Trino coordinator perform a login to Salesforce.
 
-This allows you to enable users to authenticate to Presto via their Salesforce
+This allows you to enable users to authenticate to Trino via their Salesforce
 basic credentials.  This can also be used to secure the :ref:`Web UI <web-ui-authentication>`.
 
 .. note::
 
     This is *not* a Salesforce connector, and does not allow users to query
-    Salesforce data. It's simply a means by which users can authenticate to Presto, similar
+    Salesforce data. It's simply a means by which users can authenticate to Trino, similar
     to :doc:`ldap` or :doc:`password-file`.
 
 Salesforce Authenticator Configuration
@@ -55,19 +55,19 @@ Salesforce security token, and configuration of one or more Salesforce.com Organ
 Security Token
 ^^^^^^^^^^^^^^
 
-Credentials are a user's Salesforce username and password if Presto is connecting from a whitelisted
+Credentials are a user's Salesforce username and password if Trino is connecting from a whitelisted
 IP, or username and password/`security token <https://help.salesforce.com/articleView?id=user_security_token.htm&type=5>`_
-concatenation otherwise.  For example, if Presto is *not* whitelisted, and your password is ``password``
+concatenation otherwise.  For example, if Trino is *not* whitelisted, and your password is ``password``
 and security token is ``token``, use ``passwordtoken`` to authenticate.
 
-You can configure a public IP for Presto as a trusted IP by `whitelisting an IP range
+You can configure a public IP for Trino as a trusted IP by `whitelisting an IP range
 <https://help.salesforce.com/articleView?id=security_networkaccess.htm&type=5>`_.
 
 Salesforce.com Organization IDs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can configure one or more Salesforce Organization IDs for additional security.  When the user authenticates,
-the Salesforce API returns the *18 character* Salesforce.com Organization ID for the user.  The Presto Salesforce
+the Salesforce API returns the *18 character* Salesforce.com Organization ID for the user.  The Trino Salesforce
 authenticator ensures that the ID matches one of the IDs configured in ``salesforce.allowed-organizations``.
 
 Optionally, you can configure ``all`` to explicitly ignore this layer of security.

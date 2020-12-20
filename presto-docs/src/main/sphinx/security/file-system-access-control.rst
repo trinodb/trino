@@ -26,9 +26,9 @@ and the first matching rule is applied. If no rule matches, access is denied.
 Refresh
 --------
 
-By default, when a change is made to the JSON rules file, Presto must be restarted
+By default, when a change is made to the JSON rules file, Trino must be restarted
 to load the changes. There is an optional property to refresh the properties without requiring a
-Presto restart. The refresh period is specified in the ``etc/access-control.properties``:
+Trino restart. The refresh period is specified in the ``etc/access-control.properties``:
 
 .. code-block:: text
 
@@ -354,7 +354,7 @@ These rules control the ability of a user to impersonate another user.  In
 some environments it is desirable for an administrator (or managed system) to
 run queries on behalf of other users.  In these cases, the administrator
 authenticates using their credentials, and then submits a query as a different
-user.  When the user context is changed, Presto will verify the administrator
+user.  When the user context is changed, Trino will verify the administrator
 is authorized to run queries as the target user.
 
 When these rules are present, the authorization is based on the first matching rule,
@@ -387,7 +387,7 @@ Principal Rules
     Principal rules are deprecated and will be removed in a future release.
     These rules have been replaced with :doc:`/security/user-mapping`, which
     specifies how a complex authentication user name is mapped to a simple
-    user name for Presto, and impersonation rules defined above.
+    user name for Trino, and impersonation rules defined above.
 
 These rules serve to enforce a specific matching between a principal and a
 specified user name. The principal is granted authorization as a user, based

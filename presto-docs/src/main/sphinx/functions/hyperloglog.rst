@@ -2,13 +2,13 @@
 HyperLogLog Functions
 =====================
 
-Presto implements the :func:`approx_distinct` function using the
+Trino implements the :func:`approx_distinct` function using the
 `HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data structure.
 
 Data Structures
 ---------------
 
-Presto implements HyperLogLog data sketches as a set of 32-bit buckets which
+Trino implements HyperLogLog data sketches as a set of 32-bit buckets which
 store a *maximum hash*. They can be stored sparsely (as a map from bucket ID
 to bucket), or densely (as a contiguous memory block). The HyperLogLog data
 structure starts as the sparse representation, switching to dense when it is

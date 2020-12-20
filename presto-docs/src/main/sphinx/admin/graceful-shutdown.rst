@@ -2,7 +2,7 @@
 Graceful Shutdown
 =================
 
-Presto has a graceful shutdown API that can be used exclusively on workers in
+Trino has a graceful shutdown API that can be used exclusively on workers in
 order to ensure that they terminate without affecting running queries, given a
 sufficient grace period.
 

@@ -2,7 +2,7 @@
 Pinot Connector
 ===============
 
-The Pinot connector allows Presto to query data stored in
+The Pinot connector allows Trino to query data stored in
 `Apache Pinot™ <https://pinot.apache.org/>`_.
 
 Compatibility
@@ -96,7 +96,7 @@ Data types
 Pinot does not allow null values in any data type and supports the following primitive types:
 
 ==========================   ============
-Pinot                        Presto
+Pinot                        Trino
 ==========================   ============
 ``INT``                      ``INTEGER``
 ``LONG``                     ``BIGINT``

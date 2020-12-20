@@ -5,11 +5,11 @@ Redis Connector
 The Redis connector allows querying of live data stored in `Redis <https://redis.io/>`_. This can be
 used to join data between different systems like Redis and Hive.
 
-Each Redis key/value pair is presented as a single row in Presto. Rows can be
+Each Redis key/value pair is presented as a single row in Trino. Rows can be
 broken down into cells by using table definition files.
 
 Only Redis string and hash value types are supported; sets and zsets cannot be
-queried from Presto.
+queried from Trino.
 
 The connector requires Redis 2.8.0 or later.
 
@@ -113,7 +113,7 @@ This property is optional; the default is ``:``.
 ``redis.table-description-dir``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-References a folder within Presto deployment that holds one or more JSON
+References a folder within Trino deployment that holds one or more JSON
 files, which must end with ``.json`` and contain table description files.
 
 This property is optional; the default is ``etc/redis``.
@@ -167,7 +167,7 @@ Table Definition Files
 
 With the Redis connector it's possible to further reduce Redis key/value pairs into
 granular cells provided the key/value sting follow a particular format. This process
-defines new columns that can be further queried from Presto.
+defines new columns that can be further queried from Trino.
 
 A table definition file consists of a JSON definition for a table. The
 name of the file can be arbitrary, but must end in ``.json``.
@@ -194,7 +194,7 @@ name of the file can be arbitrary, but must end in ``.json``.
 =============== ========= ============== =============================
 Field           Required  Type           Description
 =============== ========= ============== =============================
-``tableName``   required  string         Presto table name defined by this file.
+``tableName``   required  string         Trino table name defined by this file.
 ``schemaName``  optional  string         Schema which will contain the table. If omitted, the default schema name is used.
 ``key``         optional  JSON object    Field definitions for data columns mapped to the value key.
 ``value``       optional  JSON object    Field definitions for data columns mapped to the value itself.

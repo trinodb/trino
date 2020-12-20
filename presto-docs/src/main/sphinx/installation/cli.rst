@@ -2,7 +2,7 @@
 Command Line Interface
 ======================
 
-The Presto CLI provides a terminal-based, interactive shell for running
+The Trino CLI provides a terminal-based, interactive shell for running
 queries. The CLI is a
 `self-executing <http://skife.org/java/unix/2011/06/20/really_executable_jars.html>`_
 JAR file, which means it acts like a normal UNIX executable.
@@ -29,7 +29,7 @@ Authentication
 --------------
 
 You can override your username with the ``--user`` option. It defaults to your
-operating system username. If your Presto server requires password
+operating system username. If your Trino server requires password
 authentication, use the ``--password`` option to have the CLI prompt for a
 password. You can set the ``PRESTO_PASSWORD`` environment variable with the
 password value to avoid the prompt.
@@ -54,13 +54,13 @@ history by scrolling or searching. Use the up and down arrows to scroll and
 :kbd:`Control+S` and :kbd:`Control+R` to search. To execute a query again,
 press :kbd:`Enter`.
 
-By default, you can locate the Presto history file in ``~/.presto_history``.
+By default, you can locate the Trino history file in ``~/.presto_history``.
 Use the ``PRESTO_HISTORY_FILE`` environment variable to change the default.
 
 Output Formats
 --------------
 
-The Presto CLI provides the option ``--output-format`` to control how the output
+The Trino CLI provides the option ``--output-format`` to control how the output
 is displayed when running in noninteractive mode. The available options shown in
 the following table must be entered in uppercase. The default value is ``CSV``.
 

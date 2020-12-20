@@ -28,7 +28,7 @@ Multiple MemSQL Servers
 You can have as many catalogs as you need, so if you have additional
 MemSQL servers, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
-example, if you name the property file ``sales.properties``, Presto
+example, if you name the property file ``sales.properties``, Trino
 will create a catalog named ``sales`` using the configured connector.
 
 Querying MemSQL

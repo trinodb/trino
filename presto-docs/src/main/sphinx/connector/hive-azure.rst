@@ -8,7 +8,7 @@ are accessed via the Windows Azure Storage Blob (WASB). This layer is built on
 top of the HDFS APIs and is what allows for the separation of storage from the
 cluster.
 
-Presto supports both ADLS Gen1 and Gen2. With ADLS Gen2 now generally available,
+Trino supports both ADLS Gen1 and Gen2. With ADLS Gen2 now generally available,
 we recommend using ADLS Gen2. Learn more from `the official documentation
 <https://docs.microsoft.com/en-us/azure/data-lake-store/data-lake-store-overview>`_.
 
@@ -26,13 +26,13 @@ configured in the the catalog properties file:
 Configuration for Azure Storage credentials
 -------------------------------------------
 
-If you do not want to rely on Hadoop's ``core-site.xml`` and want to have Presto
+If you do not want to rely on Hadoop's ``core-site.xml`` and want to have Trino
 configured independently with the storage credentials, you can use the following
 properties in the catalog configuration.
 
 We suggest to use this kind of configuration when you only have the Primary
 Storage account linked to the cluster. When there are secondary storage
-accounts involved, we recommend configuring Presto using a ``core-site.xml``
+accounts involved, we recommend configuring Trino using a ``core-site.xml``
 containing the appropriate credentials for each account, as described in the
 preceding section.
 

@@ -34,14 +34,14 @@ to make the query plan easier to read.
 * **Default value:** ``false``
 
 Enable optimization of some aggregations by using values that are stored as metadata.
-This allows Presto to execute some simple queries in constant time. Currently, this
+This allows Trino to execute some simple queries in constant time. Currently, this
 optimization applies to ``max``, ``min`` and ``approx_distinct`` of partition
 keys and other aggregation insensitive to the cardinality of the input,including
 ``DISTINCT`` aggregates. Using this may speed up some queries significantly.
 
 The main drawback is that it can produce incorrect results, if the connector returns
 partition keys for partitions that have no rows. In particular, the Hive connector
-can return empty partitions, if they were created by other systems. Presto cannot
+can return empty partitions, if they were created by other systems. Trino cannot
 create them.
 
 ``optimizer.push-aggregation-through-join``

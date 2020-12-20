@@ -9,7 +9,7 @@ General Properties
 * **Allowed values:** ``AUTOMATIC``, ``PARTITIONED``, ``BROADCAST``
 * **Default value:** ``AUTOMATIC``
 
-The type of distributed join to use.  When set to ``PARTITIONED``, Presto
+The type of distributed join to use.  When set to ``PARTITIONED``, Trino
 uses hash distributed joins.  When set to ``BROADCAST``, it broadcasts the
 right table to all nodes in the cluster that have data from the left table.
 Partitioned joins require redistributing both tables using a hash of the join key.
@@ -18,9 +18,9 @@ larger joins. In particular broadcast joins are faster, if the right table is
 much smaller than the left.  However, broadcast joins require that the tables on the right
 side of the join after filtering fit in memory on each node, whereas distributed joins
 only need to fit in distributed memory across all nodes. When set to ``AUTOMATIC``,
-Presto makes a cost based decision as to which distribution type is optimal.
+Trino makes a cost based decision as to which distribution type is optimal.
 It considers switching the left and right inputs to the join.  In ``AUTOMATIC``
-mode, Presto defaults to hash distributed joins if no cost could be computed, such as if
+mode, Trino defaults to hash distributed joins if no cost could be computed, such as if
 the tables do not have statistics. This can be specified on a per-query basis using
 the ``join_distribution_type`` session property.
 

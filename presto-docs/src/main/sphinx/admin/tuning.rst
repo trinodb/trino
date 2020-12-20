@@ -1,8 +1,8 @@
 =============
-Tuning Presto
+Tuning Trino
 =============
 
-The default Presto settings should work well for most workloads. The following
+The default Trino settings should work well for most workloads. The following
 information may help you, if your cluster is facing a specific performance problem.
 
 Config Properties

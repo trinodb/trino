@@ -71,7 +71,7 @@ Default behaviour (without schema emulation)
 The emulation of schemas is disabled by default.
 In this case all Kudu tables are part of the ``default`` schema.
 
-For example, a Kudu table named ``orders`` can be queried in Presto
+For example, a Kudu table named ``orders`` can be queried in Trino
 with ``SELECT * FROM kudu.default.orders`` or simple with ``SELECT * FROM orders``
 if catalog and schema are set to ``kudu`` and ``default`` respectively.
 
@@ -129,7 +129,7 @@ tables are mapped to schemas depending on some conventions.
   the mapping works like:
 
   +----------------------------+---------------------------------+
-  | Kudu Table Name            | Presto Qualified Name           |
+  | Kudu Table Name            | Trino Qualified Name            |
   +============================+=================================+
   | ``orders``                 | ``kudu.default.orders``         |
   +----------------------------+---------------------------------+
@@ -146,7 +146,7 @@ tables are mapped to schemas depending on some conventions.
   the mapping works like:
 
   +----------------------------+---------------------------------+
-  | Kudu Table Name            | Presto Qualified Name           |
+  | Kudu Table Name            | Trino Qualified Name            |
   +============================+=================================+
   | ``orders``                 | ``kudu.default.orders``         |
   +----------------------------+---------------------------------+
@@ -165,10 +165,10 @@ tables are mapped to schemas depending on some conventions.
 Data Type Mapping
 -----------------
 
-The data types of Presto and Kudu are mapped as far as possible:
+The data types of Trino and Kudu are mapped as far as possible:
 
 +-----------------------+-----------------------+-----------------------+
-| Presto Data Type      | Kudu Data Type        | Comment               |
+| Trino Data Type       | Kudu Data Type        | Comment               |
 +=======================+=======================+=======================+
 | ``BOOLEAN``           | ``BOOL``              |                       |
 +-----------------------+-----------------------+-----------------------+
@@ -223,18 +223,18 @@ The data types of Presto and Kudu are mapped as far as possible:
 +-----------------------+-----------------------+-----------------------+
 
 
-.. [1] On performing ``CREATE TABLE ... AS ...`` from a Presto table to Kudu,
+.. [1] On performing ``CREATE TABLE ... AS ...`` from a Trino table to Kudu,
    the optional maximum length is lost
 
-.. [2] On performing ``CREATE TABLE ... AS ...`` from a Presto table to Kudu,
+.. [2] On performing ``CREATE TABLE ... AS ...`` from a Trino table to Kudu,
    a ``DATE`` column is converted to ``STRING``
 
 
-Supported Presto SQL statements
+Supported Trino SQL statements
 -------------------------------
 
 +------------------------------------------+-------------------------------+
-| Presto SQL statement                     | Comment                       |
+| Trino SQL statement                      | Comment                       |
 +==========================================+===============================+
 | ``SELECT``                               |                               |
 +------------------------------------------+-------------------------------+
@@ -390,7 +390,7 @@ A table must have at least one partitioning (either hash or range).
 It can have at most one range partitioning, but multiple hash partitioning 'levels'.
 For more details see Apache Kudu documentation: `Partitioning`_.
 
-If you create a Kudu table in Presto, the partitioning design is given by
+If you create a Kudu table in Trino, the partitioning design is given by
 several table properties.
 
 .. _Partitioning: https://kudu.apache.org/docs/schema_design.html#partitioning
@@ -543,7 +543,7 @@ partition.
     Examples:
 
     +-------------------------------+----------------------------------------------+
-    | Presto Data Type              | JSON string example                          |
+    | Trino Data Type               | JSON string example                          |
     +===============================+==============================================+
     | ``BIGINT``                    | ``‘{“lower”: 0, “upper”: 1000000}’``         |
     +-------------------------------+----------------------------------------------+

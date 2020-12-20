@@ -7,7 +7,7 @@ The :doc:`hive` can read and write tables that are stored in
 This is accomplished by having a table or database location that
 uses an S3 prefix, rather than an HDFS prefix.
 
-Presto uses its own S3 filesystem for the URI prefixes
+Trino uses its own S3 filesystem for the URI prefixes
 ``s3://``, ``s3n://`` and  ``s3a://``.
 
 S3 Configuration Properties
@@ -48,7 +48,7 @@ Property Name                                Description
                                              by the JVM system property ``java.io.tmpdir``.
 
 ``hive.s3.pin-client-to-current-region``     Pin S3 requests to the same region as the EC2
-                                             instance where Presto is running,
+                                             instance where Trino is running,
                                              defaults to ``false``.
 
 ``hive.s3.ssl.enabled``                      Use HTTPS to communicate with the S3 API, defaults to ``true``.
@@ -93,7 +93,7 @@ Property Name                                Description
 S3 Credentials
 --------------
 
-If you are running Presto on Amazon EC2, using EMR or another facility,
+If you are running Trino on Amazon EC2, using EMR or another facility,
 it is recommended that you use IAM Roles for EC2 to govern access to S3.
 To enable this, your EC2 instances need to be assigned an IAM Role which
 grants appropriate access to the data stored in the S3 bucket(s) you wish
@@ -125,7 +125,7 @@ files referenced by the ``hive.config.resources`` Hive connector property.
 S3 Security Mapping
 -------------------
 
-Presto supports flexible security mapping for S3, allowing for separate
+Trino supports flexible security mapping for S3, allowing for separate
 credentials or IAM roles for specific users or buckets/paths. The IAM role
 for a specific query can be selected from a list of allowed roles by providing
 it as an *extra credential*.
@@ -236,7 +236,7 @@ Tuning Properties
 -----------------
 
 The following tuning properties affect the behavior of the client
-used by the Presto S3 filesystem when communicating with S3.
+used by the Trino S3 filesystem when communicating with S3.
 Most of these parameters affect settings on the ``ClientConfiguration``
 object associated with the ``AmazonS3Client``.
 
@@ -267,7 +267,7 @@ S3 Data Encryption
 ------------------
 
 
-Presto supports reading and writing encrypted data in S3 using both
+Trino supports reading and writing encrypted data in S3 using both
 server-side encryption with S3 managed keys and client-side encryption using
 either the Amazon KMS or a software plugin to manage AES encryption keys.
 
@@ -278,7 +278,7 @@ S3 also manages all the encryption keys for you. To enable this, set ``hive.s3.s
 
 With `S3 client-side encryption <http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html>`_,
 S3 stores encrypted data and the encryption keys are managed outside of the S3 infrastructure. Data is encrypted
-and decrypted by Presto instead of in the S3 infrastructure. In this case, encryption keys can be managed
+and decrypted by Trino instead of in the S3 infrastructure. In this case, encryption keys can be managed
 either by using the AWS KMS, or your own key management system. To use the AWS KMS for key management, set
 ``hive.s3.kms-key-id`` to the UUID of a KMS key. Your AWS credentials or EC2 IAM role will need to be
 granted permission to use the given key as well.
@@ -299,7 +299,7 @@ S3 Select Pushdown
 
 S3 Select Pushdown enables pushing down projection (SELECT) and predicate (WHERE)
 processing to `S3 Select <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectSELECTContent.html>`_.
-With S3 Select Pushdown, Presto only retrieves the required data from S3 instead
+With S3 Select Pushdown, Trino only retrieves the required data from S3 instead
 of entire S3 objects, reducing both latency and network usage.
 
 Is S3 Select a good fit for my workload?
@@ -320,7 +320,7 @@ workload:
 
 * Your query filters out more than half of the original data set.
 * Your query filter predicates use columns that have a data type supported by
-  Presto and S3 Select.
+  Trino and S3 Select.
   The ``TIMESTAMP``, ``REAL``, and ``DOUBLE`` data types are not supported by S3
   Select Pushdown. We recommend using the decimal data type for numerical data.
   For more information about supported data types for S3 Select, see the
@@ -352,7 +352,7 @@ property, allowing you enable or disable on a per-query basis.
 Understanding and Tuning the Maximum Connections
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Presto can use its native S3 file system or EMRFS. When using the native FS, the
+Trino can use its native S3 file system or EMRFS. When using the native FS, the
 maximum connections is configured via the ``hive.s3.max-connections``
 configuration property. When using EMRFS, the maximum connections is configured
 via the ``fs.s3.maxConnections`` Hadoop configuration property.

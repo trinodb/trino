@@ -5,7 +5,7 @@ Elasticsearch Connector
 Overview
 --------
 
-The Elasticsearch Connector allows access to `Elasticsearch <https://www.elastic.co/products/elasticsearch>`_ data from Presto.
+The Elasticsearch Connector allows access to `Elasticsearch <https://www.elastic.co/products/elasticsearch>`_ data from Trino.
 This document describes how to setup the Elasticsearch Connector to run SQL queries against Elasticsearch.
 
 .. note::
@@ -129,14 +129,14 @@ The connector supports key stores and trust stores in PEM or Java Key Store (JKS
 ``elasticsearch.tls.keystore-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The path to the PEM or JKS key store. This file must be readable by the operating system user running Presto.
+The path to the PEM or JKS key store. This file must be readable by the operating system user running Trino.
 
 This property is optional.
 
 ``elasticsearch.tls.truststore-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The path to PEM or JKS trust store. This file must be readable by the operating system user running Presto.
+The path to PEM or JKS trust store. This file must be readable by the operating system user running Trino.
 
 This property is optional.
 
@@ -160,7 +160,7 @@ Data Types
 The data type mappings are as follows:
 
 ============= =============
-Elasticsearch Presto
+Elasticsearch Trino
 ============= =============
 ``binary``    ``VARBINARY``
 ``boolean``   ``BOOLEAN``
@@ -183,7 +183,7 @@ Array Types
 ^^^^^^^^^^^
 
 Fields in Elasticsearch can contain `zero or more values <https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html>`_
-, but there is no dedicated array type. To indicate a field contains an array, it can be annotated in a Presto-specific structure in
+, but there is no dedicated array type. To indicate a field contains an array, it can be annotated in a Trino-specific structure in
 the `_meta <https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-meta-field.html>`_ section of the index mapping.
 
 For example, you can have an Elasticsearch index that contains documents with the following structure:
@@ -191,7 +191,7 @@ For example, you can have an Elasticsearch index that contains documents with th
 .. code-block:: json
 
     {
-        "array_string_field": ["presto","is","the","besto"],
+        "array_string_field": ["trino","is","the","besto"],
         "long_field": 314159265359,
         "id_field": "564e6982-88ee-4498-aa98-df9e3f6b6109",
         "timestamp_field": "1987-09-17T06:22:48.000Z",
@@ -243,12 +243,12 @@ _source The source of the original document
 Full Text Queries
 -----------------
 
-Presto SQL queries can be combined with Elasticsearch queries by providing the `full text query`_
+Trino SQL queries can be combined with Elasticsearch queries by providing the `full text query`_
 as part of the table name, separated by a colon. For example:
 
 .. code-block:: sql
 
-    SELECT * FROM "tweets: +presto SQL^2"
+    SELECT * FROM "tweets: +trino SQL^2"
 
 .. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
 

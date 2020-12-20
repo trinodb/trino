@@ -5,7 +5,7 @@ Functions
 Plugin Implementation
 ---------------------
 
-The function framework is used to implement SQL functions. Presto includes a
+The function framework is used to implement SQL functions. Trino includes a
 number of built-in functions. In order to implement new functions, you can
 write a plugin that returns one or more functions from ``getFunctions()``:
 
@@ -33,7 +33,7 @@ that we will implement below in this tutorial.
 
 For a full example in the codebase, see either the ``presto-ml`` module for machine
 learning functions or the ``presto-teradata-functions`` module for Teradata-compatible
-functions, both in the root of the Presto source.
+functions, both in the root of the Trino source.
 
 Scalar Function Implementation
 ------------------------------
@@ -65,7 +65,7 @@ The ``deterministic`` argument indicates that a function has no side effects and
 for subsequent calls with the same argument(s), the function returns the exact
 same value(s).
 
-In Presto, deterministic functions don't rely on any changing state
+In Trino, deterministic functions don't rely on any changing state
 and don't modify any state. The ``deterministic`` flag is optional and defaults
 to ``true``.
 
@@ -309,7 +309,7 @@ Deprecated Function
 -------------------
 
 The ``@Deprecated`` annotation has to be used on any function that should no longer be
-used. The annotation causes Presto to generate a warning whenever a SQL statement
+used. The annotation causes Trino to generate a warning whenever a SQL statement
 uses a deprecated function. When a function is deprecated, the ``@Description``
 needs to be replaced with a note about the deprecation and the replacement function:
 

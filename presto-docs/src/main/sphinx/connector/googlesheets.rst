@@ -2,7 +2,7 @@
 Google Sheets Connector
 =======================
 
-The Google Sheets connector allows reading `Google Sheets <https://www.google.com/sheets/about/>`_ spreadsheets as tables in Presto.
+The Google Sheets connector allows reading `Google Sheets <https://www.google.com/sheets/about/>`_ spreadsheets as tables in Trino.
 
 Configuration
 -------------
@@ -47,7 +47,7 @@ The connector requires credentials in order to access the Google Sheets API.
 4. Click *Manage service accounts*, then create a service account for the connector.
    On the *Create key* step, create and download a key in JSON format.
 
-The key file needs to be available on the Presto coordinator and workers.
+The key file needs to be available on the Trino coordinator and workers.
 Set the ``credentials-path`` configuration property to point to this file.
 The exact name of the file does not matter -- it can be named anything.
 
@@ -75,11 +75,11 @@ Set the ``metadata-sheet-id`` configuration property to the ID of this sheet.
 Querying Sheets
 ---------------
 
-The service account user must have access to the sheet in order for Presto
+The service account user must have access to the sheet in order for Trino
 to query it. Click the *Share* button to share the sheet with the email
 address of the service account.
 
-The sheet needs to be mapped to a Presto table name. Specify a table name
+The sheet needs to be mapped to a Trino table name. Specify a table name
 (column A) and the sheet ID (column B) in the metadata sheet. To refer
 to a specific tab in the sheet, add the tab name after the sheet ID, separated
 with ``#``. If tab name is not provided, connector loads only 10,000 rows by default from

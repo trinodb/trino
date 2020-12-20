@@ -2,7 +2,7 @@
 Exchange Properties
 ===================
 
-Exchanges transfer data between Presto nodes for different stages of
+Exchanges transfer data between Trino nodes for different stages of
 a query. Adjusting these properties may help to resolve inter-node
 communication issues or improve network utilization.
 
@@ -13,7 +13,7 @@ communication issues or improve network utilization.
 * **Minimum value:** ``1``
 * **Default value:** ``25``
 
-Number of threads used by exchange clients to fetch data from other Presto
+Number of threads used by exchange clients to fetch data from other Trino
 nodes. A higher value can improve performance for large clusters or clusters
 with very high concurrency, but excessively high values may cause a drop
 in performance due to context switches and additional memory usage.

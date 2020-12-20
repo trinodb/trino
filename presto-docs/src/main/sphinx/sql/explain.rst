@@ -19,8 +19,8 @@ Description
 
 Show the logical or distributed execution plan of a statement, or validate the statement.
 The distributed plan is shown by default. Each plan fragment of the distributed plan is executed by
-a single or multiple Presto nodes. Fragments separation represent the data exchange between Presto nodes.
-Fragment type specifies how the fragment is executed by Presto nodes and how the data is
+a single or multiple Trino nodes. Fragments separation represent the data exchange between Trino nodes.
+Fragment type specifies how the fragment is executed by Trino nodes and how the data is
 distributed between fragments:
 
 ``SINGLE``

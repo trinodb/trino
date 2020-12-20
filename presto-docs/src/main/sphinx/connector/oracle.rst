@@ -3,7 +3,7 @@ Oracle Connector
 ================
 
 The Oracle connector allows querying and creating tables in an external Oracle
-database. Connectors let Presto join data provided by different databases,
+database. Connectors let Trino join data provided by different databases,
 like Oracle and Hive, or different Oracle database instances.
 
 Configuration
@@ -49,7 +49,7 @@ If you want to connect to multiple Oracle servers, configure another instance of
 the Oracle connector as a separate catalog.
 
 To add another Oracle catalog, create a new properties file. For example, if
-you name the property file ``sales.properties``, Presto creates a catalog named
+you name the property file ``sales.properties``, Trino creates a catalog named
 sales.
 
 Querying Oracle
@@ -65,7 +65,7 @@ If you used a different name for your catalog properties file, use that catalog
 name instead of ``oracle``.
 
 .. note::
-    The Oracle user must have access to the table in order to access it from Presto.
+    The Oracle user must have access to the table in order to access it from Trino.
     The user configuration, in the connection properties file, determines your
     privileges in these schemas.
 
@@ -87,25 +87,25 @@ To access the clicks table in the web database, run the following::
 
     SELECT * FROM oracle.web.clicks;
 
-Mapping data types between Presto and Oracle
+Mapping data types between Trino and Oracle
 --------------------------------------------
 
-Both Oracle and Presto have types that are not supported by the Oracle
+Both Oracle and Trino have types that are not supported by the Oracle
 connector. The following sections explain their type mapping.
 
-Oracle to Presto type mapping
+Oracle to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Presto supports selecting Oracle database types. This table shows the Oracle to
-Presto data type mapping:
+Trino supports selecting Oracle database types. This table shows the Oracle to
+Trino data type mapping:
 
 
-.. list-table:: Oracle to Presto type mapping
+.. list-table:: Oracle to Trino type mapping
   :widths: 20, 20, 60
   :header-rows: 1
 
   * - Oracle database type
-    - Presto type
+    - Trino type
     - Notes
   * - ``NUMBER(p, s)``
     - ``DECIMAL(p, s)``
@@ -160,32 +160,32 @@ Presto data type mapping:
     - See :ref:`datetime mapping`
 
 If an Oracle table uses a type not listed in the above table, then you can use the
-``unsupported-type.handling`` configuration property to specify Presto behavior.
+``unsupported-type.handling`` configuration property to specify Trino behavior.
 For example:
 
 - If ``unsupported-type.handling`` is set to ``FAIL``, then the
   querying of an unsupported table fails.
 - If ``unsupported-type.handling`` is set to ``IGNORE``,
-  then you can't see the unsupported types in Presto.
+  then you can't see the unsupported types in Trino.
 - If ``unsupported-type.handling`` is set to ``CONVERT_TO_VARCHAR``,
   then the column is exposed as unbounded ``VARCHAR``.
 
-Presto to Oracle type mapping
+Trino to Oracle type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Presto supports creating tables with the following types in an Oracle database.
-The table shows the mappings from Presto to Oracle data types:
+Trino supports creating tables with the following types in an Oracle database.
+The table shows the mappings from Trino to Oracle data types:
 
 .. note::
-   For types not listed in the table below, Presto can't perform the ``CREATE
+   For types not listed in the table below, Trino can't perform the ``CREATE
    TABLE <table> AS SELECT`` operations. When data is inserted into existing
-   tables ``Oracle to Presto`` type mapping is used.
+   tables ``Oracle to Trino`` type mapping is used.
 
-.. list-table:: Presto to Oracle Type Mapping
+.. list-table:: Trino to Oracle Type Mapping
   :widths: 20, 20, 60
   :header-rows: 1
 
-  * - Presto type
+  * - Trino type
     - Oracle database type
     - Notes
   * - ``TINYINT``
@@ -236,7 +236,7 @@ The table shows the mappings from Presto to Oracle data types:
 Mapping numeric types
 ^^^^^^^^^^^^^^^^^^^^^
 
-An Oracle ``NUMBER(p, s)`` maps to Presto's ``DECIMAL(p, s)`` except in these
+An Oracle ``NUMBER(p, s)`` maps to Trino's ``DECIMAL(p, s)`` except in these
 conditions:
 
 - No precision is specified for the column (example: ``NUMBER`` or
@@ -261,11 +261,11 @@ Selecting a timestamp with fractional second precision (``p``) greater than 3
 truncates the fractional seconds to three digits instead of rounding it.
 
 Oracle ``DATE`` type may store hours, minutes, and seconds, so it is mapped
-to Presto ``TIMESTAMP``.
+to Trino ``TIMESTAMP``.
 
 .. warning::
 
-  Due to date and time differences in the libraries used by Presto and the
+  Due to date and time differences in the libraries used by Trino and the
   Oracle JDBC driver, attempting to insert or select a datetime value earlier
   than ``1582-10-15`` results in an incorrect date inserted.
 
@@ -274,10 +274,10 @@ to Presto ``TIMESTAMP``.
 Mapping character types
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Presto's ``VARCHAR(n)`` maps to ``VARCHAR2(n CHAR)`` if ``n`` is no greater than
+Trino's ``VARCHAR(n)`` maps to ``VARCHAR2(n CHAR)`` if ``n`` is no greater than
 4000. A larger or unbounded ``VARCHAR`` maps to ``NCLOB``.
 
-Presto's ``CHAR(n)`` maps to ``CHAR(n CHAR)`` if ``n`` is no greater than 2000.
+Trino's ``CHAR(n)`` maps to ``CHAR(n CHAR)`` if ``n`` is no greater than 2000.
 A larger ``CHAR`` maps to ``NCLOB``.
 
 Using ``CREATE TABLE AS`` to create an ``NCLOB`` column from a ``CHAR`` value
@@ -315,7 +315,7 @@ Type mapping configuration properties
     - ``IGNORE``
   * - ``oracle.number.default-scale``
     - ``number_default_scale``
-    - Default Presto ``DECIMAL`` scale for Oracle ``NUMBER`` (without precision
+    - Default Trino ``DECIMAL`` scale for Oracle ``NUMBER`` (without precision
       and scale) date type. When not set then such column is treated as not
       supported.
     - not set
@@ -323,7 +323,7 @@ Type mapping configuration properties
     - ``number_rounding_mode``
     - Rounding mode for the Oracle ``NUMBER`` data type. This is useful when
       Oracle ``NUMBER`` data type specifies higher scale than is supported in
-      Presto. Possible values are:
+      Trino. Possible values are:
 
       - ``UNNECESSARY`` - Rounding mode to assert that the
         requested operation has an exact result,
@@ -350,7 +350,7 @@ Type mapping configuration properties
 Synonyms
 --------
 
-Based on performance reasons, Presto disables support for Oracle ``SYNONYM``. To
+Based on performance reasons, Trino disables support for Oracle ``SYNONYM``. To
 include ``SYNONYM``, add the following configuration property:
 
 .. code-block:: text

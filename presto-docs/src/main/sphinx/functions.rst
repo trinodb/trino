@@ -2,9 +2,9 @@
 Functions and Operators
 ***********************
 
-This chapter describes the SQL functions and operators supported by Presto. They
+This chapter describes the SQL functions and operators supported by Trino. They
 allow you to implement complex functionality and behavior of the SQL executed by
-Presto operating on the underlying data sources.
+Trino operating on the underlying data sources.
 
 If you are looking for a specific function or operator,
 see the :doc:`full list</functions/list>`.

@@ -2,11 +2,11 @@
 SQL Statement Syntax
 ********************
 
-This chapter describes the SQL syntax used in Presto.
+This chapter describes the SQL syntax used in Trino.
 
 A :doc:`reference to the supported SQL data types</language>` is available.
 
-Presto also provides :doc:`numerous SQL functions and operators<functions>`.
+Trino also provides :doc:`numerous SQL functions and operators<functions>`.
 
 .. toctree::
     :maxdepth: 1
