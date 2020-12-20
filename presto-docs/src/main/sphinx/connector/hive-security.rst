@@ -29,7 +29,7 @@ Property Value                                     Description
 
 ``sql-standard``                                   Users are permitted to perform the operations as long as
                                                    they have the required privileges as per the SQL standard.
-                                                   In this mode, Presto enforces the authorization checks for
+                                                   In this mode, Trino enforces the authorization checks for
                                                    queries based on the privileges defined in Hive metastore.
                                                    To alter these privileges, use the :doc:`/sql/grant` and
                                                    :doc:`/sql/revoke` commands.
@@ -43,10 +43,10 @@ Property Value                                     Description
 SQL Standard Based Authorization
 --------------------------------
 
-When ``sql-standard`` security is enabled, Presto enforces the same SQL
+When ``sql-standard`` security is enabled, Trino enforces the same SQL
 standard based authorization as Hive does.
 
-Since Presto's ``ROLE`` syntax support matches the SQL standard, and
+Since Trino's ``ROLE`` syntax support matches the SQL standard, and
 Hive does not exactly follow the SQL standard, there are the following
 limitations and differences:
 
@@ -65,14 +65,14 @@ Authentication
 
 The default security configuration of the :doc:`/connector/hive` does not use
 authentication when connecting to a Hadoop cluster. All queries are executed as
-the user who runs the Presto process, regardless of which user submits the
+the user who runs the Trino process, regardless of which user submits the
 query.
 
 The Hive connector provides additional security options to support Hadoop
 clusters that have been configured to use :ref:`Kerberos
 <hive-security-kerberos-support>`.
 
-When accessing :abbr:`HDFS (Hadoop Distributed File System)`, Presto can
+When accessing :abbr:`HDFS (Hadoop Distributed File System)`, Trino can
 :ref:`impersonate<hive-security-impersonation>` the end user who is running the
 query. This can be used with HDFS permissions and :abbr:`ACLs (Access Control
 Lists)` to provide additional security for data.
@@ -81,9 +81,9 @@ Lists)` to provide additional security for data.
 
 .. warning::
 
-  Access to the Presto coordinator should be secured e.g., using Kerberos or password
+  Access to the Trino coordinator should be secured e.g., using Kerberos or password
   authentication, when using Kerberos authentication to Hadoop services.
-  Failure to secure access to the Presto coordinator could result in unauthorized
+  Failure to secure access to the Trino coordinator could result in unauthorized
   access to sensitive data on the Hadoop cluster. Refer to :doc:`/security` for
   further information.
 
@@ -114,7 +114,7 @@ file that contains the general Hive connector configuration.
 Hive Metastore Thrift Service Authentication
 --------------------------------------------
 
-In a Kerberized Hadoop cluster, Presto connects to the Hive metastore Thrift
+In a Kerberized Hadoop cluster, Trino connects to the Hive metastore Thrift
 service using :abbr:`SASL (Simple Authentication and Security Layer)` and
 authenticates using Kerberos. Kerberos authentication for the metastore is
 configured in the connector's properties file using the following properties:
@@ -128,7 +128,7 @@ Property Name                                      Description
 
 ``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
 
-``hive.metastore.client.principal``                The Kerberos principal that Presto uses when connecting
+``hive.metastore.client.principal``                The Kerberos principal that Trino uses when connecting
                                                    to the Hive metastore service.
 
 ``hive.metastore.client.keytab``                   Hive metastore client keytab location.
@@ -157,7 +157,7 @@ See :ref:`hive-security-metastore-impersonation` for more information.
 ``hive.metastore.service.principal``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Kerberos principal of the Hive metastore service. The Presto coordinator
+The Kerberos principal of the Hive metastore service. The Trino coordinator
 uses this to authenticate the Hive metastore.
 
 The ``_HOST`` placeholder can be used in this property value. When connecting
@@ -172,16 +172,16 @@ This property is optional; no default value.
 ``hive.metastore.client.principal``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Kerberos principal that Presto uses when connecting to the Hive
+The Kerberos principal that Trino uses when connecting to the Hive
 metastore.
 
 The ``_HOST`` placeholder can be used in this property value. When connecting
 to the Hive metastore, the Hive connector substitutes in the hostname of
-the **worker** node Presto is running on. This is useful if each worker node
+the **worker** node Trino is running on. This is useful if each worker node
 has its own Kerberos principal.
 
-Example: ``presto/presto-server-node@EXAMPLE.COM`` or
-``presto/_HOST@EXAMPLE.COM``.
+Example: ``trino/trino-server-node@EXAMPLE.COM`` or
+``trino/_HOST@EXAMPLE.COM``.
 
 This property is optional; no default value.
 
@@ -203,7 +203,7 @@ This property is optional; no default value.
 
 The path to the keytab file that contains a key for the principal specified by
 ``hive.metastore.client.principal``. This file must be readable by the
-operating system user running Presto.
+operating system user running Trino.
 
 This property is optional; no default value.
 
@@ -215,7 +215,7 @@ Example configuration with ``NONE`` authentication
     hive.metastore.authentication.type=NONE
 
 The default authentication type for the Hive metastore is ``NONE``. When the
-authentication type is ``NONE``, Presto connects to an unsecured Hive
+authentication type is ``NONE``, Trino connects to an unsecured Hive
 metastore. Kerberos is not used.
 
 Example configuration with ``KERBEROS`` authentication
@@ -226,24 +226,24 @@ Example configuration with ``KERBEROS`` authentication
     hive.metastore.authentication.type=KERBEROS
     hive.metastore.thrift.impersonation.enabled=true
     hive.metastore.service.principal=hive/hive-metastore-host.example.com@EXAMPLE.COM
-    hive.metastore.client.principal=presto@EXAMPLE.COM
-    hive.metastore.client.keytab=/etc/presto/hive.keytab
+    hive.metastore.client.principal=trino@EXAMPLE.COM
+    hive.metastore.client.keytab=/etc/trino/hive.keytab
 
 When the authentication type for the Hive metastore Thrift service is
-``KERBEROS``, Presto connects as the Kerberos principal specified by the
-property ``hive.metastore.client.principal``. Presto authenticates this
+``KERBEROS``, Trino connects as the Kerberos principal specified by the
+property ``hive.metastore.client.principal``. Trino authenticates this
 principal using the keytab specified by the ``hive.metastore.client.keytab``
 property, and verifies that the identity of the metastore matches
 ``hive.metastore.service.principal``.
 
-Keytab files must be distributed to every node in the cluster that runs Presto.
+Keytab files must be distributed to every node in the cluster that runs Trino.
 
 :ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
 HDFS Authentication
 -------------------
 
-In a Kerberized Hadoop cluster, Presto authenticates to HDFS using Kerberos.
+In a Kerberized Hadoop cluster, Trino authenticates to HDFS using Kerberos.
 Kerberos authentication for HDFS is configured in the connector's properties
 file using the following properties:
 
@@ -255,7 +255,7 @@ Property Name                                      Description
 
 ``hive.hdfs.impersonation.enabled``                Enable HDFS end-user impersonation.
 
-``hive.hdfs.presto.principal``                     The Kerberos principal that Presto uses when connecting
+``hive.hdfs.presto.principal``                     The Kerberos principal that Trino uses when connecting
                                                    to HDFS.
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
@@ -288,15 +288,15 @@ This property is optional; the default is ``false``.
 ``hive.hdfs.presto.principal``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Kerberos principal Presto uses when connecting to HDFS.
+The Kerberos principal Trino uses when connecting to HDFS.
 
 The ``_HOST`` placeholder can be used in this property value. When connecting
 to HDFS, the Hive connector substitutes in the hostname of the **worker**
-node Presto is running on. This is useful if each worker node has its own
+node Trino is running on. This is useful if each worker node has its own
 Kerberos principal.
 
-Example: ``presto-hdfs-superuser/presto-server-node@EXAMPLE.COM`` or
-``presto-hdfs-superuser/_HOST@EXAMPLE.COM``.
+Example: ``trino-hdfs-superuser/trino-server-node@EXAMPLE.COM`` or
+``trino-hdfs-superuser/_HOST@EXAMPLE.COM``.
 
 This property is optional; no default value.
 
@@ -305,7 +305,7 @@ This property is optional; no default value.
 
 The path to the keytab file that contains a key for the principal specified by
 ``hive.hdfs.presto.principal``. This file must be readable by the operating
-system user running Presto.
+system user running Trino.
 
 This property is optional; no default value.
 
@@ -313,7 +313,7 @@ This property is optional; no default value.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In a Kerberized Hadoop cluster that uses HDFS wire encryption, this should be
-set to ``true`` to enable Presto to access HDFS. Note that using wire encryption
+set to ``true`` to enable Trino to access HDFS. Note that using wire encryption
 may impact query execution performance.
 
 .. _hive-security-simple:
@@ -326,7 +326,7 @@ Example configuration with ``NONE`` authentication
     hive.hdfs.authentication.type=NONE
 
 The default authentication type for HDFS is ``NONE``. When the authentication
-type is ``NONE``, Presto connects to HDFS using Hadoop's simple authentication
+type is ``NONE``, Trino connects to HDFS using Hadoop's simple authentication
 mechanism. Kerberos is not used.
 
 .. _hive-security-kerberos:
@@ -338,14 +338,14 @@ Example configuration with ``KERBEROS`` authentication
 
     hive.hdfs.authentication.type=KERBEROS
     hive.hdfs.presto.principal=hdfs@EXAMPLE.COM
-    hive.hdfs.presto.keytab=/etc/presto/hdfs.keytab
+    hive.hdfs.presto.keytab=/etc/trino/hdfs.keytab
 
-When the authentication type is ``KERBEROS``, Presto accesses HDFS as the
-principal specified by the ``hive.hdfs.presto.principal`` property. Presto
+When the authentication type is ``KERBEROS``, Trino accesses HDFS as the
+principal specified by the ``hive.hdfs.presto.principal`` property. Trino
 authenticates this principal using the keytab specified by the
 ``hive.hdfs.presto.keytab`` keytab.
 
-Keytab files must be distributed to every node in the cluster that runs Presto.
+Keytab files must be distributed to every node in the cluster that runs Trino.
 
 :ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
@@ -357,9 +357,9 @@ End User Impersonation
 Impersonation Accessing HDFS
 ----------------------------
 
-Presto can impersonate the end user who is running a query. In the case of a
+Trino can impersonate the end user who is running a query. In the case of a
 user running a query from the command line interface, the end user is the
-username associated with the Presto CLI process or argument to the optional
+username associated with the Trino CLI process or argument to the optional
 ``--user`` option. Impersonating the end user can provide additional security
 when accessing HDFS if HDFS permissions or ACLs are used.
 
@@ -376,8 +376,8 @@ HDFS Permissions and ACLs are explained in the `HDFS Permissions Guide
     hive.hdfs.authentication.type=NONE
     hive.hdfs.impersonation.enabled=true
 
-When using ``NONE`` authentication with impersonation, Presto impersonates
-the user who is running the query when accessing HDFS. The user Presto is
+When using ``NONE`` authentication with impersonation, Trino impersonates
+the user who is running the query when accessing HDFS. The user Trino is
 running as must be allowed to impersonate this user, as discussed in the
 section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 
@@ -390,18 +390,18 @@ section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 
     hive.hdfs.authentication.type=KERBEROS
     hive.hdfs.impersonation.enabled=true
-    hive.hdfs.presto.principal=presto@EXAMPLE.COM
-    hive.hdfs.presto.keytab=/etc/presto/hdfs.keytab
+    hive.hdfs.presto.principal=trino@EXAMPLE.COM
+    hive.hdfs.presto.keytab=/etc/trino/hdfs.keytab
 
-When using ``KERBEROS`` authentication with impersonation, Presto impersonates
+When using ``KERBEROS`` authentication with impersonation, Trino impersonates
 the user who is running the query when accessing HDFS. The principal
 specified by the ``hive.hdfs.presto.principal`` property must be allowed to
-impersonate the current Presto user, as discussed in the section
-:ref:`configuring-hadoop-impersonation`. Presto authenticates
+impersonate the current Trino user, as discussed in the section
+:ref:`configuring-hadoop-impersonation`. Trino authenticates
 ``hive.hdfs.presto.principal`` using the keytab specified by
 ``hive.hdfs.presto.keytab``.
 
-Keytab files must be distributed to every node in the cluster that runs Presto.
+Keytab files must be distributed to every node in the cluster that runs Trino.
 
 :ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
@@ -410,7 +410,7 @@ Keytab files must be distributed to every node in the cluster that runs Presto.
 Impersonation Accessing the Hive Metastore
 ------------------------------------------
 
-Presto supports impersonating the end user when accessing the Hive metastore.
+Trino supports impersonating the end user when accessing the Hive metastore.
 Metastore impersonation can be enabled with
 
 .. code-block:: text
@@ -419,7 +419,7 @@ Metastore impersonation can be enabled with
 
 When using ``KERBEROS`` Metastore authentication with impersonation, the principal
 specified by the ``hive.metastore.client.principal`` property must be allowed to
-impersonate the current Presto user, as discussed in the section
+impersonate the current Trino user, as discussed in the section
 :ref:`configuring-hadoop-impersonation`.
 
 The impersonation is applied when:
@@ -429,7 +429,7 @@ The impersonation is applied when:
 * creating or modifying a table.
 
 Impersonation is not applied when for the following operations. In case of the following operations,
-Presto is fully responsible for doing all relevant security checks.
+Trino is fully responsible for doing all relevant security checks.
 
 * listing databases (schemas),
 * listing tables,
@@ -442,8 +442,8 @@ Impersonation in Hadoop
 -----------------------
 
 In order to use impersonation, the Hadoop cluster must be
-configured to allow the user or principal that Presto is running as to
-impersonate the users who log in to Presto. Impersonation in Hadoop is
+configured to allow the user or principal that Trino is running as to
+impersonate the users who log in to Trino. Impersonation in Hadoop is
 configured in the file :file:`core-site.xml`. A complete description of the
 configuration options can be found in the `Hadoop documentation
 <https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-common/Superusers.html#Configurations>`_.
@@ -460,10 +460,10 @@ that you take to protect ssh private keys.
 
 In particular, access to keytab files should be limited to the accounts that
 actually need to use them to authenticate. In practice, this is the user that
-the Presto process runs as. The ownership and permissions on keytab files
+the Trino process runs as. The ownership and permissions on keytab files
 need to be set to prevent other users from reading or modifying the files.
 
-Keytab files need to be distributed to every node running Presto. Under common
+Keytab files need to be distributed to every node running Trino. Under common
 deployment situations, the Hive connector configuration is the same on all
 nodes. This means that the keytab needs to be in the same location on every
 node.

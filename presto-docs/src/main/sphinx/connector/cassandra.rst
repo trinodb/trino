@@ -32,7 +32,7 @@ Multiple Cassandra Clusters
 You can have as many catalogs as you need, so if you have additional
 Cassandra clusters, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``. For
-example, if you name the property file ``sales.properties``, Presto
+example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
 Configuration Properties
@@ -58,16 +58,16 @@ Property Name                                      Description
                                                    ``EACH_QUORUM``, ``QUORUM``, ``LOCAL_QUORUM``, ``ONE``, ``TWO``,
                                                    ``THREE``, ``LOCAL_ONE``, ``ANY``, ``SERIAL``, ``LOCAL_SERIAL``.
 
-``cassandra.allow-drop-table``                     Set to ``true`` to allow dropping Cassandra tables from Presto
+``cassandra.allow-drop-table``                     Set to ``true`` to allow dropping Cassandra tables from Trino
                                                    via :doc:`/sql/drop-table`, defaults to ``false``.
 
 ``cassandra.username``                             Username used for authentication to the Cassandra cluster.
                                                    This is a global setting used for all connections, regardless
-                                                   of the user connected to Presto.
+                                                   of the user connected to Trino.
 
 ``cassandra.password``                             Password used for authentication to the Cassandra cluster.
                                                    This is a global setting used for all connections, regardless
-                                                   of the user connected to Presto.
+                                                   of the user connected to Trino.
 
 ``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
                                                    By default, the values from the highest protocol version the driver can use.
@@ -178,7 +178,7 @@ keyspace using Cassandra's cqlsh (CQL interactive terminal):
                   ...   lname text
                   ... );
 
-This table can be described in Presto::
+This table can be described in Trino::
 
     DESCRIBE cassandra.mykeyspace.users;
 
@@ -191,7 +191,7 @@ This table can be described in Presto::
      lname   | varchar |       |
     (3 rows)
 
-This table can then be queried in Presto::
+This table can then be queried in Trino::
 
     SELECT * FROM cassandra.mykeyspace.users;
 
@@ -201,7 +201,7 @@ Data types
 The data types mappings are as follows:
 
 ================  ======
-Cassandra         Presto
+Cassandra         Trino
 ================  ======
 ASCII             VARCHAR
 BIGINT            BIGINT

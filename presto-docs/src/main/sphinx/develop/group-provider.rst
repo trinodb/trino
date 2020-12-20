@@ -2,7 +2,7 @@
 Group Provider
 ==============
 
-Presto can map user names onto groups for easier access control management.
+Trino can map user names onto groups for easier access control management.
 This mapping is performed by a ``GroupProvider`` implementation.
 
 Implementation
@@ -17,7 +17,7 @@ This set of group names becomes part of the ``Identity`` and ``ConnectorIdentity
 objects representing the user, and can then be used by :doc:`system-access-control`.
 
 The implementation of ``GroupProvider`` and it's corresponding ``GroupProviderFactory``
-must be wrapped as a Presto plugin and installed on the cluster.
+must be wrapped as a Trino plugin and installed on the cluster.
 
 Configuration
 -------------
@@ -27,7 +27,7 @@ it is configured using an ``etc/group-provider.properties`` file.
 All of the properties other than ``group-provider.name`` are specific to
 the ``GroupProviderFactory`` implementation.
 
-The ``group-provider.name`` property is used by Presto to find a registered
+The ``group-provider.name`` property is used by Trino to find a registered
 ``GroupProviderFactory`` based on the name returned by ``GroupProviderFactory.getName()``.
 The remaining properties are passed as a map to
 ``GroupProviderFactory.create(Map<String, String>)``.
@@ -40,5 +40,5 @@ Example configuration file:
     custom-property1=custom-value1
     custom-property2=custom-value2
 
-With that file in place, Presto will attempt user group name resolution,
+With that file in place, Trino will attempt user group name resolution,
 and will be able to use the group names while evaluating access control rules.

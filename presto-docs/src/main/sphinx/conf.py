@@ -13,7 +13,7 @@
 #
 
 #
-# Presto documentation build configuration file
+# Trino documentation build configuration file
 #
 # This file is execfile()d with the current directory set to its containing dir.
 #
@@ -70,7 +70,7 @@ source_suffix = '.rst'
 
 master_doc = 'index'
 
-project = u'Presto'
+project = u'Trino'
 
 version = get_version()
 release = version
@@ -110,7 +110,7 @@ html_theme_options = {
     'color_primary': 'blue-grey',
     'color_accent': 'light-blue',
     'repo_url': 'https://github.com/prestosql/presto',
-    'repo_name': 'Presto',
+    'repo_name': 'Trino',
     'version_json': '../versions.json',
 }
 

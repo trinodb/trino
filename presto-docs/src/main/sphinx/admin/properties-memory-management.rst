@@ -63,4 +63,4 @@ killed. The value of ``query.max-total-memory`` must be greater than
 * **Default value:** ``JVM max memory * 0.3``
 
 This is the amount of memory set aside as headroom/buffer in the JVM heap
-for allocations that are not tracked by Presto.
+for allocations that are not tracked by Trino.

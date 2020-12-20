@@ -2,7 +2,7 @@
 Password File Authentication
 ============================
 
-Presto can be configured to enable frontend password authentication over
+Trino can be configured to enable frontend password authentication over
 HTTPS for clients, such as the CLI, or the JDBC and ODBC drivers. The
 username and password are validated against usernames and passwords stored
 in a file.
@@ -64,7 +64,7 @@ Creating a Password File
 Password files utilizing the bcrypt format can be created using the
 `htpasswd <https://httpd.apache.org/docs/current/programs/htpasswd.html>`_
 utility from the `Apache HTTP Server <https://httpd.apache.org/>`_.
-The cost must be specified, as Presto enforces a higher minimum cost
+The cost must be specified, as Trino enforces a higher minimum cost
 than the default.
 
 Create an empty password file to get started:

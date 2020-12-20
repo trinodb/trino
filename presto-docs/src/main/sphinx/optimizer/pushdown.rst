@@ -2,7 +2,7 @@
 Pushdown
 ========
 
-Presto can push down the processing of queries, or parts of queries, into the
+Trino can push down the processing of queries, or parts of queries, into the
 connected data source. This means that a specific predicate, aggregation function,
 or other operation, is passed through to the underlying database or storage system
 for processing.
@@ -10,7 +10,7 @@ for processing.
 The results of this pushdown can include the following benefits:
 
 * improved overall query performance
-* reduced network traffic between Presto and the data source
+* reduced network traffic between Trino and the data source
 * reduced load on the remote data source
 
 Support for pushdown is specific to each connector and the relevant underlying
@@ -28,7 +28,7 @@ Aggregation pushdown can take place provided the following conditions are satisf
 You can check if pushdown for a specific query is performed by looking at the
 :doc:`EXPLAIN plan </sql/explain>` of the query. If an aggregate function is successfully
 pushed down to the connector, the explain plan does **not** show that ``Aggregate`` operator.
-The explain plan only shows the operations that are performed by Presto.
+The explain plan only shows the operations that are performed by Trino.
 
 As an example, we loaded the TPCH data set into a PostgreSQL database and then
 queried it using the PostgreSQL connector::
@@ -80,8 +80,8 @@ A number of factors can prevent a push down:
 * using a connector without pushdown support for the specific function
 
 As a result, the explain plan shows the ``Aggregate`` operation being performed
-by Presto. This is a clear sign that now pushdown to the remote data source is not
-performed, and instead Presto performs the aggregate processing.
+by Trino. This is a clear sign that now pushdown to the remote data source is not
+performed, and instead Trino performs the aggregate processing.
 
 .. code-block:: text
 

@@ -33,13 +33,13 @@ multiple instances of the PostgreSQL connector.
 
 To add another catalog, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``. For example,
-if you name the property file ``sales.properties``, Presto creates a
+if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
 
 Decimal Type Handling
 ---------------------
 
-``DECIMAL`` types with precision larger than 38 can be mapped to a Presto ``DECIMAL``
+``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
 by setting the ``decimal-mapping`` configuration property or the ``decimal_mapping`` session property to
 ``allow_overflow``. The scale of the resulting type is controlled via the ``decimal-default-scale``
 configuration property or the ``decimal-rounding-mode`` session property. The precision is always 38.
@@ -53,15 +53,15 @@ property, which can be set to ``UNNECESSARY`` (the default),
 Array Type Handling
 -------------------
 
-The PostgreSQL array implementation does not support fixed dimensions whereas Presto
+The PostgreSQL array implementation does not support fixed dimensions whereas Trino
 support only arrays with fixed dimensions.
 You can configure how the PostgreSQL connector handles arrays with the ``postgresql.array-mapping`` configuration property in your catalog file
 or the ``array_mapping`` session property.
 The following values are accepted for this property:
 
 * ``DISABLED`` (default): array columns are skipped.
-* ``AS_ARRAY``: array columns are interpreted as Presto ``ARRAY`` type, for array columns with fixed dimensions.
-* ``AS_JSON``: array columns are interpreted as Presto ``JSON`` type, with no constraint on dimensions.
+* ``AS_ARRAY``: array columns are interpreted as Trino ``ARRAY`` type, for array columns with fixed dimensions.
+* ``AS_JSON``: array columns are interpreted as Trino ``JSON`` type, with no constraint on dimensions.
 
 Querying PostgreSQL
 -------------------

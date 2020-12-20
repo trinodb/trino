@@ -3,7 +3,7 @@ Druid Connector
 ===============
 
 The Druid connector allows querying an `Apache Druid <https://druid.apache.org/>`_
-database from Presto.
+database from Trino.
 
 Configuration
 -------------
@@ -30,5 +30,5 @@ secured by basic authentication by updating the URL and adding credentials:
     connection-user=root
     connection-password=secret
 
-Now you can access your Druid database in Presto with the ``druiddb`` catalog
+Now you can access your Druid database in Trino with the ``druiddb`` catalog
 name from the properties file.

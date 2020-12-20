@@ -2,29 +2,29 @@
 LDAP Authentication
 ===================
 
-Presto can be configured to enable frontend LDAP authentication over
+Trino can be configured to enable frontend LDAP authentication over
 HTTPS for clients, such as the :ref:`cli_ldap`, or the JDBC and ODBC
 drivers. At present, only simple LDAP authentication mechanism involving
-username and password is supported. The Presto client sends a username
+username and password is supported. The Trino client sends a username
 and password to the coordinator, and the coordinator validates these
 credentials using an external LDAP service.
 
-To enable LDAP authentication for Presto, configuration changes are made on
-the Presto coordinator. No changes are required to the worker configuration;
+To enable LDAP authentication for Trino, configuration changes are made on
+the Trino coordinator. No changes are required to the worker configuration;
 only the communication from the clients to the coordinator is authenticated.
 However, if you want to secure the communication between
-Presto nodes with SSL/TLS configure :doc:`/security/internal-communication`.
+Trino nodes with SSL/TLS configure :doc:`/security/internal-communication`.
 
-Presto Server Configuration
+Trino Server Configuration
 ---------------------------
 
-Presto Coordinator Node Configuration
+Trino Coordinator Node Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Access to the Presto coordinator should be through HTTPS. You can do that
+Access to the Trino coordinator should be through HTTPS. You can do that
 by creating a :ref:`server_java_keystore` on the coordinator.
 
-You also need to make changes to the Presto configuration files.
+You also need to make changes to the Trino configuration files.
 LDAP authentication is configured on the coordinator in two parts.
 The first part is to enable HTTPS support and password authentication
 in the coordinator's ``config.properties`` file. The second part is
@@ -43,15 +43,15 @@ to the coordinator's ``config.properties`` file:
     http-server.https.enabled=true
     http-server.https.port=8443
 
-    http-server.https.keystore.path=/etc/presto_keystore.jks
+    http-server.https.keystore.path=/etc/trino/keystore.jks
     http-server.https.keystore.key=keystore_password
 
 ============================================================= ======================================================
 Property                                                      Description
 ============================================================= ======================================================
-``http-server.authentication.type``                           Enable password authentication for the Presto
+``http-server.authentication.type``                           Enable password authentication for the Trino
                                                               coordinator. Must be set to ``PASSWORD``.
-``http-server.https.enabled``                                 Enables HTTPS access for the Presto coordinator.
+``http-server.https.enabled``                                 Enables HTTPS access for the Trino coordinator.
                                                               Should be set to ``true``. Default value is
                                                               ``false``.
 ``http-server.https.port``                                    HTTPS server port.
@@ -142,7 +142,7 @@ Example:
 Authorization based on LDAP Group Membership
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can further restrict the set of users allowed to connect to the Presto
+You can further restrict the set of users allowed to connect to the Trino
 coordinator, based on their group membership, by setting the optional
 ``ldap.group-auth-pattern`` and ``ldap.user-base-dn`` properties, in addition
 to the basic LDAP authentication properties.
@@ -166,30 +166,30 @@ Property                                                Description
 Based on the LDAP server implementation type, the property
 ``ldap.group-auth-pattern`` can be used as described below.
 
-Authorization using Presto LDAP service user
+Authorization using Trino LDAP service user
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Presto server can use dedicated LDAP service user for doing user group membership queries.
-In such case Presto will first issue a group membership query for a Presto user that needs
+Trino server can use dedicated LDAP service user for doing user group membership queries.
+In such case Trino will first issue a group membership query for a Trino user that needs
 to be authenticated. A user distinguished name will be extracted from a group membership
-query result. Presto will then validate user password by creating LDAP context with
+query result. Trino will then validate user password by creating LDAP context with
 user distinguished name and user password. In order to use this mechanism ``ldap.bind-dn``,
 ``ldap.bind-password`` and ``ldap.group-auth-pattern`` properties need to be defined.
 
 ======================================================= ======================================================
 Property                                                Description
 ======================================================= ======================================================
-``ldap.bind-dn``                                        Bind distinguished name used by Presto when issuing
+``ldap.bind-dn``                                        Bind distinguished name used by Trino when issuing
                                                         group membership queries.
                                                         Example: ``CN=admin,OU=CITY_OU,OU=STATE_OU,DC=domain``
-``ldap.bind-password``                                  Bind password used by Presto when issuing group
+``ldap.bind-password``                                  Bind password used by Trino when issuing group
                                                         membership queries.
                                                         Example: ``password1234``
 ``ldap.group-auth-pattern``                             This property is used to specify the LDAP query for
                                                         the LDAP group membership authorization. This query
                                                         will be executed against the LDAP server and if
                                                         successful, a user distinguished name will be
-                                                        extracted from a query result. Presto will then
+                                                        extracted from a query result. Trino will then
                                                         validate user password by creating LDAP context with
                                                         user distinguished name and user password.
 ======================================================= ======================================================
@@ -234,7 +234,7 @@ property may be set as follows:
 
 .. _cli_ldap:
 
-Presto CLI
+Trino CLI
 ----------
 
 Environment Configuration
@@ -243,8 +243,8 @@ Environment Configuration
 TLS Configuration
 ~~~~~~~~~~~~~~~~~
 
-Access to the Presto coordinator should be through HTTPS when using LDAP
-authentication. The Presto CLI can use either a :ref:`Java Keystore
+Access to the Trino coordinator should be through HTTPS when using LDAP
+authentication. The Trino CLI can use either a :ref:`Java Keystore
 <server_java_keystore>` file or :ref:`Java Truststore <cli_java_truststore>`
 for its TLS configuration.
 
@@ -253,10 +253,10 @@ for its TLS configuration. If you are using truststore, you can either use
 default Java truststores or create a custom truststore on the CLI. We do not
 recommend using self-signed certificates in production.
 
-Presto CLI Execution
+Trino CLI Execution
 ^^^^^^^^^^^^^^^^^^^^
 
-In addition to the options that are required when connecting to a Presto
+In addition to the options that are required when connecting to a Trino
 coordinator that does not require LDAP authentication, invoking the CLI
 with LDAP support enabled requires a number of additional command line
 options. You can either use ``--keystore-*`` or ``--truststore-*`` properties
@@ -268,10 +268,10 @@ wrapper script.
     #!/bin/bash
 
     ./presto \
-    --server https://presto-coordinator.example.com:8443 \
-    --keystore-path /tmp/presto.jks \
+    --server https://trino-coordinator.example.com:8443 \
+    --keystore-path /tmp/trino.jks \
     --keystore-password password \
-    --truststore-path /tmp/presto_truststore.jks \
+    --truststore-path /tmp/trino_truststore.jks \
     --truststore-password password \
     --catalog <catalog> \
     --schema <schema> \
@@ -281,9 +281,9 @@ wrapper script.
 =============================== =========================================================================
 Option                          Description
 =============================== =========================================================================
-``--server``                    The address and port of the Presto coordinator.  The port must
-                                be set to the port the Presto coordinator is listening for HTTPS
-                                connections on. Presto CLI does not support using ``http`` scheme for
+``--server``                    The address and port of the Trino coordinator.  The port must
+                                be set to the port the Trino coordinator is listening for HTTPS
+                                connections on. Trino CLI does not support using ``http`` scheme for
                                 the URL when using LDAP authentication.
 ``--keystore-path``             The location of the Java Keystore file that will be used
                                 to secure TLS.
@@ -310,21 +310,21 @@ Java Keystore File Verification
 Verify the password for a keystore file and view its contents using
 :ref:`troubleshooting_keystore`.
 
-Debug Presto to LDAP Server Issues
+Debug Trino to LDAP Server Issues
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-If you need to debug issues with Presto communicating with the LDAP server,
+If you need to debug issues with Trino communicating with the LDAP server,
 you can change the :ref:`log level <log-levels>` for the LDAP authenticator:
 
 .. code-block:: none
 
     io.prestosql.plugin.password=DEBUG
 
-SSL Debugging for Presto CLI
+SSL Debugging for Trino CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you encounter any SSL related errors when running the Presto CLI, you can run
+If you encounter any SSL related errors when running the Trino CLI, you can run
 the CLI using the ``-Djavax.net.debug=ssl`` parameter for debugging. Use the
-Presto CLI executable JAR to enable this. For example:
+Trino CLI executable JAR to enable this. For example:
 
 .. code-block:: text
 
@@ -340,7 +340,7 @@ Common SSL errors
 java.security.cert.CertificateException: No subject alternative names present
 *****************************************************************************
 
-This error is seen when the Presto coordinator’s certificate is invalid, and does not have the IP you provide
+This error is seen when the Trino coordinator’s certificate is invalid, and does not have the IP you provide
 in the ``--server`` argument of the CLI. You have to regenerate the coordinator's SSL certificate
 with the appropriate :abbr:`SAN (Subject Alternative Name)` added.
 
@@ -355,7 +355,7 @@ Starting with the JDK 8u181 release, to improve the robustness of LDAPS
 (secure LDAP over TLS) connections, endpoint identification algorithms have
 been enabled by default. See release notes
 `from Oracle <https://www.oracle.com/technetwork/java/javase/8u181-relnotes-4479407.html#JDK-8200666.>`_.
-The same LDAP server certificate on the Presto coordinator, running on JDK
+The same LDAP server certificate on the Trino coordinator, running on JDK
 version >= 8u181, that was previously able to successfully connect to an
 LDAPS server, may now fail with the below error:
 
@@ -366,7 +366,7 @@ LDAPS server, may now fail with the below error:
 
 If you want to temporarily disable endpoint identification, you can add the
 property ``-Dcom.sun.jndi.ldap.object.disableEndpointIdentification=true``
-to Presto's ``jvm.config`` file. However, in a production environment, we
+to Trino's ``jvm.config`` file. However, in a production environment, we
 suggest fixing the issue by regenerating the LDAP server certificate so that
 the certificate :abbr:`SAN (Subject Alternative Name)` or certificate subject
 name matches the LDAP server.

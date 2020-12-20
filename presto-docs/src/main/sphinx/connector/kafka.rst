@@ -12,7 +12,7 @@ Overview
 --------
 
 This connector allows the use of `Apache Kafka <https://kafka.apache.org/>`_
-topics as tables in Presto. Each message is presented as a row in Presto.
+topics as tables in Trino. Each message is presented as a row in Trino.
 
 Topics can be live. Rows appear as data arrives, and disappear as
 segments get dropped. This can result in strange behavior if accessing the
@@ -50,7 +50,7 @@ Multiple Kafka Clusters
 You can have as many catalogs as you need, so if you have additional
 Kafka clusters, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
-example, if you name the property file ``sales.properties``, Presto
+example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
 Configuration Properties
@@ -67,7 +67,7 @@ Property Name                                              Description
 ``kafka.buffer-size``                                      Kafka read buffer size
 ``kafka.table-description-dir``                            Directory containing topic description files
 ``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not
-``kafka.messages-per-split``                               Number of messages that are processed by each Presto split, defaults to 100000
+``kafka.messages-per-split``                               Number of messages that are processed by each Trino split, defaults to 100000
 ``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp push down is enabled for topics using ``CreateTime`` mode
 ========================================================== ==============================================================================
 
@@ -103,7 +103,7 @@ This property is required; there is no default and at least one node must be def
 
 .. note::
 
-    Presto must still be able to connect to all nodes of the cluster
+    Trino must still be able to connect to all nodes of the cluster
     even if only a subset is specified here as segment files may be
     located only on a specific node.
 
@@ -119,7 +119,7 @@ This property is optional; the default is ``64kb``.
 ``kafka.table-description-dir``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-References a folder within Presto deployment that holds one or more JSON
+References a folder within Trino deployment that holds one or more JSON
 files (must end with ``.json``) which contain table description files.
 
 This property is optional; the default is ``etc/kafka``.
@@ -176,13 +176,13 @@ Table Definition Files
 ----------------------
 
 Kafka maintains topics only as byte messages and leaves it to producers
-and consumers to define how a message should be interpreted. For Presto,
+and consumers to define how a message should be interpreted. For Trino,
 this data must be mapped into columns to allow queries against the data.
 
 .. note::
 
     For textual topics that contain JSON data, it is entirely possible to not
-    use any table definition files, but instead use the Presto
+    use any table definition files, but instead use the Trino
     :doc:`/functions/json` to parse the ``_message`` column which contains
     the bytes mapped into an UTF-8 string. This is, however, pretty
     cumbersome and makes it difficult to write SQL queries. This only works
@@ -191,7 +191,7 @@ this data must be mapped into columns to allow queries against the data.
 A table definition file consists of a JSON definition for a table. The
 name of the file can be arbitrary but must end in ``.json``. Place the
 file in the directory configured with the ``kafka.table-description-dir``
-property. The table definition file must be accessible from all Presto nodes.
+property. The table definition file must be accessible from all Trino nodes.
 
 .. code-block:: text
 
@@ -216,7 +216,7 @@ property. The table definition file must be accessible from all Presto nodes.
 =============== ========= ============== =============================
 Field           Required  Type           Description
 =============== ========= ============== =============================
-``tableName``   required  string         Presto table name defined by this file.
+``tableName``   required  string         Trino table name defined by this file.
 ``schemaName``  optional  string         Schema which will contain the table. If omitted, the default schema name is used.
 ``topicName``   required  string         Kafka topic that is mapped.
 ``key``         optional  JSON object    Field definitions for data columns mapped to the message key.
@@ -237,7 +237,7 @@ JSON object that must contain two fields:
 Field           Required  Type           Description
 =============== ========= ============== =============================
 ``dataFormat``  required  string         Selects the decoder for this group of fields.
-``fields``      required  JSON array     A list of field definitions. Each field definition creates a new column in the Presto table.
+``fields``      required  JSON array     A list of field definitions. Each field definition creates a new column in the Trino table.
 =============== ========= ============== =============================
 
 Each field definition is a JSON object:
@@ -257,8 +257,8 @@ Each field definition is a JSON object:
 =============== ========= ========= =============================
 Field           Required  Type      Description
 =============== ========= ========= =============================
-``name``        required  string    Name of the column in the Presto table.
-``type``        required  string    Presto type of the column.
+``name``        required  string    Name of the column in the Trino table.
+``type``        required  string    Trino type of the column.
 ``dataFormat``  optional  string    Selects the column decoder for this field. Defaults to the default decoder for this row data format and column type.
 ``dataSchema``  optional  string    The path or URL where the Avro schema resides. Used only for Avro decoder.
 ``mapping``     optional  string    Mapping information for the column. This is decoder specific, see below.
@@ -285,7 +285,7 @@ four supported data formats for key and message encoding:
 These data formats each have an encoder that maps column values into bytes to be
 sent to a Kafka topic.
 
-Presto supports at-least-once delivery for Kafka producers. This means that
+Trino supports at-least-once delivery for Kafka producers. This means that
 messages are guaranteed to be sent to Kafka topics at least once. If a producer
 acknowledgement times out or if the producer receives an error, it might retry
 sending the message. This could result in a duplicate message being sent to the
@@ -300,7 +300,7 @@ Row Encoding
 ------------
 
 Encoding is required to allow writing data and defines how table columns in
-Presto map to Kafka keys and message data.
+Trino map to Kafka keys and message data.
 
 The Kafka connector contains the following encoders:
 
@@ -328,7 +328,7 @@ information specified in the
 The following field attributes are supported:
 
 * ``dataFormat`` - Specifies the width of the column data type
-* ``type`` - Presto data type
+* ``type`` - Trino data type
 * ``mapping`` - start and optional end position of bytes to convert
   (specified as ``start`` or ``start:end``)
 
@@ -344,13 +344,13 @@ Supported values:
 * ``FLOAT`` - four bytes (IEEE 754 format, big-endian)
 * ``DOUBLE`` - eight bytes (IEEE 754 format, big-endian)
 
-The ``type`` attribute defines the Presto data type.
+The ``type`` attribute defines the Trino data type.
 
-Different values of ``dataFormat`` are supported, depending on the Presto data
+Different values of ``dataFormat`` are supported, depending on the Trino data
 type:
 
 ===================================== =======================================
-Presto data type                      ``dataFormat`` values
+Trino data type                       ``dataFormat`` values
 ===================================== =======================================
 ``BIGINT``                            ``BYTE``, ``SHORT``, ``INT``, ``LONG``
 ``INTEGER``                           ``BYTE``, ``SHORT``, ``INT``
@@ -370,7 +370,7 @@ message used for encoding.
     Both a start and end position must be defined for ``VARCHAR`` types.
     Otherwise, there is no way to know how many bytes the message contains. The
     raw format mapping information is static and cannot be dynamically changed
-    to fit the variable width of some Presto data types.
+    to fit the variable width of some Trino data types.
 
 If only a start position is given:
 
@@ -458,13 +458,13 @@ with a comma ',' as the column delimiter.
 
 The ``type`` and ``mapping`` attributes must be defined for each field:
 
-* ``type`` - Presto data type
+* ``type`` - Trino data type
 * ``mapping`` - The integer index of the column in the CSV line (the first
   column is 0, the second is 1, and so on)
 
 ``dataFormat`` and ``formatHint`` are not supported and must be omitted.
 
-The following Presto data types are supported by the CSV encoder:
+The following Trino data types are supported by the CSV encoder:
 
 * ``BIGINT``
 * ``INTEGER``
@@ -523,17 +523,17 @@ The JSON encoder maps table columns to JSON fields defined in the
 
 For fields, the following attributes are supported:
 
-* ``type`` - Presto type of column.
+* ``type`` - Trino type of column.
 * ``mapping`` - slash-separated list of field names to select a field from the
   JSON object
 * ``dataFormat`` - name of formatter (required for temporal types)
 * ``formatHint`` - pattern to format temporal data (only use with
   ``custom-date-time`` formatter)
 
-The following Presto data types are supported by the JSON encoder:
+The following Trino data types are supported by the JSON encoder:
 
 +-------------------------------------+
-| Presto data types                   |
+| Trino data types                    |
 +=====================================+
 | ``BIGINT``                          |
 |                                     |
@@ -578,7 +578,7 @@ The following table defines which temporal data types are supported by
 ``dataFormats``:
 
 +-------------------------------------+--------------------------------------------------------------------------------+
-| Presto data type                    | Decoding rules                                                                 |
+| Trino data type                     | Decoding rules                                                                 |
 +=====================================+================================================================================+
 | ``DATE``                            | ``custom-date-time``, ``iso8601``                                              |
 +-------------------------------------+--------------------------------------------------------------------------------+
@@ -638,7 +638,7 @@ Avro Encoder
 
 The Avro encoder serializes rows to Avro records as defined by the
 `Avro schema <https://avro.apache.org/docs/current/>`_.
-Presto does not support schema-less Avro encoding.
+Trino does not support schema-less Avro encoding.
 
 .. note::
 
@@ -652,24 +652,24 @@ syntax:
 
 ``"dataSchema": "http://example.org/schema/avro_data.avsc"``
 
-Local files need to be available on all Presto nodes and use an absolute path in
+Local files need to be available on all Trino nodes and use an absolute path in
 the syntax, for example:
 
 ``"dataSchema": "/usr/local/schema/avro_data.avsc"``
 
 The following field attributes are supported:
 
-* ``name`` - Name of the column in the Presto table.
-* ``type`` - Presto type of column.
+* ``name`` - Name of the column in the Trino table.
+* ``type`` - Trino type of column.
 * ``mapping`` - slash-separated list of field names to select a field from the
   Avro schema. If the field specified in ``mapping`` does not exist
   in the original Avro schema, then a write operation fails.
 
-The following table lists supported Presto types, which can be used in ``type``
+The following table lists supported Trino types, which can be used in ``type``
 for the equivalent Avro field type.
 
 ===================================== =======================================
-Presto data type                      Avro data type
+Trino data type                       Avro data type
 ===================================== =======================================
 ``BIGINT``                            ``INT``, ``LONG``
 ``REAL``                              ``FLOAT``
@@ -768,12 +768,12 @@ The Kafka connector contains the following decoders:
 ^^^^^^^^^^^^^^^
 
 The raw decoder supports reading of raw (byte-based) values from Kafka message
-or key and converting it into Presto columns.
+or key and converting it into Trino columns.
 
 For fields, the following attributes are supported:
 
 * ``dataFormat`` - selects the width of the data type converted
-* ``type`` - Presto data type (see table below for list of supported data types)
+* ``type`` - Trino data type (see table below for list of supported data types)
 * ``mapping`` - ``<start>[:<end>]``; start and end position of bytes to convert (optional)
 
 The ``dataFormat`` attribute selects the number of bytes converted.
@@ -788,12 +788,12 @@ Supported values are:
 * ``FLOAT`` - four bytes (IEEE 754 format)
 * ``DOUBLE`` - eight bytes (IEEE 754 format)
 
-The ``type`` attribute defines the Presto data type on which the value is mapped.
+The ``type`` attribute defines the Trino data type on which the value is mapped.
 
-Depending on Presto type assigned to column different values of dataFormat can be used:
+Depending on Trino type assigned to column different values of dataFormat can be used:
 
 ===================================== =======================================
-Presto data type                      Allowed ``dataFormat`` values
+Trino data type                       Allowed ``dataFormat`` values
 ===================================== =======================================
 ``BIGINT``                            ``BYTE``, ``SHORT``, ``INT``, ``LONG``
 ``INTEGER``                           ``BYTE``, ``SHORT``, ``INT``
@@ -838,15 +838,15 @@ string using UTF-8 encoding and then interprets the result as a CSV
 
 For fields, the ``type`` and ``mapping`` attributes must be defined:
 
-* ``type`` - Presto data type (see table below for list of supported data types)
+* ``type`` - Trino data type (see table below for list of supported data types)
 * ``mapping`` - the index of the field in the CSV record
 
 ``dataFormat`` and ``formatHint`` are not supported and must be omitted.
 
-Table below lists supported Presto types, which can be used in ``type`` and decoding scheme:
+Table below lists supported Trino types, which can be used in ``type`` and decoding scheme:
 
 +-------------------------------------+--------------------------------------------------------------------------------+
-| Presto data type                    | Decoding rules                                                                 |
+| Trino data type                     | Decoding rules                                                                 |
 +=====================================+================================================================================+
 | | ``BIGINT``                        | Decoded using Java ``Long.parseLong()``                                        |
 | | ``INTEGER``                       |                                                                                |
@@ -871,7 +871,7 @@ into a JSON object, not an array or simple type.
 
 For fields, the following attributes are supported:
 
-* ``type`` - Presto type of column.
+* ``type`` - Trino type of column.
 * ``dataFormat`` - Field decoder to be used for column.
 * ``mapping`` - slash-separated list of field names to select a field from the JSON object
 * ``formatHint`` - only for ``custom-date-time``, see below
@@ -880,11 +880,11 @@ The JSON decoder supports multiple field decoders, with ``_default`` being
 used for standard table columns and a number of decoders for date and time
 based types.
 
-The table below lists Presto data types, which can be used as in ``type``, and matching field decoders,
+The table below lists Trino data types, which can be used as in ``type``, and matching field decoders,
 which can be specified via ``dataFormat`` attribute.
 
 +-------------------------------------+--------------------------------------------------------------------------------+
-| Presto data type                    | Allowed ``dataFormat`` values                                                  |
+| Trino data type                     | Allowed ``dataFormat`` values                                                  |
 +=====================================+================================================================================+
 | | ``BIGINT``                        | Default field decoder (omitted ``dataFormat`` attribute)                       |
 | | ``INTEGER``                       |                                                                                |
@@ -913,7 +913,7 @@ which can be specified via ``dataFormat`` attribute.
 Default Field decoder
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This is the standard field decoder, supporting all the Presto physical data
+This is the standard field decoder, supporting all the Trino physical data
 types. A field value is transformed under JSON conversion rules into
 boolean, long, double or string values. For non-date/time based columns,
 this decoder should be used.
@@ -921,7 +921,7 @@ this decoder should be used.
 Date and Time Decoders
 ^^^^^^^^^^^^^^^^^^^^^^
 
-To convert values from JSON objects into Presto ``DATE``, ``TIME``, ``TIME WITH TIME ZONE``,
+To convert values from JSON objects into Trino ``DATE``, ``TIME``, ``TIME WITH TIME ZONE``,
 ``TIMESTAMP`` or ``TIMESTAMP WITH TIME ZONE`` columns, special decoders must be selected using the
 ``dataFormat`` attribute of a field definition.
 
@@ -934,30 +934,30 @@ To convert values from JSON objects into Presto ``DATE``, ``TIME``, ``TIME WITH 
 * ``seconds-since-epoch`` - number based, interprets a text or number as number of milliseconds since the epoch.
 
 For ``TIMESTAMP WITH TIME ZONE`` and ``TIME WITH TIME ZONE`` data types, if timezone information is present in decoded value, it will
-be used in Presto value. Otherwise result time zone will be set to ``UTC``.
+be used in Trino value. Otherwise result time zone will be set to ``UTC``.
 
 ``avro`` Decoder
 ^^^^^^^^^^^^^^^^
 
 The Avro decoder converts the bytes representing a message or key in
 Avro format based on a schema. The message must have the Avro schema embedded.
-Presto does not support schema-less Avro decoding.
+Trino does not support schema-less Avro decoding.
 
 For key/message, using ``avro`` decoder, the ``dataSchema`` must be defined.
 This should point to the location of a valid Avro schema file of the message which needs to be decoded. This location can be a remote web server
 (e.g.: ``dataSchema: 'http://example.org/schema/avro_data.avsc'``) or local file system(e.g.: ``dataSchema: '/usr/local/schema/avro_data.avsc'``).
-The decoder fails if this location is not accessible from the Presto coordinator node.
+The decoder fails if this location is not accessible from the Trino coordinator node.
 
 For fields, the following attributes are supported:
 
-* ``name`` - Name of the column in the Presto table.
-* ``type`` - Presto type of column.
+* ``name`` - Name of the column in the Trino table.
+* ``type`` - Trino type of column.
 * ``mapping`` - slash-separated list of field names to select a field from the Avro schema. If field specified in ``mapping`` does not exist in the original Avro schema then a read operation returns NULL.
 
-Table below lists supported Presto types which can be used in ``type`` for the equivalent Avro field type/s.
+Table below lists supported Trino types which can be used in ``type`` for the equivalent Avro field type/s.
 
 ===================================== =======================================
-Presto data type                      Allowed Avro data type
+Trino data type                       Allowed Avro data type
 ===================================== =======================================
 ``BIGINT``                            ``INT``, ``LONG``
 ``DOUBLE``                            ``DOUBLE``, ``FLOAT``
@@ -973,7 +973,7 @@ Avro schema evolution
 
 The Avro decoder supports schema evolution feature with backward compatibility. With backward compatibility,
 a newer schema can be used to read Avro data created with an older schema. Any change in the Avro schema must also be
-reflected in Presto's topic definition file. Newly added/renamed fields *must* have a default value in the Avro schema file.
+reflected in Trino's topic definition file. Newly added/renamed fields *must* have a default value in the Avro schema file.
 
 The schema evolution behavior is as follows:
 

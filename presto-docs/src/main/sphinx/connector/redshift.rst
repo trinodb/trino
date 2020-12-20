@@ -33,7 +33,7 @@ multiple instances of the Redshift connector.
 
 To add another catalog, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``. For example,
-if you name the property file ``sales.properties``, Presto creates a
+if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
 
 Querying Redshift

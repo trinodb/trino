@@ -29,7 +29,7 @@ data warehouse. Hive is a combination of three components:
 * A query language called HiveQL. This query language is executed
   on a distributed computing framework such as MapReduce or Tez.
 
-Presto only uses the first two components: the data and the metadata.
+Trino only uses the first two components: the data and the metadata.
 It does not use HiveQL or any part of Hive's execution environment.
 
 Requirements
@@ -97,7 +97,7 @@ Materialized Views
 ------------------
 
 The Hive connector supports reading from Hive materialized views.
-In Presto, these views are presented as regular, read-only tables.
+In Trino, these views are presented as regular, read-only tables.
 
 Configuration
 -------------
@@ -118,13 +118,13 @@ Multiple Hive Clusters
 You can have as many catalogs as you need, so if you have additional
 Hive clusters, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``. For
-example, if you name the property file ``sales.properties``, Presto
+example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
 HDFS Configuration
 ^^^^^^^^^^^^^^^^^^
 
-For basic setups, Presto configures the HDFS client automatically and
+For basic setups, Trino configures the HDFS client automatically and
 does not require any configuration files. In some cases, such as when using
 federated HDFS or NameNode high availability, it is necessary to specify
 additional HDFS client options in order to access your HDFS cluster. To do so,
@@ -138,25 +138,25 @@ Only specify additional configuration files if necessary for your setup.
 We recommend reducing the configuration files to have the minimum
 set of required properties, as additional properties may cause problems.
 
-The configuration files must exist on all Presto nodes. If you are
+The configuration files must exist on all Trino nodes. If you are
 referencing existing Hadoop config files, make sure to copy them to
-any Presto nodes that are not running Hadoop.
+any Trino nodes that are not running Hadoop.
 
 HDFS Username and Permissions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Before running any ``CREATE TABLE`` or ``CREATE TABLE AS`` statements
-for Hive tables in Presto, you need to check that the user Presto is
+for Hive tables in Trino, you need to check that the user Trino is
 using to access HDFS has access to the Hive warehouse directory. The Hive
 warehouse directory is specified by the configuration variable
 ``hive.metastore.warehouse.dir`` in ``hive-site.xml``, and the default
 value is ``/user/hive/warehouse``.
 
-When not using Kerberos with HDFS, Presto accesses HDFS using the
-OS user of the Presto process. For example, if Presto is running as
+When not using Kerberos with HDFS, Trino accesses HDFS using the
+OS user of the Trino process. For example, if Trino is running as
 ``nobody``, it accesses HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Presto :ref:`presto_jvm_config`, replacing ``hdfs_user`` with the
+Trino :ref:`trino_jvm_config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: text
@@ -166,7 +166,7 @@ appropriate username:
 The ``hive`` user generally works, since Hive is often started with
 the ``hive`` user and this user has access to the Hive warehouse.
 
-Whenever you change the user Presto is using to access HDFS, remove
+Whenever you change the user Trino is using to access HDFS, remove
 ``/tmp/presto-*`` on HDFS, as the new user may not have access to
 the existing temporary directories.
 
@@ -191,7 +191,7 @@ Property Name                                      Description                  
 ================================================== ============================================================ ============
 ``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the
-                                                   machines running Presto. Only specify this if
+                                                   machines running Trino. Only specify this if
                                                    absolutely necessary to access HDFS.
                                                    Example: ``/etc/hdfs-site.xml``
 
@@ -212,11 +212,11 @@ Property Name                                      Description                  
 
 ``hive.force-local-scheduling``                    Force splits to be scheduled on the same node as the Hadoop  ``false``
                                                    DataNode process serving the split data.  This is useful for
-                                                   installations where Presto is collocated with every
+                                                   installations where Trino is collocated with every
                                                    DataNode.
 
 ``hive.respect-table-format``                      Should new partitions be written using the existing table    ``true``
-                                                   format or the default Presto format?
+                                                   format or the default Trino format?
 
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
                                                    If ``true`` then setting
@@ -245,7 +245,7 @@ Property Name                                      Description                  
 
 ``hive.hdfs.impersonation.enabled``                Enable HDFS end user impersonation.                          ``false``
 
-``hive.hdfs.presto.principal``                     The Kerberos principal that Presto will use when connecting
+``hive.hdfs.presto.principal``                     The Kerberos principal that Trino will use when connecting
                                                    to HDFS.
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
@@ -329,7 +329,7 @@ Specific properties can be used to further configure the
 ======================================= ============================================================ ============
 Property Name                                      Description                                       Default
 ======================================= ============================================================ ============
-``hive.metastore``                      The type of Hive metastore to use. Presto currently supports ``thrift``
+``hive.metastore``                      The type of Hive metastore to use. Trino currently supports  ``thrift``
                                         the default Hive Thrift metastore (``thrift``), and the AWS
                                         Glue Catalog (``glue``) as metadata sources.
 
@@ -364,7 +364,7 @@ Property Name                                                   Description     
                                                                 Example: ``thrift://192.0.2.3:9083`` or
                                                                 ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
-``hive.metastore.username``                                     The username Presto uses to access the Hive metastore.
+``hive.metastore.username``                                     The username Trino uses to access the Hive metastore.
 
 ``hive.metastore.authentication.type``                          Hive metastore authentication type.
                                                                 Possible values are ``NONE`` or ``KERBEROS``
@@ -389,7 +389,7 @@ Property Name                                                   Description     
 
 ``hive.metastore.service.principal``                            The Kerberos principal of the Hive metastore service.
 
-``hive.metastore.client.principal``                             The Kerberos principal that Presto uses when connecting
+``hive.metastore.client.principal``                             The Kerberos principal that Trino uses when connecting
                                                                 to the Hive metastore service.
 
 ``hive.metastore.client.keytab``                                Hive metastore client keytab location.
@@ -414,7 +414,7 @@ Property Name                                        Description
                                                      Example: ``https://glue.us-east-1.amazonaws.com``
 
 ``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
-                                                     where Presto is running, defaults to ``false``.
+                                                     where Trino is running, defaults to ``false``.
 
 ``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue,
                                                      defaults to ``5``.
@@ -593,9 +593,9 @@ maximum value of ``127``).
 Avro Schema Evolution
 ---------------------
 
-Presto supports querying and manipulating Hive tables with the Avro storage
-format, which has the schema set based on an Avro schema file/literal. Presto is
-also capable of creating the tables in Presto by infering the schema from a
+Trino supports querying and manipulating Hive tables with the Avro storage
+format, which has the schema set based on an Avro schema file/literal. Trino is
+also capable of creating the tables in Trino by infering the schema from a
 valid Avro schema file located locally, or remotely in HDFS/Web server.
 
 To specify that the Avro schema should be used for interpreting table's data one must use ``avro_schema_url`` table property.
@@ -604,9 +604,9 @@ HDFS (e.g. ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
 S3 (e.g. ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
 a web server (e.g. ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
 as well as local file system. This URL, where the schema is located, must be accessible from the
-Hive metastore and Presto coordinator/worker nodes.
+Hive metastore and Trino coordinator/worker nodes.
 
-The table created in Presto using ``avro_schema_url`` behaves the same way as a Hive table with ``avro.schema.url`` or ``avro.schema.literal`` set.
+The table created in Trino using ``avro_schema_url`` behaves the same way as a Hive table with ``avro.schema.url`` or ``avro.schema.literal`` set.
 
 Example::
 
@@ -620,7 +620,7 @@ Example::
 
 The columns listed in the DDL (``id`` in the above example) is ignored if ``avro_schema_url`` is specified.
 The table schema matches the schema in the Avro schema file. Before any read operation, the Avro schema is
-accessed so the query result reflects any changes in schema. Thus Presto takes advantage of Avro's backward compatibility abilities.
+accessed so the query result reflects any changes in schema. Thus Trino takes advantage of Avro's backward compatibility abilities.
 
 If the schema of the table changes in the Avro schema file, the new schema can still be used to read old data.
 Newly added/renamed fields *must* have a default value in the Avro schema file.
@@ -736,7 +736,7 @@ Examples
 
 The Hive connector supports querying and manipulating Hive tables and schemas
 (databases). While some uncommon operations need to be performed using
-Hive directly, most operations can be performed using Presto.
+Hive directly, most operations can be performed using Trino.
 
 Create a new Hive schema named ``web`` that stores tables in an
 S3 bucket named ``my-bucket``::
@@ -840,10 +840,10 @@ Hive 3 Related Limitations
   data is not accessible. Writing to such a table is not supported.
 
 * Due to Hive issues `HIVE-21002 <https://issues.apache.org/jira/browse/HIVE-21002>`_
-  and `HIVE-22167 <https://issues.apache.org/jira/browse/HIVE-22167>`_, Presto does
+  and `HIVE-22167 <https://issues.apache.org/jira/browse/HIVE-22167>`_, Trino does
   not correctly read ``timestamp`` values from Parquet, RCBinary, or Avro
   file formats created by Hive 3.1 or later. When reading from these file formats,
-  Presto returns different results than Hive.
+  Trino returns different results than Hive.
 
 * :doc:`/sql/create-table-as` can be used to create transactional tables in ORC format like this::
 
@@ -854,5 +854,5 @@ Hive 3 Related Limitations
       )
       AS <query>
 
-  Presto does not support gathering table statistics for Hive transactional tables.
+  Trino does not support gathering table statistics for Hive transactional tables.
   You need to use Hive to gather table statistics with ``ANALYZE TABLE COMPUTE STATISTICS`` after table creation.

@@ -16,7 +16,7 @@ Execute the statement and show the distributed execution plan of the statement
 along with the cost of each operation.
 
 The ``VERBOSE`` option will give more detailed information and low-level statistics;
-understanding these may require knowledge of Presto internals and implementation details.
+understanding these may require knowledge of Trino internals and implementation details.
 
 .. note::
 

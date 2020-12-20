@@ -39,7 +39,7 @@ To add another catalog:
 - Add another properties file to ``etc/catalog``
 - Save it with a different name that ends in ``.properties``
 
-For example, if you name the property file ``sales.properties``, Presto uses the
+For example, if you name the property file ``sales.properties``, Trino uses the
 configured connector to create a catalog named ``sales``.
 
 Querying SQL Server
@@ -93,14 +93,14 @@ following aggregate functions:
 Limitations
 -----------
 
-Presto supports connecting to SQL Server 2016, SQL Server 2014, SQL Server 2012
+Trino supports connecting to SQL Server 2016, SQL Server 2014, SQL Server 2012
 and Azure SQL Database.
 
-Presto supports the following SQL Server data types.
-The following table shows the mappings between SQL Server and Presto data types.
+Trino supports the following SQL Server data types.
+The following table shows the mappings between SQL Server and Trino data types.
 
 ============================= ============================
-SQL Server Type               Presto Type
+SQL Server Type               Trino Type
 ============================= ============================
 ``bigint``                    ``bigint``
 ``smallint``                  ``smallint``

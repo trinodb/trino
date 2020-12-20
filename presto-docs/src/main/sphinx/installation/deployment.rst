@@ -1,5 +1,5 @@
 ================
-Deploying Presto
+Deploying Trino
 ================
 
 Requirements
@@ -10,32 +10,32 @@ Linux Operating System
 
 * 64-bit required
 * newer release preferred, especially when running on containers
-* adequate ulimits for the user that runs the Presto process. These limits
+* adequate ulimits for the user that runs the Trino process. These limits
   may depend on the specific Linux distribution you are using. The number
-  of open file descriptors needed for a particular Presto instance scales
+  of open file descriptors needed for a particular Trino instance scales
   as roughly the number of machines in the cluster, times some factor
   depending on the workload. We recommend the following limits, which can
   typically be set in ``/etc/security/limits.conf``:
 
   .. code-block:: text
 
-      presto soft nofile 131072
-      presto hard nofile 131072
+      trino soft nofile 131072
+      trino hard nofile 131072
 
 .. _requirements-java:
 
 Java Runtime Environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Presto requires a 64-bit version of Java 11, with a minimum required version of 11.0.7.
+Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.7.
 Newer patch versions such as 11.0.8 or 11.0.9 are recommended. Earlier patch versions
 such as 11.0.2 do not work, nor will earlier major versions such as Java 8. Newer major
 versions such as Java 12 or 13 are not supported -- they may work, but are not tested.
 
 We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
-as the JDK for Presto, as Presto is tested against that distribution.
+as the JDK for Trino, as Trino is tested against that distribution.
 Zulu is also the JDK used by the
-`Presto Docker image <https://hub.docker.com/r/prestosql/presto>`_.
+`Trino Docker image <https://hub.docker.com/r/prestosql/presto>`_.
 
 Python
 ^^^^^^
@@ -43,18 +43,18 @@ Python
 * version 2.6.x, 2.7.x, or 3.x
 * required by the ``bin/launcher`` script only
 
-Installing Presto
+Installing Trino
 -----------------
 
-Download the Presto server tarball, :maven_download:`server`, and unpack it.
+Download the Trino server tarball, :maven_download:`server`, and unpack it.
 The tarball contains a single top-level directory,
 |presto_server_release|, which we call the *installation* directory.
 
-Presto needs a *data* directory for storing logs, etc.
+Trino needs a *data* directory for storing logs, etc.
 We recommend creating a data directory outside of the installation directory,
-which allows it to be easily preserved when upgrading Presto.
+which allows it to be easily preserved when upgrading Trino.
 
-Configuring Presto
+Configuring Trino
 ------------------
 
 Create an ``etc`` directory inside the installation directory.
@@ -62,7 +62,7 @@ This holds the following configuration:
 
 * Node Properties: environmental configuration specific to each node
 * JVM Config: command line options for the Java Virtual Machine
-* Config Properties: configuration for the Presto server
+* Config Properties: configuration for the Trino server
 * Catalog Properties: configuration for :doc:`/connector` (data sources)
 
 .. _presto_node_properties:
@@ -71,37 +71,37 @@ Node Properties
 ^^^^^^^^^^^^^^^
 
 The node properties file, ``etc/node.properties``, contains configuration
-specific to each node. A *node* is a single installed instance of Presto
+specific to each node. A *node* is a single installed instance of Trino
 on a machine. This file is typically created by the deployment system when
-Presto is first installed. The following is a minimal ``etc/node.properties``:
+Trino is first installed. The following is a minimal ``etc/node.properties``:
 
 .. code-block:: text
 
     node.environment=production
     node.id=ffffffff-ffff-ffff-ffff-ffffffffffff
-    node.data-dir=/var/presto/data
+    node.data-dir=/var/trino/data
 
 The above properties are described below:
 
 * ``node.environment``:
-  The name of the environment. All Presto nodes in a cluster must have the same
+  The name of the environment. All Trino nodes in a cluster must have the same
   environment name. The name must start with an alphanumeric character and
   only contain alphanumeric, ``-``, or ``_`` characters.
 
 * ``node.id``:
-  The unique identifier for this installation of Presto. This must be
+  The unique identifier for this installation of Trino. This must be
   unique for every node. This identifier should remain consistent across
-  reboots or upgrades of Presto. If running multiple installations of
-  Presto on a single machine (i.e. multiple nodes on the same machine),
+  reboots or upgrades of Trino. If running multiple installations of
+  Trino on a single machine (i.e. multiple nodes on the same machine),
   each installation must have a unique identifier. The identifier must start
   with an alphanumeric character and only contain alphanumeric, ``-``, or ``_``
   characters.
 
 * ``node.data-dir``:
-  The location (filesystem path) of the data directory. Presto stores
+  The location (filesystem path) of the data directory. Trino stores
   logs and other data here.
 
-.. _presto_jvm_config:
+.. _trino_jvm_config:
 
 JVM Config
 ^^^^^^^^^^
@@ -137,7 +137,7 @@ terminate the process when this occurs.
 The temporary directory used by the JVM must allow execution of code.
 Specifically, the mount must not have the ``noexec`` flag set. The default
 ``/tmp`` directory is mounted with this flag in some installations, which
-prevents Presto from starting. You can workaround this by overriding the
+prevents Trino from starting. You can workaround this by overriding the
 temporary directory by adding ``-Djava.io.tmpdir=/path/to/other/tmpdir`` to the
 list of JVM options.
 
@@ -147,7 +147,7 @@ Config Properties
 ^^^^^^^^^^^^^^^^^
 
 The config properties file, ``etc/config.properties``, contains the
-configuration for the Presto server. Every Presto server can function
+configuration for the Trino server. Every Trino server can function
 as both a coordinator and a worker, but dedicating a single machine
 to only perform coordination work provides the best performance on
 larger clusters.
@@ -193,7 +193,7 @@ functions as both a coordinator and worker, use this configuration:
 These properties require some explanation:
 
 * ``coordinator``:
-  Allow this Presto instance to function as a coordinator, so to
+  Allow this Trino instance to function as a coordinator, so to
   accept queries from clients and manage query execution.
 
 * ``node-scheduler.include-coordinator``:
@@ -204,7 +204,7 @@ These properties require some explanation:
   query execution.
 
 * ``http-server.http.port``:
-  Specifies the port for the HTTP server. Presto uses HTTP for all
+  Specifies the port for the HTTP server. Trino uses HTTP for all
   communication, internal and external.
 
 * ``query.max-memory``:
@@ -218,18 +218,18 @@ These properties require some explanation:
   where system memory is the memory used during execution by readers, writers, and network buffers, etc.
 
 * ``discovery-server.enabled``:
-  Presto uses the Discovery service to find all the nodes in the cluster.
-  Every Presto instance registers itself with the Discovery service
+  Trino uses the Discovery service to find all the nodes in the cluster.
+  Every Trino instance registers itself with the Discovery service
   on startup. In order to simplify deployment and avoid running an additional
-  service, the Presto coordinator can run an embedded version of the
-  Discovery service. It shares the HTTP server with Presto and thus uses
+  service, the Trino coordinator can run an embedded version of the
+  Discovery service. It shares the HTTP server with Trino and thus uses
   the same port.
 
 * ``discovery.uri``:
   The URI to the Discovery server. Because we have enabled the embedded
-  version of Discovery in the Presto coordinator, this should be the
-  URI of the Presto coordinator. Replace ``example.net:8080`` to match
-  the host and port of the Presto coordinator. This URI must not end
+  version of Discovery in the Trino coordinator, this should be the
+  URI of the Trino coordinator. Replace ``example.net:8080`` to match
+  the host and port of the Trino coordinator. This URI must not end
   in a slash.
 
 The above configuration properties are a minimal set to help you get started.
@@ -260,12 +260,12 @@ There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 Catalog Properties
 ^^^^^^^^^^^^^^^^^^
 
-Presto accesses data via *connectors*, which are mounted in catalogs.
+Trino accesses data via *connectors*, which are mounted in catalogs.
 The connector provides all of the schemas and tables inside of the catalog.
 For example, the Hive connector maps each Hive database to a schema.
 If the Hive connector is mounted as the ``hive`` catalog, and Hive
 contains a table ``clicks`` in database ``web``, that table can be accessed
-in Presto as ``hive.web.clicks``.
+in Trino as ``hive.web.clicks``.
 
 Catalogs are registered by creating a catalog properties file
 in the ``etc/catalog`` directory.
@@ -278,13 +278,13 @@ contents to mount the ``jmx`` connector as the ``jmx`` catalog:
 
 See :doc:`/connector` for more information about configuring connectors.
 
-.. _running_presto:
+.. _running_trino:
 
-Running Presto
+Running Trino
 --------------
 
 The installation directory contains the launcher script in ``bin/launcher``.
-Presto can be started as a daemon by running the following:
+Trino can be started as a daemon by running the following:
 
 .. code-block:: text
 
@@ -305,13 +305,13 @@ very useful for debugging the installation.
 The launcher configures default values for the configuration
 directory ``etc``, configuration files, the data directory ``var``,
 and log files in the data directory. You can change these values
-to adjust your Presto usage to any requirements, such as using a
+to adjust your Trino usage to any requirements, such as using a
 directory outside the installation directory, specific mount points
-or locations, and even using other file names. For example, the Presto
+or locations, and even using other file names. For example, the Trino
 RPM adjusts the used directories to better follow the Linux Filesystem
 Hierarchy Standard (FHS).
 
-After starting Presto, you can find log files in the ``log`` directory inside
+After starting Trino, you can find log files in the ``log`` directory inside
 the data directory ``var``:
 
 * ``launcher.log``:
@@ -321,7 +321,7 @@ the data directory ``var``:
   errors or diagnostics produced by the JVM.
 
 * ``server.log``:
-  This is the main log file used by Presto. It typically contains
+  This is the main log file used by Trino. It typically contains
   the relevant information if the server fails during initialization.
   It is automatically rotated and compressed.
 

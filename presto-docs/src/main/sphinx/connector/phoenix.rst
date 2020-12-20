@@ -42,13 +42,13 @@ Property Name                                      Required   Description
                                                               root znode path, that is configurable using ``hbase-site.xml``.  By
                                                               default the location is ``/hbase``
 ``phoenix.config.resources``                       No         Comma-separated list of configuration files (e.g. ``hbase-site.xml``) to use for
-                                                              connection properties.  These files must exist on the machines running Presto.
+                                                              connection properties.  These files must exist on the machines running Trino.
 ================================================== ========== ===================================================================================
 
 Querying Phoenix Tables
 -------------------------
 
-The default empty schema in Phoenix maps to a schema named ``default`` in Presto.
+The default empty schema in Phoenix maps to a schema named ``default`` in Trino.
 You can see the available Phoenix schemas by running ``SHOW SCHEMAS``::
 
     SHOW SCHEMAS FROM phoenix;
@@ -77,7 +77,7 @@ Data types
 The data type mappings are as follows:
 
 ==========================   ============
-Phoenix                      Presto
+Phoenix                      Trino
 ==========================   ============
 ``BOOLEAN``                  (same)
 ``BIGINT``                   (same)
@@ -95,9 +95,9 @@ Phoenix                      Presto
 ``CHAR``                     (same)
 ==========================   ============
 
-The Phoenix fixed length ``BINARY`` data type is mapped to the Presto
+The Phoenix fixed length ``BINARY`` data type is mapped to the Trino
 variable length ``VARBINARY`` data type. There is no way to create a
-Phoenix table in Presto that uses the ``BINARY`` data type, as Presto
+Phoenix table in Trino that uses the ``BINARY`` data type, as Trino
 does not have an equivalent type.
 
 

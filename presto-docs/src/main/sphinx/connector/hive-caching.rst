@@ -3,7 +3,7 @@ Hive Connector Storage Caching
 ==============================
 
 Querying object storage with the :doc:`/connector/hive` is a
-very common use case for Presto. It often involves the transfer of large amounts
+very common use case for Trino. It often involves the transfer of large amounts
 of data. The objects are retrieved from HDFS, or any other supported object
 storage, by multiple workers and processed on these workers. Repeated queries
 with different parameters, or even different queries from different users, often
@@ -102,7 +102,7 @@ directories  and different BookKeeper and data-transfer ports.
   * - ``hive.cache.location``
     - Required directory location to use for the cache storage on each worker.
       Separate multiple directories, which can be mountpoints for separate drives, with commas
-      ``hive.cache.location=/var/lib/presto/cache1,/var/lib/presto/cache2``.
+      ``hive.cache.location=/var/lib/trino/cache1,/var/lib/trino/cache2``.
       More tips can be found in the :ref:`recommendations
       <hive-cache-recommendations>`.
     -
@@ -137,7 +137,7 @@ disk used as in-memory.
 In all cases, you should avoid using the root partition and disk of the node and
 instead attach at multiple dedicated storage devices for the cache on each node.
 The cache uses the disk up to a configurable percentage. Storage should be local
-on each coordinator and worker node. The directory needs to exist before Presto
+on each coordinator and worker node. The directory needs to exist before Trino
 starts. We recommend using multiple devices to improve performance of the cache.
 
 The capacity of the attached storage devices should be about 20-30% larger than
@@ -147,7 +147,7 @@ data for the last 3 months. The overall size of these partitions is currently at
 1TB. As a result your cache drives have to have a total capacity of 1.2 TB or
 more.
 
-Your deployment method for Presto decides how to create the directory for
+Your deployment method for Trino decides how to create the directory for
 caching. Typically you need to connect a fast storage system, like an SSD drive,
 and ensure that is it mounted on the configured path. Kubernetes, CFT and other
 systems allow this via volumes.
@@ -173,7 +173,7 @@ approaches:
 
 The implementation of the cache exposes a `number of metrics
 <https://rubix.readthedocs.io/en/latest/metrics.html>`_ via JMX. You can
-:doc:`inspect these and other metrics directly in Presto with the JMX connector
+:doc:`inspect these and other metrics directly in Trino with the JMX connector
 or in external tools </admin/jmx>`.
 
 Basic caching statistics for the catalog are available in the

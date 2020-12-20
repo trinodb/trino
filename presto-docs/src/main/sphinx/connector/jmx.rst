@@ -4,9 +4,9 @@ JMX Connector
 
 The JMX connector provides the ability to query Java Management Extensions (JMX)
 information from all
-nodes in a Presto cluster. This is very useful for monitoring or debugging.
+nodes in a Trino cluster. This is very useful for monitoring or debugging.
 JMX provides information about the Java
-Virtual Machine and all of the software running inside it. Presto itself
+Virtual Machine and all of the software running inside it. Trino itself
 is heavily instrumented via JMX.
 
 This connector can be configured so that chosen JMX information is
@@ -49,7 +49,7 @@ Querying JMX
 
 The JMX connector provides two schemas.
 
-The first one is ``current`` that contains every MBean from every node in the Presto
+The first one is ``current`` that contains every MBean from every node in the Trino
 cluster. You can see all of the available MBeans by running ``SHOW TABLES``::
 
     SHOW TABLES FROM jmx.current;
@@ -83,7 +83,7 @@ for each node::
 
 The wildcard character ``*`` may be used with table names in the ``current`` schema.
 This allows matching several MBean objects within a single query. The following query
-returns information from the different Presto memory pools on each node::
+returns information from the different Trino memory pools on each node::
 
     SELECT freebytes, node, object_name
     FROM jmx.current."presto.memory:*type=memorypool*";

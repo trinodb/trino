@@ -2,13 +2,13 @@
 Secure Internal Communication
 =============================
 
-The Presto cluster can be configured to use secured communication. Communication
-between Presto nodes can be secured with SSL/TLS.
+The Trino cluster can be configured to use secured communication. Communication
+between Trino nodes can be secured with SSL/TLS.
 
 Internal Authentication
 -----------------------
 
-Requests between Presto nodes are authenticated using a shared secret. For secure
+Requests between Trino nodes are authenticated using a shared secret. For secure
 internal communication, the shared secret must be configured on all nodes in the cluster:
 
 .. code-block:: text
@@ -31,7 +31,7 @@ Every node in the cluster must be configured. Nodes that have not been
 configured, or are configured incorrectly, are not able to communicate with
 other nodes in the cluster.
 
-To enable SSL/TLS for Presto internal communication, do the following:
+To enable SSL/TLS for Trino internal communication, do the following:
 
 1. Disable HTTP endpoint.
 
@@ -67,7 +67,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
          node.internal-address=<node fqdn>
 
 
-3. Generate a Java Keystore File. Every Presto node must be able to connect to
+3. Generate a Java Keystore File. Every Trino node must be able to connect to
    any other node within the same cluster. It is possible to create unique
    certificates for every node using the fully-qualified hostname of each host,
    create a keystore that contains all the public keys for all of the hosts,
@@ -99,7 +99,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
 
    .. Note: Replace `example.com` with the appropriate domain.
 
-4. Distribute the Java Keystore File across the Presto cluster.
+4. Distribute the Java Keystore File across the Trino cluster.
 
 5. Enable the HTTPS endpoint.
 
@@ -136,7 +136,7 @@ Performance with SSL/TLS enabled
 Enabling encryption impacts performance. The performance degradation can vary
 based on the environment, queries, and concurrency.
 
-For queries that do not require transferring too much data between the Presto
+For queries that do not require transferring too much data between the Trino
 nodes e.g. ``SELECT count(*) FROM table``, the performance impact is negligible.
 
 However, for CPU intensive queries which require a considerable amount of data

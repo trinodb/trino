@@ -6,7 +6,7 @@ Data Structures
 ---------------
 
 A T-digest is a data sketch which stores approximate percentile
-information.  The Presto type for this data structure is called ``tdigest``.
+information.  The Trino type for this data structure is called ``tdigest``.
 T-digests can be merged, and for storage and retrieval they can be cast
 to and from ``VARBINARY``.
 

@@ -2,7 +2,7 @@
 Cost based optimizations
 ========================
 
-Presto supports several cost based optimizations, described below.
+Trino supports several cost based optimizations, described below.
 
 Join Enumeration
 ----------------
@@ -15,7 +15,7 @@ the execution, then subsequent stages need to process large amounts of
 data for longer than necessary, increasing the time and resources needed for
 the query.
 
-With cost based join enumeration, Presto uses
+With cost based join enumeration, Trino uses
 :doc:`/optimizer/statistics` provided by connectors to estimate
 the costs for different join orders and automatically picks the
 join order with the lowest computed costs.
@@ -36,7 +36,7 @@ used instead.
 Join Distribution Selection
 ---------------------------
 
-Presto uses a hash based join algorithm. That implies that for each join
+Trino uses a hash based join algorithm. That implies that for each join
 operator a hash table must be created from one join input, called build side.
 The other input, called probe side, is then iterated, and for each row the hash table is
 queried to find matching rows.
@@ -55,8 +55,8 @@ than the probe side. However, broadcast joins require that the tables on the
 build side of the join after filtering fit in memory on each node, whereas
 distributed joins only need to fit in distributed memory across all nodes.
 
-With cost based join distribution selection, Presto automatically chooses to
-use a partitioned or broadcast join. With cost based join enumeration, Presto
+With cost based join distribution selection, Trino automatically chooses to
+use a partitioned or broadcast join. With cost based join enumeration, Trino
 automatically chooses which side is the probe and which is the build.
 
 The join distribution strategy is governed by the ``join_distribution_type``
@@ -85,5 +85,5 @@ By default replicated table size is capped to 100MB.
 Connector Implementations
 -------------------------
 
-In order for the Presto optimizer to use the cost based strategies,
+In order for the Trino optimizer to use the cost based strategies,
 the connector implementation must provide :doc:`statistics`.

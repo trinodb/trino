@@ -12,7 +12,7 @@ The :doc:`hive` can access
 `Cloud Storage connector <https://cloud.google.com/dataproc/docs/concepts/connectors/cloud-storage>`_.
 
 If your data is publicly available, you do not need to do anything here.
-However, in most cases data is not publicly available, and the Presto cluster needs to have access to it.
+However, in most cases data is not publicly available, and the Trino cluster needs to have access to it.
 This is typically achieved by creating a service account, which has permissions to access your data.
 You can do this on the
 `service accounts page in GCP <https://console.cloud.google.com/projectselector2/iam-admin/serviceaccounts>`_.
@@ -21,7 +21,7 @@ Once you create a service account, create a key for it and download the key in J
 Hive Connector configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Another requirement is that you have enabled and configured a Hive connector in Presto.
+Another requirement is that you have enabled and configured a Hive connector in Trino.
 The connector uses Hive metastore for data discovery and is not limited to data residing on HDFS.
 
 **Configuring Hive Connector**
@@ -30,14 +30,14 @@ The connector uses Hive metastore for data discovery and is not limited to data 
 
   * New Hive metastore on GCP:
 
-    If your Presto nodes are provisioned by GCP, your Hive metastore should also be on GCP
+    If your Trino nodes are provisioned by GCP, your Hive metastore should also be on GCP
     to minimize latency and costs. The simplest way to create a new Hive metastore on GCP
     is to create a small Cloud DataProc cluster (1 master, 0 workers), accessible from
-    your Presto cluster. Follow the steps for existing Hive metastore after finishing this step.
+    your Trino cluster. Follow the steps for existing Hive metastore after finishing this step.
 
   * Existing Hive metastore:
 
-    To use an existing Hive metastore with a Presto cluster, you need to set the
+    To use an existing Hive metastore with a Trino cluster, you need to set the
     ``hive.metastore.uri`` property in your Hive catalog properties file to
     ``thrift://${METASTORE_ADDRESS}:${METASTORE_THRIFT_PORT}``.
     If the metastore uses authentication, please refer to :doc:`hive-security`.
@@ -74,21 +74,21 @@ Unfortunately GCS IAM permissions don't map to POSIX permissions required by Had
 so the GCS connector presents fake POSIX file permissions.
 
 When Hive metastore accesses GCS, it see fake POSIX permissions equal to ``0700`` by default.
-If Presto and Hive metastore are running as different user accounts, this causes Hive metastore
-to deny Presto data access.
+If Trino and Hive metastore are running as different user accounts, this causes Hive metastore
+to deny Trino data access.
 There are two possible solutions to this problem:
 
-* Run Presto service and Hive service as the same user.
+* Run Trino service and Hive service as the same user.
 * Make sure Hive GCS configuration includes a ``fs.gs.reported.permissions`` property
   with a value of ``777``.
 
-Accessing GCS Data From Presto for the First Time
+Accessing GCS Data From Trino for the First Time
 -------------------------------------------------
 
 Accessing Data Already Mapped in the Hive metastore
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you migrate to Presto from Hive, chances are that your GCS data is already mapped to
+If you migrate to Trino from Hive, chances are that your GCS data is already mapped to
 SQL tables in the metastore.
 In that case, you should be able to query it.
 
@@ -122,7 +122,7 @@ Now you should be able to query the newly mapped table::
 
     SELECT * FROM orders;
 
-Writing GCS Data with Presto
+Writing GCS Data with Trino
 ----------------------------
 
 Prerequisites
