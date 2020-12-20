@@ -2,8 +2,8 @@
 JDBC Driver
 ===========
 
-The Presto `JDBC driver <https://en.wikipedia.org/wiki/JDBC_driver>`_ allows
-users to access Presto using Java-based applications, and other non-Java
+The Trino `JDBC driver <https://en.wikipedia.org/wiki/JDBC_driver>`_ allows
+users to access Trino using Java-based applications, and other non-Java
 applications running in a JVM. Both desktop and server-side applications, such
 as those used for reporting and database development, use the JDBC driver.
 
@@ -35,7 +35,7 @@ directory for the desired version, and select the ``presto-jdbc-xxx.jar`` file
 to download, where ``xxx`` is the version number.
 
 Once downloaded, you must add the JAR file to a directory in the classpath
-of users on systems where they will access Presto.
+of users on systems where they will access Trino.
 
 After you have downloaded the JDBC driver and added it to your
 classpath, you'll typically need to restart your application in order to
@@ -58,7 +58,7 @@ Connecting
 ----------
 
 When your driver is loaded, registered and configured, you are ready to connect
-to Presto from your application. The following JDBC URL formats are supported:
+to Trino from your application. The following JDBC URL formats are supported:
 
 .. code-block:: text
 
@@ -72,7 +72,7 @@ The following is an example of a JDBC URL used to create a connection:
 
     jdbc:presto://example.net:8080/hive/sales
 
-This example JDBC URL locates a Presto instance running on port ``8080`` on
+This example JDBC URL locates a Trino instance running on port ``8080`` on
 ``example.net``, with the catalog ``hive`` and the schema ``sales`` defined.
 
 Connection parameters
@@ -113,11 +113,11 @@ Name                                   Description
 ``clientInfo``                         Extra information about the client.
 ``clientTags``                         Client tags for selecting resource groups. Example: ``abc,xyz``
 ``traceToken``                         Trace token for correlating requests across systems.
-``source``                             Source name for the Presto query. This parameter should be used in
+``source``                             Source name for the Trino query. This parameter should be used in
                                        preference to ``ApplicationName``. Thus, it takes precedence
                                        over ``ApplicationName`` and/or ``applicationNamePrefix``.
 ``applicationNamePrefix``              Prefix to append to any specified ``ApplicationName`` client info
-                                       property, which is used to set the source name for the Presto query
+                                       property, which is used to set the source name for the Trino query
                                        if the ``source`` parameter has not been set. If neither this
                                        property nor ``ApplicationName`` or ``source`` are set, the source
                                        name for the query is ``presto-jdbc``.
@@ -137,14 +137,14 @@ Name                                   Description
 ``SSLTrustStorePassword``              The password for the TrustStore.
 ``SSLTrustStoreType``                  The type of the TrustStore. The default type is provided by the Java
                                        ``keystore.type`` security property or ``jks`` if none exists.
-``KerberosRemoteServiceName``          Presto coordinator Kerberos service name. This parameter is
+``KerberosRemoteServiceName``          Trino coordinator Kerberos service name. This parameter is
                                        required for Kerberos authentication.
-``KerberosPrincipal``                  The principal to use when authenticating to the Presto coordinator.
-``KerberosUseCanonicalHostname``       Use the canonical hostname of the Presto coordinator for the Kerberos
+``KerberosPrincipal``                  The principal to use when authenticating to the Trino coordinator.
+``KerberosUseCanonicalHostname``       Use the canonical hostname of the Trino coordinator for the Kerberos
                                        service principal by first resolving the hostname to an IP address
                                        and then doing a reverse DNS lookup for that IP address.
                                        This is enabled by default.
-``KerberosServicePrincipalPattern``    Presto coordinator Kerberos service principal pattern. The default is
+``KerberosServicePrincipalPattern``    Trino coordinator Kerberos service principal pattern. The default is
                                        ``${SERVICE}@${HOST}``. ``${SERVICE}`` is replaced with the value of
                                        ``KerberosRemoteServiceName`` and ``${HOST}`` is replaced with the
                                        hostname of the coordinator (after canonicalization if enabled).

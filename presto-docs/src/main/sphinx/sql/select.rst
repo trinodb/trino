@@ -107,7 +107,7 @@ queries.
 
 A recursive ``WITH``-query must be shaped as a ``UNION`` of two relations. The
 first relation is called the *recursion base*, and the second relation is called
-the *recursion step*. Presto supports recursive ``WITH``-queries with a single
+the *recursion step*. Trino supports recursive ``WITH``-queries with a single
 recursive reference to a ``WITH``-query from within the query. The name ``T`` of
 the query ``T`` can be mentioned once in the ``FROM`` clause of the recursion
 step relation.
@@ -297,7 +297,7 @@ the ``GROUP BY`` clause.
 Complex Grouping Operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Presto also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
+Trino also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
 and ``ROLLUP`` syntax. This syntax allows users to perform analysis that requires
 aggregation on multiple sets of columns in a single query. Complex grouping
 operations do not support grouping on expressions composed of input columns.
@@ -762,7 +762,7 @@ The default null ordering is ``NULLS LAST``, regardless of the ordering directio
 
 Note that, following the SQL specification, an ``ORDER BY`` clause only
 affects the order of rows for queries that immediately contain the clause.
-Presto follows that specification, and drops redundant usage of the clause to
+Trino follows that specification, and drops redundant usage of the clause to
 avoid negative performance impacts.
 
 In the following example, the clause only applies to the select statement.
@@ -775,7 +775,7 @@ In the following example, the clause only applies to the select statement.
 
 Since tables in SQL are inherently unordered, and the ``ORDER BY`` clause in
 this case does not result in any difference, but negatively impacts performance
-of running the overall insert statement, Presto skips the sort operation.
+of running the overall insert statement, Trino skips the sort operation.
 
 Another example where the ``ORDER BY`` clause is redundant, and does not affect
 the outcome of the overall statement, is a nested query:

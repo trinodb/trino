@@ -8,9 +8,9 @@ Logging Properties
 * **Type:** ``string``
 * **Default value:** ``var/log/server.log``
 
-The path to the log file used by Presto. The path is relative to the data
+The path to the log file used by Trino. The path is relative to the data
 directory, configured by the launcher script as detailed in
-:ref:`running_presto`.
+:ref:`running_trino`.
 
 ``log.max-history``
 ^^^^^^^^^^^^^^^^^^^
@@ -52,7 +52,7 @@ Flag to enable or disable compression of the log files of the HTTP server.
 
 The path to the log file used by the HTTP server. The path is relative to
 the data directory, configured by the launcher script as detailed in
-:ref:`running_presto`.
+:ref:`running_trino`.
 
 ``http-server.log.max-history``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

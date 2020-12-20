@@ -2,7 +2,7 @@
 Connectors
 **********
 
-This chapter describes the connectors available in Presto to access data
+This chapter describes the connectors available in Trino to access data
 from different data sources.
 
 .. toctree::

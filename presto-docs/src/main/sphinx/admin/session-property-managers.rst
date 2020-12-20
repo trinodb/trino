@@ -16,7 +16,7 @@ the built-in manager, that reads a JSON config file:
     session-property-manager.config-file=etc/session-property-config.json
 
 Change the value of ``session-property-manager.config-file`` to point to a JSON config file,
-which can be an absolute path, or a path relative to the Presto data directory.
+which can be an absolute path, or a path relative to the Trino data directory.
 
 This configuration file consists of a list of match rules, each of which specify a list of
 conditions that the query must meet, and a list of session properties that should be applied

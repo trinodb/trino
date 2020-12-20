@@ -13,12 +13,12 @@ joined with a filtered dimension table ``date_dim``:
     JOIN date_dim ON store_sales.ss_sold_date_sk = date_dim.d_date_sk
     WHERE d_following_holiday='Y' AND d_year = 2000;
 
-Without dynamic filtering, Presto pushes predicates for the dimension table to the
+Without dynamic filtering, Trino pushes predicates for the dimension table to the
 table scan on ``date_dim``, and it scans all the data in the fact table since there
 are no filters on ``store_sales`` in the query. The join operator ends up throwing away
 most of the probe-side rows as the join criteria is highly selective.
 
-When dynamic filtering is enabled, Presto collects candidate values for join condition
+When dynamic filtering is enabled, Trino collects candidate values for join condition
 from the processed dimension table on the right side of join. In the case of broadcast joins,
 the runtime predicates generated from this collection are pushed into the local table scan
 on the left side of the join running on the same worker.
@@ -34,7 +34,7 @@ This is known as **dynamic partition pruning**.
 The results of dynamic filtering optimization can include the following benefits:
 
 * improved overall query performance
-* reduced network traffic between Presto and the data source
+* reduced network traffic between Trino and the data source
 * reduced load on the remote data source
 
 Support for push down of dynamic filters is specific to each connector,
@@ -45,7 +45,7 @@ Analysis and confirmation
 
 Dynamic filtering depends on a number of factors:
 
-* Planner support for dynamic filtering for a given join operation in Presto.
+* Planner support for dynamic filtering for a given join operation in Trino.
   Currently inner and right joins with ``=``, ``<``, ``<=``, ``>``, ``>=`` or
   ``IS NOT DISTINCT FROM`` join conditions, and
   semi-joins with ``IN`` conditions are supported.
@@ -113,7 +113,7 @@ down to the connector in the query plan.
             d_year := d_year:int:REGULAR
 
 
-During execution of a query with dynamic filters, Presto populates statistics
+During execution of a query with dynamic filters, Trino populates statistics
 about dynamic filters in the QueryInfo JSON available through the
 :doc:`/admin/web-interface`.
 In the ``queryStats`` section, statistics about dynamic filters collected
@@ -165,7 +165,7 @@ Collection of values of the join key columns from the build side for
 dynamic filtering may incur additional CPU overhead during query execution.
 Therefore, to limit the overhead of collecting dynamic filters
 to the cases where the join operator is likely to be selective,
-Presto defines thresholds on the size of dynamic filters collected from build side tasks.
+Trino defines thresholds on the size of dynamic filters collected from build side tasks.
 Collection of dynamic filters for joins with large build sides can be enabled
 using the ``enable-large-dynamic-filters`` configuration property or the
 ``enable_large_dynamic_filters`` session property.
@@ -187,7 +187,7 @@ equivalent for broadcast join distribution type.
 The properties based on ``max-distinct-values-per-driver`` and ``max-size-per-driver``
 define thresholds for the size up to which dynamic filters are collected in a
 distinct values data structure. When the build side exceeds these thresholds,
-Presto switches to collecting min and max values per column to reduce overhead.
+Trino switches to collecting min and max values per column to reduce overhead.
 This min-max filter has much lower granularity than the distinct values filter.
 However, it may still be beneficial in filtering some data from the probe side,
 especially when a range of values is selected from the build side of the join.

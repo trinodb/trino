@@ -106,7 +106,7 @@ Behaviors of the casts are shown with the examples below::
 
 JSON arrays can have mixed element types and JSON maps can have mixed
 value types. This makes it impossible to cast them to SQL arrays and maps in
-some cases. To address this, Presto supports partial casting of arrays and maps::
+some cases. To address this, Trino supports partial casting of arrays and maps::
 
     SELECT CAST(JSON '[[1, 23], 456]' AS ARRAY(JSON));
     -- [JSON '[1,23]', JSON '456']

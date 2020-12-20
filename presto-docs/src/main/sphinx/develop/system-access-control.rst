@@ -2,13 +2,13 @@
 System Access Control
 =====================
 
-Presto separates the concept of the principal who authenticates to the
+Trino separates the concept of the principal who authenticates to the
 coordinator from the username that is responsible for running queries. When
-running the Presto CLI, for example, the Presto username can be specified using
+running the Trino CLI, for example, the Trino username can be specified using
 the ``--user`` option.
 
-By default, the Presto coordinator allows any principal to run queries as any
-Presto user. In a secure environment, this is probably not desirable behavior
+By default, the Trino coordinator allows any principal to run queries as any
+Trino user. In a secure environment, this is probably not desirable behavior
 and likely requires customization.
 
 Implementation
@@ -16,7 +16,7 @@ Implementation
 
 ``SystemAccessControlFactory`` is responsible for creating a
 ``SystemAccessControl`` instance. It also defines a ``SystemAccessControl``
-name which is used by the administrator in a Presto configuration.
+name which is used by the administrator in a Trino configuration.
 
 ``SystemAccessControl`` implementations have several responsibilities:
 
@@ -27,7 +27,7 @@ name which is used by the administrator in a Presto configuration.
   be allowed by ``ConnectorAccessControl``.
 
 The implementation of ``SystemAccessControl`` and ``SystemAccessControlFactory``
-must be wrapped as a plugin and installed on the Presto cluster.
+must be wrapped as a plugin and installed on the Trino cluster.
 
 Configuration
 -------------
@@ -39,7 +39,7 @@ property (the default is a single ``etc/access-control.properties`` file).
 All of the properties other than ``access-control.name`` are specific to
 the ``SystemAccessControl`` implementation.
 
-The ``access-control.name`` property is used by Presto to find a registered
+The ``access-control.name`` property is used by Trino to find a registered
 ``SystemAccessControlFactory`` based on the name returned by
 ``SystemAccessControlFactory.getName()``. The remaining properties are passed
 as a map to ``SystemAccessControlFactory.create()``.

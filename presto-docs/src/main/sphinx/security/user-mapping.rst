@@ -2,7 +2,7 @@
 User Mapping
 ============
 
-User mapping defines rules for mapping from users in the authentication system to Presto users.  This
+User mapping defines rules for mapping from users in the authentication system to Trino users.  This
 mapping is particularly important for Kerberos or certificate authentication where the user names
 are complex like ``alice@example`` or ``CN=Alice Smith, OU=Finance, O=Acme, C=US``.
 

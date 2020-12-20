@@ -2,7 +2,7 @@
 Developer Guide
 ***************
 
-This guide is intended for Presto contributors and plugin developers.
+This guide is intended for Trino contributors and plugin developers.
 
 .. toctree::
     :maxdepth: 1

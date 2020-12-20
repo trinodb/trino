@@ -2,14 +2,14 @@
 Geospatial Functions
 ====================
 
-Presto Geospatial functions that begin with the ``ST_`` prefix support the SQL/MM specification
+Trino Geospatial functions that begin with the ``ST_`` prefix support the SQL/MM specification
 and are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications.
-As such, many Presto Geospatial functions require, or more accurately, assume that
+As such, many Trino Geospatial functions require, or more accurately, assume that
 geometries that are operated on are both simple and valid. For example, it does not
 make sense to calculate the area of a polygon that has a hole defined outside of the
 polygon, or to construct a polygon from a non-simple boundary line.
 
-Presto Geospatial functions support the Well-Known Text (WKT) and Well-Known Binary (WKB) form of spatial objects:
+Trino Geospatial functions support the Well-Known Text (WKT) and Well-Known Binary (WKB) form of spatial objects:
 
 * ``POINT (0 0)``
 * ``LINESTRING (0 0, 1 1, 1 2)``

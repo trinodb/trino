@@ -10,7 +10,7 @@ Built-in System Access Control
 
 A system access control plugin enforces authorization at a global level,
 before any connector level authorization. You can use one of the built-in
-plugins in Presto, or provide your own by following the guidelines in
+plugins in Trino, or provide your own by following the guidelines in
 :doc:`/develop/system-access-control`.
 
 Multiple system access control implementations may be configured at once
@@ -18,7 +18,7 @@ using the ``access-control.config-files`` configuration property. It should
 contain a comma separated list of the access control property files to use
 (rather than the default ``etc/access-control.properties``).
 
-Presto offers the following built-in plugins:
+Trino offers the following built-in plugins:
 
 ================================================== =================================================================
 Plugin Name                                        Description

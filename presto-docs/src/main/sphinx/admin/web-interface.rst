@@ -2,7 +2,7 @@
 Web UI
 ======
 
-Presto provides a web-based user interface (UI) for monitoring a Presto cluster
+Trino provides a web-based user interface (UI) for monitoring a Trino cluster
 and managing queries. The Web UI is accessible on the coordinator via
 HTTP/HTTPS, using the corresponding port number specified in the coordinator
 :ref:`config_properties`. It can be configured with :doc:`/admin/properties-web-interface`.
@@ -14,14 +14,14 @@ The Web UI can be disabled entirely with the ``web-ui.enabled`` property.
 Authentication
 --------------
 
-The Web UI requires users to authenticate. If Presto is not configured to require
+The Web UI requires users to authenticate. If Trino is not configured to require
 authentication, then any username can be used, and no password is required or
 allowed. Typically, users should login with the same username that they use for
 running queries.
 
 Accessing the Web UI over HTTPS requires configuring an authentication type for
-the Web UI or the Presto server. If no authentication type is configured for the
-Web UI, then it will chosen based on the Presto server authentication type.
+the Web UI or the Trino server. If no authentication type is configured for the
+Web UI, then it will chosen based on the Trino server authentication type.
 
 If no system access control is installed, then all users will be able to view and kill
 any query. This can be restricted by using :ref:`query rules <query_rules>` with the
@@ -33,7 +33,7 @@ Password Authentication
 
 Typically, a :doc:`password authenticator </develop/password-authenticator>`
 such as :doc:`LDAP </security/ldap>` or :doc:`password file </security/password-file>`
-is used to secure both the Presto server and the Web UI. When the Presto server
+is used to secure both the Trino server and the Web UI. When the Trino server
 is configured to use a password authenticator, the Web UI authentication type
 is automatically set to ``form``. The Web UI will display a login form that accepts
 a username and password.

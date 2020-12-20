@@ -6,7 +6,7 @@ Data Structures
 ---------------
 
 A quantile digest is a data sketch which stores approximate percentile
-information.  The presto type for this data structure is called ``qdigest``,
+information.  The Trino type for this data structure is called ``qdigest``,
 and it takes a parameter which must be one of ``bigint``, ``double`` or
 ``real`` which represent the set of numbers that may be ingested by the
 ``qdigest``.  They may be merged without losing precision, and for storage

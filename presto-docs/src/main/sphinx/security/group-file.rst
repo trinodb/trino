@@ -2,7 +2,7 @@
 File Based Group Provider
 =========================
 
-Presto can map user names onto groups for easier access control and
+Trino can map user names onto groups for easier access control and
 resource group management. Group file resolves group membership using
 a file on the coordinator.
 

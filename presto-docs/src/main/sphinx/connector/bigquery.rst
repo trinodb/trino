@@ -141,11 +141,11 @@ Property                                  Description                           
 Data Types
 ----------
 
-With a few exceptions, all BigQuery types are mapped directly to their Presto
+With a few exceptions, all BigQuery types are mapped directly to their Trino
 counterparts. Here are all the mappings:
 
 =============  ============================ =============================================================================================================
-BigQuery       Presto                       Notes
+BigQuery       Trino                        Notes
 =============  ============================ =============================================================================================================
 ``BOOLEAN``    ``BOOLEAN``
 ``BYTES``      ``VARBINARY``

@@ -3,7 +3,7 @@ System Connector
 ================
 
 The System connector provides information and metrics about the currently
-running Presto cluster. It makes this available via normal SQL queries.
+running Trino cluster. It makes this available via normal SQL queries.
 
 Configuration
 -------------
@@ -58,7 +58,7 @@ The table comments table contains the list of table comment.
 ``runtime.nodes``
 ^^^^^^^^^^^^^^^^^
 
-The nodes table contains the list of visible nodes in the Presto
+The nodes table contains the list of visible nodes in the Trino
 cluster along with their status.
 
 .. _optimizer_rule_stats:
@@ -78,7 +78,7 @@ generally impact query planning times the most.
 ^^^^^^^^^^^^^^^^^^^
 
 The queries table contains information about currently and recently
-running queries on the Presto cluster. From this table you can find out
+running queries on the Trino cluster. From this table you can find out
 the original query SQL text, the identity of the user who ran the query,
 and performance information about the query, including how long the query
 was queued and analyzed.
@@ -87,7 +87,7 @@ was queued and analyzed.
 ^^^^^^^^^^^^^^^^^
 
 The tasks table contains information about the tasks involved in a
-Presto query, including where they were executed, and and how many rows
+Trino query, including where they were executed, and and how many rows
 and bytes each task processed.
 
 ``runtime.transactions``

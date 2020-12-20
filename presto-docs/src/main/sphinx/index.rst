@@ -1,5 +1,5 @@
 ####################
-Presto Documentation
+Trino Documentation
 ####################
 
 .. toctree::

@@ -2,7 +2,7 @@
 Migrating From Hive
 ===================
 
-Presto uses ANSI SQL syntax and semantics, whereas Hive uses a SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).
+Trino uses ANSI SQL syntax and semantics, whereas Hive uses a SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).
 
 Use subscript for accessing a dynamic index of an array instead of a udf
 ------------------------------------------------------------------------
@@ -74,7 +74,7 @@ In particular, use ``VARCHAR`` instead of ``STRING``.
 Use CAST when dividing integers
 -------------------------------
 
-Presto follows the standard behavior of performing integer division when dividing two integers. For example, dividing ``7`` by ``2`` will result in ``3``, not ``3.5``.
+Trino follows the standard behavior of performing integer division when dividing two integers. For example, dividing ``7`` by ``2`` will result in ``3``, not ``3.5``.
 To perform floating point division on two integers, cast one of them to a double::
 
     SELECT CAST(5 AS DOUBLE) / 2
@@ -95,7 +95,7 @@ When you want to re-use a complex output expression as a filter, use either an i
 Use UNNEST to expand arrays and maps
 ------------------------------------
 
-Presto supports :ref:`unnest` for expanding arrays and maps.
+Trino supports :ref:`unnest` for expanding arrays and maps.
 Use ``UNNEST`` instead of ``LATERAL VIEW explode()``.
 
 Hive query::
@@ -104,7 +104,7 @@ Hive query::
     FROM tests
     LATERAL VIEW explode(scores) t AS score;
 
-Presto query::
+Trino query::
 
     SELECT student, score
     FROM tests
@@ -120,7 +120,7 @@ days and is declared as:
 
     datediff(string enddate, string startdate)  -> integer
 
-The equivalent Presto function :ref:`date_diff<datetime-interval-functions>`
+The equivalent Trino function :ref:`date_diff<datetime-interval-functions>`
 uses a reverse order for the two date parameters and requires a unit. This has
 to be taken into account when migrating:
 
@@ -128,7 +128,7 @@ Hive query::
 
     datediff(enddate, startdate)
 
-Presto query::
+Trino query::
 
     date_diff('day', startdate, enddate)
 
@@ -147,5 +147,5 @@ query::
 The resulting behavior is equivalent to using `INSERT OVERWRITE
 <https://cwiki.apache.org/confluence/display/Hive/LanguageManual+DML>`_ in Hive.
 
-Insert overwrite operation is not supported by Presto when the table is
+Insert overwrite operation is not supported by Trino when the table is
 stored on S3, encrypted HDFS or an external location.

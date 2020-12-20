@@ -4,8 +4,8 @@ Kinesis Connector
 
 `Kinesis <https://aws.amazon.com/kinesis/>`_ is Amazon's fully managed cloud-based service for real-time processing of large, distributed data streams.
 
-This connector allows the use of Kinesis streams as tables in Presto, such that each data-blob/message
-in a Kinesis stream is presented as a row in Presto. A flexible table mapping approach lets us
+This connector allows the use of Kinesis streams as tables in Trino, such that each data-blob/message
+in a Kinesis stream is presented as a row in Trino. A flexible table mapping approach lets us
 treat fields of the messages as columns in the table.
 
 Under the hood, a Kinesis
@@ -14,7 +14,7 @@ is used to retrieve the records, along with a series of
 `GetRecords <https://docs.aws.amazon.com/kinesis/latest/APIReference/API_GetRecords.html>`_ calls.
 The shard iterator starts by default 24 hours before the current time, and works its way forward.
 To be able to query a stream, table mappings are needed. These table definitions can be
-stored on Amazon S3 (preferred), or stored in a local directory on each Presto node.
+stored on Amazon S3 (preferred), or stored in a local directory on each Trino node.
 
 This connector is a **read-only** connector. It can only fetch data from Kinesis streams,
 but cannot create streams or push data into existing streams.
@@ -90,7 +90,7 @@ This property is optional; the default is ``default``.
 ``kinesis.table-description-location``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-References an S3 URL or a folder within Presto deployment that holds one or more JSON files ending with ``.json``, which contain table description files.
+References an S3 URL or a folder within Trino deployment that holds one or more JSON files ending with ``.json``, which contain table description files.
 The S3 bucket and folder will be checked every 10 minutes for updates and changed files.
 
 This property is optional; the default is ``etc/kinesis``.
@@ -197,7 +197,7 @@ The name of the file can be arbitrary but must end in ``.json``. The structure o
 ==============  ========  ===========  ==================================================================================
 Field           Required  Type         Description
 ==============  ========  ===========  ==================================================================================
-``tableName``   required  string       Presto table name defined by this file.
+``tableName``   required  string       Trino table name defined by this file.
 ``schemaName``  optional  string       Schema which contains the table. If omitted, the default schema name is used.
 ``streamName``  required  string       Name of the Kinesis Stream that is mapped
 ``message``     optional  JSON object  Field definitions for data columns mapped to the message itself.
@@ -210,7 +210,7 @@ The JSON object message in the table definition contains two fields:
 Field           Required  Type         Description
 ==============  ========  ===========  ==============================================================================================
 ``dataFormat``  required  string       Selects the decoder for this group of fields.
-``fields``      required  JSON array   A list of field definitions. Each field definition creates a new column in the Presto table.
+``fields``      required  JSON array   A list of field definitions. Each field definition creates a new column in the Trino table.
 ==============  ========  ===========  ==============================================================================================
 
 Each field definition is a JSON object. At a minimum, a name, type, and mapping must be provided.
@@ -231,8 +231,8 @@ The overall structure looks like this:
 ==============  ========  ===========  =========================================================================================
 Field           Required  Type         Description
 ==============  ========  ===========  =========================================================================================
-``name``        required  string       Name of the column in the Presto table.
-``type``        required  string       Presto type of the column.
+``name``        required  string       Name of the column in the Trino table.
+``type``        required  string       Trino type of the column.
 ``dataFormat``  optional  string       Selects the column decoder for this field. Defaults to
                                        the default decoder for this row data format and column type.
 ``mapping``     optional  string       Mapping information for the column. This is decoder specific -- see below.
@@ -241,7 +241,7 @@ Field           Required  Type         Description
 ``comment``     optional  string       Adds a column comment which is shown with ``DESCRIBE <table name>``.
 ==============  ========  ===========  =========================================================================================
 
-The name field is exposed to Presto as the column name, while the mapping field is the portion of the message that gets
+The name field is exposed to Trino as the column name, while the mapping field is the portion of the message that gets
 mapped to that column. For JSON object messages, this refers to the field name of an object, and can be a path that drills
 into the object structure of the message. Additionally, you can map a field of the JSON object to a string column type,
 and if it is a more complex type (JSON array or JSON object) then the JSON itself becomes the field value.

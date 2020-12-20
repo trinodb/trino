@@ -64,7 +64,7 @@ Sets the node scheduler policy to use when scheduling splits. ``uniform``  attem
 to schedule splits on the host where the data is located, while maintaining a uniform
 distribution across all hosts. ``topology`` tries to schedule splits according to
 the topology distance between nodes and splits. It is recommended to use ``uniform``
-for clusters where distributed storage runs on the same nodes as Presto workers.
+for clusters where distributed storage runs on the same nodes as Trino workers.
 
 Network Topology
 ----------------

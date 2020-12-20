@@ -5,20 +5,20 @@ Spill to Disk
 Overview
 --------
 
-In the case of memory intensive operations, Presto allows offloading
+In the case of memory intensive operations, Trino allows offloading
 intermediate operation results to disk. The goal of this mechanism is to
 enable execution of queries that require amounts of memory exceeding per query
 or per node limits.
 
 The mechanism is similar to OS level page swapping. However, it is
-implemented on the application level to address specific needs of Presto.
+implemented on the application level to address specific needs of Trino.
 
 Properties related to spilling are described in :doc:`properties-spilling`.
 
 Memory Management and Spill
 ---------------------------
 
-By default, Presto kills queries, if the memory requested by the query execution
+By default, Trino kills queries, if the memory requested by the query execution
 exceeds session properties ``query_max_memory`` or
 ``query_max_memory_per_node``. This mechanism ensures fairness in allocation
 of memory to queries, and prevents deadlock caused by memory allocation.
@@ -56,7 +56,7 @@ The system drive should not be used for spilling, especially not to the drive wh
 is running and writing logs. Doing so may lead to cluster instability. Additionally,
 it is recommended to monitor the disk saturation of the configured spill paths.
 
-Presto treats spill paths as independent disks (see `JBOD
+Trino treats spill paths as independent disks (see `JBOD
 <https://en.wikipedia.org/wiki/Non-RAID_drive_architectures#JBOD>`_), so
 there is no need to use RAID for spill.
 

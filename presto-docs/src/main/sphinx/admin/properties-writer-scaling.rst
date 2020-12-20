@@ -3,7 +3,7 @@ Writer Scaling Properties
 =========================
 
 By default, the number of writer tasks is static. Enabling writer scaling allows
-Presto to dynamically scale out the number of writer tasks rather than
+Trino to dynamically scale out the number of writer tasks rather than
 allocating a fixed number of tasks. Additional tasks are added when the average
 amount of physical data per writer is above a minimum threshold, but only if the
 query is bottlenecked on writing.

@@ -2,7 +2,7 @@
 Data Types
 ==========
 
-Presto has a set of built-in data types, described below.
+Trino has a set of built-in data types, described below.
 Additional types can be provided by plugins.
 
 .. note::

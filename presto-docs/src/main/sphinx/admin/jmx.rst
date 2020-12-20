@@ -2,7 +2,7 @@
 Monitoring with JMX
 ===================
 
-Presto exposes a large number of different metrics via the Java Management Extensions (JMX).
+Trino exposes a large number of different metrics via the Java Management Extensions (JMX).
 
 You have to enable JMX by setting the ports used by the RMI registry and server
 in the :ref:`config.properties file <config_properties>`:
@@ -16,7 +16,7 @@ in the :ref:`config.properties file <config_properties>`:
   Specifies the port for the JMX RMI registry. JMX clients should connect to this port.
 
 * ``jmx.rmiserver.port``:
-  Specifies the port for the JMX RMI server. Presto exports many metrics,
+  Specifies the port for the JMX RMI server. Trino exports many metrics,
   that are useful for monitoring via JMX.
 
 JConsole (supplied with the JDK), `VisualVM <https://visualvm.github.io/>`_, and
@@ -36,7 +36,7 @@ JVM
 * Heap size: ``java.lang:type=Memory:HeapMemoryUsage.used``
 * Thread count: ``java.lang:type=Threading:ThreadCount``
 
-Presto Cluster and Nodes
+Trino Cluster and Nodes
 ------------------------
 
 * Active nodes:
@@ -45,10 +45,10 @@ Presto Cluster and Nodes
 * Free memory (general pool):
   ``presto.memory:type=ClusterMemoryPool:name=general:FreeDistributedBytes``
 
-* Cumulative count (since Presto started) of queries that ran out of memory and were killed:
+* Cumulative count (since Trino started) of queries that ran out of memory and were killed:
   ``presto.memory:name=ClusterMemoryManager:QueriesKilledDueToOutOfMemory``
 
-Presto Queries
+Trino Queries
 --------------
 
 * Active queries currently executing or queued: ``presto.execution:name=QueryManager:RunningQueries``
@@ -63,7 +63,7 @@ Presto Queries
 * Execution latency (P50): ``presto.execution:name=QueryManager:ExecutionTime.FiveMinutes.P50``
 * Input data rate (P90): ``presto.execution:name=QueryManager:WallInputBytesRate.FiveMinutes.P90``
 
-Presto Tasks
+Trino Tasks
 ------------
 
 * Input data bytes: ``presto.execution:name=TaskManager:InputDataSize.FiveMinute.Count``

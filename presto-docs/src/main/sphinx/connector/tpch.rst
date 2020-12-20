@@ -7,7 +7,7 @@ The TPCH connector provides a set of schemas to support the
 benchmark used to measure the performance of highly-complex decision support databases.
 
 This connector can be used to test the capabilities and query
-syntax of Presto without configuring access to an external data
+syntax of Trino without configuring access to an external data
 source. When you query a TPCH schema, the connector generates the
 data on the fly using a deterministic algorithm.
 

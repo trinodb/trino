@@ -3,7 +3,7 @@ Properties Reference
 ====================
 
 This section describes the most important config properties, that
-may be used to tune Presto or alter its behavior when required.
+may be used to tune Trino or alter its behavior when required.
 
 .. toctree::
     :titlesonly:

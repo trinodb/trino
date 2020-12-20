@@ -2,7 +2,7 @@
 MongoDB Connector
 =================
 
-The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`_ collections as tables in Presto.
+The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`_ collections as tables in Trino.
 
 .. note::
 
@@ -26,7 +26,7 @@ Multiple MongoDB Clusters
 You can have as many catalogs as you need, so if you have additional
 MongoDB clusters, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``). For
-example, if you name the property file ``sales.properties``, Presto
+example, if you name the property file ``sales.properties``, Trino
 will create a catalog named ``sales`` using the configured connector.
 
 Configuration Properties
@@ -194,7 +194,7 @@ MongoDB maintains table definitions on the special collection where ``mongodb.sc
 
     There's no way for the plugin to detect a collection is deleted.
     You need to delete the entry by ``db.getCollection("_schema").remove( { table: deleted_table_name })`` in the Mongo Shell.
-    Or drop a collection by running ``DROP TABLE table_name`` using Presto.
+    Or drop a collection by running ``DROP TABLE table_name`` using Trino.
 
 A schema collection consists of a MongoDB document for a table.
 
@@ -214,8 +214,8 @@ A schema collection consists of a MongoDB document for a table.
 =============== ========= ============== =============================
 Field           Required  Type           Description
 =============== ========= ============== =============================
-``table``       required  string         Presto table name
-``fields``      required  array          A list of field definitions. Each field definition creates a new column in the Presto table.
+``table``       required  string         Trino table name
+``fields``      required  array          A list of field definitions. Each field definition creates a new column in the Trino table.
 =============== ========= ============== =============================
 
 Each field definition:
@@ -231,8 +231,8 @@ Each field definition:
 =============== ========= ========= =============================
 Field           Required  Type      Description
 =============== ========= ========= =============================
-``name``        required  string    Name of the column in the Presto table.
-``type``        required  string    Presto type of the column.
+``name``        required  string    Name of the column in the Trino table.
+``type``        required  string    Trino type of the column.
 ``hidden``      optional  boolean   Hides the column from ``DESCRIBE <table name>`` and ``SELECT *``. Defaults to ``false``.
 =============== ========= ========= =============================
 
