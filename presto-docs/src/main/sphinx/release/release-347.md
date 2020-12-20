@@ -14,6 +14,10 @@
 * Throw a user error when session property value cannot be decoded. ({issue}`5731`)
 * Fix query failure when expressions that produce values of type `row` are used in a `VALUES` clause. ({issue}`3398`)
 
+## Server Changes
+
+* A minimum Java version of 11.0.7 is now required for Presto to start. This is to mitigate JDK-8206955. ({issue}`5957`)
+
 ## Security Changes
 
 * Add support for multiple LDAP bind patterns. ({issue}`5874`)
@@ -60,7 +64,3 @@
 
 * Add support for connectors to redirect table scan operations to another connector. ({issue}`5792`)
 * Add physical input bytes and rows for table scan operation to query completion event. ({issue}`5872`)
-
-## Server Changes
-
-* A minimum Java version of 11.0.7 is now required for Presto to start. This is to mitigate JDK-8206955. ({issue}`5957`)
