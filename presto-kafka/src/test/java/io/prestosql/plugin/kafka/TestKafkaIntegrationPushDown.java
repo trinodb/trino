@@ -139,7 +139,7 @@ public class TestKafkaIntegrationPushDown
 
     @Test(retryAnalyzer = FixedCountRetryAnalyzer.class)
     public void testTimestampCreateTimeModePushDown()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameCreateTime);
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
@@ -171,7 +171,7 @@ public class TestKafkaIntegrationPushDown
 
     @Test(retryAnalyzer = FixedCountRetryAnalyzer.class)
     public void testTimestampLogAppendModePushDown()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         RecordMessage recordMessage = createTimestampTestMessages(topicNameLogAppend);
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
@@ -225,7 +225,7 @@ public class TestKafkaIntegrationPushDown
         return sb.toString();
     }
 
-    private String buildResultsDebugDumpString(MaterializedResult rows)
+    private static String buildResultsDebugDumpString(MaterializedResult rows)
     {
         StringBuilder sb = new StringBuilder();
         for (MaterializedRow row : rows) {
@@ -234,13 +234,13 @@ public class TestKafkaIntegrationPushDown
         return sb.toString();
     }
 
-    private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
+    private static QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
     }
 
     private RecordMessage createTimestampTestMessages(String topicName)
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         String startTime = null;
         String endTime = null;
