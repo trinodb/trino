@@ -146,7 +146,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertQuery(evolvedQuery, getExpectedValues(allMessages, EVOLVED_SCHEMA, isKeyIncluded));
     }
 
-    private String getExpectedValues(List<ProducerRecord<Long, GenericRecord>> messages, Schema schema, boolean isKeyIncluded)
+    private static String getExpectedValues(List<ProducerRecord<Long, GenericRecord>> messages, Schema schema, boolean isKeyIncluded)
     {
         StringBuilder valuesBuilder = new StringBuilder("VALUES ");
         ImmutableList.Builder<String> rowsBuilder = ImmutableList.builder();
@@ -165,7 +165,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         return valuesBuilder.toString();
     }
 
-    private void addExpectedColumns(Schema schema, GenericRecord record, ImmutableList.Builder<String> columnsBuilder)
+    private static void addExpectedColumns(Schema schema, GenericRecord record, ImmutableList.Builder<String> columnsBuilder)
     {
         for (Schema.Field field : schema.getFields()) {
             Object value = record.get(field.name());
@@ -228,14 +228,14 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         return format("'%s'", value);
     }
 
-    private void sendMessages(List<ProducerRecord<Long, GenericRecord>> messages, Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier)
+    private static void sendMessages(List<ProducerRecord<Long, GenericRecord>> messages, Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier)
     {
         try (KafkaProducer<Long, GenericRecord> producer = producerSupplier.get()) {
             messages.stream().forEach(producer::send);
         }
     }
 
-    private List<ProducerRecord<Long, GenericRecord>> createMessages(String topicName, int messageCount, boolean useInitialSchema)
+    private static List<ProducerRecord<Long, GenericRecord>> createMessages(String topicName, int messageCount, boolean useInitialSchema)
     {
         ImmutableList.Builder<ProducerRecord<Long, GenericRecord>> producerRecordBuilder = ImmutableList.builder();
         if (useInitialSchema) {
@@ -251,7 +251,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         return producerRecordBuilder.build();
     }
 
-    private GenericRecord createRecordWithInitialSchema(long key)
+    private static GenericRecord createRecordWithInitialSchema(long key)
     {
         return new GenericRecordBuilder(INITIAL_SCHEMA)
                 .set("col_1", multiplyExact(key, 100))
@@ -259,7 +259,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 .build();
     }
 
-    private GenericRecord createRecordWithEvolvedSchema(long key)
+    private static GenericRecord createRecordWithEvolvedSchema(long key)
     {
         return new GenericRecordBuilder(EVOLVED_SCHEMA)
                 .set("col_1", multiplyExact(key, 100))

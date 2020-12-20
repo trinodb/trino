@@ -35,36 +35,36 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestCustomJsonDateTimeFormatter
 {
-    private JsonDateTimeFormatter getFormatter(String formatHint)
+    private static JsonDateTimeFormatter getFormatter(String formatHint)
     {
         return CUSTOM_DATE_TIME.getFormatter(Optional.of(formatHint));
     }
 
-    private void testDate(SqlDate value, String formatHint, String expectedLiteral)
+    private static void testDate(SqlDate value, String formatHint, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatDate(value);
         assertEquals(actualLiteral, expectedLiteral);
     }
 
-    private void testTime(SqlTime value, String formatHint, int precision, String expectedLiteral)
+    private static void testTime(SqlTime value, String formatHint, int precision, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatTime(value, precision);
         assertEquals(actualLiteral, expectedLiteral);
     }
 
-    private void testTimeWithTZ(SqlTimeWithTimeZone value, String formatHint, String expectedLiteral)
+    private static void testTimeWithTZ(SqlTimeWithTimeZone value, String formatHint, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatTimeWithZone(value);
         assertEquals(actualLiteral, expectedLiteral);
     }
 
-    private void testTimestamp(SqlTimestamp value, String formatHint, String expectedLiteral)
+    private static void testTimestamp(SqlTimestamp value, String formatHint, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatTimestamp(value);
         assertEquals(actualLiteral, expectedLiteral);
     }
 
-    private void testTimestampWithTZ(SqlTimestampWithTimeZone value, String formatHint, String expectedLiteral)
+    private static void testTimestampWithTZ(SqlTimestampWithTimeZone value, String formatHint, String expectedLiteral)
     {
         String actualLiteral = getFormatter(formatHint).formatTimestampWithZone(value);
         assertEquals(actualLiteral, expectedLiteral);

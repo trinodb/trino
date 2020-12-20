@@ -33,7 +33,7 @@ import static java.time.ZoneOffset.UTC;
 
 public class TestSecondsJsonDateTimeFormatter
 {
-    private JsonDateTimeFormatter getFormatter()
+    private static JsonDateTimeFormatter getFormatter()
     {
         return SECONDS_SINCE_EPOCH.getFormatter(Optional.empty());
     }

@@ -68,7 +68,7 @@ public class AvroRowEncoder
         this.record = new GenericData.Record(this.parsedSchema);
     }
 
-    private boolean isSupportedType(Type type)
+    private static boolean isSupportedType(Type type)
     {
         return type instanceof VarcharType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
