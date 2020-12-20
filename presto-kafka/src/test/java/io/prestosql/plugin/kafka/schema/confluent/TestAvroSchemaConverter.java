@@ -340,7 +340,7 @@ public class TestAvroSchemaConverter
         assertEquals(new AvroSchemaConverter(new TestingTypeManager(), ADD_DUMMY).convertAvroSchema(schema), typesForAddDummyStrategy);
     }
 
-    private Type createType(Type valueType)
+    private static Type createType(Type valueType)
     {
         Type keyType = VARCHAR;
         return new MapType(keyType, valueType, TYPE_MANAGER.getTypeOperators());

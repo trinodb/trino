@@ -117,14 +117,14 @@ public class TestAvroConfluentRowDecoder
         testSingleValueRow(rowDecoder, 3L, schema, 1);
     }
 
-    private void testRow(RowDecoder rowDecoder, GenericRecord record, int schemaId)
+    private static void testRow(RowDecoder rowDecoder, GenericRecord record, int schemaId)
     {
         byte[] serializedRecord = serializeRecord(record, record.getSchema(), schemaId);
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord, null);
         assertRowsAreEqual(decodedRow, record);
     }
 
-    private void testSingleValueRow(RowDecoder rowDecoder, Object value, Schema schema, int schemaId)
+    private static void testSingleValueRow(RowDecoder rowDecoder, Object value, Schema schema, int schemaId)
     {
         byte[] serializedRecord = serializeRecord(value, schema, schemaId);
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(serializedRecord, null);
@@ -133,7 +133,7 @@ public class TestAvroConfluentRowDecoder
         assertValuesAreEqual(entry.getValue(), value, schema);
     }
 
-    private byte[] serializeRecord(Object record, Schema schema, int schemaId)
+    private static byte[] serializeRecord(Object record, Schema schema, int schemaId)
     {
         try {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -152,7 +152,7 @@ public class TestAvroConfluentRowDecoder
         }
     }
 
-    private RowDecoder getRowDecoder(SchemaRegistryClient schemaRegistryClient, Set<DecoderColumnHandle> columnHandles, Schema schema)
+    private static RowDecoder getRowDecoder(SchemaRegistryClient schemaRegistryClient, Set<DecoderColumnHandle> columnHandles, Schema schema)
     {
         ImmutableMap<String, String> decoderParams = ImmutableMap.<String, String>builder()
                 .put(DATA_SCHEMA, schema.toString())

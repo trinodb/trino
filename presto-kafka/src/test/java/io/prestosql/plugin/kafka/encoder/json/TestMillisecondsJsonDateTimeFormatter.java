@@ -37,7 +37,7 @@ import static java.util.concurrent.TimeUnit.DAYS;
 
 public class TestMillisecondsJsonDateTimeFormatter
 {
-    private JsonDateTimeFormatter getFormatter()
+    private static JsonDateTimeFormatter getFormatter()
     {
         return MILLISECONDS_SINCE_EPOCH.getFormatter(Optional.empty());
     }

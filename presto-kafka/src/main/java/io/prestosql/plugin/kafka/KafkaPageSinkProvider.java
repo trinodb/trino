@@ -95,7 +95,7 @@ public class KafkaPageSinkProvider
                 producerFactory);
     }
 
-    private Optional<String> getDataSchema(Optional<String> dataSchemaLocation)
+    private static Optional<String> getDataSchema(Optional<String> dataSchemaLocation)
     {
         return dataSchemaLocation.map(location -> {
             try {

@@ -76,7 +76,7 @@ public class KafkaRecordSetProvider
         return new KafkaRecordSet(kafkaSplit, consumerFactory, kafkaColumns, keyDecoder, messageDecoder);
     }
 
-    private Map<String, String> getDecoderParameters(Optional<String> dataSchema)
+    private static Map<String, String> getDecoderParameters(Optional<String> dataSchema)
     {
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
         dataSchema.ifPresent(schema -> parameters.put("dataSchema", schema));

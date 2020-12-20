@@ -35,36 +35,36 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 public class TestISO8601JsonDateTimeFormatter
 {
-    private JsonDateTimeFormatter getFormatter()
+    private static JsonDateTimeFormatter getFormatter()
     {
         return ISO8601.getFormatter(Optional.empty());
     }
 
-    private void testDate(SqlDate value, String expectedLiteral)
+    private static void testDate(SqlDate value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatDate(value);
         assertEquals(actualLiteral, expectedLiteral);
     }
 
-    private void testTime(SqlTime value, int precision, String expectedLiteral)
+    private static void testTime(SqlTime value, int precision, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTime(value, precision);
         assertEquals(actualLiteral, expectedLiteral);
     }
 
-    private void testTimeWithTZ(SqlTimeWithTimeZone value, String expectedLiteral)
+    private static void testTimeWithTZ(SqlTimeWithTimeZone value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimeWithZone(value);
         assertEquals(actualLiteral, expectedLiteral);
     }
 
-    private void testTimestamp(SqlTimestamp value, String expectedLiteral)
+    private static void testTimestamp(SqlTimestamp value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimestamp(value);
         assertEquals(actualLiteral, expectedLiteral);
     }
 
-    private void testTimestampWithTZ(SqlTimestampWithTimeZone value, String expectedLiteral)
+    private static void testTimestampWithTZ(SqlTimestampWithTimeZone value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimestampWithZone(value);
         assertEquals(actualLiteral, expectedLiteral);
