@@ -51,7 +51,7 @@ public class ConfluentModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
-        install(new DecoderModule(new ConfluentAvroModule()));
+        install(new DecoderModule(new ConfluentAvroDecoderModule()));
         binder.bind(ContentSchemaReader.class).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
@@ -71,7 +71,7 @@ public class ConfluentModule
                 ImmutableMap.of());
     }
 
-    private static class ConfluentAvroModule
+    private static class ConfluentAvroDecoderModule
             implements Module
     {
         @Override
