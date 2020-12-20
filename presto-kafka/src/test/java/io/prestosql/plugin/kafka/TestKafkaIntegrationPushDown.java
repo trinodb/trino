@@ -16,7 +16,6 @@ package io.prestosql.plugin.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
-import io.airlift.log.Logger;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -30,8 +29,6 @@ import io.prestosql.testing.kafka.BasicTestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.testng.IRetryAnalyzer;
-import org.testng.ITestResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -55,7 +52,6 @@ import static org.testng.Assert.assertTrue;
 public class TestKafkaIntegrationPushDown
         extends AbstractTestQueryFramework
 {
-    private static final Logger log = Logger.get(TestKafkaIntegrationPushDown.class);
     private static final int MESSAGE_NUM = 1000;
     private static final int TIMESTAMP_TEST_COUNT = 6;
     private static final int TIMESTAMP_TEST_START_INDEX = 2;
@@ -137,7 +133,7 @@ public class TestKafkaIntegrationPushDown
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), 2);
     }
 
-    @Test(retryAnalyzer = FixedCountRetryAnalyzer.class)
+    @Test
     public void testTimestampCreateTimeModePushDown()
             throws Exception
     {
@@ -169,7 +165,7 @@ public class TestKafkaIntegrationPushDown
                 .isEqualTo(2);
     }
 
-    @Test(retryAnalyzer = FixedCountRetryAnalyzer.class)
+    @Test
     public void testTimestampLogAppendModePushDown()
             throws Exception
     {
@@ -330,23 +326,6 @@ public class TestKafkaIntegrationPushDown
         public List<String> getTestMessageSignatures()
         {
             return testMessageSignatures;
-        }
-    }
-
-    private static class FixedCountRetryAnalyzer
-            implements IRetryAnalyzer
-    {
-        int count = 1;
-
-        @Override
-        public boolean retry(ITestResult iTestResult)
-        {
-            if (!iTestResult.isSuccess() && count < 2) {
-                count++;
-                log.warn("retry happened for method:%s", iTestResult.getMethod());
-                return true;
-            }
-            return false;
         }
     }
 }
