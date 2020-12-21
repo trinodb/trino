@@ -14,8 +14,8 @@
 package io.prestosql.tests;
 
 import io.prestosql.Session;
+import io.prestosql.plugin.memory.MemoryQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -32,7 +32,18 @@ public class TestDistributedEngineOnlyQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder().build();
+        return MemoryQueryRunner.createQueryRunner();
+    }
+
+    /**
+     * Ensure the tests are run with {@link io.prestosql.testing.DistributedQueryRunner}. E.g. {@link io.prestosql.testing.LocalQueryRunner} takes some
+     * shortcuts, not exercising certain aspects.
+     */
+    @Test
+    public void ensureDistributedQueryRunner()
+    {
+        assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
+                .isGreaterThanOrEqualTo(3);
     }
 
     @Test
