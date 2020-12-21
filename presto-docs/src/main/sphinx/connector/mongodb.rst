@@ -49,6 +49,10 @@ Property Name                              Description
 ``mongodb.socket-timeout``                 The socket timeout
 ``mongodb.socket-keep-alive``              Whether keep-alive is enabled on each socket
 ``mongodb.tls.enabled``                    Use TLS/SSL for connections to mongod/mongos
+``mongodb.tls.keystore-path``              Path to the PEM or JKS key store
+``mongodb.tls.truststore-path``            Path to the PEM or JKS trust store
+``mongodb.tls.keystore-password``          Password for the key store
+``mongodb.tls.truststore-password``        Password for the trust store
 ``mongodb.read-preference``                The read preference
 ``mongodb.write-concern``                  The write concern
 ``mongodb.required-replica-set``           The required replica set name
@@ -142,6 +146,34 @@ This property is optional; the default is ``false``.
 This flag enables TLS connections to MongoDB servers.
 
 This property is optional; the default is ``false``.
+
+``mongodb.tls.keystore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to the PEM or JKS key store. This file must be readable by the operating system user running Presto.
+
+This property is optional.
+
+``mongodb.tls.truststore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to PEM or JKS trust store. This file must be readable by the operating system user running Presto.
+
+This property is optional.
+
+``mongodb.tls.keystore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The key password for the key store specified by ``mongodb.tls.keystore-path``.
+
+This property is optional.
+
+``mongodb.tls.truststore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The key password for the trust store specified by ``mongodb.tls.truststore-path``.
+
+This property is optional.
 
 ``mongodb.read-preference``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

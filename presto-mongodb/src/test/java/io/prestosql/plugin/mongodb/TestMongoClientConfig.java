@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoCredential;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -41,6 +44,10 @@ public class TestMongoClientConfig
                 .setSocketTimeout(0)
                 .setSocketKeepAlive(false)
                 .setTlsEnabled(false)
+                .setKeystorePath(null)
+                .setKeystorePassword(null)
+                .setTruststorePath(null)
+                .setTruststorePassword(null)
                 .setMaxConnectionIdleTime(0)
                 .setCursorBatchSize(0)
                 .setReadPreference(ReadPreferenceType.PRIMARY)
@@ -51,7 +58,11 @@ public class TestMongoClientConfig
 
     @Test
     public void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path keystoreFile = Files.createTempFile(null, null);
+        Path truststoreFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("mongodb.schema-collection", "_my_schema")
                 .put("mongodb.case-insensitive-name-matching", "true")
@@ -64,6 +75,10 @@ public class TestMongoClientConfig
                 .put("mongodb.socket-timeout", "1")
                 .put("mongodb.socket-keep-alive", "true")
                 .put("mongodb.tls.enabled", "true")
+                .put("mongodb.tls.keystore-path", keystoreFile.toString())
+                .put("mongodb.tls.keystore-password", "keystore-password")
+                .put("mongodb.tls.truststore-path", truststoreFile.toString())
+                .put("mongodb.tls.truststore-password", "truststore-password")
                 .put("mongodb.max-connection-idle-time", "180000")
                 .put("mongodb.cursor-batch-size", "1")
                 .put("mongodb.read-preference", "NEAREST")
@@ -84,6 +99,10 @@ public class TestMongoClientConfig
                 .setSocketTimeout(1)
                 .setSocketKeepAlive(true)
                 .setTlsEnabled(true)
+                .setKeystorePath(keystoreFile.toFile())
+                .setKeystorePassword("keystore-password")
+                .setTruststorePath(truststoreFile.toFile())
+                .setTruststorePassword("truststore-password")
                 .setMaxConnectionIdleTime(180_000)
                 .setCursorBatchSize(1)
                 .setReadPreference(ReadPreferenceType.NEAREST)
