@@ -50,6 +50,7 @@ public class JoinProbe
     private final Page page;
     private final Page probePage;
     private final Optional<Block> probeHashBlock;
+    private long[] joinPositions;
 
     private int position = -1;
 
@@ -86,7 +87,19 @@ public class JoinProbe
 
     public long getCurrentJoinPosition(LookupSource lookupSource)
     {
-        if (currentRowContainsNull()) {
+        if (joinPositions == null) {
+            joinPositions = new long[page.getPositionCount()];
+            for (int i = 0; i < joinPositions.length; ++i) {
+                joinPositions[i] = getJoinPosition(i, lookupSource);
+            }
+        }
+
+        return joinPositions[position];
+    }
+
+    private long getJoinPosition(int position, LookupSource lookupSource)
+    {
+        if (rowContainsNull(position)) {
             return -1;
         }
         if (probeHashBlock.isPresent()) {
@@ -106,7 +119,7 @@ public class JoinProbe
         return page;
     }
 
-    private boolean currentRowContainsNull()
+    private boolean rowContainsNull(int position)
     {
         for (Block probeBlock : probeBlocks) {
             if (probeBlock.isNull(position)) {
