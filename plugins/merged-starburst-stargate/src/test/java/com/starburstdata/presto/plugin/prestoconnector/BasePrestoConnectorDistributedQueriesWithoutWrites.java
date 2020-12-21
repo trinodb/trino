@@ -80,15 +80,6 @@ public abstract class BasePrestoConnectorDistributedQueriesWithoutWrites
     }
 
     @Override
-    public void testInsertWithCoercion()
-    {
-        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4832) make sure this is tested
-        assertThatThrownBy(super::testInsertWithCoercion)
-                .hasMessageStartingWith("This connector does not support creating tables");
-        throw new SkipException("not supported");
-    }
-
-    @Override
     public void testDelete()
     {
         // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4832) make sure this is tested
