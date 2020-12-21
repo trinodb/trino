@@ -281,46 +281,6 @@ public abstract class BaseTestOracleDistributedQueries
         // unicode not working correctly as one unicode char takes more than one byte
     }
 
-    @Test
-    @Override
-    public void testInsertWithCoercion()
-    {
-        assertUpdate("CREATE TABLE test_insert_with_coercion (" +
-                "tinyint_column TINYINT, " +
-                "integer_column INTEGER, " +
-                "decimal_column DECIMAL(5, 3), " +
-                "real_column REAL, " +
-                "char_column CHAR(3), " +
-                "bounded_varchar_column VARCHAR(3), " +
-                "unbounded_varchar_column VARCHAR, " +
-                "date_column DATE)");
-
-        assertUpdate("INSERT INTO test_insert_with_coercion (tinyint_column, integer_column, decimal_column, real_column) VALUES (1e0, 2e0, 3e0, 4e0)", 1);
-        assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))", 1);
-        assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (NULL, NULL, NULL)", 1);
-        assertUpdate("INSERT INTO test_insert_with_coercion (char_column, bounded_varchar_column, unbounded_varchar_column) VALUES (CAST(NULL AS varchar), CAST(NULL AS varchar), CAST(NULL AS varchar))", 1);
-        // Note this case does not actually require coercion, because the `date_column` ends up as Oracle's DATE, which is mapped to Presto's TIMESTAMP.
-        // The test case is still retained for black box testing purposes.
-        assertUpdate("INSERT INTO test_insert_with_coercion (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')", 1);
-
-        // at oracle date field has time part to
-        assertQuery(
-                "SELECT * FROM test_insert_with_coercion",
-                "VALUES " +
-                        "(1, 2, 3, 4, NULL, NULL, NULL, NULL), " +
-                        "(NULL, NULL, NULL, NULL, 'aa ', 'aa ', 'aa     ', NULL), " +
-                        "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL), " +
-                        "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL), " +
-                        "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, TIMESTAMP '2019-11-18 22:13:40')");
-
-        // this wont fail
-        //assertQueryFails("INSERT INTO test_insert_with_coercion (integer_column) VALUES (3e9)", "Out of range for integer: 3.0E9");
-        assertQueryFails("INSERT INTO test_insert_with_coercion (char_column) VALUES ('abcd')", "\\QCannot truncate non-space characters when casting from varchar(4) to char(3) on INSERT");
-        assertQueryFails("INSERT INTO test_insert_with_coercion (bounded_varchar_column) VALUES ('abcd')", "\\QCannot truncate non-space characters when casting from varchar(4) to varchar(3) on INSERT");
-
-        assertUpdate("DROP TABLE test_insert_with_coercion");
-    }
-
     @Override
     protected Optional<String> filterColumnNameTestData(String columnName)
     {

@@ -121,12 +121,6 @@ public class TestMySqlDistributedQueries
     }
 
     @Override
-    public void testInsertWithCoercion()
-    {
-        // this connector uses a non-canonical type for varchar columns in tpch
-    }
-
-    @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
         return nullToEmpty(exception.getMessage()).matches(".*(Incorrect column name).*");
