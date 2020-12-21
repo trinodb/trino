@@ -47,7 +47,7 @@ public class MemoryRevokingScheduler
 {
     private static final Logger log = Logger.get(MemoryRevokingScheduler.class);
 
-    private static final Ordering<SqlTask> ORDER_BY_CREATE_TIME = Ordering.natural().onResultOf(task -> task.getTaskInfo().getStats().getCreateTime());
+    private static final Ordering<SqlTask> ORDER_BY_CREATE_TIME = Ordering.natural().onResultOf(SqlTask::getTaskCreatedTime);
     private final List<MemoryPool> memoryPools;
     private final Supplier<? extends Collection<SqlTask>> currentTasksSupplier;
     private final ScheduledExecutorService taskManagementExecutor;
@@ -218,7 +218,7 @@ public class MemoryRevokingScheduler
     private long getMemoryAlreadyBeingRevoked(Collection<SqlTask> sqlTasks, MemoryPool memoryPool)
     {
         return sqlTasks.stream()
-                .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                .filter(task -> task.getTaskState() == TaskState.RUNNING)
                 .filter(task -> task.getQueryContext().getMemoryPool() == memoryPool)
                 .mapToLong(task -> task.getQueryContext().accept(new TraversingQueryContextVisitor<Void, Long>()
                 {
@@ -245,7 +245,7 @@ public class MemoryRevokingScheduler
     {
         AtomicLong remainingBytesToRevokeAtomic = new AtomicLong(remainingBytesToRevoke);
         sqlTasks.stream()
-                .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
+                .filter(task -> task.getTaskState() == TaskState.RUNNING)
                 .filter(task -> task.getQueryContext().getMemoryPool() == memoryPool)
                 .sorted(ORDER_BY_CREATE_TIME)
                 .forEach(task -> task.getQueryContext().accept(new VoidTraversingQueryContextVisitor<>()
