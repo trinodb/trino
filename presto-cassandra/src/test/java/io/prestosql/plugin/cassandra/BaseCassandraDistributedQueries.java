@@ -83,15 +83,6 @@ public abstract class BaseCassandraDistributedQueries
     }
 
     @Override
-    public void testInsertWithCoercion()
-    {
-        // TODO
-        assertThatThrownBy(super::testInsertWithCoercion)
-                .hasMessage("unsupported type: decimal(5,3)");
-        throw new SkipException("TODO change test to use supported types");
-    }
-
-    @Override
     public void testInsertArray()
     {
         // TODO

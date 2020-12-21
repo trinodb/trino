@@ -117,12 +117,6 @@ public class TestKuduDistributedQueries
     }
 
     @Override
-    public void testInsertWithCoercion()
-    {
-        // Override because of non-canonical varchar mapping
-    }
-
-    @Override
     public void testDelete()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
