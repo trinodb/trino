@@ -33,12 +33,14 @@ import io.prestosql.plugin.jdbc.JdbcSplitManager;
 import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
+import io.prestosql.plugin.sqlserver.SqlServerTableProperties;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.prestosql.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
 
 public class StarburstSqlServerClientModule
@@ -51,6 +53,7 @@ public class StarburstSqlServerClientModule
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
