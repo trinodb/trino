@@ -22,7 +22,7 @@ import java.util.Map;
 public interface TestingKafka
         extends Closeable
 {
-    String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.4.3";
+    String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.5.2";
 
     void start();
 

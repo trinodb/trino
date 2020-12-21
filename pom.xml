@@ -61,7 +61,7 @@
         <dep.docker-java.version>3.2.5</dep.docker-java.version>
         <dep.joda.version>2.10.6</dep.joda.version>
         <dep.coral.version>1.0.12</dep.coral.version>
-        <dep.confluent.version>5.4.3</dep.confluent.version>
+        <dep.confluent.version>5.5.2</dep.confluent.version>
         <dep.jackson.version>2.11.1</dep.jackson.version>
 
         <!--
@@ -1102,6 +1102,14 @@
                         <groupId>org.apache.kafka</groupId>
                         <artifactId>kafka-clients</artifactId>
                     </exclusion>
+                    <!--
+                        This library depends on:
+                         - org.glassfish.hk2.external:jakarta.inject that conflicts with javax.inject:javax.inject
+                    -->
+                    <exclusion>
+                        <groupId>org.glassfish.hk2.external</groupId>
+                        <artifactId>jakarta.inject</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -1114,7 +1122,57 @@
                         <groupId>org.apache.kafka</groupId>
                         <artifactId>kafka-clients</artifactId>
                     </exclusion>
+                    <!--
+                        This library depends on conflicting:
+                        - com.sun.activation:jakarta.activation and jakarta.activation:jakarta.activation-api
+                        - jakarta.el:jakarta.el-api and org.glassfish:jakarta.el
+                        This library depends on:
+                        - org.glassfish.hk2.external:jakarta.inject that conflicts with javax.inject:javax.inject
+                        - jakarta.validation:jakarta.validation-api that conflicts with javax.validation:validation-api
+                        - jakarta.annotation:jakarta.annotation-api that conflicts with javax.annotation:javax.annotation-api
+                        - com.sun.activation:jakarta.activation that conflicts with javax.activation:javax.activation-api
+                        - jakarta.ws.rs:jakarta.ws.rs-api that conflicts with javax.ws.rs:javax.ws.rs-api
+                        - jakarta.xml.bind:jakarta.xml.bind-api that conflicts with javax.xml.bind:jaxb-api
+                    -->
+                    <exclusion>
+                        <groupId>com.sun.activation</groupId>
+                        <artifactId>jakarta.activation</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>jakarta.activation</groupId>
+                        <artifactId>jakarta.activation-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>jakarta.annotation</groupId>
+                        <artifactId>jakarta.annotation-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>jakarta.validation</groupId>
+                        <artifactId>jakarta.validation-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>jakarta.ws.rs</groupId>
+                        <artifactId>jakarta.ws.rs-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>jakarta.xml.bind</groupId>
+                        <artifactId>jakarta.xml.bind-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish</groupId>
+                        <artifactId>jakarta.el</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish.hk2.external</groupId>
+                        <artifactId>jakarta.inject</artifactId>
+                    </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-schema-serializer</artifactId>
+                <version>${dep.confluent.version}</version>
             </dependency>
 
             <dependency>

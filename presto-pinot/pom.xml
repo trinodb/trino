@@ -393,6 +393,12 @@
             <groupId>io.prestosql</groupId>
             <artifactId>presto-testing-kafka</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.core</groupId>
+                    <artifactId>jersey-common</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
