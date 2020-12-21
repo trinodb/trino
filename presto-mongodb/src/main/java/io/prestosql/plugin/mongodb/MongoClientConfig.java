@@ -19,6 +19,7 @@ import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -48,7 +49,7 @@ public class MongoClientConfig
     private int socketTimeout;
     private int maxConnectionIdleTime;
     private boolean socketKeepAlive;
-    private boolean sslEnabled;
+    private boolean tlsEnabled;
 
     // query configurations
     private int cursorBatchSize; // use driver default
@@ -297,15 +298,16 @@ public class MongoClientConfig
         return this;
     }
 
-    public boolean getSslEnabled()
+    public boolean getTlsEnabled()
     {
-        return this.sslEnabled;
+        return this.tlsEnabled;
     }
 
-    @Config("mongodb.ssl.enabled")
-    public MongoClientConfig setSslEnabled(boolean sslEnabled)
+    @Config("mongodb.tls.enabled")
+    @LegacyConfig("mongodb.ssl.enabled")
+    public MongoClientConfig setTlsEnabled(boolean tlsEnabled)
     {
-        this.sslEnabled = sslEnabled;
+        this.tlsEnabled = tlsEnabled;
         return this;
     }
 
