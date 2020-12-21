@@ -26,6 +26,7 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -583,9 +584,13 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsertArray()
     {
-        skipTestUnless(supportsArrays());
-
         String tableName = "test_insert_array_" + randomTableSuffix();
+        if (!supportsArrays()) {
+            assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (a array(bigint))"))
+                    // TODO Unify failure message across connectors
+                    .hasMessageMatching("[Uu]nsupported (column )?type: \\Qarray(bigint)");
+            throw new SkipException("not supported");
+        }
 
         assertUpdate("CREATE TABLE " + tableName + " (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
 
