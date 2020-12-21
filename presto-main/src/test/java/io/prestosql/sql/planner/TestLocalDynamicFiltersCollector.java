@@ -39,6 +39,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -220,6 +221,44 @@ public class TestLocalDynamicFiltersCollector
         assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 column,
                 Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 6L, false)), false))));
+    }
+
+    @Test
+    public void testIsNotDistinctFrom()
+    {
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector(metadata, typeOperators, session);
+        DynamicFilterId filterId1 = new DynamicFilterId("filter1");
+        DynamicFilterId filterId2 = new DynamicFilterId("filter2");
+        collector.register(ImmutableSet.of(filterId1, filterId2));
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+
+        Symbol symbol1 = symbolAllocator.newSymbol("symbol1", BIGINT);
+        Symbol symbol2 = symbolAllocator.newSymbol("symbol2", BIGINT);
+        ColumnHandle column1 = new TestingColumnHandle("column1");
+        ColumnHandle column2 = new TestingColumnHandle("column2");
+        DynamicFilter filter = collector.createDynamicFilter(
+                ImmutableList.of(
+                        new DynamicFilters.Descriptor(filterId1, symbol1.toSymbolReference(), EQUAL, true),
+                        new DynamicFilters.Descriptor(filterId2, symbol2.toSymbolReference(), EQUAL, true)),
+                ImmutableMap.of(symbol1, column1, symbol2, column2),
+                symbolAllocator.getTypes());
+
+        // Filter is blocked and not completed.
+        CompletableFuture<?> isBlocked = filter.isBlocked();
+        assertFalse(filter.isComplete());
+        assertFalse(isBlocked.isDone());
+        assertEquals(filter.getCurrentPredicate(), TupleDomain.all());
+
+        collector.collectDynamicFilterDomains(ImmutableMap.of(
+                filterId1, Domain.multipleValues(BIGINT, ImmutableList.of(4L, 5L, 6L)),
+                filterId2, Domain.none(BIGINT)));
+
+        // Unblocked and completed.
+        assertTrue(filter.isComplete());
+        assertTrue(isBlocked.isDone());
+        assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
+                column1, Domain.create(ValueSet.of(BIGINT, 4L, 5L, 6L), true),
+                column2, Domain.onlyNull(BIGINT))));
     }
 
     @Test

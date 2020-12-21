@@ -25,11 +25,13 @@ import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
+import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
@@ -49,6 +51,8 @@ import static com.google.common.collect.ImmutableListMultimap.toImmutableListMul
 import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
+import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
 
@@ -56,19 +60,38 @@ public final class DynamicFilters
 {
     private DynamicFilters() {}
 
-    public static Expression createDynamicFilterExpression(Metadata metadata, DynamicFilterId id, Type inputType, SymbolReference input, ComparisonExpression.Operator operator)
+    public static Expression createDynamicFilterExpression(
+            Metadata metadata,
+            DynamicFilterId id,
+            Type inputType,
+            SymbolReference input,
+            ComparisonExpression.Operator operator,
+            boolean nullAllowed)
     {
-        return createDynamicFilterExpression(metadata, id, inputType, (Expression) input, operator);
+        return createDynamicFilterExpression(metadata, id, inputType, (Expression) input, operator, nullAllowed);
     }
 
     @VisibleForTesting
     public static Expression createDynamicFilterExpression(Metadata metadata, DynamicFilterId id, Type inputType, Expression input, ComparisonExpression.Operator operator)
+    {
+        return createDynamicFilterExpression(metadata, id, inputType, input, operator, false);
+    }
+
+    @VisibleForTesting
+    public static Expression createDynamicFilterExpression(
+            Metadata metadata,
+            DynamicFilterId id,
+            Type inputType,
+            Expression input,
+            ComparisonExpression.Operator operator,
+            boolean nullAllowed)
     {
         return new FunctionCallBuilder(metadata)
                 .setName(QualifiedName.of(Function.NAME))
                 .addArgument(inputType, input)
                 .addArgument(VarcharType.VARCHAR, new StringLiteral(operator.toString()))
                 .addArgument(VarcharType.VARCHAR, new StringLiteral(id.toString()))
+                .addArgument(BooleanType.BOOLEAN, nullAllowed ? TRUE_LITERAL : FALSE_LITERAL)
                 .build();
     }
 
@@ -103,7 +126,11 @@ public final class DynamicFilters
         return dynamicFilters.stream()
                 .collect(toImmutableListMultimap(
                         DynamicFilters.Descriptor::getId,
-                        descriptor -> new DynamicFilters.Descriptor(descriptor.getId(), extractSourceSymbol(descriptor).toSymbolReference(), descriptor.getOperator())));
+                        descriptor -> new DynamicFilters.Descriptor(
+                                descriptor.getId(),
+                                extractSourceSymbol(descriptor).toSymbolReference(),
+                                descriptor.getOperator(),
+                                descriptor.isNullAllowed())));
     }
 
     private static Symbol extractSourceSymbol(DynamicFilters.Descriptor descriptor)
@@ -135,7 +162,7 @@ public final class DynamicFilters
         }
 
         List<Expression> arguments = functionCall.getArguments();
-        checkArgument(arguments.size() == 3, "invalid arguments count: %s", arguments.size());
+        checkArgument(arguments.size() == 4, "invalid arguments count: %s", arguments.size());
 
         Expression probeSymbol = arguments.get(0);
 
@@ -147,7 +174,11 @@ public final class DynamicFilters
         Expression idExpression = arguments.get(2);
         checkArgument(idExpression instanceof StringLiteral, "id is expected to be an instance of StringLiteral: %s", idExpression.getClass().getSimpleName());
         String id = ((StringLiteral) idExpression).getValue();
-        return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator));
+
+        Expression nullAllowedExpression = arguments.get(3);
+        checkArgument(nullAllowedExpression instanceof BooleanLiteral, "nullAllowedExpression is expected to be an instance of BooleanLiteral: %s", nullAllowedExpression.getClass().getSimpleName());
+        boolean nullAllowed = ((BooleanLiteral) nullAllowedExpression).getValue();
+        return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed));
     }
 
     public static class ExtractResult
@@ -177,12 +208,20 @@ public final class DynamicFilters
         private final DynamicFilterId id;
         private final Expression input;
         private final ComparisonExpression.Operator operator;
+        private final boolean nullAllowed;
 
-        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator)
+        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator, boolean nullAllowed)
         {
             this.id = requireNonNull(id, "id is null");
             this.input = requireNonNull(input, "input is null");
             this.operator = requireNonNull(operator, "operator is null");
+            checkArgument(!nullAllowed || operator == EQUAL, "nullAllowed should be true only with EQUAL operator");
+            this.nullAllowed = nullAllowed;
+        }
+
+        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator)
+        {
+            this(id, input, operator, false);
         }
 
         public Descriptor(DynamicFilterId id, Expression input)
@@ -205,6 +244,11 @@ public final class DynamicFilters
             return operator;
         }
 
+        public boolean isNullAllowed()
+        {
+            return nullAllowed;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -217,13 +261,14 @@ public final class DynamicFilters
             Descriptor that = (Descriptor) o;
             return Objects.equals(id, that.id) &&
                     Objects.equals(input, that.input) &&
-                    Objects.equals(operator, that.operator);
+                    Objects.equals(operator, that.operator) &&
+                    nullAllowed == that.nullAllowed;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(id, input, operator);
+            return Objects.hash(id, input, operator, nullAllowed);
         }
 
         @Override
@@ -233,17 +278,29 @@ public final class DynamicFilters
                     .add("id", id)
                     .add("input", input)
                     .add("operator", operator)
+                    .add("nullAllowed", nullAllowed)
                     .toString();
         }
 
         public Domain applyComparison(Domain domain)
         {
-            if (domain.isNone() || domain.isAll()) {
+            if (domain.isAll()) {
+                return domain;
+            }
+            if (domain.isNone()) {
+                // Dynamic filter collection skips nulls
+                // In case of IS NOT DISTINCT FROM, an empty Domain should still allow null
+                if (nullAllowed) {
+                    return Domain.onlyNull(domain.getType());
+                }
                 return domain;
             }
             Range span = domain.getValues().getRanges().getSpan();
             switch (operator) {
                 case EQUAL:
+                    if (nullAllowed) {
+                        return Domain.create(domain.getValues(), true);
+                    }
                     return domain;
                 case LESS_THAN: {
                     Range range = Range.lessThan(span.getType(), span.getHigh().getValue());
@@ -276,28 +333,28 @@ public final class DynamicFilters
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") Object input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id)
+        public static boolean dynamicFilter(@SqlType("T") Object input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") long input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id)
+        public static boolean dynamicFilter(@SqlType("T") long input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") boolean input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id)
+        public static boolean dynamicFilter(@SqlType("T") boolean input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") double input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id)
+        public static boolean dynamicFilter(@SqlType("T") double input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
         {
             throw new UnsupportedOperationException();
         }
