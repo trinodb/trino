@@ -193,8 +193,8 @@ final class PrestoColumnMappings
         return (resultSet, columnIndex) -> {
             String value = resultSet.getString(columnIndex);
             LongTimeWithTimeZone longTimeWithTimeZone = parseTimeWithTimeZone(value);
-            verify(longTimeWithTimeZone.getPicoSeconds() % PICOSECONDS_PER_NANOSECOND == 0, "Unexpected sub-nanosecond precision: %s", longTimeWithTimeZone);
-            return packTimeWithTimeZone(longTimeWithTimeZone.getPicoSeconds() / PICOSECONDS_PER_NANOSECOND, longTimeWithTimeZone.getOffsetMinutes());
+            verify(longTimeWithTimeZone.getPicoseconds() % PICOSECONDS_PER_NANOSECOND == 0, "Unexpected sub-nanosecond precision: %s", longTimeWithTimeZone);
+            return packTimeWithTimeZone(longTimeWithTimeZone.getPicoseconds() / PICOSECONDS_PER_NANOSECOND, longTimeWithTimeZone.getOffsetMinutes());
         };
     }
 
@@ -252,7 +252,7 @@ final class PrestoColumnMappings
     private static ObjectWriteFunction longTimeWithTimeZoneWriteFunction(int precision)
     {
         return ObjectWriteFunction.of(LongTimeWithTimeZone.class, (statement, index, value) -> {
-            String formatted = SqlTimeWithTimeZone.newInstance(precision, value.getPicoSeconds(), value.getOffsetMinutes()).toString();
+            String formatted = SqlTimeWithTimeZone.newInstance(precision, value.getPicoseconds(), value.getOffsetMinutes()).toString();
             // TODO this should use Types.TIME_WITH_TIMEZONE after https://github.com/prestosql/presto/pull/6352
             statement.setObject(index, formatted, Types.TIME);
         });
