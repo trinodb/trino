@@ -250,6 +250,44 @@ public class TestDynamicFilter
     }
 
     @Test
+    public void testIsNotDistinctFromJoin()
+    {
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS NOT DISTINCT FROM o.orderkey",
+                anyTree(filter("O_ORDERKEY IS NOT DISTINCT FROM L_ORDERKEY",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                ImmutableList.of(new DynamicFilterPattern("O_ORDERKEY", EQUAL, "L_ORDERKEY", true)),
+                                filter(
+                                        TRUE_LITERAL,
+                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
+
+        // Dynamic filter is not supported for IS DISTINCT FROM
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey IS DISTINCT FROM o.orderkey",
+                anyTree(filter("O_ORDERKEY IS DISTINCT FROM L_ORDERKEY",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey")),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey")))))));
+
+        // extendedprice and totalprice are of DOUBLE type, dynamic filter is not supported with IS NOT DISTINCT FROM clause on DOUBLE or REAL types
+        assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.extendedprice IS NOT DISTINCT FROM o.totalprice",
+                anyTree(filter("O_TOTALPRICE IS NOT DISTINCT FROM L_EXTENDEDPRICE",
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                ImmutableList.of(),
+                                tableScan("orders", ImmutableMap.of("O_TOTALPRICE", "totalprice")),
+                                exchange(
+                                        tableScan("lineitem", ImmutableMap.of("L_EXTENDEDPRICE", "extendedprice")))))));
+    }
+
+    @Test
     public void testJoinOnCast()
     {
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE cast(l.orderkey as int) = cast(o.orderkey as int)",

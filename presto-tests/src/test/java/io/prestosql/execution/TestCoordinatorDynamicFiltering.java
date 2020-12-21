@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.plugin.memory.MemoryPlugin;
+import io.prestosql.plugin.tpcds.TpcdsPlugin;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -84,6 +85,7 @@ public class TestCoordinatorDynamicFiltering
         extends AbstractTestQueryFramework
 {
     private static final TestingMetadata.TestingColumnHandle SUPP_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("suppkey", 2, BIGINT);
+    private static final TestingMetadata.TestingColumnHandle SS_SOLD_SK_HANDLE = new TestingMetadata.TestingColumnHandle("ss_sold_date_sk", 0, BIGINT);
 
     private volatile TupleDomain<ColumnHandle> expectedDynamicFilter;
 
@@ -93,11 +95,14 @@ public class TestCoordinatorDynamicFiltering
         // create lineitem table in test connector
         getQueryRunner().installPlugin(new TestPlugin());
         getQueryRunner().installPlugin(new TpchPlugin());
+        getQueryRunner().installPlugin(new TpcdsPlugin());
         getQueryRunner().installPlugin(new MemoryPlugin());
         getQueryRunner().createCatalog("test", "test", ImmutableMap.of());
         getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of());
+        getQueryRunner().createCatalog("tpcds", "tpcds", ImmutableMap.of());
         getQueryRunner().createCatalog("memory", "memory", ImmutableMap.of());
         computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
+        computeActual("CREATE TABLE store_sales AS SELECT * FROM tpcds.tiny.store_sales");
     }
 
     @Override
@@ -185,6 +190,26 @@ public class TestCoordinatorDynamicFiltering
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         SUPP_KEY_HANDLE,
                         Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testIsNotDistinctFromJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk = store.s_closed_date_sk",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SS_SOLD_SK_HANDLE,
+                        Domain.create(ValueSet.of(BIGINT, 2451189L), false))));
+        assertQueryDynamicFilters(
+                "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SS_SOLD_SK_HANDLE,
+                        Domain.create(ValueSet.of(BIGINT, 2451189L), true))));
+        assertQueryDynamicFilters(
+                "SELECT * FROM store_sales JOIN tpcds.tiny.store ON store_sales.ss_sold_date_sk IS NOT DISTINCT FROM store.s_closed_date_sk AND store.s_closed_date_sk < 0",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SS_SOLD_SK_HANDLE,
+                        Domain.onlyNull(BIGINT))));
     }
 
     @Test(timeOut = 30_000)

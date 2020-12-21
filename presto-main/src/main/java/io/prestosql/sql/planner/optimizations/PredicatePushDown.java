@@ -63,6 +63,7 @@ import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.TryExpression;
@@ -89,6 +90,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.prestosql.SystemSessionProperties.isPredicatePushdownUseTableProperties;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
@@ -106,6 +109,7 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
@@ -612,23 +616,33 @@ public class PredicatePushDown
                 return new DynamicFiltersResult(ImmutableMap.of(), ImmutableList.of());
             }
 
-            List<ComparisonExpression> clauses = Streams.concat(
+            List<DynamicFilterExpression> clauses = Streams.concat(
                     equiJoinClauses
                             .stream()
-                            .map(clause -> new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference())),
+                            .map(clause -> new DynamicFilterExpression(
+                                    new ComparisonExpression(EQUAL, clause.getLeft().toSymbolReference(), clause.getRight().toSymbolReference()))),
                     joinFilterClauses.stream()
                             .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
-                            .filter(clause -> joinComparisonExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols(), DYNAMIC_FILTERING_SUPPORTED_COMPARISONS))
-                            .map(ComparisonExpression.class::cast)
-                            .filter(comparison -> comparison.getLeft() instanceof SymbolReference && comparison.getRight() instanceof SymbolReference)
-                            .map(comparison -> {
+                            .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
+                            .map(expression -> {
+                                if (expression instanceof NotExpression) {
+                                    NotExpression notExpression = ((NotExpression) expression);
+                                    ComparisonExpression comparison = (ComparisonExpression) notExpression.getValue();
+                                    return new DynamicFilterExpression(new ComparisonExpression(EQUAL, comparison.getLeft(), comparison.getRight()), true);
+                                }
+                                return new DynamicFilterExpression((ComparisonExpression) expression);
+                            })
+                            .map(expression -> {
+                                ComparisonExpression comparison = expression.getComparison();
                                 Symbol leftSymbol = Symbol.from(comparison.getLeft());
                                 Symbol rightSymbol = Symbol.from(comparison.getRight());
                                 boolean alignedComparison = node.getLeft().getOutputSymbols().contains(leftSymbol);
-                                return new ComparisonExpression(
-                                        alignedComparison ? comparison.getOperator() : comparison.getOperator().flip(),
-                                        (alignedComparison ? leftSymbol : rightSymbol).toSymbolReference(),
-                                        (alignedComparison ? rightSymbol : leftSymbol).toSymbolReference());
+                                return new DynamicFilterExpression(
+                                        new ComparisonExpression(
+                                                alignedComparison ? comparison.getOperator() : comparison.getOperator().flip(),
+                                                (alignedComparison ? leftSymbol : rightSymbol).toSymbolReference(),
+                                                (alignedComparison ? rightSymbol : leftSymbol).toSymbolReference()),
+                                        expression.isNullAllowed());
                             }))
                     .collect(toImmutableList());
 
@@ -639,6 +653,7 @@ public class PredicatePushDown
 
             // Collect build symbols:
             Set<Symbol> buildSymbols = clauses.stream()
+                    .map(DynamicFilterExpression::getComparison)
                     .map(ComparisonExpression::getRight)
                     .map(Symbol::from)
                     .collect(toImmutableSet());
@@ -655,11 +670,12 @@ public class PredicatePushDown
             List<Expression> predicates = clauses
                     .stream()
                     .map(clause -> {
-                        Symbol probeSymbol = Symbol.from(clause.getLeft());
-                        Symbol buildSymbol = Symbol.from(clause.getRight());
+                        ComparisonExpression comparison = clause.getComparison();
+                        Symbol probeSymbol = Symbol.from(comparison.getLeft());
+                        Symbol buildSymbol = Symbol.from(comparison.getRight());
                         Type type = symbolAllocator.getTypes().get(probeSymbol);
                         DynamicFilterId id = requireNonNull(buildSymbolToDynamicFilter.get(buildSymbol), () -> "missing dynamic filter for symbol " + buildSymbol);
-                        return createDynamicFilterExpression(metadata, id, type, probeSymbol.toSymbolReference(), clause.getOperator());
+                        return createDynamicFilterExpression(metadata, id, type, probeSymbol.toSymbolReference(), comparison.getOperator(), clause.isNullAllowed());
                     })
                     .collect(toImmutableList());
             // Return a mapping from build symbols to corresponding dynamic filter IDs:
@@ -675,6 +691,33 @@ public class PredicatePushDown
                         new ComparisonExpression(LESS_THAN_OR_EQUAL, between.getValue(), between.getMax()));
             }
             return Stream.of(clause);
+        }
+
+        private static class DynamicFilterExpression
+        {
+            private final ComparisonExpression comparison;
+            private final boolean nullAllowed;
+
+            private DynamicFilterExpression(ComparisonExpression comparison)
+            {
+                this(comparison, false);
+            }
+
+            private DynamicFilterExpression(ComparisonExpression comparison, boolean nullAllowed)
+            {
+                this.comparison = requireNonNull(comparison, "comparison is null");
+                this.nullAllowed = nullAllowed;
+            }
+
+            public ComparisonExpression getComparison()
+            {
+                return comparison;
+            }
+
+            public boolean isNullAllowed()
+            {
+                return nullAllowed;
+            }
         }
 
         private static class DynamicFiltersResult
@@ -1207,6 +1250,33 @@ public class PredicatePushDown
         private boolean joinEqualityExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
         {
             return joinComparisonExpression(expression, leftSymbols, rightSymbols, ImmutableSet.of(EQUAL));
+        }
+
+        private boolean joinDynamicFilteringExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
+        {
+            ComparisonExpression comparison;
+            if (expression instanceof NotExpression) {
+                NotExpression notExpression = (NotExpression) expression;
+                boolean isDistinctFrom = joinComparisonExpression(notExpression.getValue(), leftSymbols, rightSymbols, ImmutableSet.of(IS_DISTINCT_FROM));
+                if (!isDistinctFrom) {
+                    return false;
+                }
+                comparison = (ComparisonExpression) notExpression.getValue();
+                Set<Type> expressionTypes = ImmutableSet.of(
+                        typeAnalyzer.getType(session, types, comparison.getLeft()),
+                        typeAnalyzer.getType(session, types, comparison.getRight()));
+                // Dynamic filtering is not supported with IS NOT DISTINCT FROM clause on REAL or DOUBLE types to avoid dealing with NaN values
+                if (expressionTypes.contains(REAL) || expressionTypes.contains(DOUBLE)) {
+                    return false;
+                }
+            }
+            else {
+                if (!joinComparisonExpression(expression, leftSymbols, rightSymbols, DYNAMIC_FILTERING_SUPPORTED_COMPARISONS)) {
+                    return false;
+                }
+                comparison = (ComparisonExpression) expression;
+            }
+            return comparison.getLeft() instanceof SymbolReference && comparison.getRight() instanceof SymbolReference;
         }
 
         private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)

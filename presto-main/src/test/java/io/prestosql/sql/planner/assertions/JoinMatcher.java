@@ -26,6 +26,7 @@ import io.prestosql.sql.planner.plan.JoinNode.DistributionType;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.NotExpression;
 
 import java.util.HashSet;
 import java.util.List;
@@ -42,6 +43,7 @@ import static io.prestosql.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.DynamicFilterPattern;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static java.util.Objects.requireNonNull;
 
 final class JoinMatcher
@@ -155,11 +157,18 @@ final class JoinMatcher
             if (build == null) {
                 return false;
             }
-            actual.add(new ComparisonExpression(descriptor.getOperator(), probe.toSymbolReference(), build.toSymbolReference()));
+            Expression expression;
+            if (descriptor.isNullAllowed()) {
+                expression = new NotExpression(new ComparisonExpression(IS_DISTINCT_FROM, probe.toSymbolReference(), build.toSymbolReference()));
+            }
+            else {
+                expression = new ComparisonExpression(descriptor.getOperator(), probe.toSymbolReference(), build.toSymbolReference());
+            }
+            actual.add(expression);
         }
 
         Set<Expression> expected = expectedDynamicFilter.get().stream()
-                .map(pattern -> pattern.getComparisonExpression(symbolAliases))
+                .map(pattern -> pattern.getExpression(symbolAliases))
                 .collect(toImmutableSet());
 
         return expected.equals(actual);
