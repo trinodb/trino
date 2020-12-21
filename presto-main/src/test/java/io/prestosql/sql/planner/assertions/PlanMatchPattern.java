@@ -64,6 +64,7 @@ import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SortItem;
@@ -94,6 +95,7 @@ import static io.prestosql.sql.planner.assertions.StrictAssignedSymbolsMatcher.a
 import static io.prestosql.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
@@ -1109,16 +1111,30 @@ public final class PlanMatchPattern
         private final SymbolAlias probe;
         private final ComparisonExpression.Operator operator;
         private final SymbolAlias build;
+        private final boolean nullAllowed;
 
-        public DynamicFilterPattern(String probeAlias, ComparisonExpression.Operator operator, String buildAlias)
+        public DynamicFilterPattern(String probeAlias, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
         {
             this.probe = new SymbolAlias(requireNonNull(probeAlias, "probeAlias is null"));
             this.operator = requireNonNull(operator, "operator is null");
             this.build = new SymbolAlias(requireNonNull(buildAlias, "buildAlias is null"));
+            this.nullAllowed = nullAllowed;
         }
 
-        ComparisonExpression getComparisonExpression(SymbolAliases aliases)
+        public DynamicFilterPattern(String probeAlias, ComparisonExpression.Operator operator, String buildAlias)
         {
+            this(probeAlias, operator, buildAlias, false);
+        }
+
+        Expression getExpression(SymbolAliases aliases)
+        {
+            if (nullAllowed) {
+                return new NotExpression(
+                        new ComparisonExpression(
+                                IS_DISTINCT_FROM,
+                                probe.toSymbol(aliases).toSymbolReference(),
+                                build.toSymbol(aliases).toSymbolReference()));
+            }
             return new ComparisonExpression(
                     operator,
                     probe.toSymbol(aliases).toSymbolReference(),
