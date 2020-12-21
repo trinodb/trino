@@ -231,6 +231,7 @@ public class OracleClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setFetchSize(1000);
         return statement;
     }
 
