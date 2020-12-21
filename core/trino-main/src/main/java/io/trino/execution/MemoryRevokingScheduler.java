@@ -20,10 +20,11 @@ import io.airlift.log.Logger;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.MemoryPoolListener;
-import io.trino.memory.QueryContext;
 import io.trino.memory.TraversingQueryContextVisitor;
 import io.trino.memory.VoidTraversingQueryContextVisitor;
 import io.trino.operator.OperatorContext;
+import io.trino.operator.PipelineContext;
+import io.trino.operator.TaskContext;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.sql.analyzer.FeaturesConfig;
 
@@ -34,6 +35,7 @@ import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -243,10 +245,13 @@ public class MemoryRevokingScheduler
 
         long currentRevoking = 0;
         for (SqlTask task : sqlTasks) {
-            currentRevoking += task.getQueryContext().accept(visitor, null);
-            if (currentRevoking >= targetRevokingLimit) {
-                // Return early, target value exceeded and revoking will not occur
-                return currentRevoking;
+            Optional<TaskContext> taskContext = task.getTaskContext();
+            if (taskContext.isPresent()) {
+                currentRevoking += taskContext.get().accept(visitor, null);
+                if (currentRevoking >= targetRevokingLimit) {
+                    // Return early, target value exceeded and revoking will not occur
+                    return currentRevoking;
+                }
             }
         }
         return currentRevoking;
@@ -257,13 +262,13 @@ public class MemoryRevokingScheduler
         VoidTraversingQueryContextVisitor<AtomicLong> visitor = new VoidTraversingQueryContextVisitor<>()
         {
             @Override
-            public Void visitQueryContext(QueryContext queryContext, AtomicLong remainingBytesToRevoke)
+            public Void visitPipelineContext(PipelineContext pipelineContext, AtomicLong remainingBytesToRevoke)
             {
-                if (remainingBytesToRevoke.get() < 0) {
+                if (remainingBytesToRevoke.get() <= 0) {
                     // exit immediately if no work needs to be done
                     return null;
                 }
-                return super.visitQueryContext(queryContext, remainingBytesToRevoke);
+                return super.visitPipelineContext(pipelineContext, remainingBytesToRevoke);
             }
 
             @Override
@@ -282,10 +287,13 @@ public class MemoryRevokingScheduler
 
         AtomicLong remainingBytesToRevokeAtomic = new AtomicLong(remainingBytesToRevoke);
         for (SqlTask task : sqlTasks) {
-            task.getQueryContext().accept(visitor, remainingBytesToRevokeAtomic);
-            if (remainingBytesToRevokeAtomic.get() <= 0) {
-                // No further revoking required
-                return;
+            Optional<TaskContext> taskContext = task.getTaskContext();
+            if (taskContext.isPresent()) {
+                taskContext.get().accept(visitor, remainingBytesToRevokeAtomic);
+                if (remainingBytesToRevokeAtomic.get() <= 0) {
+                    // No further revoking required
+                    return;
+                }
             }
         }
     }
