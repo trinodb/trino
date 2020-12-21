@@ -202,6 +202,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-schema-serializer</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>net.jodah</groupId>
             <artifactId>failsafe</artifactId>
             <scope>test</scope>
