@@ -21,6 +21,7 @@ import io.prestosql.RowPagesBuilder;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spiller.SingleStreamSpillerFactory;
@@ -91,13 +92,13 @@ public class BenchmarkHashBuildAndJoinOperators
         protected static final int ROWS_PER_PAGE = 1024;
         protected static final int BUILD_ROWS_NUMBER = 8_000_000;
 
-        @Param({"varchar", "bigint", "all"})
+        @Param({"bigint"})
         protected String hashColumns = "bigint";
 
-        @Param({"false", "true"})
-        protected boolean buildHashEnabled;
+        @Param({"true"})
+        protected boolean buildHashEnabled = true;
 
-        @Param({"1", "5"})
+        @Param({"1"})
         protected int buildRowsRepetition = 1;
 
         protected ExecutorService executor;
@@ -156,13 +157,13 @@ public class BenchmarkHashBuildAndJoinOperators
 
         protected void initializeBuildPages()
         {
-            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
+            RowPagesBuilder buildPagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(BIGINT, BIGINT));
 
             int maxValue = BUILD_ROWS_NUMBER / buildRowsRepetition + 40;
             int rows = 0;
             while (rows < BUILD_ROWS_NUMBER) {
                 int newRows = Math.min(BUILD_ROWS_NUMBER - rows, ROWS_PER_PAGE);
-                buildPagesBuilder.addSequencePage(newRows, (rows + 20) % maxValue, (rows + 30) % maxValue, (rows + 40) % maxValue);
+                buildPagesBuilder.addSequencePage(newRows, (rows + 30) % maxValue, (rows + 40) % maxValue);
                 buildPagesBuilder.pageBreak();
                 rows += newRows;
             }
@@ -180,10 +181,10 @@ public class BenchmarkHashBuildAndJoinOperators
     {
         protected static final int PROBE_ROWS_NUMBER = 1_400_000;
 
-        @Param({"0.1", "1", "2"})
+        @Param({"1"})
         protected double matchRate = 1;
 
-        @Param({"bigint", "all"})
+        @Param({"bigint"})
         protected String outputColumns = "bigint";
 
         protected List<Page> probePages;
@@ -239,7 +240,7 @@ public class BenchmarkHashBuildAndJoinOperators
 
         protected void initializeProbePages()
         {
-            RowPagesBuilder probePagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(VARCHAR, BIGINT, BIGINT));
+            RowPagesBuilder probePagesBuilder = rowPagesBuilder(buildHashEnabled, hashChannels, ImmutableList.of(BIGINT, BIGINT));
 
             Random random = new Random(42);
             int remainingRows = PROBE_ROWS_NUMBER;
@@ -247,7 +248,7 @@ public class BenchmarkHashBuildAndJoinOperators
             while (remainingRows > 0) {
                 double roll = random.nextDouble();
 
-                int columnA = 20 + remainingRows;
+                //int columnA = 20 + remainingRows;
                 int columnB = 30 + remainingRows;
                 int columnC = 40 + remainingRows;
 
@@ -256,7 +257,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     // each row has matchRate chance to join
                     if (roll > matchRate) {
                         // generate not matched row
-                        columnA *= -1;
+                        //columnA *= -1;
                         columnB *= -1;
                         columnC *= -1;
                     }
@@ -276,7 +277,7 @@ public class BenchmarkHashBuildAndJoinOperators
                         probePagesBuilder.pageBreak();
                         rowsInPage = 0;
                     }
-                    probePagesBuilder.row(format("%d", columnA), columnB, columnC);
+                    probePagesBuilder.row(columnB, columnC);
                     --remainingRows;
                     rowsInPage++;
                 }
@@ -285,8 +286,8 @@ public class BenchmarkHashBuildAndJoinOperators
         }
     }
 
-    @Benchmark
-    public JoinBridgeManager<PartitionedLookupSourceFactory> benchmarkBuildHash(BuildContext buildContext)
+    //@Benchmark
+    private JoinBridgeManager<PartitionedLookupSourceFactory> benchmarkBuildHash(BuildContext buildContext)
     {
         List<Integer> outputChannels = ImmutableList.of(0, 1, 2);
         JoinBridgeManager<PartitionedLookupSourceFactory> joinBridgeManager = getLookupSourceFactoryManager(buildContext, outputChannels);
@@ -384,11 +385,26 @@ public class BenchmarkHashBuildAndJoinOperators
         joinContext.setup();
         benchmarkJoinHash(joinContext);
         // ensure that build side hash table is not freed
-        List<Page> pages = benchmarkJoinHash(joinContext);
+        for (int i = 0; i <= 1; ++i) {
+            List<Page> pages = benchmarkJoinHash(joinContext);
 
-        // assert that there are any rows
-        checkState(!pages.isEmpty());
-        checkState(pages.get(0).getPositionCount() > 0);
+            // assert that there are any rows
+            checkState(!pages.isEmpty());
+            checkState(pages.get(0).getPositionCount() > 0);
+
+            int hash = 0;
+            int positions = 0;
+            for (Page page : pages) {
+                for (int position = 0; position < page.getPositionCount(); ++position) {
+                    for (int channel = 0; channel < page.getChannelCount(); ++channel) {
+                        Block block = page.getBlock(channel);
+                        hash += block.getLong(position, 0);
+                    }
+                }
+                positions += page.getPositionCount();
+            }
+            System.err.println("HASH " + hash + " POSITIONS: " + positions);
+        }
     }
 
     @Test
