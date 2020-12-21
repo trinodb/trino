@@ -26,7 +26,6 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public abstract class BaseSnowflakeDistributedQueries
@@ -121,40 +120,6 @@ public abstract class BaseSnowflakeDistributedQueries
     public void testDropColumn()
     {
         throw new SkipException("Drop column not yet implemented");
-    }
-
-    // Override needed because Snowflake casts INTEGER types up, allowing for large values which would normally fail coercion to pass.
-    @Override
-    public void testInsertWithCoercion()
-    {
-        String tableName = "test_insert_with_coercion_" + randomTableSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (" +
-                "tinyint_column TINYINT, " +
-                "integer_column INTEGER, " +
-                "decimal_column DECIMAL(5, 3), " +
-                "bounded_varchar_column VARCHAR(3), " +
-                "unbounded_varchar_column VARCHAR, " +
-                "date_column DATE)");
-
-        assertUpdate("INSERT INTO " + tableName + " (tinyint_column, integer_column, decimal_column) VALUES (1e0, 2e0, 3e0)", 1);
-        assertUpdate("INSERT INTO " + tableName + " (bounded_varchar_column, unbounded_varchar_column) VALUES (CAST('aa     ' AS varchar), CAST('aa     ' AS varchar))", 1);
-        assertUpdate("INSERT INTO " + tableName + " (bounded_varchar_column, unbounded_varchar_column) VALUES (NULL, NULL)", 1);
-        assertUpdate("INSERT INTO " + tableName + " (bounded_varchar_column, unbounded_varchar_column) VALUES (CAST(NULL AS varchar), CAST(NULL AS varchar))", 1);
-        assertUpdate("INSERT INTO " + tableName + " (date_column) VALUES (TIMESTAMP '2019-11-18 22:13:40')", 1);
-
-        assertQuery(
-                "SELECT * FROM " + tableName,
-                "VALUES " +
-                        "(1, 2, 3, NULL, NULL, NULL), " +
-                        "(NULL, NULL, NULL, 'aa ', 'aa     ', NULL), " +
-                        "(NULL, NULL, NULL, NULL, NULL, NULL), " +
-                        "(NULL, NULL, NULL, NULL, NULL, NULL), " +
-                        "(NULL, NULL, NULL, NULL, NULL, DATE '2019-11-18')");
-
-        assertQueryFails("INSERT INTO " + tableName + " (bounded_varchar_column) VALUES ('abcd')", "Cannot truncate non-space characters when casting from varchar\\(4\\) to varchar\\(3\\) on INSERT");
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
