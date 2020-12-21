@@ -52,12 +52,6 @@ public class TestRaptorDistributedQueries
     }
 
     @Override
-    public void testInsertWithCoercion()
-    {
-        // No support for char type
-    }
-
-    @Override
     public void testCreateSchema()
     {
         // schema creation is not supported

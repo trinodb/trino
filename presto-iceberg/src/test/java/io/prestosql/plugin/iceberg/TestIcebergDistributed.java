@@ -64,12 +64,6 @@ public class TestIcebergDistributed
     }
 
     @Override
-    public void testInsertWithCoercion()
-    {
-        // Iceberg does not support parameterized varchar
-    }
-
-    @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getPrestoTypeName();
