@@ -203,6 +203,16 @@ public class SqlTask
         return taskHolderReference.get().getIoStats();
     }
 
+    public TaskState getTaskState()
+    {
+        return taskStateMachine.getState();
+    }
+
+    public DateTime getTaskCreatedTime()
+    {
+        return taskStateMachine.getCreatedTime();
+    }
+
     public TaskId getTaskId()
     {
         return taskStateMachine.getTaskId();
