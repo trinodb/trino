@@ -14,7 +14,6 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Predicate;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
@@ -49,6 +48,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -378,7 +378,7 @@ public class CachingJdbcClient
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    private static Object getSessionProperty(ConnectorSession session, PropertyMetadata property)
+    private static Object getSessionProperty(ConnectorSession session, PropertyMetadata<?> property)
     {
         return firstNonNull(session.getProperty(property.getName(), property.getJavaType()), NULL_MARKER);
     }
