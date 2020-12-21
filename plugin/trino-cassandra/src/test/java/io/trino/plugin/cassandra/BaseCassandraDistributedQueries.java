@@ -35,6 +35,12 @@ public abstract class BaseCassandraDistributedQueries
     }
 
     @Override
+    protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsCommentOnTable()
     {
         return false;
@@ -74,15 +80,6 @@ public abstract class BaseCassandraDistributedQueries
     public void testDropColumn()
     {
         // Cassandra does not support dropping columns
-    }
-
-    @Override
-    public void testInsertArray()
-    {
-        // TODO
-        assertThatThrownBy(super::testInsertArray)
-                .hasMessage("unsupported type: array(double)");
-        throw new SkipException("Unsupported");
     }
 
     @Override
