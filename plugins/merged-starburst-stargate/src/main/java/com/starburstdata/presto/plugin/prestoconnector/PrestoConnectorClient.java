@@ -16,6 +16,7 @@ import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
@@ -25,6 +26,7 @@ import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.prestosql.spi.PrestoException;
@@ -46,6 +48,8 @@ import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
 
 import javax.inject.Inject;
@@ -76,6 +80,9 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappin
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampWithTimeZoneColumnMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampWithTimeZoneWriteMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimestampWriteMapping;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -111,6 +118,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
@@ -122,6 +130,8 @@ public class PrestoConnectorClient
         extends BaseJdbcClient
 {
     private static final Logger log = Logger.get(PrestoConnectorClient.class);
+
+    private final Type jsonType;
 
     private enum FunctionsCacheKey
     {
@@ -138,10 +148,12 @@ public class PrestoConnectorClient
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
+            TypeManager typeManager,
             @EnableWrites boolean enableWrites)
     {
         super(config, "\"", connectionFactory);
         this.enableWrites = enableWrites;
+        this.jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
 
         this.supportedAggregateFunctions = CacheBuilder.newBuilder()
                 .expireAfterWrite(30, MINUTES)
@@ -266,6 +278,15 @@ public class PrestoConnectorClient
             return mapping;
         }
 
+        String jdbcTypeName = typeHandle.getJdbcTypeName()
+                // type name may be missing for synthetic type handles
+                .orElse("");
+
+        switch (jdbcTypeName) {
+            case JSON:
+                return Optional.of(jsonColumnMapping());
+        }
+
         switch (typeHandle.getJdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
@@ -325,6 +346,16 @@ public class PrestoConnectorClient
         return Optional.empty();
     }
 
+    private ColumnMapping jsonColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                jsonType,
+                (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
+                new JsonWriteFunction(),
+                // JSON is not orderable and EquatableValueSet currently breaks QueryBuilder
+                DISABLE_PUSHDOWN);
+    }
+
     private Optional<JdbcTypeHandle> toTypeHandle(Type type)
     {
         requireNonNull(type, "type is null");
@@ -374,6 +405,10 @@ public class PrestoConnectorClient
 
         if (type == VARBINARY) {
             return Optional.of(jdbcTypeHandle(Types.VARBINARY));
+        }
+
+        if (type.equals(jsonType)) {
+            return Optional.of(jdbcTypeHandleWithTypeName(Types.JAVA_OBJECT, JSON));
         }
 
         if (type == DATE) {
@@ -434,6 +469,10 @@ public class PrestoConnectorClient
                 return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
             }
             return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+        }
+
+        if (type.equals(jsonType)) {
+            return WriteMapping.sliceMapping(JSON, new JsonWriteFunction());
         }
 
         if (type instanceof CharType) {
@@ -537,6 +576,11 @@ public class PrestoConnectorClient
     private static JdbcTypeHandle jdbcTypeHandle(int jdbcType)
     {
         return new JdbcTypeHandle(jdbcType, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    private static JdbcTypeHandle jdbcTypeHandleWithTypeName(int jdbcType, String typeName)
+    {
+        return new JdbcTypeHandle(jdbcType, Optional.ofNullable(typeName), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     private static JdbcTypeHandle jdbcTypeHandleWithColumnSize(int jdbcType, int columnSize)
@@ -646,5 +690,22 @@ public class PrestoConnectorClient
                         .map(LocalDate::toEpochDay)
                         .map(Long::doubleValue)
                         .orElse(Double.POSITIVE_INFINITY)));
+    }
+
+    private static class JsonWriteFunction
+            implements SliceWriteFunction
+    {
+        @Override
+        public String getBindExpression()
+        {
+            return "json_parse(?)";
+        }
+
+        @Override
+        public void set(PreparedStatement statement, int index, Slice value)
+                throws SQLException
+        {
+            statement.setString(index, value.toStringUtf8());
+        }
     }
 }

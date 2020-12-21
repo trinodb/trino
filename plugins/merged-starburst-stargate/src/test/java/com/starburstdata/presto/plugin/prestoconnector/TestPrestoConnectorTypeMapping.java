@@ -22,8 +22,10 @@ import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
 import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
+import io.prestosql.testing.datatype.SqlDataTypeTest;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
+import io.prestosql.type.JsonType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -862,6 +864,25 @@ public class TestPrestoConnectorTypeMapping
 
         testUnsupportedDataTypeAsIgnored(getSession(), unsupportedDataType, exampleValue);
         testUnsupportedDataTypeConvertedToVarchar(getSession(), unsupportedDataType, exampleValue, "'12151fd2-7586-11e9-8f9e-2a86e4085a59'");
+    }
+
+    @Test
+    public void testJson()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("json", "CAST(NULL AS JSON)", JsonType.JSON)
+                .addRoundTrip("json", "JSON '{}'", JsonType.JSON)
+                .addRoundTrip("json", "JSON 'null'", JsonType.JSON)
+                .addRoundTrip("json", "JSON '123.4'", JsonType.JSON)
+                .addRoundTrip("json", "JSON '\"text with \\\" quotations and '' apostrophes\"'", JsonType.JSON)
+                .addRoundTrip("json", "JSON '\"\"'", JsonType.JSON)
+                .addRoundTrip("json", "JSON '{\"a\":1,\"b\":2}'", JsonType.JSON)
+                .addRoundTrip("json", "JSON '{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}'", JsonType.JSON)
+                .addRoundTrip("json", "JSON '[]'", JsonType.JSON)
+                .execute(getQueryRunner(), remotePrestoCreated("test_json"))
+                .execute(getQueryRunner(), remotePrestoCreatedPrestoConnectorInserted("test_json"))
+                .execute(getQueryRunner(), prestoConnectorCreateAsSelect("test_json"))
+                .execute(getQueryRunner(), prestoConnectorCreateAndInsert("test_json"));
     }
 
     private void testUnsupportedDataTypeAsIgnored(Session session, String dataTypeName, String databaseValue)
