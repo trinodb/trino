@@ -578,4 +578,13 @@ public class SqlTask
     {
         return queryContext;
     }
+
+    public Optional<TaskContext> getTaskContext()
+    {
+        SqlTaskExecution taskExecution = taskHolderReference.get().getTaskExecution();
+        if (taskExecution == null) {
+            return Optional.empty();
+        }
+        return Optional.of(taskExecution.getTaskContext());
+    }
 }
