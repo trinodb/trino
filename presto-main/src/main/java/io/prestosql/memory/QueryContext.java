@@ -144,6 +144,18 @@ public class QueryContext
         return queryMemoryContext;
     }
 
+    @VisibleForTesting
+    public synchronized long getMaxUserMemory()
+    {
+        return maxUserMemory;
+    }
+
+    @VisibleForTesting
+    public synchronized long getMaxTotalMemory()
+    {
+        return maxTotalMemory;
+    }
+
     /**
      * Deadlock is possible for concurrent user and system allocations when updateSystemMemory()/updateUserMemory
      * calls queryMemoryContext.getUserMemory()/queryMemoryContext.getSystemMemory(), respectively.
