@@ -177,8 +177,8 @@ public final class HiveQueryRunner
                         .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
                         .put("hive.compression-codec", "NONE") // so that the file is splittable
                         .build();
-                queryRunner.createCatalog(HIVE_CATALOG, HIVE_CATALOG, hiveProperties);
-                queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, HIVE_CATALOG, hiveBucketedProperties);
+                queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
+                queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
 
                 if (!initialTables.isEmpty()) {
                     populateData(queryRunner, metastore);
