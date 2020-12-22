@@ -19,6 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.MapBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.confluent.kafka.schemaregistry.SchemaProvider;
 import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
@@ -31,9 +32,13 @@ import io.prestosql.decoder.avro.AvroDeserializer;
 import io.prestosql.decoder.avro.AvroReaderSupplier;
 import io.prestosql.decoder.avro.AvroRowDecoderFactory;
 import io.prestosql.plugin.kafka.SessionPropertiesProvider;
+import io.prestosql.plugin.kafka.encoder.EncoderModule;
+import io.prestosql.plugin.kafka.encoder.RowEncoderFactory;
+import io.prestosql.plugin.kafka.encoder.avro.AvroRowEncoder;
 import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
 import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
 import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.PrestoException;
 
 import javax.inject.Singleton;
 
@@ -43,6 +48,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.kafka.encoder.EncoderModule.encoderFactory;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class ConfluentModule
         extends AbstractConfigurationAwareModule
@@ -52,6 +59,7 @@ public class ConfluentModule
     {
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         install(new DecoderModule(new ConfluentAvroDecoderModule()));
+        install(new EncoderModule(new ConfluentAvroEncoderModule()));
         binder.bind(ContentSchemaReader.class).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
@@ -80,6 +88,19 @@ public class ConfluentModule
             binder.bind(AvroReaderSupplier.Factory.class).to(ConfluentAvroReaderSupplier.Factory.class).in(Scopes.SINGLETON);
             binder.bind(AvroDeserializer.Factory.class).to(AvroBytesDeserializer.Factory.class).in(Scopes.SINGLETON);
             newMapBinder(binder, String.class, RowDecoderFactory.class).addBinding(AvroRowDecoderFactory.NAME).to(AvroRowDecoderFactory.class).in(Scopes.SINGLETON);
+        }
+    }
+
+    private static class ConfluentAvroEncoderModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            MapBinder<String, RowEncoderFactory> encoderFactoriesByName = encoderFactory(binder);
+            encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).toInstance((session, dataSchema, columnHandles) -> {
+                throw new PrestoException(NOT_SUPPORTED, "Insert not supported");
+            });
         }
     }
 }

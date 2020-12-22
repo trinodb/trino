@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.decoder.DecoderModule;
+import io.prestosql.plugin.kafka.encoder.EncoderModule;
 import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
 import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
 
@@ -31,6 +32,7 @@ public class FileTableDescriptionSupplierModule
         configBinder(binder).bindConfig(FileTableDescriptionSupplierConfig.class);
         binder.bind(TableDescriptionSupplier.class).toProvider(FileTableDescriptionSupplier.class).in(Scopes.SINGLETON);
         install(new DecoderModule());
+        install(new EncoderModule());
         binder.bind(ContentSchemaReader.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON);
     }
 }

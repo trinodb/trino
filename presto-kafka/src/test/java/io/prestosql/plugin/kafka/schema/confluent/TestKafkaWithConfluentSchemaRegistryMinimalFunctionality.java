@@ -121,6 +121,22 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .build()));
     }
 
+    @Test
+    public void testUnsupportedInsert()
+    {
+        String topicName = "topic-unsupported-insert";
+        testingKafkaWithSchemaRegistry.createTopic(topicName);
+
+        assertNotExists(topicName);
+
+        List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
+        sendMessages(messages, () -> testingKafkaWithSchemaRegistry.createConfluentProducer());
+
+        waitUntilTableExists(topicName);
+
+        assertQueryFails(format("INSERT INTO \"%s\" VALUES (0, 0, '')", topicName), "Insert not supported");
+    }
+
     private void assertTopic(String topicName, String initialQuery, String evolvedQuery, boolean isKeyIncluded, Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier)
     {
         testingKafkaWithSchemaRegistry.createTopic(topicName);
