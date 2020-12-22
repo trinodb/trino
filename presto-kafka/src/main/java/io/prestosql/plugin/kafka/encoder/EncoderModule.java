@@ -16,8 +16,7 @@ package io.prestosql.plugin.kafka.encoder;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
-import io.prestosql.plugin.kafka.encoder.avro.AvroRowEncoder;
-import io.prestosql.plugin.kafka.encoder.avro.AvroRowEncoderFactory;
+import io.prestosql.plugin.kafka.encoder.avro.AvroEncoderModule;
 import io.prestosql.plugin.kafka.encoder.csv.CsvRowEncoder;
 import io.prestosql.plugin.kafka.encoder.csv.CsvRowEncoderFactory;
 import io.prestosql.plugin.kafka.encoder.json.JsonRowEncoder;
@@ -26,20 +25,40 @@ import io.prestosql.plugin.kafka.encoder.raw.RawRowEncoder;
 import io.prestosql.plugin.kafka.encoder.raw.RawRowEncoderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static java.util.Objects.requireNonNull;
 
 public class EncoderModule
         implements Module
 {
+    private final Module extension;
+
+    public EncoderModule()
+    {
+        this(new AvroEncoderModule());
+    }
+
+    public EncoderModule(Module extension)
+    {
+        this.extension = requireNonNull(extension, "extension is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
-        MapBinder<String, RowEncoderFactory> encoderFactoriesByName = MapBinder.newMapBinder(binder, String.class, RowEncoderFactory.class);
+        MapBinder<String, RowEncoderFactory> encoderFactoriesByName = encoderFactory(binder);
 
-        encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).to(AvroRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(CsvRowEncoder.NAME).to(CsvRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(RawRowEncoder.NAME).to(RawRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(JsonRowEncoder.NAME).to(JsonRowEncoderFactory.class).in(SINGLETON);
 
         binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
+
+        binder.install(extension);
+    }
+
+    public static MapBinder<String, RowEncoderFactory> encoderFactory(Binder binder)
+    {
+        return newMapBinder(binder, String.class, RowEncoderFactory.class);
     }
 }
