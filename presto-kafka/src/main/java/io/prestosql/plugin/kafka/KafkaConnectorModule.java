@@ -23,7 +23,6 @@ import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProv
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorRecordSetProvider;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
-import io.prestosql.plugin.kafka.encoder.EncoderModule;
 import io.prestosql.plugin.kafka.schema.confluent.ConfluentModule;
 import io.prestosql.plugin.kafka.schema.confluent.ConfluentSchemaRegistryTableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplier;
@@ -69,8 +68,6 @@ public class KafkaConnectorModule
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(KafkaSessionProperties.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
-
-        binder.install(new EncoderModule());
     }
 
     private static final class TypeDeserializer

@@ -22,6 +22,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.decoder.DecoderModule;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.plugin.kafka.encoder.EncoderModule;
 import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
 import io.prestosql.plugin.kafka.schema.MapBasedTableDescriptionSupplier;
 import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
@@ -129,7 +130,8 @@ public final class KafkaQueryRunner
                     binder -> binder.bind(TableDescriptionSupplier.class)
                             .toInstance(new MapBasedTableDescriptionSupplier(topicDescriptions))),
                     binder -> binder.bind(ContentSchemaReader.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON),
-                    new DecoderModule());
+                    new DecoderModule(),
+                    new EncoderModule());
             Map<String, String> properties = new HashMap<>(extraKafkaProperties);
             properties.putIfAbsent("kafka.table-description-supplier", TEST);
             setExtraKafkaProperties(properties);
