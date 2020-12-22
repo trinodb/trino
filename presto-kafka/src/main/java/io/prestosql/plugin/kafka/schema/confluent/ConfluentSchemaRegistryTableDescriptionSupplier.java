@@ -14,23 +14,19 @@
 package io.prestosql.plugin.kafka.schema.confluent;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import io.airlift.units.Duration;
+import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
-import io.prestosql.decoder.avro.AvroRowDecoderFactory;
 import io.prestosql.plugin.kafka.KafkaConfig;
 import io.prestosql.plugin.kafka.KafkaTopicDescription;
-import io.prestosql.plugin.kafka.KafkaTopicFieldDescription;
 import io.prestosql.plugin.kafka.KafkaTopicFieldGroup;
 import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import org.apache.avro.Schema;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -48,8 +44,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.plugin.kafka.schema.confluent.ConfluentSessionProperties.getEmptyFieldStrategy;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -72,19 +67,19 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     private static final String VALUE_SUFFIX = "-value";
 
     private final SchemaRegistryClient schemaRegistryClient;
-    private final TypeManager typeManager;
+    private final Map<String, SchemaParser> schemaParsers;
     private final String defaultSchema;
     private final Supplier<Map<String, TopicAndSubjects>> topicAndSubjectsSupplier;
     private final Supplier<Map<String, String>> subjectsSupplier;
 
     public ConfluentSchemaRegistryTableDescriptionSupplier(
             SchemaRegistryClient schemaRegistryClient,
-            TypeManager typeManager,
+            Map<String, SchemaParser> schemaParsers,
             String defaultSchema,
             Duration subjectsCacheRefreshInterval)
     {
         this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.schemaParsers = ImmutableMap.copyOf(requireNonNull(schemaParsers, "schemaParsers is null"));
         this.defaultSchema = requireNonNull(defaultSchema, "defaultSchema is null");
         topicAndSubjectsSupplier = memoizeWithExpiration(this::getTopicAndSubjects, subjectsCacheRefreshInterval.toMillis(), MILLISECONDS);
         subjectsSupplier = memoizeWithExpiration(this::getAllSubjects, subjectsCacheRefreshInterval.toMillis(), MILLISECONDS);
@@ -94,19 +89,19 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             implements Provider<TableDescriptionSupplier>
     {
         private final SchemaRegistryClient schemaRegistryClient;
-        private final TypeManager typeManager;
+        private final Map<String, SchemaParser> schemaParsers;
         private final String defaultSchema;
         private final Duration subjectsCacheRefreshInterval;
 
         @Inject
         public Factory(
                 SchemaRegistryClient schemaRegistryClient,
-                TypeManager typeManager,
+                Map<String, SchemaParser> schemaParsers,
                 KafkaConfig kafkaConfig,
                 ConfluentSchemaRegistryConfig confluentConfig)
         {
             this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            this.schemaParsers = ImmutableMap.copyOf(requireNonNull(schemaParsers, "schemaParsers is null"));
             requireNonNull(kafkaConfig, "kafkaConfig is null");
             this.defaultSchema = kafkaConfig.getDefaultSchema();
             requireNonNull(confluentConfig, "confluentConfig is null");
@@ -116,7 +111,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         @Override
         public TableDescriptionSupplier get()
         {
-            return new ConfluentSchemaRegistryTableDescriptionSupplier(schemaRegistryClient, typeManager, defaultSchema, subjectsCacheRefreshInterval);
+            return new ConfluentSchemaRegistryTableDescriptionSupplier(schemaRegistryClient, schemaParsers, defaultSchema, subjectsCacheRefreshInterval);
         }
     }
 
@@ -185,46 +180,25 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         if (keySubject.isEmpty() && valueSubject.isEmpty()) {
             return Optional.empty();
         }
-        AvroSchemaConverter schemaConverter = new AvroSchemaConverter(typeManager, getEmptyFieldStrategy(session));
-        Optional<KafkaTopicFieldGroup> key = keySubject.map(subject -> getFieldGroup(schemaConverter, subject));
-        Optional<KafkaTopicFieldGroup> message = valueSubject.map(subject -> getFieldGroup(schemaConverter, subject));
+        Optional<KafkaTopicFieldGroup> key = keySubject.map(subject -> getFieldGroup(session, subject));
+        Optional<KafkaTopicFieldGroup> message = valueSubject.map(subject -> getFieldGroup(session, subject));
         return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topic, key, message));
     }
 
-    private KafkaTopicFieldGroup getFieldGroup(AvroSchemaConverter avroSchemaConverter, String subject)
+    private KafkaTopicFieldGroup getFieldGroup(ConnectorSession session, String subject)
+    {
+        SchemaMetadata schemaMetadata = getLatestSchemaMetadata(subject);
+        SchemaParser schemaParser = schemaParsers.get(schemaMetadata.getSchemaType());
+        if (schemaParser == null) {
+            throw new PrestoException(NOT_SUPPORTED, "Not supported schema: " + schemaMetadata.getSchemaType());
+        }
+        return schemaParser.parse(session, subject, schemaMetadata.getSchema());
+    }
+
+    private SchemaMetadata getLatestSchemaMetadata(String subject)
     {
         try {
-            Schema schema = new Schema.Parser().parse(schemaRegistryClient.getLatestSchemaMetadata(subject).getSchema());
-            List<Type> types = avroSchemaConverter.convertAvroSchema(schema);
-            ImmutableList.Builder<KafkaTopicFieldDescription> fieldsBuilder = ImmutableList.builder();
-            if (schema.getType() != Schema.Type.RECORD) {
-                checkState(types.size() == 1, "incompatible schema");
-                fieldsBuilder.add(new KafkaTopicFieldDescription(
-                        subject,
-                        getOnlyElement(types),
-                        subject,
-                        null,
-                        null,
-                        null,
-                        false));
-            }
-            else {
-                List<Schema.Field> avroFields = schema.getFields();
-                checkState(avroFields.size() == types.size(), "incompatible schema");
-
-                for (int i = 0; i < types.size(); i++) {
-                    Schema.Field field = avroFields.get(i);
-                    fieldsBuilder.add(new KafkaTopicFieldDescription(
-                            field.name(),
-                            types.get(i),
-                            field.name(),
-                            null,
-                            null,
-                            null,
-                            false));
-                }
-            }
-            return new KafkaTopicFieldGroup(AvroRowDecoderFactory.NAME, Optional.empty(), Optional.of(subject), fieldsBuilder.build());
+            return schemaRegistryClient.getLatestSchemaMetadata(subject);
         }
         catch (IOException | RestClientException e) {
             throw new RuntimeException(format("Unable to get field group for '%s' subject", subject), e);
