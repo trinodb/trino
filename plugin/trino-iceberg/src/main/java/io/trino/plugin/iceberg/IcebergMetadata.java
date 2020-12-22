@@ -674,13 +674,7 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) handle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
 
-        // Extract identity partition column source ids common to ALL specs
-        Set<Integer> partitionSourceIds = icebergTable.spec().fields().stream()
-                .filter(field -> field.transform().isIdentity())
-                .filter(field -> icebergTable.specs().values().stream().allMatch(spec -> spec.fields().contains(field)))
-                .map(PartitionField::sourceId)
-                .collect(toImmutableSet());
-
+        Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
         BiPredicate<IcebergColumnHandle, Domain> isIdentityPartition = (column, domain) -> partitionSourceIds.contains(column.getId());
 
         // TODO: Avoid enforcing the constraint when partition filters have large IN expressions, since iceberg cannot
@@ -708,6 +702,16 @@ public class IcebergMetadata
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
                 newUnenforcedConstraint.transform(ColumnHandle.class::cast)));
+    }
+
+    private static Set<Integer> identityPartitionColumnsInAllSpecs(org.apache.iceberg.Table table)
+    {
+        // Extract identity partition column source ids common to ALL specs
+        return table.spec().fields().stream()
+                .filter(field -> field.transform().isIdentity())
+                .filter(field -> table.specs().values().stream().allMatch(spec -> spec.fields().contains(field)))
+                .map(PartitionField::sourceId)
+                .collect(toImmutableSet());
     }
 
     @Override
