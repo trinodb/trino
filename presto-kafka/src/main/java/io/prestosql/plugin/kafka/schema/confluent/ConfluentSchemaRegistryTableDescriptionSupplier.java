@@ -72,14 +72,17 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     private static final String VALUE_SUFFIX = "-value";
 
     private final SchemaRegistryClient schemaRegistryClient;
+    private final TypeManager typeManager;
     private final String defaultSchema;
     private final Supplier<Map<String, TopicAndSubjects>> topicAndSubjectsSupplier;
     private final Supplier<Map<String, String>> subjectsSupplier;
-    private final TypeManager typeManager;
 
-    public ConfluentSchemaRegistryTableDescriptionSupplier(SchemaRegistryClient schemaRegistryClient, String defaultSchema, Duration subjectsCacheRefreshInterval, TypeManager typeManager)
+    public ConfluentSchemaRegistryTableDescriptionSupplier(
+            SchemaRegistryClient schemaRegistryClient,
+            TypeManager typeManager,
+            String defaultSchema,
+            Duration subjectsCacheRefreshInterval)
     {
-        requireNonNull(typeManager, "typeManager is null");
         this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.defaultSchema = requireNonNull(defaultSchema, "defaultSchema is null");
@@ -90,26 +93,30 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     public static class Factory
             implements Provider<TableDescriptionSupplier>
     {
+        private final SchemaRegistryClient schemaRegistryClient;
+        private final TypeManager typeManager;
         private final String defaultSchema;
         private final Duration subjectsCacheRefreshInterval;
-        private final TypeManager typeManager;
-        private final SchemaRegistryClient schemaRegistryClient;
 
         @Inject
-        public Factory(KafkaConfig kafkaConfig, ConfluentSchemaRegistryConfig confluentConfig, TypeManager typeManager, SchemaRegistryClient schemaRegistryClient)
+        public Factory(
+                SchemaRegistryClient schemaRegistryClient,
+                TypeManager typeManager,
+                KafkaConfig kafkaConfig,
+                ConfluentSchemaRegistryConfig confluentConfig)
         {
-            requireNonNull(kafkaConfig, "kafkaConfig is null");
-            requireNonNull(typeManager, "typeManager is null");
             this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            requireNonNull(kafkaConfig, "kafkaConfig is null");
             this.defaultSchema = kafkaConfig.getDefaultSchema();
+            requireNonNull(confluentConfig, "confluentConfig is null");
             this.subjectsCacheRefreshInterval = confluentConfig.getConfluentSubjectsCacheRefreshInterval();
-            this.typeManager = typeManager;
         }
 
         @Override
         public TableDescriptionSupplier get()
         {
-            return new ConfluentSchemaRegistryTableDescriptionSupplier(schemaRegistryClient, defaultSchema, subjectsCacheRefreshInterval, typeManager);
+            return new ConfluentSchemaRegistryTableDescriptionSupplier(schemaRegistryClient, typeManager, defaultSchema, subjectsCacheRefreshInterval);
         }
     }
 
