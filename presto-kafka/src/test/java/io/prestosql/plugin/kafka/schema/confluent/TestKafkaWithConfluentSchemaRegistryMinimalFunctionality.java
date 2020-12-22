@@ -13,8 +13,12 @@
  */
 package io.prestosql.plugin.kafka.schema.confluent;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -28,17 +32,24 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.Future;
 import java.util.function.Supplier;
 
+import static io.airlift.units.Duration.succinctDuration;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -135,6 +146,35 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         waitUntilTableExists(topicName);
 
         assertQueryFails(format("INSERT INTO \"%s\" VALUES (0, 0, '')", topicName), "Insert not supported");
+    }
+
+    @Test
+    public void testUnsupportedFormat()
+            throws Exception
+    {
+        String topicName = "topic-unsupported-format";
+        testingKafkaWithSchemaRegistry.createTopic(topicName);
+
+        assertNotExists(topicName);
+
+        Future<RecordMetadata> lastSendFuture = Futures.immediateFuture(null);
+        try (KafkaProducer<Long, JsonValue> producer = testingKafkaWithSchemaRegistry.createProducer(ImmutableMap.of(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName()))) {
+            for (int key = 0; key < MESSAGE_COUNT; key++) {
+                lastSendFuture = producer.send(new ProducerRecord<>(topicName, (long) key, new JsonValue(key, "value_" + key)));
+            }
+        }
+        lastSendFuture.get();
+
+        String errorMessage = "Not supported schema: JSON";
+        assertEventually(
+                succinctDuration(10, SECONDS),
+                () -> assertThatThrownBy(() -> tableExists(topicName))
+                        .isInstanceOf(RuntimeException.class)
+                        .hasMessage(errorMessage));
+
+        assertQueryFails(format("SHOW COLUMNS FROM \"%s\"", topicName), errorMessage);
+        assertQueryFails(format("SELECT * FROM \"%s\"", topicName), errorMessage);
+        assertQueryFails(format("INSERT INTO \"%s\" VALUES (0, 0, '')", topicName), errorMessage);
     }
 
     private void assertTopic(String topicName, String initialQuery, String evolvedQuery, boolean isKeyIncluded, Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier)
@@ -282,5 +322,32 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 .set("col_2", format("string-%s", key))
                 .set("col_3", (key + 10.1D) / 10.0D)
                 .build();
+    }
+
+    private static class JsonValue
+    {
+        private final int id;
+        private final String value;
+
+        @JsonCreator
+        public JsonValue(
+                @JsonProperty("id") int id,
+                @JsonProperty("value") String value)
+        {
+            this.id = id;
+            this.value = requireNonNull(value, "value is null");
+        }
+
+        @JsonProperty("id")
+        public int getId()
+        {
+            return id;
+        }
+
+        @JsonProperty("value")
+        public String getValue()
+        {
+            return value;
+        }
     }
 }
