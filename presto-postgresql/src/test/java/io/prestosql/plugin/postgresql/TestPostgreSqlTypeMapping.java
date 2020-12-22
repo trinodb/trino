@@ -331,20 +331,22 @@ public class TestPostgreSqlTypeMapping
         // PostgreSQL's BYTEA is mapped to Presto VARBINARY. PostgreSQL does not have VARBINARY type.
         SqlDataTypeTest.create()
                 .addRoundTrip("bytea", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("bytea", "bytea E'\\\\x'", VARBINARY, "X''")
                 .addRoundTrip("bytea", utf8ByteaLiteral("hello"), VARBINARY, "to_utf8('hello')")
                 .addRoundTrip("bytea", utf8ByteaLiteral("Piękna łąka w 東京都"), VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 .addRoundTrip("bytea", utf8ByteaLiteral("Bag full of 💰"), VARBINARY, "to_utf8('Bag full of 💰')")
-                .addRoundTrip("bytea", "bytea E'\\\\x'", VARBINARY, "X''")
-                .addRoundTrip("bytea", "bytea E'\\\\x0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'")
+                .addRoundTrip("bytea", "bytea E'\\\\x0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip("bytea", "bytea E'\\\\x000000000000'", VARBINARY, "X'000000000000'")
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_varbinary"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("varbinary", "X''", VARBINARY, "X''")
                 .addRoundTrip("varbinary", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
                 .addRoundTrip("varbinary", "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
-                .addRoundTrip("varbinary", "X''", VARBINARY, "X''")
-                .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'")
+                .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
     }
 

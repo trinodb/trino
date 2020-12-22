@@ -20,15 +20,13 @@ import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
-import io.prestosql.testing.datatype.DataTypeTest;
+import io.prestosql.testing.datatype.SqlDataTypeTest;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
-import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
-import static java.nio.charset.StandardCharsets.UTF_16LE;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 
 public class TestSqlServerTypeMapping
         extends AbstractTestQueryFramework
@@ -57,13 +55,14 @@ public class TestSqlServerTypeMapping
     @Test
     public void testVarbinary()
     {
-        DataTypeTest.create()
-                .addRoundTrip(varbinaryDataType(), null)
-                .addRoundTrip(varbinaryDataType(), "hello".getBytes(UTF_8))
-                .addRoundTrip(varbinaryDataType(), "Piękna łąka w 東京都".getBytes(UTF_8))
-                .addRoundTrip(varbinaryDataType(), "Bag full of 💰".getBytes(UTF_16LE))
-                .addRoundTrip(varbinaryDataType(), new byte[] {})
-                .addRoundTrip(varbinaryDataType(), new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, -7, 54, 122, -89, 0, 0, 0})
+        SqlDataTypeTest.create()
+                .addRoundTrip("varbinary", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("varbinary", "X''", VARBINARY, "X''")
+                .addRoundTrip("varbinary", "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip("varbinary", "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
     }
 
