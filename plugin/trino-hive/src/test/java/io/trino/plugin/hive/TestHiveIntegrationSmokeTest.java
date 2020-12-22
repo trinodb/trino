@@ -178,13 +178,20 @@ public class TestHiveIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.builder()
+        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.of(
                         "hive.allow-register-partition-procedure", "true",
                         // Reduce writer sort buffer size to ensure SortingFileWriter gets used
                         "hive.writer-sort-buffer-size", "1MB"))
                 .setInitialTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
+
+        // extra catalog with NANOSECOND timestamp precision
+        queryRunner.createCatalog(
+                "hive_timestamp_nanos",
+                "hive",
+                ImmutableMap.of("hive.timestamp-precision", "NANOSECONDS"));
+        return queryRunner;
     }
 
     @Test
@@ -7547,6 +7554,76 @@ public class TestHiveIntegrationSmokeTest
                 .build();
         assertQueryFails(sessionNoCatalog, "SELECT count(*) FROM " + viewName, ".*Schema must be specified when session schema is not set.*");
         assertQuery(sessionNoCatalog, "SELECT count(*) FROM hive.tpch." + viewName, "VALUES 1");
+    }
+
+    @Test
+    public void testSelectFromPrestoViewReferencingHiveTableWithTimestamps()
+    {
+        Session defaultSession = getSession();
+        Session millisSession = Session.builder(defaultSession)
+                .setCatalogSessionProperty("hive", "timestamp_precision", "MILLISECONDS")
+                .setCatalogSessionProperty("hive_timestamp_nanos", "timestamp_precision", "MILLISECONDS")
+                .build();
+        Session nanosSessions = Session.builder(defaultSession)
+                .setCatalogSessionProperty("hive", "timestamp_precision", "NANOSECONDS")
+                .setCatalogSessionProperty("hive_timestamp_nanos", "timestamp_precision", "NANOSECONDS")
+                .build();
+
+        // Hive views tests covered in TestHiveViews.testTimestampHiveView and TestHiveViesLegacy.testTimestampHiveView
+        String tableName = "ts_hive_table_" + randomTableSuffix();
+        assertUpdate(
+                withTimestampPrecision(defaultSession, HiveTimestampPrecision.NANOSECONDS),
+                "CREATE TABLE " + tableName + " AS SELECT TIMESTAMP '1990-01-02 12:13:14.123456789' ts",
+                1);
+
+        // Presto view created with config property set to MILLIS and session property not set
+        String prestoViewNameDefault = "presto_view_ts_default_" + randomTableSuffix();
+        assertUpdate(defaultSession, "CREATE VIEW " + prestoViewNameDefault + " AS SELECT *  FROM " + tableName);
+
+        assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // should be: assertThat(query(defaultSession, "SELECT ts  FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
+        assertThat(query(defaultSession, "SELECT ts  FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
+
+        assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
+        assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
+        assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
+        assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameDefault)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'");
+
+        // Presto view created with config property set to MILLIS and session property set to NANOS
+        String prestoViewNameNanos = "presto_view_ts_nanos_" + randomTableSuffix();
+        assertUpdate(nanosSessions, "CREATE VIEW " + prestoViewNameNanos + " AS SELECT *  FROM " + tableName);
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // should be: assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
+        assertThat(query(defaultSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // should be: assertThat(query(defaultSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
+        assertThat(query(defaultSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // should be: assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
+        assertThat(query(millisSession, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // should be: assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123'")
+        assertThat(query(millisSession, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // should be: assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
+        assertThat(query(nanosSessions, "SELECT ts FROM " + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
+        // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
+        assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
     }
 
     private Session getParallelWriteSession()
