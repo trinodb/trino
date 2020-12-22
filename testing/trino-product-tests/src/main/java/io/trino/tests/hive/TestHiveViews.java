@@ -34,6 +34,7 @@ import static io.trino.tests.utils.QueryExecutors.connectToPresto;
 import static io.trino.tests.utils.QueryExecutors.onHive;
 import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 @Requires({
@@ -295,6 +296,45 @@ public class TestHiveViews
                 .containsExactly(row(1L));
     }
 
+    @Test
+    public void testTimestampHiveView()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS timestamp_hive_table");
+        onHive().executeQuery("CREATE TABLE timestamp_hive_table AS SELECT cast('1990-01-02 12:13:14.123456789' AS timestamp) ts");
+        onHive().executeQuery("DROP VIEW IF EXISTS timestamp_hive_view");
+        onHive().executeQuery("CREATE VIEW timestamp_hive_view AS SELECT * FROM timestamp_hive_table");
+
+        // timestamp_precision not set
+        unsetSessionProperty("hive.timestamp_precision");
+        unsetSessionProperty("hive_timestamp_nanos.timestamp_precision");
+
+        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"));
+        assertThatThrownBy(
+                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
+                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123456789"))
+        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
+
+        setSessionProperty("hive.timestamp_precision", "'MILLISECONDS'");
+        setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'MILLISECONDS'");
+
+        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"));
+        assertThatThrownBy(
+                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
+                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"))
+        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
+
+        setSessionProperty("hive.timestamp_precision", "'NANOSECONDS'");
+        setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'NANOSECONDS'");
+
+        // TODO(https://github.com/prestosql/presto/issues/6295) timestamp_precision has no effect on Hive views
+        // should be: assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123456789"))
+        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"));
+        assertThatThrownBy(
+                // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
+                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123456789"))
+        ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
+    }
+
     private static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
     {
         // Ensure Hive and Presto view compatibility by comparing the results
@@ -305,5 +345,19 @@ public class TestHiveViews
     private static Date sqlDate(int year, int month, int day)
     {
         return Date.valueOf(LocalDate.of(year, month, day));
+    }
+
+    private void setSessionProperty(String key, String value)
+    {
+        // We need to setup sessions for both "presto" and "default" executors in tempto
+        onPresto().executeQuery(format("SET SESSION %s = %s", key, value));
+        query(format("SET SESSION %s = %s", key, value));
+    }
+
+    private void unsetSessionProperty(String key)
+    {
+        // We need to setup sessions for both "presto" and "default" executors in tempto
+        onPresto().executeQuery("RESET SESSION " + key);
+        query("RESET SESSION " + key);
     }
 }
