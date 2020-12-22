@@ -40,6 +40,7 @@ public final class Hadoop
     public static final String CONTAINER_HADOOP_INIT_D = "/etc/hadoop-init.d/";
     public static final String CONTAINER_PRESTO_HIVE_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive.properties";
     public static final String CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive_with_external_writes.properties";
+    public static final String CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS = CONTAINER_PRESTO_ETC + "/catalog/hive_timestamp_nanos.properties";
     public static final String CONTAINER_PRESTO_ICEBERG_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties";
 
     private final DockerFiles dockerFiles;
@@ -81,10 +82,13 @@ public final class Hadoop
             portBinder.exposePort(container, 50075); // DataNode Web UI prior to Hadoop 3
         });
 
-        builder.configureContainer(COORDINATOR, container -> container
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
+        builder.configureContainer(
+                COORDINATOR,
+                container -> container
+                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
+                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
+                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_timestamp_nanos.properties")), CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS)
+                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
     }
 
     @SuppressWarnings("resource")
