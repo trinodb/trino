@@ -87,6 +87,45 @@ public abstract class AbstractQueryAssertionsTest
                 .matches("VALUES CAST('CANADA' AS varchar(25))");
     }
 
+    @Test
+    public void testWrongType()
+    {
+        QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
+        assertThatThrownBy(() -> queryAssert.matches("VALUES '001234'"))
+                .hasMessageContaining("[Output types] \n" +
+                        "Expecting:\n" +
+                        " <[varbinary]>\n" +
+                        "to be equal to:\n" +
+                        " <[varchar(6)]>");
+    }
+
+    @Test
+    public void testVarbinaryResult()
+    {
+        assertThat(query("SELECT X'001234'")).matches("VALUES X'001234'");
+
+        QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
+        assertThatThrownBy(() -> queryAssert.matches("VALUES X'001299'"))
+                .hasMessageMatching("" +
+                        // TODO the representation and thus messages should be the same regardless of query runner in use
+                        // when using local query runner
+                        "(?s).*" +
+                        "(\\Q" +
+                        "Expecting:\n" +
+                        "  <(00 12 34)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(00 12 99)]>\n" +
+                        "elements not found:\n" +
+                        "  <(00 12 99)>" +
+                        "\\E|\\Q" +
+                        // when using distributed query runner
+                        "Expecting:\n" +
+                        "  <([0, 18, 52])>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[([0, 18, -103])]>" +
+                        "\\E).*");
+    }
+
     /**
      * Tests query runner with results of various precisions, and query assert.
      */
