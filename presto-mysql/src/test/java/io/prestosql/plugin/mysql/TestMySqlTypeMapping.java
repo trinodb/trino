@@ -31,6 +31,7 @@ import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
 import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
+import io.prestosql.testing.datatype.SqlDataTypeTest;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
@@ -42,7 +43,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -74,14 +74,11 @@ import static io.prestosql.testing.datatype.DataType.realDataType;
 import static io.prestosql.testing.datatype.DataType.smallintDataType;
 import static io.prestosql.testing.datatype.DataType.stringDataType;
 import static io.prestosql.testing.datatype.DataType.tinyintDataType;
-import static io.prestosql.testing.datatype.DataType.varbinaryDataType;
 import static io.prestosql.testing.datatype.DataType.varcharDataType;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
-import static java.nio.charset.StandardCharsets.UTF_16LE;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
 
@@ -377,53 +374,6 @@ public class TestMySqlTypeMapping
         }
     }
 
-    @Test
-    public void testVarbinary()
-    {
-        varbinaryTestCases(mysqlBinaryDataType("varbinary(50)"))
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        binaryTestCases(mysqlBinaryDataType("binary(50)"))
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases(mysqlBinaryDataType("tinyblob"))
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases(mysqlBinaryDataType("blob"))
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases(mysqlBinaryDataType("mediumblob"))
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases(mysqlBinaryDataType("longblob"))
-                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases(varbinaryDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
-    }
-
-    private DataTypeTest varbinaryTestCases(DataType<byte[]> varbinaryDataType)
-    {
-        return DataTypeTest.create(true)
-                .addRoundTrip(varbinaryDataType, "hello".getBytes(UTF_8))
-                .addRoundTrip(varbinaryDataType, "Piękna łąka w 東京都".getBytes(UTF_8))
-                .addRoundTrip(varbinaryDataType, "Bag full of 💰".getBytes(UTF_16LE))
-                .addRoundTrip(varbinaryDataType, null)
-                .addRoundTrip(varbinaryDataType, new byte[] {})
-                .addRoundTrip(varbinaryDataType, new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, -7, 54, 122, -89, 0, 0, 0});
-    }
-
-    private DataTypeTest binaryTestCases(DataType<byte[]> varbinaryDataType)
-    {
-        return DataTypeTest.create(true)
-                .addRoundTrip(varbinaryDataType, Arrays.copyOf("hello".getBytes(UTF_8), 50))
-                .addRoundTrip(varbinaryDataType, Arrays.copyOf("Piękna łąka w 東京都".getBytes(UTF_8), 50))
-                .addRoundTrip(varbinaryDataType, Arrays.copyOf("Bag full of 💰".getBytes(UTF_16LE), 50))
-                .addRoundTrip(varbinaryDataType, null)
-                .addRoundTrip(varbinaryDataType, new byte[50])
-                .addRoundTrip(varbinaryDataType, Arrays.copyOf(new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 13, -7, 54, 122, -89, 0, 0, 0}, 50));
-    }
-
     @DataProvider
     public Object[][] testDecimalExceedingPrecisionMaxProvider()
     {
@@ -448,6 +398,54 @@ public class TestMySqlTypeMapping
                 .setCatalogSessionProperty("mysql", DECIMAL_MAPPING, STRICT.name())
                 .setCatalogSessionProperty("mysql", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
                 .build();
+    }
+
+    @Test
+    public void testVarbinary()
+    {
+        varbinaryTestCases("varbinary(50)")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("tinyblob")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("blob")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("mediumblob")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("longblob")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
+
+        varbinaryTestCases("varbinary")
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
+    }
+
+    private SqlDataTypeTest varbinaryTestCases(String insertType)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(insertType, "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip(insertType, "X''", VARBINARY, "X''")
+                .addRoundTrip(insertType, "X'68656C6C6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip(insertType, "X'5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip(insertType, "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip(insertType, "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip(insertType, "X'000000000000'", VARBINARY, "X'000000000000'");
+    }
+
+    @Test
+    public void testBinary()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("binary(18)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("binary(18)", "X''", VARBINARY, "X'000000000000000000000000000000000000'")
+                .addRoundTrip("binary(18)", "X'68656C6C6F'", VARBINARY, "to_utf8('hello') || X'00000000000000000000000000'")
+                .addRoundTrip("binary(18)", "X'C582C4856B61207720E69DB1E4BAACE983BD'", VARBINARY, "to_utf8('łąka w 東京都')") // no trailing zeros
+                .addRoundTrip("binary(18)", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰') || X'0000'")
+                .addRoundTrip("binary(18)", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA700000000'") // non-text prefix
+                .addRoundTrip("binary(18)", "X'000000000000'", VARBINARY, "X'000000000000000000000000000000000000'")
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_binary"));
     }
 
     @Test
