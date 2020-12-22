@@ -109,6 +109,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
@@ -225,6 +226,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storage_formats_with_null_format", groups = STORAGE_FORMATS)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
     {
         String nullFormat = "null_value";
