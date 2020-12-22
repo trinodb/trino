@@ -42,10 +42,10 @@ public class AvroConfluentContentSchemaReader
     @Override
     protected Optional<String> readSchema(Optional<String> dataSchemaLocation, Optional<String> subject)
     {
-        if (!subject.isPresent()) {
+        if (subject.isEmpty()) {
             return Optional.empty();
         }
-        checkState(!dataSchemaLocation.isPresent(), "Unexpected parameter: dataSchemaLocation");
+        checkState(dataSchemaLocation.isEmpty(), "Unexpected parameter: dataSchemaLocation");
         try {
             return Optional.of(schemaRegistryClient.getLatestSchemaMetadata(subject.get()).getSchema());
         }
