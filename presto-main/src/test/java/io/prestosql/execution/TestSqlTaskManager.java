@@ -28,6 +28,7 @@ import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.executor.TaskExecutor;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.memory.NodeMemoryConfig;
+import io.prestosql.memory.QueryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.operator.ExchangeClient;
@@ -45,6 +46,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
+import static io.prestosql.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static io.prestosql.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.prestosql.execution.TaskTestUtils.SPLIT;
 import static io.prestosql.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
@@ -231,7 +234,67 @@ public class TestSqlTaskManager
         }
     }
 
+    @Test
+    public void testSessionPropertyMemoryLimitOverride()
+    {
+        NodeMemoryConfig memoryConfig = new NodeMemoryConfig()
+                .setMaxQueryMemoryPerNode(DataSize.ofBytes(3))
+                .setMaxQueryTotalMemoryPerNode(DataSize.ofBytes(4));
+
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig(), memoryConfig)) {
+            TaskId reduceLimitsId = new TaskId("q1", 0, 1);
+            TaskId increaseLimitsId = new TaskId("q2", 0, 1);
+
+            QueryContext reducesLimitsContext = sqlTaskManager.getQueryContext(reduceLimitsId.getQueryId());
+            QueryContext attemptsIncreaseContext = sqlTaskManager.getQueryContext(increaseLimitsId.getQueryId());
+
+            // not initialized with a task update yet
+            assertFalse(reducesLimitsContext.isMemoryLimitsInitialized());
+            assertEquals(reducesLimitsContext.getMaxUserMemory(), memoryConfig.getMaxQueryMemoryPerNode().toBytes());
+            assertEquals(reducesLimitsContext.getMaxTotalMemory(), memoryConfig.getMaxQueryTotalMemoryPerNode().toBytes());
+
+            assertFalse(attemptsIncreaseContext.isMemoryLimitsInitialized());
+            assertEquals(attemptsIncreaseContext.getMaxUserMemory(), memoryConfig.getMaxQueryMemoryPerNode().toBytes());
+            assertEquals(attemptsIncreaseContext.getMaxTotalMemory(), memoryConfig.getMaxQueryTotalMemoryPerNode().toBytes());
+
+            // memory limits reduced by session properties
+            sqlTaskManager.updateTask(
+                    testSessionBuilder()
+                            .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1B")
+                            .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "2B")
+                            .build(),
+                    reduceLimitsId,
+                    Optional.of(PLAN_FRAGMENT),
+                    ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
+                    createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
+                    OptionalInt.empty());
+            assertTrue(reducesLimitsContext.isMemoryLimitsInitialized());
+            assertEquals(reducesLimitsContext.getMaxUserMemory(), 1);
+            assertEquals(reducesLimitsContext.getMaxTotalMemory(), 2);
+
+            // memory limits not increased by session properties
+            sqlTaskManager.updateTask(
+                    testSessionBuilder()
+                            .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "10B")
+                            .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "10B")
+                            .build(),
+                    increaseLimitsId,
+                    Optional.of(PLAN_FRAGMENT),
+                    ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
+                    createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
+                    OptionalInt.empty());
+            assertTrue(attemptsIncreaseContext.isMemoryLimitsInitialized());
+            assertEquals(attemptsIncreaseContext.getMaxUserMemory(), memoryConfig.getMaxQueryMemoryPerNode().toBytes());
+            assertEquals(attemptsIncreaseContext.getMaxTotalMemory(), memoryConfig.getMaxQueryTotalMemoryPerNode().toBytes());
+        }
+    }
+
     private SqlTaskManager createSqlTaskManager(TaskManagerConfig config)
+    {
+        return createSqlTaskManager(config, new NodeMemoryConfig());
+    }
+
+    private SqlTaskManager createSqlTaskManager(TaskManagerConfig taskManagerConfig, NodeMemoryConfig nodeMemoryConfig)
     {
         return new SqlTaskManager(
                 createTestingPlanner(),
@@ -241,8 +304,8 @@ public class TestSqlTaskManager
                 new NodeInfo("test"),
                 localMemoryManager,
                 taskManagementExecutor,
-                config,
-                new NodeMemoryConfig(),
+                taskManagerConfig,
+                nodeMemoryConfig,
                 localSpillManager,
                 new NodeSpillConfig(),
                 new TestingGcMonitor());
