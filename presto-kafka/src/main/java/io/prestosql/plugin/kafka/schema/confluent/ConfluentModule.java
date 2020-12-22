@@ -13,11 +13,15 @@
  */
 package io.prestosql.plugin.kafka.schema.confluent;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.confluent.kafka.schemaregistry.SchemaProvider;
+import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.prestosql.decoder.DecoderModule;
@@ -33,6 +37,8 @@ import io.prestosql.spi.HostAddress;
 
 import javax.inject.Singleton;
 
+import java.util.Set;
+
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -47,19 +53,22 @@ public class ConfluentModule
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         install(new DecoderModule(new ConfluentAvroModule()));
         binder.bind(ContentSchemaReader.class).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(TableDescriptionSupplier.class).toProvider(ConfluentSchemaRegistryTableDescriptionSupplier.Factory.class).in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
-    public SchemaRegistryClient getSchemaRegistryClient(ConfluentSchemaRegistryConfig confluentConfig)
+    public SchemaRegistryClient getSchemaRegistryClient(ConfluentSchemaRegistryConfig confluentConfig, Set<SchemaProvider> schemaProviders)
     {
         return new CachedSchemaRegistryClient(
                 confluentConfig.getConfluentSchemaRegistryUrls().stream()
                         .map(HostAddress::getHostText)
                         .collect(toImmutableList()),
-                confluentConfig.getConfluentSchemaRegistryClientCacheSize());
+                confluentConfig.getConfluentSchemaRegistryClientCacheSize(),
+                ImmutableList.copyOf(schemaProviders),
+                ImmutableMap.of());
     }
 
     private static class ConfluentAvroModule
