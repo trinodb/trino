@@ -247,11 +247,11 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             List<String> subjectKeyValue = Splitter.on(KEY_VALUE_DELIMITER).trimResults().splitToList(parts.get(part));
             checkState(subjectKeyValue.size() == 2 && (subjectKeyValue.get(0).equals(KEY_SUBJECT) || subjectKeyValue.get(0).equals(VALUE_SUBJECT)), "Unexpected parameter '%s', should be %s=<key subject>' or %s=<value subject>", parts.get(part), KEY_SUBJECT, VALUE_SUBJECT);
             if (subjectKeyValue.get(0).equals(KEY_SUBJECT)) {
-                checkState(!keySubject.isPresent(), "Key subject already defined");
+                checkState(keySubject.isEmpty(), "Key subject already defined");
                 keySubject = Optional.of(subjectKeyValue.get(1));
             }
             else {
-                checkState(!valueSubject.isPresent(), "Value subject already defined");
+                checkState(valueSubject.isEmpty(), "Value subject already defined");
                 valueSubject = Optional.of(subjectKeyValue.get(1));
             }
         }

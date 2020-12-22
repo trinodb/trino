@@ -37,10 +37,10 @@ public class FileContentSchemaReader
     @Override
     protected Optional<String> readSchema(Optional<String> dataSchemaLocation, Optional<String> subject)
     {
-        if (!dataSchemaLocation.isPresent()) {
+        if (dataSchemaLocation.isEmpty()) {
             return Optional.empty();
         }
-        checkState(!subject.isPresent(), "Unexpected parameter: subject");
+        checkState(subject.isEmpty(), "Unexpected parameter: subject");
         try (InputStream inputStream = openSchemaLocation(dataSchemaLocation.get())) {
             return Optional.of(CharStreams.toString(new InputStreamReader(inputStream, UTF_8)));
         }
