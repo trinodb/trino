@@ -223,12 +223,24 @@ public class QueryAssertions
                     MaterializedRow row = (MaterializedRow) object;
 
                     return row.getFields().stream()
-                            .map(String::valueOf)
+                            .map(this::formatRowElement)
                             .collect(Collectors.joining(", ", "(", ")"));
                 }
-                else {
-                    return super.toStringOf(object);
+                return super.toStringOf(object);
+            }
+
+            private String formatRowElement(Object value)
+            {
+                if (value == null) {
+                    return "null";
                 }
+                if (value.getClass().isArray()) {
+                    return formatArray(value);
+                }
+                // Using super.toStringOf would add quotes around String values, which could be expected for varchar values
+                // but would be misleading for date/time values which come as String too. More proper formatting would need to be
+                // type-aware.
+                return String.valueOf(value);
             }
         };
 
