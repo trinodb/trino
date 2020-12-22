@@ -33,6 +33,7 @@ import static io.trino.tests.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.utils.QueryExecutors.connectToPresto;
 import static io.trino.tests.utils.QueryExecutors.onHive;
 import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static java.lang.String.format;
 
 @Requires({
         ImmutableNationTable.class,
@@ -44,9 +45,7 @@ public class TestHiveViewsLegacy
     @BeforeTestWithContext
     public void setup()
     {
-        // We need to setup sessions for both "presto" and "default" executors in tempto
-        onPresto().executeQuery("SET SESSION hive.legacy_hive_view_translation = true");
-        query("SET SESSION hive.legacy_hive_view_translation = true");
+        setSessionProperty("hive.legacy_hive_view_translation", "true");
     }
 
     @Test(groups = HIVE_VIEWS)
@@ -252,5 +251,12 @@ public class TestHiveViewsLegacy
     private static Date sqlDate(int year, int month, int day)
     {
         return Date.valueOf(LocalDate.of(year, month, day));
+    }
+
+    private void setSessionProperty(String key, String value)
+    {
+        // We need to setup sessions for both "presto" and "default" executors in tempto
+        onPresto().executeQuery(format("SET SESSION %s = %s", key, value));
+        query(format("SET SESSION %s = %s", key, value));
     }
 }
