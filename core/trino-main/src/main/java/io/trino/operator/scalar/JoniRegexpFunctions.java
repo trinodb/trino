@@ -279,8 +279,7 @@ public final class JoniRegexpFunctions
             return null;
         }
 
-        Slice slice = source.slice(beg, end - beg);
-        return slice;
+        return source.slice(beg, end - beg);
     }
 
     @ScalarFunction
