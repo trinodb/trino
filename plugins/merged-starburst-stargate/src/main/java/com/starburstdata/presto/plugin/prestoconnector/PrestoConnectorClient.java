@@ -13,6 +13,8 @@ import com.google.common.base.VerifyException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
+import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
+import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
@@ -32,6 +34,11 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.statistics.ColumnStatistics;
+import io.prestosql.spi.statistics.DoubleRange;
+import io.prestosql.spi.statistics.Estimate;
+import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.TimeType;
@@ -43,11 +50,14 @@ import io.prestosql.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +66,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoDateColumnMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeColumnMapping;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoTimeWithTimeZoneColumnMapping;
@@ -105,6 +116,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.function.Function.identity;
 
 public class PrestoConnectorClient
         extends BaseJdbcClient
@@ -119,9 +131,14 @@ public class PrestoConnectorClient
     private final boolean enableWrites;
     private final Cache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
+    private final TableStatisticsClient tableStatisticsClient;
 
     @Inject
-    public PrestoConnectorClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, @EnableWrites boolean enableWrites)
+    public PrestoConnectorClient(
+            BaseJdbcConfig config,
+            JdbcStatisticsConfig statisticsConfig,
+            ConnectionFactory connectionFactory,
+            @EnableWrites boolean enableWrites)
     {
         super(config, "\"", connectionFactory);
         this.enableWrites = enableWrites;
@@ -133,6 +150,7 @@ public class PrestoConnectorClient
                 new PrestoAggregateFunctionRewriteRule(
                         this::getSupportedAggregateFunctions,
                         this::toTypeHandle)));
+        this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
     }
 
     @Override
@@ -529,5 +547,104 @@ public class PrestoConnectorClient
     private static JdbcTypeHandle jdbcTypeHandleWithDecimalDigits(int jdbcType, int decimalDigits)
     {
         return new JdbcTypeHandle(jdbcType, Optional.empty(), Optional.empty(), Optional.of(decimalDigits), Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        return tableStatisticsClient.getTableStatistics(session, handle, tupleDomain);
+    }
+
+    private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+            throws SQLException
+    {
+        if (table.getGroupingSets().isPresent()) {
+            // TODO(https://starburstdata.atlassian.net/browse/PRESTO-4856) retrieve statistics for base table and derive statistics for the aggregation
+            return Optional.empty();
+        }
+
+        Map<String, JdbcColumnHandle> columnHandles = getColumns(session, table).stream()
+                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
+
+        // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5011) respect table#getConstraint()
+        try (Connection connection = connectionFactory.openConnection(session);
+                PreparedStatement statement = connection.prepareStatement("SHOW STATS FOR " + quoted(table.getRemoteTableName()));
+                ResultSet resultSet = statement.executeQuery()) {
+            TableStatistics.Builder tableStatisticsBuilder = TableStatistics.builder();
+
+            while (resultSet.next()) {
+                Optional<String> columnName = Optional.ofNullable(resultSet.getString("column_name"));
+                if (columnName.isEmpty()) {
+                    tableStatisticsBuilder.setRowCount(toEstimate(Optional.ofNullable(resultSet.getObject("row_count", Double.class))));
+                }
+                else {
+                    JdbcColumnHandle columnHandle = columnHandles.get(columnName.get());
+                    if (columnHandle == null) {
+                        // Table schema could have been modified concurrently.
+                        continue;
+                    }
+
+                    ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder();
+                    columnStatisticsBuilder
+                            .setDataSize(toEstimate(Optional.ofNullable(resultSet.getObject("data_size", Double.class))))
+                            .setDistinctValuesCount(toEstimate(Optional.ofNullable(resultSet.getObject("distinct_values_count", Double.class))))
+                            .setNullsFraction(toEstimate(Optional.ofNullable(resultSet.getObject("nulls_fraction", Double.class))));
+
+                    Optional<String> lowValue = Optional.ofNullable(resultSet.getString("low_value"));
+                    Optional<String> highValue = Optional.ofNullable(resultSet.getString("high_value"));
+                    if (isNumericType(columnHandle.getColumnType())) {
+                        columnStatisticsBuilder.setRange(createNumericRange(lowValue, highValue));
+                    }
+                    else if (columnHandle.getColumnType() == DATE) {
+                        columnStatisticsBuilder.setRange(createDateRange(lowValue, highValue));
+                    }
+
+                    tableStatisticsBuilder.setColumnStatistics(columnHandle, columnStatisticsBuilder.build());
+                }
+            }
+
+            return Optional.of(tableStatisticsBuilder.build());
+        }
+    }
+
+    private static Estimate toEstimate(Optional<Double> value)
+    {
+        return value.map(Estimate::of)
+                .orElseGet(Estimate::unknown);
+    }
+
+    private static boolean isNumericType(Type type)
+    {
+        return type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type == REAL || type == DOUBLE || type instanceof DecimalType;
+    }
+
+    private static Optional<DoubleRange> createNumericRange(Optional<String> minValue, Optional<String> maxValue)
+    {
+        if (minValue.isEmpty() || maxValue.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new DoubleRange(
+                minValue.map(BigDecimal::new).map(BigDecimal::doubleValue).orElse(Double.NEGATIVE_INFINITY),
+                maxValue.map(BigDecimal::new).map(BigDecimal::doubleValue).orElse(Double.POSITIVE_INFINITY)));
+    }
+
+    private static Optional<DoubleRange> createDateRange(Optional<String> minValue, Optional<String> maxValue)
+    {
+        if (minValue.isEmpty() || maxValue.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new DoubleRange(
+                minValue
+                        .map(LocalDate::parse)
+                        .map(LocalDate::toEpochDay)
+                        .map(Long::doubleValue)
+                        .orElse(Double.NEGATIVE_INFINITY),
+                maxValue
+                        .map(LocalDate::parse)
+                        .map(LocalDate::toEpochDay)
+                        .map(Long::doubleValue)
+                        .orElse(Double.POSITIVE_INFINITY)));
     }
 }

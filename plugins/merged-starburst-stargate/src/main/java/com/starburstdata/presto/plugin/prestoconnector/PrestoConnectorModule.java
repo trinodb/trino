@@ -13,6 +13,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
+import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
@@ -38,6 +39,7 @@ public class PrestoConnectorModule
     public void setup(Binder binder)
     {
         configBinder(binder).bindConfig(PrestoConnectorConfig.class);
+        configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(PrestoConnectorClient.class).in(Scopes.SINGLETON);
 
