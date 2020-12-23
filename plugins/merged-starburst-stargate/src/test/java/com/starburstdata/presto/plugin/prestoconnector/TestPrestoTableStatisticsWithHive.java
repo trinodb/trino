@@ -10,17 +10,20 @@
 package com.starburstdata.presto.plugin.prestoconnector;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -29,6 +32,7 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQue
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithHive;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.sql.TestTable.fromColumns;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
@@ -325,6 +329,46 @@ public class TestPrestoTableStatisticsWithHive
                 {"\"test_stats_mixed_quoted_lower\""},
                 {"\"test_stats_mixed_QuoTeD_miXED\""},
         };
+    }
+
+    @Test
+    public void testNumericCornerCasesFromPresto()
+    {
+        try (TestTable table = fromColumns(
+                getQueryRunner()::execute,
+                "test_numeric_corner_cases_",
+                ImmutableMap.<String, List<String>>builder()
+                        .put("only_negative_infinity double", List.of("-infinity()", "-infinity()", "-infinity()", "-infinity()"))
+                        .put("only_positive_infinity double", List.of("infinity()", "infinity()", "infinity()", "infinity()"))
+                        .put("mixed_infinities double", List.of("-infinity()", "infinity()", "-infinity()", "infinity()"))
+                        .put("mixed_infinities_and_numbers double", List.of("-infinity()", "infinity()", "-5.0", "7.0"))
+                        .put("nans_only double", List.of("nan()", "nan()"))
+                        .put("nans_and_numbers double", List.of("nan()", "nan()", "-5.0", "7.0"))
+                        .put("large_doubles double", List.of("CAST(-50371909150609548946090.0 AS DOUBLE)", "CAST(50371909150609548946090.0 AS DOUBLE)")) // 2^77 DIV 3
+                        .put("short_decimals_big_fraction decimal(16,15)", List.of("-1.234567890123456", "1.234567890123456"))
+                        .put("short_decimals_big_integral decimal(16,1)", List.of("-123456789012345.6", "123456789012345.6"))
+                        .put("long_decimals_big_fraction decimal(38,37)", List.of("-1.2345678901234567890123456789012345678", "1.2345678901234567890123456789012345678"))
+                        .put("long_decimals_middle decimal(38,16)", List.of("-1234567890123456.7890123456789012345678", "1234567890123456.7890123456789012345678"))
+                        .put("long_decimals_big_integral decimal(38,1)", List.of("-1234567890123456789012345678901234567.8", "1234567890123456789012345678901234567.8"))
+                        .build(),
+                "null")) {
+            assertQuery(
+                    "SHOW STATS FOR " + table.getName(),
+                    "VALUES " +
+                            "('only_negative_infinity', null, 1, 0, null, null, null)," +
+                            "('only_positive_infinity', null, 1, 0, null, null, null)," +
+                            "('mixed_infinities', null, 1, 0, null, null, null)," +
+                            "('mixed_infinities_and_numbers', null, 1.0, 0.0, null, '-5.0', '7.0')," +
+                            "('nans_only', null, 1.0, 0.5, null, null, null)," +
+                            "('nans_and_numbers', null, 1.0, 0.0, null, '-5.0', '7.0')," +
+                            "('large_doubles', null, 1.0, 0.5, null, '-5.037190915060955E22', '5.037190915060955E22')," +
+                            "('short_decimals_big_fraction', null, 1.0, 0.5, null, '-1.234567890123456', '1.234567890123456')," +
+                            "('short_decimals_big_integral', null, 1.0, 0.5, null, '-1.234567890123456E14', '1.234567890123456E14')," +
+                            "('long_decimals_big_fraction', null, 1.0, 0.5, null, '-1.2345678901234567', '1.2345678901234567')," +
+                            "('long_decimals_middle', null, 1.0, 0.5, null, '-1.2345678901234568E15', '1.2345678901234568E15')," +
+                            "('long_decimals_big_integral', null, 1.0, 0.5, null, '-1.2345678901234568E36', '1.2345678901234568E36')," +
+                            "(null, null, null, null, 4, null, null)");
+        }
     }
 
     private void executeInRemotePresto(String sql)
