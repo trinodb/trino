@@ -96,7 +96,7 @@ public class HiveLocationService
                 // skip using temporary directory if destination is encrypted; it's not possible to move a file between encryption zones
                 && !isHdfsEncrypted(context, hdfsEnvironment, path)
                 // Skip using temporary directory if destination is external. Target may be on a different file system.
-                && !externalLocation.isPresent();
+                && externalLocation.isEmpty();
     }
 
     @Override

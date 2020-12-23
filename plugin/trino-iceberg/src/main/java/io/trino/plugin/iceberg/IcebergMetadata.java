@@ -984,7 +984,7 @@ public class IcebergMetadata
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         Optional<Table> materializedViewOptional = metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName());
-        if (!materializedViewOptional.isPresent()) {
+        if (materializedViewOptional.isEmpty()) {
             return Optional.empty();
         }
         if (!isMaterializedView(session, viewName)) {
@@ -1021,7 +1021,7 @@ public class IcebergMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Optional<TableToken> currentToken = getTableToken(session, handle);
 
-        if (!tableToken.isPresent() || !currentToken.isPresent()) {
+        if (tableToken.isEmpty() || currentToken.isEmpty()) {
             return false;
         }
 
@@ -1058,7 +1058,7 @@ public class IcebergMetadata
     {
         Map<String, Optional<TableToken>> viewToken = new HashMap<>();
         Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = getMaterializedView(session, name);
-        if (!materializedViewDefinition.isPresent()) {
+        if (materializedViewDefinition.isEmpty()) {
             return viewToken;
         }
 

@@ -91,7 +91,7 @@ public class LoginResource
         }
 
         Optional<NewCookie> authenticationCookie = formWebUiAuthenticationManager.checkLoginCredentials(username, password, securityContext.isSecure());
-        if (!authenticationCookie.isPresent()) {
+        if (authenticationCookie.isEmpty()) {
             // authentication failed, redirect back to the login page
             return Response.seeOther(LOGIN_FORM_URI).build();
         }
