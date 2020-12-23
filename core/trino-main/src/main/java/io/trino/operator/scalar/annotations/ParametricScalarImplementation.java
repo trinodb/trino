@@ -368,10 +368,9 @@ public class ParametricScalarImplementation
             this.dependencies = ImmutableList.copyOf(requireNonNull(dependencies, "dependencies is null"));
             this.constructorDependencies = ImmutableList.copyOf(requireNonNull(constructorDependencies, "constructorDependencies is null"));
 
-            int numberOfBlockPositionArguments = (int) argumentConventions.stream()
+            this.numberOfBlockPositionArguments = (int) argumentConventions.stream()
                     .filter(BLOCK_POSITION::equals)
                     .count();
-            this.numberOfBlockPositionArguments = numberOfBlockPositionArguments;
         }
 
         public InvocationReturnConvention getReturnConvention()

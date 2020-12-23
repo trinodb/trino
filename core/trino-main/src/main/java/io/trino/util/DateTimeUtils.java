@@ -284,8 +284,7 @@ public final class DateTimeUtils
         IntervalField end = endField.orElse(startField);
 
         if (startField == IntervalField.YEAR && end == IntervalField.MONTH) {
-            PeriodFormatter periodFormatter = INTERVAL_YEAR_MONTH_FORMATTER;
-            return parsePeriodMonths(value, periodFormatter, startField, end);
+            return parsePeriodMonths(value, INTERVAL_YEAR_MONTH_FORMATTER, startField, end);
         }
         if (startField == IntervalField.YEAR && end == IntervalField.YEAR) {
             return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER, startField, end);
