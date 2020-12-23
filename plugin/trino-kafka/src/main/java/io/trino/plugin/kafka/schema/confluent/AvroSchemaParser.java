@@ -14,6 +14,8 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
+import io.confluent.kafka.schemaregistry.ParsedSchema;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.trino.decoder.avro.AvroRowDecoderFactory;
 import io.trino.plugin.kafka.KafkaTopicFieldDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
@@ -27,6 +29,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.kafka.schema.confluent.ConfluentSessionProperties.getEmptyFieldStrategy;
@@ -44,9 +47,10 @@ public class AvroSchemaParser
     }
 
     @Override
-    public KafkaTopicFieldGroup parse(ConnectorSession session, String subject, String rawSchema)
+    public KafkaTopicFieldGroup parse(ConnectorSession session, String subject, ParsedSchema parsedSchema)
     {
-        Schema schema = new Schema.Parser().parse(rawSchema);
+        checkArgument(parsedSchema instanceof AvroSchema, "parsedSchema should be an instance of AvroSchema");
+        Schema schema = ((AvroSchema) parsedSchema).rawSchema();
         AvroSchemaConverter schemaConverter = new AvroSchemaConverter(typeManager, getEmptyFieldStrategy(session));
         List<Type> types = schemaConverter.convertAvroSchema(schema);
         ImmutableList.Builder<KafkaTopicFieldDescription> fieldsBuilder = ImmutableList.builder();
