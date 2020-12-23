@@ -452,7 +452,7 @@ public class TestJdbcVendorCompatibility
     private static class OracleReferenceDriver
             implements ReferenceDriver
     {
-        private OracleContainer oracleServer;
+        private final OracleContainer oracleServer;
         private Connection connection;
         private Statement statement;
         private Optional<Optional<String>> timezoneSet = Optional.empty();
@@ -537,7 +537,7 @@ public class TestJdbcVendorCompatibility
     private static class PostgresqlReferenceDriver
             implements ReferenceDriver
     {
-        private PostgreSQLContainer<?> postgresqlContainer;
+        private final PostgreSQLContainer<?> postgresqlContainer;
         private Connection connection;
         private Statement statement;
         private Optional<Optional<String>> timezoneSet = Optional.empty();

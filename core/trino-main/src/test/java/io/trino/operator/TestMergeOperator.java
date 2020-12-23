@@ -67,7 +67,7 @@ public class TestMergeOperator
     private static final String TASK_2_ID = "task2";
     private static final String TASK_3_ID = "task3";
 
-    private AtomicInteger operatorId = new AtomicInteger();
+    private final AtomicInteger operatorId = new AtomicInteger();
 
     private ScheduledExecutorService executor;
     private PagesSerdeFactory serdeFactory;

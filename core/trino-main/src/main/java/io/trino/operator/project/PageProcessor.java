@@ -145,7 +145,7 @@ public class PageProcessor
         private final boolean avoidPageMaterialization;
 
         private Page page;
-        private Block[] previouslyComputedResults;
+        private final Block[] previouslyComputedResults;
         private SelectedPositions selectedPositions;
         private long retainedSizeInBytes;
 

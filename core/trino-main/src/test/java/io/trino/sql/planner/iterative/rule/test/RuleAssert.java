@@ -60,7 +60,7 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
-    private TestingStatsCalculator statsCalculator;
+    private final TestingStatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private Session session;
     private final Rule<?> rule;
