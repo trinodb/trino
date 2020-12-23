@@ -183,7 +183,7 @@ public class TestPushDownDereferencesRules
                                 p.join(INNER,
                                         p.values(p.symbol("msg1", ROW_TYPE)),
                                         p.values(p.symbol("msg2", ROW_TYPE)),
-                                        p.expression("msg1.x + msg2.y > BIGINT '10'"))))
+                                        expression("msg1.x + msg2.y > BIGINT '10'"))))
                 .matches(
                         project(
                                 ImmutableMap.of(
