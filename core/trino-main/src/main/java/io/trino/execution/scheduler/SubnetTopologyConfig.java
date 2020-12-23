@@ -35,11 +35,9 @@ public class SubnetTopologyConfig
     @Config("node-scheduler.network-topology.subnet.cidr-prefix-lengths")
     public SubnetTopologyConfig setCidrPrefixLengths(String commaSeparatedLengths)
     {
-        List<Integer> lengths = Splitter.on(',').omitEmptyStrings().splitToList(commaSeparatedLengths).stream()
+        this.cidrPrefixLengths = Splitter.on(',').omitEmptyStrings().splitToList(commaSeparatedLengths).stream()
                 .map(Integer::parseInt)
                 .collect(toImmutableList());
-
-        this.cidrPrefixLengths = lengths;
         return this;
     }
 
