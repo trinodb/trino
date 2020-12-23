@@ -13,10 +13,11 @@
  */
 package io.trino.plugin.kafka.schema.confluent;
 
+import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
 import io.trino.spi.connector.ConnectorSession;
 
 public interface SchemaParser
 {
-    KafkaTopicFieldGroup parse(ConnectorSession session, String subject, String rawSchema);
+    KafkaTopicFieldGroup parse(ConnectorSession session, String subject, ParsedSchema parsedSchema);
 }
