@@ -65,7 +65,7 @@ public class IndexJoinNode
 
         private final String joinLabel;
 
-        private Type(String joinLabel)
+        Type(String joinLabel)
         {
             this.joinLabel = joinLabel;
         }
