@@ -46,7 +46,7 @@ import static java.util.Arrays.asList;
 public class TestChecksumAggregation
 {
     private static final Metadata metadata = createTestMetadataManager();
-    private static BlockTypeOperators blockTypeOperators = new BlockTypeOperators();
+    private static final BlockTypeOperators blockTypeOperators = new BlockTypeOperators();
 
     @Test
     public void testEmpty()

@@ -164,8 +164,8 @@ public class PlanBuilder
     public class OutputBuilder
     {
         private PlanNode source;
-        private List<String> columnNames = new ArrayList<>();
-        private List<Symbol> outputs = new ArrayList<>();
+        private final List<String> columnNames = new ArrayList<>();
+        private final List<Symbol> outputs = new ArrayList<>();
 
         public OutputBuilder source(PlanNode source)
         {

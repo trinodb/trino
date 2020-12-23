@@ -42,7 +42,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 public class TestExpressionRewriteRuleSet
         extends BaseRuleTest
 {
-    private ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
+    private final ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
             (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
             {
                 @Override

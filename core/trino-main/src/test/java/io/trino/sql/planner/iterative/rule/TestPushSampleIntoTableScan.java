@@ -58,7 +58,7 @@ public class TestPushSampleIntoTableScan
     private static class TestMetadata
             extends AbstractMockMetadata
     {
-        private boolean samplePushdown;
+        private final boolean samplePushdown;
 
         public TestMetadata(boolean samplePushdown)
         {

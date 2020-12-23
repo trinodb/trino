@@ -30,7 +30,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestMemo
 {
-    private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+    private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
     @Test
     public void testInitialization()

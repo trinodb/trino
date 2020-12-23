@@ -97,7 +97,7 @@ public class TestCreateSchemaTask
     {
         private final CatalogName catalogHandle;
         private final List<CatalogSchemaName> schemas;
-        private SchemaPropertyManager schemaPropertyManager;
+        private final SchemaPropertyManager schemaPropertyManager;
 
         public MockMetadata(
                 SchemaPropertyManager schemaPropertyManager,

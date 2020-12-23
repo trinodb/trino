@@ -115,7 +115,7 @@ public class UnnestOperator
 
     private BlockBuilder ordinalityBlockBuilder;
 
-    private int outputChannelCount;
+    private final int outputChannelCount;
 
     public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
     {
