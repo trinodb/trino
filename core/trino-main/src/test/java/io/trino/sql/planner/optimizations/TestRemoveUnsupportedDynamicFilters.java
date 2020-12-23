@@ -69,7 +69,7 @@ public class TestRemoveUnsupportedDynamicFilters
         extends BasePlanTest
 {
     private Metadata metadata;
-    private TypeOperators typeOperators = new TypeOperators();
+    private final TypeOperators typeOperators = new TypeOperators();
     private PlanBuilder builder;
     private Symbol lineitemOrderKeySymbol;
     private TableScanNode lineitemTableScanNode;
