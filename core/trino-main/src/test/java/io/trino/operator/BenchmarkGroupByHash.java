@@ -212,7 +212,7 @@ public class BenchmarkGroupByHash
                 BIGINT.writeLong(pageBuilder.getBlockBuilder(numChannel), rand);
             }
             if (hashEnabled) {
-                BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), AbstractLongType.hash((long) rand));
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), AbstractLongType.hash(rand));
             }
             if (pageBuilder.isFull()) {
                 pages.add(pageBuilder.build());

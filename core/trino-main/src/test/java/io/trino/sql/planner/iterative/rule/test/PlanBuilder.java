@@ -211,7 +211,7 @@ public class PlanBuilder
         return values(
                 id,
                 ImmutableList.copyOf(columns),
-                nElements(rows, row -> nElements(columns.length, cell -> (Expression) new NullLiteral())));
+                nElements(rows, row -> nElements(columns.length, cell -> new NullLiteral())));
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
