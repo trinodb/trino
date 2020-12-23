@@ -109,7 +109,6 @@ public class UnnestOperator
     private int currentPosition;
 
     private final List<Unnester> unnesters;
-    private final int unnestOutputChannelCount;
 
     private final List<ReplicatedBlockBuilder> replicatedBlockBuilders;
 
@@ -134,7 +133,7 @@ public class UnnestOperator
         this.unnesters = unnestTypes.stream()
                 .map(UnnestOperator::createUnnester)
                 .collect(toImmutableList());
-        this.unnestOutputChannelCount = unnesters.stream().mapToInt(Unnester::getChannelCount).sum();
+        int unnestOutputChannelCount = unnesters.stream().mapToInt(Unnester::getChannelCount).sum();
 
         this.withOrdinality = withOrdinality;
         this.outer = outer;
