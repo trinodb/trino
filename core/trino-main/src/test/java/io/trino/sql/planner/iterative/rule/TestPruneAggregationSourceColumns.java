@@ -82,7 +82,7 @@ public class TestPruneAggregationSourceColumns
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask, unused);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
-                .addAggregation(avg, planBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), mask)
+                .addAggregation(avg, PlanBuilder.expression("avg(input)"), ImmutableList.of(BIGINT), mask)
                 .hashSymbol(keyHash)
                 .source(
                         planBuilder.values(

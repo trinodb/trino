@@ -35,6 +35,7 @@ import java.util.Optional;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 
 public class TestPruneCountAggregationOverScalar
@@ -94,7 +95,7 @@ public class TestPruneCountAggregationOverScalar
                                         ImmutableList.of())
                                 .step(AggregationNode.Step.SINGLE)
                                 .globalGrouping()
-                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(p.expressions("1"))))))
+                                .source(p.values(ImmutableList.of(p.symbol("orderkey")), ImmutableList.of(expressions("1"))))))
                 .matches(values(ImmutableMap.of("count_1", 0)));
     }
 
