@@ -255,7 +255,7 @@ public final class HiveSessionProperties
                         false),
                 booleanProperty(
                         ORC_USE_COLUMN_NAME,
-                        "Orc: Access ORC columns using names from the file",
+                        "ORC: Access ORC columns using names from the file",
                         orcReaderConfig.isUseColumnNames(),
                         false),
                 enumProperty(
