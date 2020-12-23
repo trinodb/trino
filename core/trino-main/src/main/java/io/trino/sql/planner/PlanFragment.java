@@ -186,7 +186,7 @@ public class PlanFragment
 
     public PlanFragment withoutEmbeddedJsonRepresentation()
     {
-        if (!jsonRepresentation.isPresent()) {
+        if (jsonRepresentation.isEmpty()) {
             return this;
         }
         return new PlanFragment(
