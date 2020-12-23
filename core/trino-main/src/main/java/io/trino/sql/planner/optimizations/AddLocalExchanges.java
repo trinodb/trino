@@ -630,7 +630,7 @@ public class AddLocalExchanges
             }
 
             // multiple streams preferred
-            ExchangeNode result = new ExchangeNode(
+            ExchangeNode exchangeNode = new ExchangeNode(
                     idAllocator.getNextId(),
                     REPARTITION,
                     LOCAL,
@@ -638,7 +638,6 @@ public class AddLocalExchanges
                     sources,
                     inputLayouts,
                     Optional.empty());
-            ExchangeNode exchangeNode = result;
 
             return deriveProperties(exchangeNode, inputProperties);
         }

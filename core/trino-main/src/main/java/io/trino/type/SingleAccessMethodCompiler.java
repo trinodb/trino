@@ -85,10 +85,9 @@ final class SingleAccessMethodCompiler
         ClassLoader classLoader = SingleAccessMethodCompiler.class.getClassLoader();
         Class<? extends T> newClass = defineClass(classDefinition, interfaceType, callSiteBinder.getBindings(), classLoader);
         try {
-            T instance = newClass
+            return newClass
                     .getDeclaredConstructor()
                     .newInstance();
-            return instance;
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
