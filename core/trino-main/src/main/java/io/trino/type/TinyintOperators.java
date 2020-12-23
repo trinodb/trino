@@ -149,7 +149,7 @@ public final class TinyintOperators
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.TINYINT) long value)
     {
-        return (long) floatToRawIntBits((float) value);
+        return floatToRawIntBits((float) value);
     }
 
     @ScalarOperator(CAST)

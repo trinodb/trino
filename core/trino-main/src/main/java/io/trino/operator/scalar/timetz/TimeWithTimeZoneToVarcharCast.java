@@ -61,10 +61,10 @@ public final class TimeWithTimeZoneToVarcharCast
     // Can't name this format() because we can't have a qualified reference to String.format() below
     private static Slice formatAsString(int precision, long picos, int offsetMinutes)
     {
-        int size = (int) (8 + // hour:minute:second
+        int size = 8 + // hour:minute:second
                 (precision > 0 ? 1 : 0) + // period
                 precision + // fraction
-                6); // +hh:mm offset
+                6; // +hh:mm offset
 
         DynamicSliceOutput output = new DynamicSliceOutput(size);
 
@@ -76,7 +76,7 @@ public final class TimeWithTimeZoneToVarcharCast
         output.appendBytes(formatted.getBytes(UTF_8));
 
         if (precision > 0) {
-            long scaledFraction = (picos % PICOSECONDS_PER_SECOND) / scaleFactor((int) precision, MAX_PRECISION);
+            long scaledFraction = (picos % PICOSECONDS_PER_SECOND) / scaleFactor(precision, MAX_PRECISION);
             output.appendByte('.');
             output.appendBytes(format("%0" + precision + "d", scaledFraction).getBytes(UTF_8));
         }
