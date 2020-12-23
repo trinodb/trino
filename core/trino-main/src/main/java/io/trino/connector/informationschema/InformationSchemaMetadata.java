@@ -264,7 +264,7 @@ public class InformationSchemaMetadata
         if (roles.isPresent()) {
             Set<String> result = roles.get().stream()
                     .filter(this::isLowerCase)
-                    .filter(role -> !predicate.isPresent() || predicate.get().test(roleAsFixedValues(role)))
+                    .filter(role -> predicate.isEmpty() || predicate.get().test(roleAsFixedValues(role)))
                     .collect(toImmutableSet());
 
             if (result.isEmpty()) {
@@ -301,7 +301,7 @@ public class InformationSchemaMetadata
 
         Set<String> result = grantees.get().stream()
                 .filter(this::isLowerCase)
-                .filter(role -> !predicate.isPresent() || predicate.get().test(granteeAsFixedValues(role)))
+                .filter(role -> predicate.isEmpty() || predicate.get().test(granteeAsFixedValues(role)))
                 .collect(toImmutableSet());
 
         if (!result.isEmpty() && result.size() <= MAX_ROLE_COUNT) {

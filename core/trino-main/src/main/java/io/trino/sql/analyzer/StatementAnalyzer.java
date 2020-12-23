@@ -489,7 +489,7 @@ class StatementAnalyzer
 
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
-            if (!targetTableHandle.isPresent()) {
+            if (targetTableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Table '%s' does not exist", targetTable);
             }
 

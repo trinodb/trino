@@ -1433,7 +1433,7 @@ public final class MetadataManager
     public Set<RoleGrant> listAllRoleGrants(Session session, String catalog, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
-        if (!catalogMetadata.isPresent()) {
+        if (catalogMetadata.isEmpty()) {
             return ImmutableSet.of();
         }
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
