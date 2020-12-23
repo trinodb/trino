@@ -46,7 +46,9 @@ Analysis and confirmation
 Dynamic filtering depends on a number of factors:
 
 * Planner support for dynamic filtering for a given join operation in Presto.
-  Currently inner and right joins with comparison join conditions and semi-joins with IN conditions are supported.
+  Currently inner and right joins with ``=``, ``<``, ``<=``, ``>``, ``>=`` or
+  ``IS NOT DISTINCT FROM`` join conditions, and
+  semi-joins with ``IN`` conditions are supported.
 * Connector support for utilizing dynamic filters pushed into the table scan at runtime.
   For example, the Hive connector can push dynamic filters into ORC and Parquet readers
   to perform stripe or row-group pruning.
@@ -210,7 +212,8 @@ Limitations
 
 * Dynamic filtering is currently implemented only for :doc:`/connector/hive` and :doc:`/connector/memory` connectors.
 * Push down of dynamic filters into local table scan on worker nodes is limited to broadcast joins.
-* Min-max dynamic filter collection is not supported for DOUBLE, REAL and unorderable data types.
+* Min-max dynamic filter collection is not supported for ``DOUBLE``, ``REAL`` and unorderable data types.
+* Dynamic filtering is not supported for ``DOUBLE`` and ``REAL`` data types when using ``IS NOT DISTINCT FROM`` predicate.
 * Dynamic filtering is supported when the join key contains a cast from the build key type to the
   probe key type. Dynamic filtering is also supported in limited scenarios when there is an implicit
   cast from the probe key type to the build key type. For example, dynamic filtering is supported when
