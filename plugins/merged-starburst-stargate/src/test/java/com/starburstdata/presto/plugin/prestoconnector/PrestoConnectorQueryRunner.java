@@ -10,7 +10,10 @@
 package com.starburstdata.presto.plugin.prestoconnector;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Files;
 import com.starburstdata.presto.plugin.postgresql.StarburstPostgreSqlPlugin;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.prestosql.Session;
 import io.prestosql.plugin.hive.HiveHadoop2Plugin;
 import io.prestosql.plugin.jmx.JmxPlugin;
@@ -62,12 +65,11 @@ public final class PrestoConnectorQueryRunner
         }
     }
 
-    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithMemory(
-            Map<String, String> extraProperties,
+    private static void addMemoryToRemotePrestoQueryRunner(
+            DistributedQueryRunner queryRunner,
             Iterable<TpchTable<?>> requiredTablesInMemoryConnector)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
         try {
             queryRunner.installPlugin(new MemoryPlugin());
             queryRunner.createCatalog("memory", "memory");
@@ -78,21 +80,18 @@ public final class PrestoConnectorQueryRunner
                     .setSchema("tiny")
                     .build();
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTablesInMemoryConnector);
-
-            return queryRunner;
         }
         catch (Exception e) {
             throw closeAllSuppress(e, queryRunner);
         }
     }
 
-    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithHive(
+    private static void addHiveToRemotePrestoQueryRunner(
+            DistributedQueryRunner queryRunner,
             File tmpDir,
-            Map<String, String> extraProperties,
             Iterable<TpchTable<?>> requiredTablesInHiveConnector)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
         try {
             queryRunner.installPlugin(new HiveHadoop2Plugin());
             queryRunner.createCatalog("hive", "hive-hadoop2", ImmutableMap.of(
@@ -106,22 +105,19 @@ public final class PrestoConnectorQueryRunner
                     .setSchema("tiny")
                     .build();
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTablesInHiveConnector);
-
-            return queryRunner;
         }
         catch (Exception e) {
             throw closeAllSuppress(e, queryRunner);
         }
     }
 
-    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithPostgreSql(
+    private static void addPostgreSqlToRemotePrestoQueryRunner(
+            DistributedQueryRunner queryRunner,
             TestingPostgreSqlServer server,
-            Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> requiredTablesInPostgreSqlConnector)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
         try {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
@@ -140,11 +136,43 @@ public final class PrestoConnectorQueryRunner
                     .setSchema("tiny")
                     .build();
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tpchSetupSession, requiredTablesInPostgreSqlConnector);
-            return queryRunner;
         }
         catch (Exception e) {
             throw closeAllSuppress(e, queryRunner);
         }
+    }
+
+    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithMemory(
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> requiredTablesInMemoryConnector)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
+        addMemoryToRemotePrestoQueryRunner(queryRunner, requiredTablesInMemoryConnector);
+        return queryRunner;
+    }
+
+    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithHive(
+            File tmpDir,
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> requiredTablesInHiveConnector)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
+        addHiveToRemotePrestoQueryRunner(queryRunner, tmpDir, requiredTablesInHiveConnector);
+        return queryRunner;
+    }
+
+    public static DistributedQueryRunner createRemotePrestoQueryRunnerWithPostgreSql(
+            TestingPostgreSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> requiredTablesInPostgreSqlConnector)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
+        addPostgreSqlToRemotePrestoQueryRunner(queryRunner, server, connectorProperties, requiredTablesInPostgreSqlConnector);
+        return queryRunner;
     }
 
     public static DistributedQueryRunner createPrestoConnectorQueryRunner(
@@ -197,5 +225,54 @@ public final class PrestoConnectorQueryRunner
         verify(prestoUri.getFragment() == null, "Unsupported fragment: %s", prestoUri.getFragment());
 
         return format("jdbc:presto://%s/%s", prestoUri.getAuthority(), catalog);
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+        DistributedQueryRunner remotePresto = createRemotePrestoQueryRunner(Map.of());
+
+        addMemoryToRemotePrestoQueryRunner(
+                remotePresto,
+                TpchTable.getTables());
+
+        TestingPostgreSqlServer postgreSqlServer = new TestingPostgreSqlServer();
+        addPostgreSqlToRemotePrestoQueryRunner(
+                remotePresto,
+                postgreSqlServer,
+                Map.of("connection-url", postgreSqlServer.getJdbcUrl()),
+                TpchTable.getTables());
+
+        File tempDir = Files.createTempDir();
+        addHiveToRemotePrestoQueryRunner(
+                remotePresto,
+                tempDir,
+                TpchTable.getTables());
+
+        DistributedQueryRunner queryRunner = createPrestoConnectorQueryRunner(
+                true,
+                Map.of("http-server.http.port", "8080"),
+                Map.of(
+                        "connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"),
+                        "allow-drop-table", "true"));
+        queryRunner.createCatalog(
+                "p2p_remote_postgresql",
+                "presto-connector",
+                Map.of(
+                        "connection-user", "p2p",
+                        "connection-url", prestoConnectorConnectionUrl(remotePresto, "postgresql"),
+                        "allow-drop-table", "true"));
+        queryRunner.createCatalog(
+                "p2p_remote_hive",
+                "presto-connector",
+                Map.of(
+                        "connection-user", "p2p",
+                        "connection-url", prestoConnectorConnectionUrl(remotePresto, "hive"),
+                        "allow-drop-table", "true"));
+
+        Logger log = Logger.get(PrestoConnectorQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
