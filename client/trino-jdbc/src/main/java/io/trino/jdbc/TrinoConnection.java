@@ -106,8 +106,8 @@ public class TrinoConnection
         requireNonNull(uri, "uri is null");
         this.jdbcUri = uri.getJdbcUri();
         this.httpUri = uri.getHttpUri();
-        uri.getSchema().ifPresent(value -> schema.set(value));
-        uri.getCatalog().ifPresent(value -> catalog.set(value));
+        uri.getSchema().ifPresent(schema::set);
+        uri.getCatalog().ifPresent(catalog::set);
         this.user = uri.getUser();
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
