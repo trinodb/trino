@@ -192,7 +192,7 @@ public final class BigintOperators
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.BIGINT) long value)
     {
-        return (long) floatToRawIntBits((float) value);
+        return floatToRawIntBits((float) value);
     }
 
     @ScalarOperator(CAST)

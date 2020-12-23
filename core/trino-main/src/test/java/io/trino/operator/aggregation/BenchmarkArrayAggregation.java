@@ -115,7 +115,7 @@ public class BenchmarkArrayAggregation
             BlockBuilder blockBuilder = elementType.createBlockBuilder(null, arraySize);
             for (int i = 0; i < arraySize; i++) {
                 if (elementType.getJavaType() == long.class) {
-                    elementType.writeLong(blockBuilder, (long) i);
+                    elementType.writeLong(blockBuilder, i);
                 }
                 else if (elementType.getJavaType() == double.class) {
                     elementType.writeDouble(blockBuilder, ThreadLocalRandom.current().nextDouble());
