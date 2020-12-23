@@ -20,6 +20,7 @@ import io.trino.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestRemoveUnreferencedScalarApplyNodes
         extends BaseRuleTest
@@ -29,7 +30,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
     {
         tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("z"), p.expression("x IN (y)")),
+                        Assignments.of(p.symbol("z"), expression("x IN (y)")),
                         ImmutableList.of(),
                         p.values(p.symbol("x")),
                         p.values(p.symbol("y"))))

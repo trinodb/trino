@@ -174,7 +174,7 @@ public class PinotClient
     private <T> T sendHttpGetToControllerJson(String path, JsonCodec<T> codec)
     {
         return doHttpActionWithHeadersJson(
-                Request.builder().prepareGet().setUri(URI.create(format("http://%s/%s", getControllerUrl(), path))),
+                Request.Builder.prepareGet().setUri(URI.create(format("http://%s/%s", getControllerUrl(), path))),
                 Optional.empty(),
                 codec);
     }
@@ -182,7 +182,7 @@ public class PinotClient
     private <T> T sendHttpGetToBrokerJson(String table, String path, JsonCodec<T> codec)
     {
         return doHttpActionWithHeadersJson(
-                Request.builder().prepareGet().setUri(URI.create(format("http://%s/%s", getBrokerHost(table), path))),
+                Request.Builder.prepareGet().setUri(URI.create(format("http://%s/%s", getBrokerHost(table), path))),
                 Optional.empty(),
                 codec);
     }
@@ -431,8 +431,7 @@ public class PinotClient
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
             String queryHost = getBrokerHost(query.getTable());
             LOG.info("Query '%s' on broker host '%s'", queryHost, query.getQuery());
-            Request.Builder builder = Request.builder()
-                    .preparePost()
+            Request.Builder builder = Request.Builder.preparePost()
                     .setUri(URI.create(format(QUERY_URL_TEMPLATE, queryHost)));
             BrokerResponseNative response = doHttpActionWithHeadersJson(builder, Optional.of(format(REQUEST_PAYLOAD_TEMPLATE, query.getQuery())), brokerResponseCodec);
 

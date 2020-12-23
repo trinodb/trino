@@ -21,6 +21,7 @@ import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
@@ -97,7 +98,7 @@ public class TestTransformCorrelatedScalarSubquery
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.filter(
-                                        p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                        PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                         p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS)))))
                 .matches(
                         project(
@@ -125,9 +126,9 @@ public class TestTransformCorrelatedScalarSubquery
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.project(
-                                        Assignments.of(p.symbol("a2"), p.expression("a * 2")),
+                                        Assignments.of(p.symbol("a2"), PlanBuilder.expression("a * 2")),
                                         p.filter(
-                                                p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                 p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS))))))
                 .matches(
                         project(
@@ -154,12 +155,12 @@ public class TestTransformCorrelatedScalarSubquery
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("a3"), p.expression("a2 + 1")),
+                                Assignments.of(p.symbol("a3"), PlanBuilder.expression("a2 + 1")),
                                 p.enforceSingleRow(
                                         p.project(
-                                                Assignments.of(p.symbol("a2"), p.expression("a * 2")),
+                                                Assignments.of(p.symbol("a2"), PlanBuilder.expression("a * 2")),
                                                 p.filter(
-                                                        p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                        PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                                         p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS)))))))
                 .matches(
                         project(
@@ -191,7 +192,7 @@ public class TestTransformCorrelatedScalarSubquery
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
                                 p.filter(
-                                        p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                        PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
                                         p.values(ImmutableList.of(p.symbol("a")), ONE_ROW)))))
                 .matches(
                         correlatedJoin(

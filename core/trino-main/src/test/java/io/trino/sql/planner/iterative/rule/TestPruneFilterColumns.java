@@ -72,7 +72,7 @@ public class TestPruneFilterColumns
         return planBuilder.project(
                 Assignments.identity(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.filter(
-                        planBuilder.expression("b > 5"),
+                        PlanBuilder.expression("b > 5"),
                         planBuilder.values(a, b)));
     }
 }
