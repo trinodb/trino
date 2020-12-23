@@ -472,7 +472,7 @@ public class TestQueryResultRows
     private static final class TestExceptionConsumer
             implements Consumer<Throwable>
     {
-        private List<Throwable> exceptions = new ArrayList<>();
+        private final List<Throwable> exceptions = new ArrayList<>();
 
         @Override
         public void accept(Throwable throwable)

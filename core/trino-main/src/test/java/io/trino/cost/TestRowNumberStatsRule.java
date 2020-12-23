@@ -24,11 +24,11 @@ import static io.trino.spi.type.BigintType.BIGINT;
 public class TestRowNumberStatsRule
         extends BaseStatsCalculatorTest
 {
-    private SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
+    private final SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
             .setDistinctValuesCount(5.0)
             .setNullsFraction(0)
             .build();
-    private SymbolStatsEstimate yStats = SymbolStatsEstimate.builder()
+    private final SymbolStatsEstimate yStats = SymbolStatsEstimate.builder()
             .setDistinctValuesCount(5.0)
             .setNullsFraction(0.5)
             .build();

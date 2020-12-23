@@ -930,7 +930,7 @@ public class LocalQueryRunner
 
     public static class Builder
     {
-        private Session defaultSession;
+        private final Session defaultSession;
         private FeaturesConfig featuresConfig = new FeaturesConfig();
         private NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
         private boolean initialTransaction;

@@ -162,7 +162,7 @@ public class IoPlanPrinter
         protected static class IoPlanBuilder
         {
             private final Plan plan;
-            private Set<TableColumnInfo> inputTableColumnInfos;
+            private final Set<TableColumnInfo> inputTableColumnInfos;
             private Optional<CatalogSchemaTableName> outputTable;
 
             private IoPlanBuilder(Plan plan)

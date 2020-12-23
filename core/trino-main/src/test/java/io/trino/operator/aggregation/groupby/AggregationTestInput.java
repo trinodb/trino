@@ -29,7 +29,7 @@ public class AggregationTestInput
 {
     private final Page[] pages;
     private final InternalAggregationFunction function;
-    private int[] args;
+    private final int[] args;
 
     private final int offset;
     private final boolean isReversed;

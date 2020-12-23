@@ -434,7 +434,7 @@ public class TestHttpRemoteTask
         private final AtomicLong lastActivityNanos;
         private final FailureScenario failureScenario;
 
-        private AtomicReference<TestingHttpClient> httpClient = new AtomicReference<>();
+        private final AtomicReference<TestingHttpClient> httpClient = new AtomicReference<>();
 
         private TaskInfo initialTaskInfo;
         private TaskStatus initialTaskStatus;

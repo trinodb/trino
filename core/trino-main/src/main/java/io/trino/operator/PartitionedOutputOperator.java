@@ -313,7 +313,7 @@ public class PartitionedOutputOperator
         private final AtomicLong rowsAdded = new AtomicLong();
         private final AtomicLong pagesAdded = new AtomicLong();
         private boolean hasAnyRowBeenReplicated;
-        private OperatorContext operatorContext;
+        private final OperatorContext operatorContext;
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,
