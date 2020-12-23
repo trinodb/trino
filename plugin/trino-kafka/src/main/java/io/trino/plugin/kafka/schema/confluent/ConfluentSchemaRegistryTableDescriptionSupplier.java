@@ -192,7 +192,14 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         if (schemaParser == null) {
             throw new TrinoException(NOT_SUPPORTED, "Not supported schema: " + schemaMetadata.getSchemaType());
         }
-        return schemaParser.parse(session, subject, schemaMetadata.getSchema());
+        return schemaParser.parse(
+                session,
+                subject,
+                schemaRegistryClient.parseSchema(
+                        schemaMetadata.getSchemaType(),
+                        schemaMetadata.getSchema(),
+                        schemaMetadata.getReferences())
+                        .orElseThrow());
     }
 
     private SchemaMetadata getLatestSchemaMetadata(String subject)
