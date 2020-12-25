@@ -76,12 +76,6 @@ public class TestingKafkaWithSchemaRegistry
     }
 
     @Override
-    public void createTopic(String topic)
-    {
-        delegate.createTopic(topic);
-    }
-
-    @Override
     public void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime)
     {
         delegate.createTopicWithConfig(partitions, replication, topic, enableLogAppendTime);
