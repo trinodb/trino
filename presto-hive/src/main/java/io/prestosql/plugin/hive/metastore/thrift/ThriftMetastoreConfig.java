@@ -292,6 +292,7 @@ public class ThriftMetastoreConfig
     }
 
     @Config("hive.metastore.thrift.assume-canonical-partition-keys")
+    @ConfigDescription("Assume canonical partition key type")
     public ThriftMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
