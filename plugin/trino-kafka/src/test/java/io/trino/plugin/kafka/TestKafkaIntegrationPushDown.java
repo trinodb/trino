@@ -93,7 +93,6 @@ public class TestKafkaIntegrationPushDown
 
     @AfterClass(alwaysRun = true)
     public void stopKafka()
-            throws Exception
     {
         if (testingKafka != null) {
             testingKafka.close();
