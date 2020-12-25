@@ -26,8 +26,6 @@ public interface TestingKafka
 
     void start();
 
-    void createTopic(String topic);
-
     void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime);
 
     String getConnectString();

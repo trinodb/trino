@@ -32,7 +32,6 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.kafka.BasicTestingKafka;
-import io.trino.testing.kafka.TestingKafka;
 import io.trino.tpch.TpchTable;
 
 import java.io.IOException;
@@ -101,9 +100,6 @@ public final class KafkaQueryRunner
         {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-            for (TpchTable<?> table : tables) {
-                testingKafka.createTopic(kafkaTopicName(table));
-            }
             Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
 
             List<SchemaTableName> tableNames = new ArrayList<>();
@@ -117,7 +113,7 @@ public final class KafkaQueryRunner
 
             ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
             for (SchemaTableName tableName : tableNames) {
-                testTopicDescriptions.put(tableName, createTable(tableName, testingKafka, topicDescriptionJsonCodec));
+                testTopicDescriptions.put(tableName, createTable(tableName, topicDescriptionJsonCodec));
             }
 
             Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
@@ -155,10 +151,9 @@ public final class KafkaQueryRunner
         }
     }
 
-    private static KafkaTopicDescription createTable(SchemaTableName table, TestingKafka testingKafka, JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec)
+    private static KafkaTopicDescription createTable(SchemaTableName table, JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec)
             throws IOException
     {
-        testingKafka.createTopic(table.toString());
         String fileName = format("/%s/%s.json", table.getSchemaName(), table.getTableName());
         KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(toByteArray(KafkaQueryRunner.class.getResourceAsStream(fileName)));
 
