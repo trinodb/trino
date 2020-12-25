@@ -61,8 +61,6 @@ public class TestMinimalFunctionality
         pinot = new TestingPinotCluster();
         pinot.start();
 
-        kafka.createTopic(TOPIC_AND_TABLE);
-
         ImmutableList.Builder<ProducerRecord<Long, Object>> builder = ImmutableList.builder();
         long key = 0L;
         builder.add(new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor1", "Los Angeles", Arrays.asList("foo1", "bar1", "baz1"), Arrays.asList(5, 6, 7), Arrays.asList(3.5F, 5.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 4)));

@@ -57,31 +57,6 @@ public class BasicTestingKafka
     }
 
     @Override
-    public void createTopic(String topic)
-    {
-        createTopic(2, 1, topic);
-    }
-
-    private void createTopic(int partitions, int replication, String topic)
-    {
-        try {
-            List<String> command = new ArrayList<>();
-            command.add("kafka-topics");
-            command.add("--partitions");
-            command.add(Integer.toString(partitions));
-            command.add("--replication-factor");
-            command.add(Integer.toString(replication));
-            command.add("--topic");
-            command.add(topic);
-
-            container.execInContainer(command.toArray(new String[0]));
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
     public void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime)
     {
         try {

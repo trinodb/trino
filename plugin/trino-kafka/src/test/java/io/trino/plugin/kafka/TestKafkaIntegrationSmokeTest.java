@@ -110,13 +110,6 @@ public class TestKafkaIntegrationSmokeTest
                         .build())
                 .build();
 
-        testingKafka.createTopic(rawFormatTopic);
-        testingKafka.createTopic(JSON_CUSTOM_DATE_TIME_TABLE_NAME);
-        testingKafka.createTopic(JSON_ISO8601_TABLE_NAME);
-        testingKafka.createTopic(JSON_RFC2822_TABLE_NAME);
-        testingKafka.createTopic(JSON_MILLISECONDS_TABLE_NAME);
-        testingKafka.createTopic(JSON_SECONDS_TABLE_NAME);
-
         return queryRunner;
     }
 

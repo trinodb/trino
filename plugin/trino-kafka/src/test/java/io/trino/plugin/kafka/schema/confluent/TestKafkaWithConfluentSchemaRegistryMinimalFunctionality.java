@@ -136,7 +136,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     public void testUnsupportedInsert()
     {
         String topicName = "topic-unsupported-insert";
-        testingKafkaWithSchemaRegistry.createTopic(topicName);
 
         assertNotExists(topicName);
 
@@ -153,7 +152,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
             throws Exception
     {
         String topicName = "topic-unsupported-format";
-        testingKafkaWithSchemaRegistry.createTopic(topicName);
 
         assertNotExists(topicName);
 
@@ -179,8 +177,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
     private void assertTopic(String topicName, String initialQuery, String evolvedQuery, boolean isKeyIncluded, Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier)
     {
-        testingKafkaWithSchemaRegistry.createTopic(topicName);
-
         assertNotExists(topicName);
 
         List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
