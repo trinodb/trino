@@ -47,7 +47,7 @@ import static org.testng.Assert.assertEquals;
 public class TestMinimalFunctionality
         extends AbstractTestQueryFramework
 {
-    public static final String TOPIC_AND_TABLE = "my_table";
+    private static final String TOPIC_AND_TABLE = "my_table";
 
     private TestingPinotCluster pinot;
     private TestingKafka kafka;
