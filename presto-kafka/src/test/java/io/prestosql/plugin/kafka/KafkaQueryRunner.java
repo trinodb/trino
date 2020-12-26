@@ -46,7 +46,6 @@ import static com.google.common.io.ByteStreams.toByteArray;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -127,7 +126,7 @@ public final class KafkaQueryRunner
                     .putAll(testTopicDescriptions.build())
                     .build();
             setExtension(combine(
-                    DEFAULT_EXTENSION,
+                    extension,
                     installModuleIf(
                             KafkaConfig.class,
                             kafkaConfig -> kafkaConfig.getTableDescriptionSupplier().equalsIgnoreCase(TEST),
