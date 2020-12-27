@@ -16,6 +16,8 @@ General Changes
   ``BIGINT`` into ``SMALLINT``, or ``VARCHAR(10)`` into ``VARCHAR(3)``. Values that don't fit will
   cause an error at runtime. (:issue:`2061`)
 * Add :func:`regexp_count` and :func:`regexp_position` functions. (:issue:`2136`)
+* Add support for interpolating :doc:`/security/secrets` in server and catalog configuration
+  files. (:issue:`2370`)
 
 Security Changes
 ----------------
