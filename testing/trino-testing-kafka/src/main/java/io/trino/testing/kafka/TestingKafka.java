@@ -14,28 +14,206 @@
 package io.trino.testing.kafka;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
+import com.google.common.util.concurrent.Futures;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.serialization.LongSerializer;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.containers.Network;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
-public interface TestingKafka
-        extends Closeable
+import static java.time.temporal.ChronoUnit.MILLIS;
+import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
+
+public final class TestingKafka
+        implements Closeable
 {
-    String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.5.2";
+    private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.5.2";
+    private static final int SCHEMA_REGISTRY_PORT = 8081;
 
-    void start();
+    private static final DockerImageName KAFKA_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-kafka");
+    private static final DockerImageName SCHEMA_REGISTRY_IMAGE_NAME = DockerImageName.parse("confluentinc/cp-schema-registry");
 
-    void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime);
+    private final KafkaContainer kafka;
+    private final GenericContainer<?> schemaRegistry;
+    private final boolean withSchemaRegistry;
+    private final Closer closer = Closer.create();
 
-    default <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream)
+    public static TestingKafka create()
+    {
+        return create(DEFAULT_CONFLUENT_PLATFORM_VERSION);
+    }
+
+    public static TestingKafka create(String confluentPlatformVersions)
+    {
+        return new TestingKafka(confluentPlatformVersions, false);
+    }
+
+    public static TestingKafka createWithSchemaRegistry()
+    {
+        return new TestingKafka(DEFAULT_CONFLUENT_PLATFORM_VERSION, true);
+    }
+
+    private TestingKafka(String confluentPlatformVersion, boolean withSchemaRegistry)
+    {
+        this.withSchemaRegistry = withSchemaRegistry;
+        kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
+                .withNetwork(Network.SHARED)
+                .withNetworkAliases("kafka");
+        schemaRegistry = new GenericContainer<>(SCHEMA_REGISTRY_IMAGE_NAME.withTag(confluentPlatformVersion))
+                .withNetwork(Network.SHARED)
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
+                .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
+                .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
+                .withExposedPorts(SCHEMA_REGISTRY_PORT)
+                .dependsOn(kafka);
+        closer.register(kafka::stop);
+        closer.register(schemaRegistry::stop);
+    }
+
+    public void start()
+    {
+        kafka.start();
+        if (withSchemaRegistry) {
+            schemaRegistry.start();
+        }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        closer.close();
+    }
+
+    public void createTopic(String topic)
+    {
+        createTopic(2, 1, topic);
+    }
+
+    private void createTopic(int partitions, int replication, String topic)
+    {
+        try {
+            List<String> command = new ArrayList<>();
+            command.add("kafka-topics");
+            command.add("--partitions");
+            command.add(Integer.toString(partitions));
+            command.add("--replication-factor");
+            command.add(Integer.toString(replication));
+            command.add("--topic");
+            command.add(topic);
+
+            kafka.execInContainer(command.toArray(new String[0]));
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime)
+    {
+        try {
+            List<String> command = new ArrayList<>();
+            command.add("kafka-topics");
+            command.add("--create");
+            command.add("--topic");
+            command.add(topic);
+            command.add("--partitions");
+            command.add(Integer.toString(partitions));
+            command.add("--replication-factor");
+            command.add(Integer.toString(replication));
+            command.add("--zookeeper");
+            command.add("localhost:2181");
+            if (enableLogAppendTime) {
+                command.add("--config");
+                command.add("message.timestamp.type=LogAppendTime");
+            }
+
+            kafka.execInContainer(command.toArray(new String[0]));
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream)
     {
         return sendMessages(recordStream, ImmutableMap.of());
     }
 
-    <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream, Map<String, String> extraProducerProperties);
+    public <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream, Map<String, String> extraProducerProperties)
+    {
+        try (KafkaProducer<K, V> producer = createProducer(extraProducerProperties)) {
+            Future<RecordMetadata> future = recordStream.map(record -> send(producer, record))
+                    .reduce((first, second) -> second)
+                    .orElse(Futures.immediateFuture(null));
+            producer.flush();
+            return future.get();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-    String getConnectString();
+    private <K, V> Future<RecordMetadata> send(KafkaProducer<K, V> producer, ProducerRecord<K, V> record)
+    {
+        return Failsafe.with(
+                new RetryPolicy<>()
+                        .withMaxAttempts(10)
+                        .withBackoff(1, 10_000, MILLIS))
+                .get(() -> producer.send(record));
+    }
+
+    public String getConnectString()
+    {
+        return kafka.getContainerIpAddress() + ":" + kafka.getMappedPort(KAFKA_PORT);
+    }
+
+    private <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties)
+    {
+        Map<String, String> properties = new HashMap<>(extraProperties);
+
+        properties.putIfAbsent(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getConnectString());
+        properties.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName());
+        properties.putIfAbsent(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class.getName());
+        properties.putIfAbsent(ProducerConfig.PARTITIONER_CLASS_CONFIG, NumberPartitioner.class.getName());
+        properties.putIfAbsent(ProducerConfig.ACKS_CONFIG, "1");
+
+        return new KafkaProducer<>(toProperties(properties));
+    }
+
+    private static Properties toProperties(Map<String, String> map)
+    {
+        Properties properties = new Properties();
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            properties.setProperty(entry.getKey(), entry.getValue());
+        }
+        return properties;
+    }
+
+    public String getSchemaRegistryConnectString()
+    {
+        return "http://" + schemaRegistry.getContainerIpAddress() + ":" + schemaRegistry.getMappedPort(SCHEMA_REGISTRY_PORT);
+    }
 }

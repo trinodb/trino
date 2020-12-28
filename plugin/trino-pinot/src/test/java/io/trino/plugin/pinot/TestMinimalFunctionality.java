@@ -20,7 +20,6 @@ import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.kafka.BasicTestingKafka;
 import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
@@ -55,7 +54,7 @@ public class TestMinimalFunctionality
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        kafka = new BasicTestingKafka();
+        kafka = TestingKafka.create();
         kafka.start();
         pinot = new TestingPinotCluster();
         pinot.start();

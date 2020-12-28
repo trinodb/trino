@@ -28,14 +28,14 @@ import static io.trino.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
-public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>
+public abstract class KafkaQueryRunnerBuilder
         extends DistributedQueryRunner.Builder
 {
-    protected final T testingKafka;
+    protected final TestingKafka testingKafka;
     protected Map<String, String> extraKafkaProperties = ImmutableMap.of();
     protected Module extension = DEFAULT_EXTENSION;
 
-    public KafkaQueryRunnerBuilder(T testingKafka, String defaultSessionSchema)
+    public KafkaQueryRunnerBuilder(TestingKafka testingKafka, String defaultSessionSchema)
     {
         super(testSessionBuilder()
                 .setCatalog("kafka")
@@ -44,13 +44,13 @@ public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>
         this.testingKafka = requireNonNull(testingKafka, "testingKafka is null");
     }
 
-    public KafkaQueryRunnerBuilder<?> setExtraKafkaProperties(Map<String, String> extraKafkaProperties)
+    public KafkaQueryRunnerBuilder setExtraKafkaProperties(Map<String, String> extraKafkaProperties)
     {
         this.extraKafkaProperties = ImmutableMap.copyOf(requireNonNull(extraKafkaProperties, "extraKafkaProperties is null"));
         return this;
     }
 
-    public KafkaQueryRunnerBuilder<?> setExtension(Module extension)
+    public KafkaQueryRunnerBuilder setExtension(Module extension)
     {
         this.extension = requireNonNull(extension, "extension is null");
         return this;
