@@ -16,6 +16,7 @@ package io.trino.testing.kafka;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
+import io.airlift.log.Logger;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -29,7 +30,12 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,12 +45,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
+import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
 
 public final class TestingKafka
         implements Closeable
 {
+    private static final Logger log = Logger.get(TestingKafka.class);
+
     private static final String DEFAULT_CONFLUENT_PLATFORM_VERSION = "5.5.2";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
 
@@ -86,6 +95,17 @@ public final class TestingKafka
                 .dependsOn(kafka);
         closer.register(kafka::stop);
         closer.register(schemaRegistry::stop);
+
+        try {
+            // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
+            //noinspection resource
+            PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
+            kafka.withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", "kafka")));
+            schemaRegistry.withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", "schema-registry")));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public void start()
@@ -180,6 +200,7 @@ public final class TestingKafka
     {
         return Failsafe.with(
                 new RetryPolicy<>()
+                        .onRetry(event -> log.warn(event.getLastFailure(), "Retrying message send"))
                         .withMaxAttempts(10)
                         .withBackoff(1, 10_000, MILLIS))
                 .get(() -> producer.send(record));
