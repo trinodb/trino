@@ -21,7 +21,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.BasicTestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.UUID;
@@ -40,7 +39,7 @@ public class TestMinimalFunctionality
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingKafka = new BasicTestingKafka();
+        testingKafka = closeAfterClass(new BasicTestingKafka());
         topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
                 .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
@@ -51,15 +50,6 @@ public class TestMinimalFunctionality
                         .build())
                 .build();
         return queryRunner;
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void stopKafka()
-    {
-        if (testingKafka != null) {
-            testingKafka.close();
-            testingKafka = null;
-        }
     }
 
     @Test

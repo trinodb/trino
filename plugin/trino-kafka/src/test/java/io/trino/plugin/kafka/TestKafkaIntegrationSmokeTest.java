@@ -24,7 +24,6 @@ import io.trino.tpch.TpchTable;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -79,7 +78,7 @@ public class TestKafkaIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingKafka = new BasicTestingKafka();
+        testingKafka = closeAfterClass(new BasicTestingKafka());
         rawFormatTopic = "test_raw_" + UUID.randomUUID().toString().replaceAll("-", "_");
         headersTopic = "test_header_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
@@ -624,15 +623,6 @@ public class TestKafkaIntegrationSmokeTest
         public String toString()
         {
             return tableName; // for test case label in IDE
-        }
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        if (testingKafka != null) {
-            testingKafka.close();
-            testingKafka = null;
         }
     }
 }
