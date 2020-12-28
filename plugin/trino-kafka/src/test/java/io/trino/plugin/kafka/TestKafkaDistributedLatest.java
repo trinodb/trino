@@ -28,7 +28,7 @@ public class TestKafkaDistributedLatest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingKafka = new BasicTestingKafka("5.5.2");
+        testingKafka = new BasicTestingKafka("6.0.1");
         return KafkaQueryRunner.builder(testingKafka)
                 .setTables(TpchTable.getTables())
                 .build();
