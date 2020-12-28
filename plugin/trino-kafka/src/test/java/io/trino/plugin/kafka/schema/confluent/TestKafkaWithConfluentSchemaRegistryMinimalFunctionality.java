@@ -88,7 +88,8 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     public void testBasicTopic()
     {
         String topic = "topic-basic-MixedCase";
-        assertTopic(topic,
+        assertTopic(
+                topic,
                 format("SELECT col_1, col_2 FROM %s", toDoubleQuoted(topic)),
                 format("SELECT col_1, col_2, col_3 FROM %s", toDoubleQuoted(topic)),
                 false,
@@ -99,7 +100,8 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     public void testTopicWithKeySubject()
     {
         String topic = "topic-Key-Subject";
-        assertTopic(topic,
+        assertTopic(
+                topic,
                 format("SELECT \"%s-key\", col_1, col_2 FROM %s", topic, toDoubleQuoted(topic)),
                 format("SELECT \"%s-key\", col_1, col_2, col_3 FROM %s", topic, toDoubleQuoted(topic)),
                 true,
@@ -110,7 +112,8 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     public void testTopicWithRecordNameStrategy()
     {
         String topic = "topic-Record-Name-Strategy";
-        assertTopic(topic,
+        assertTopic(
+                topic,
                 format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
                 format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
                 true,
@@ -123,7 +126,8 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     public void testTopicWithTopicRecordNameStrategy()
     {
         String topic = "topic-Topic-Record-Name-Strategy";
-        assertTopic(topic,
+        assertTopic(
+                topic,
                 format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
                 format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
                 true,
