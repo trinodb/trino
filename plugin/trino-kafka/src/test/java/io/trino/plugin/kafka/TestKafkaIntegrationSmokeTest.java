@@ -132,22 +132,22 @@ public class TestKafkaIntegrationSmokeTest
         insertData(rawFormatTopic, buf.array());
 
         assertQuery("SELECT " +
-                          "bigint_long, bigint_int, bigint_short, bigint_byte, " +
-                          "double_double, double_float, varchar_byte, " +
-                          "boolean_long, boolean_int, boolean_short, boolean_byte " +
+                        "bigint_long, bigint_int, bigint_short, bigint_byte, " +
+                        "double_double, double_float, varchar_byte, " +
+                        "boolean_long, boolean_int, boolean_short, boolean_byte " +
                         "FROM default." + rawFormatTopic + " WHERE " +
-                          "bigint_long = 1234567890123 AND bigint_int = 123456789 AND bigint_short = 12345 AND bigint_byte = 127 AND " +
-                          "double_double = 123456789.123 AND double_float != 1.0 AND varchar_byte = 'abcdef' AND " +
-                          "boolean_long = TRUE AND boolean_int = TRUE AND boolean_short = TRUE AND boolean_byte = TRUE",
+                        "bigint_long = 1234567890123 AND bigint_int = 123456789 AND bigint_short = 12345 AND bigint_byte = 127 AND " +
+                        "double_double = 123456789.123 AND double_float != 1.0 AND varchar_byte = 'abcdef' AND " +
+                        "boolean_long = TRUE AND boolean_int = TRUE AND boolean_short = TRUE AND boolean_byte = TRUE",
                 "VALUES (1234567890123, 123456789, 12345, 127, 123456789.123, 123456.789, 'abcdef', TRUE, TRUE, TRUE, TRUE)");
         assertQuery("SELECT " +
-                          "bigint_long, bigint_int, bigint_short, bigint_byte, " +
-                          "double_double, double_float, varchar_byte, " +
-                          "boolean_long, boolean_int, boolean_short, boolean_byte " +
+                        "bigint_long, bigint_int, bigint_short, bigint_byte, " +
+                        "double_double, double_float, varchar_byte, " +
+                        "boolean_long, boolean_int, boolean_short, boolean_byte " +
                         "FROM default." + rawFormatTopic + " WHERE " +
-                          "bigint_long < 1234567890124 AND bigint_int < 123456790 AND bigint_short < 12346 AND bigint_byte < 128 AND " +
-                          "double_double < 123456789.124 AND double_float > 2 AND varchar_byte <= 'abcdef' AND " +
-                          "boolean_long != FALSE AND boolean_int != FALSE AND boolean_short != FALSE AND boolean_byte != FALSE",
+                        "bigint_long < 1234567890124 AND bigint_int < 123456790 AND bigint_short < 12346 AND bigint_byte < 128 AND " +
+                        "double_double < 123456789.124 AND double_float > 2 AND varchar_byte <= 'abcdef' AND " +
+                        "boolean_long != FALSE AND boolean_int != FALSE AND boolean_short != FALSE AND boolean_byte != FALSE",
                 "VALUES (1234567890123, 123456789, 12345, 127, 123456789.123, 123456.789, 'abcdef', TRUE, TRUE, TRUE, TRUE)");
     }
 
@@ -400,10 +400,10 @@ public class TestKafkaIntegrationSmokeTest
                         Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), ImmutableList.of(createOneFieldDescription("key", BIGINT, "key", (String) null)))),
                         Optional.of(new KafkaTopicFieldGroup("json", Optional.empty(), Optional.empty(), testCase.getFields().stream()
                                 .map(field -> createOneFieldDescription(
-                                      field.getFieldName(),
-                                      field.getType(),
-                                      field.getDataFormat(),
-                                      field.getFormatHint()))
+                                        field.getFieldName(),
+                                        field.getType(),
+                                        field.getDataFormat(),
+                                        field.getFormatHint()))
                                 .collect(toImmutableList()))))));
     }
 
@@ -537,7 +537,7 @@ public class TestKafkaIntegrationSmokeTest
                 " (" + testCase.getFieldNames() + ")" +
                 " VALUES " + testCase.getRowValues(), testCase.getNumRows());
         assertQuery("SELECT " + testCase.getFieldNames() + " FROM write_test." + testCase.getTableName() +
-                " WHERE f_bigint > 1",
+                        " WHERE f_bigint > 1",
                 "VALUES " + testCase.getRowValues());
     }
 
