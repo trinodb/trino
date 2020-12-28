@@ -16,6 +16,7 @@ package io.prestosql.plugin.kinesis;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -44,6 +45,7 @@ public class KinesisConfig
     private Duration checkpointInterval = new Duration(60000, TimeUnit.MILLISECONDS);
     private String logicalProcessName = "process1";
     private int iteratorNumber;
+    private Duration updateInterval = new Duration(1, TimeUnit.MINUTES);
 
     @NotNull
     public String getTableDescriptionLocation()
@@ -56,6 +58,21 @@ public class KinesisConfig
     public KinesisConfig setTableDescriptionLocation(String tableDescriptionLocation)
     {
         this.tableDescriptionLocation = tableDescriptionLocation;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getUpdateInterval()
+    {
+        return updateInterval;
+    }
+
+    @Config("kinesis.table-description-refresh-interval")
+    @ConfigDescription("SHow often to get the table description from S3")
+    public KinesisConfig setUpdateInterval(Duration updateInterval)
+    {
+        this.updateInterval = updateInterval;
         return this;
     }
 

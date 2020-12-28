@@ -30,6 +30,7 @@ public class TestKinesisConfig
                 .setDefaultSchema("default")
                 .setHideInternalColumns(true)
                 .setTableDescriptionLocation("etc/kinesis/")
+                .setUpdateInterval(new Duration(1, TimeUnit.MINUTES))
                 .setAccessKey(null)
                 .setSecretKey(null)
                 .setAwsRegion("us-east-1")
@@ -55,6 +56,7 @@ public class TestKinesisConfig
                 .put("kinesis.table-description-location", "/var/lib/kinesis")
                 .put("kinesis.default-schema", "kinesis")
                 .put("kinesis.hide-internal-columns", "false")
+                .put("kinesis.table-description-refresh-interval", "600000ms")
                 .put("kinesis.access-key", "kinesis.accessKey")
                 .put("kinesis.secret-key", "kinesis.secretKey")
                 .put("kinesis.fetch-attempts", "3")
@@ -75,6 +77,7 @@ public class TestKinesisConfig
 
         KinesisConfig expected = new KinesisConfig()
                 .setTableDescriptionLocation("/var/lib/kinesis")
+                .setUpdateInterval(new Duration(600000, TimeUnit.MILLISECONDS))
                 .setDefaultSchema("kinesis")
                 .setHideInternalColumns(false)
                 .setAccessKey("kinesis.accessKey")

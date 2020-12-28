@@ -26,12 +26,17 @@ import com.google.common.io.CharStreams;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import io.prestosql.plugin.kinesis.KinesisClientProvider;
 import io.prestosql.plugin.kinesis.KinesisConfig;
 import io.prestosql.plugin.kinesis.KinesisStreamDescription;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.annotation.PostConstruct;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Null;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -69,6 +74,7 @@ public class S3TableConfigClient
     private final JsonCodec<KinesisStreamDescription> streamDescriptionCodec;
 
     private final Optional<String> bucketUrl;
+    private final Duration updateInterval;
     private volatile long lastCheck;
     private volatile ScheduledFuture<?> updateTaskHandle;
 
@@ -81,6 +87,7 @@ public class S3TableConfigClient
             JsonCodec<KinesisStreamDescription> jsonCodec)
     {
         requireNonNull(connectorConfig, "connectorConfig is null");
+        this.updateInterval = connectorConfig.getUpdateInterval();
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
         this.streamDescriptionCodec = requireNonNull(jsonCodec, "jsonCodec is null");
 
@@ -96,10 +103,9 @@ public class S3TableConfigClient
     @PostConstruct
     protected void startS3Updates()
     {
-        // TODO: if required make the update interval configurable
         if (this.bucketUrl.isPresent()) {
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, 600, TimeUnit.SECONDS);
+            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, updateInterval.toMillis(), TimeUnit.MILLISECONDS);
         }
     }
 
