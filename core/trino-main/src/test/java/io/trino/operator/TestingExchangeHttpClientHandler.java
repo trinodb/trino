@@ -28,13 +28,13 @@ import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.Page;
 
 import static io.trino.PrestoMediaTypes.PRESTO_PAGES;
-import static io.trino.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
-import static io.trino.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static io.trino.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
-import static io.trino.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static io.trino.server.InternalHeaders.PRESTO_BUFFER_COMPLETE;
+import static io.trino.server.InternalHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static io.trino.server.InternalHeaders.PRESTO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.PRESTO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;

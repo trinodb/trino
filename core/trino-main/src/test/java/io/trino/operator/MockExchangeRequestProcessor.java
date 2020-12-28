@@ -24,10 +24,10 @@ import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
-import io.trino.client.PrestoHeaders;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
+import io.trino.server.InternalHeaders;
 import io.trino.spi.Page;
 
 import java.net.URI;
@@ -42,13 +42,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.trino.PrestoMediaTypes.PRESTO_PAGES;
-import static io.trino.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
-import static io.trino.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static io.trino.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
-import static io.trino.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPages;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static io.trino.server.InternalHeaders.PRESTO_BUFFER_COMPLETE;
+import static io.trino.server.InternalHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static io.trino.server.InternalHeaders.PRESTO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.PRESTO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -86,8 +86,8 @@ public class MockExchangeRequestProcessor
         }
 
         // verify we got a data size and it parses correctly
-        assertTrue(!request.getHeaders().get(PrestoHeaders.PRESTO_MAX_SIZE).isEmpty());
-        DataSize maxSize = DataSize.valueOf(request.getHeader(PrestoHeaders.PRESTO_MAX_SIZE));
+        assertTrue(!request.getHeaders().get(InternalHeaders.PRESTO_MAX_SIZE).isEmpty());
+        DataSize maxSize = DataSize.valueOf(request.getHeader(InternalHeaders.PRESTO_MAX_SIZE));
         assertEquals(maxSize, expectedMaxSize);
 
         RequestLocation requestLocation = new RequestLocation(request.getUri());
