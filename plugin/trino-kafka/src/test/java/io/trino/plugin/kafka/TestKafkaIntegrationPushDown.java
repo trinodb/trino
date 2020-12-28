@@ -22,7 +22,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
-import io.trino.testing.kafka.BasicTestingKafka;
+import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.testng.annotations.Test;
@@ -51,7 +51,7 @@ public class TestKafkaIntegrationPushDown
     private static final int TIMESTAMP_TEST_START_INDEX = 2;
     private static final int TIMESTAMP_TEST_END_INDEX = 4;
 
-    private BasicTestingKafka testingKafka;
+    private TestingKafka testingKafka;
     private String topicNamePartition;
     private String topicNameOffset;
     private String topicNameCreateTime;
@@ -61,7 +61,7 @@ public class TestKafkaIntegrationPushDown
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingKafka = closeAfterClass(new BasicTestingKafka());
+        testingKafka = closeAfterClass(TestingKafka.create());
         topicNamePartition = "test_push_down_partition_" + UUID.randomUUID().toString().replaceAll("-", "_");
         topicNameOffset = "test_push_down_offset_" + UUID.randomUUID().toString().replaceAll("-", "_");
         topicNameCreateTime = "test_push_down_create_time_" + UUID.randomUUID().toString().replaceAll("-", "_");

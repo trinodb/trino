@@ -23,7 +23,7 @@ import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.kafka.TestingKafkaWithSchemaRegistry;
+import io.trino.testing.kafka.TestingKafka;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.avro.Schema;
@@ -71,14 +71,14 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
             .name("col_3").type().optional().doubleType()
             .endRecord();
 
-    private TestingKafkaWithSchemaRegistry testingKafkaWithSchemaRegistry;
+    private TestingKafka testingKafka;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingKafkaWithSchemaRegistry = closeAfterClass(new TestingKafkaWithSchemaRegistry());
-        return KafkaWithConfluentSchemaRegistryQueryRunner.builder(testingKafkaWithSchemaRegistry)
+        testingKafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
+        return KafkaWithConfluentSchemaRegistryQueryRunner.builder(testingKafka)
                 .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
                         .put("kafka.confluent-subjects-cache-refresh-interval", "1ms")
                         .build())
@@ -155,7 +155,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertNotExists(topicName);
 
         List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
-        testingKafkaWithSchemaRegistry.sendMessages(
+        testingKafka.sendMessages(
                 messages.stream(),
                 schemaRegistryAwareProducer()
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
@@ -174,9 +174,9 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
         assertNotExists(topicName);
 
-        testingKafkaWithSchemaRegistry.sendMessages(
+        testingKafka.sendMessages(
                 IntStream.range(0, MESSAGE_COUNT)
-                .mapToObj(id -> new ProducerRecord<>(topicName, (long) id, new JsonValue(id, "value_" + id))),
+                        .mapToObj(id -> new ProducerRecord<>(topicName, (long) id, new JsonValue(id, "value_" + id))),
                 schemaRegistryAwareProducer()
                         .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName())
@@ -197,7 +197,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     private ImmutableMap.Builder<String, String> schemaRegistryAwareProducer()
     {
         return ImmutableMap.<String, String>builder()
-                .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString());
+                .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafka.getSchemaRegistryConnectString());
     }
 
     private void assertTopic(String topicName, String initialQuery, String evolvedQuery, boolean isKeyIncluded, Map<String, String> producerConfig)
@@ -205,7 +205,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertNotExists(topicName);
 
         List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
-        testingKafkaWithSchemaRegistry.sendMessages(messages.stream(), producerConfig);
+        testingKafka.sendMessages(messages.stream(), producerConfig);
 
         waitUntilTableExists(topicName);
         assertCount(topicName, MESSAGE_COUNT);
@@ -213,7 +213,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertQuery(initialQuery, getExpectedValues(messages, INITIAL_SCHEMA, isKeyIncluded));
 
         List<ProducerRecord<Long, GenericRecord>> newMessages = createMessages(topicName, MESSAGE_COUNT, false);
-        testingKafkaWithSchemaRegistry.sendMessages(newMessages.stream(), producerConfig);
+        testingKafka.sendMessages(newMessages.stream(), producerConfig);
 
         List<ProducerRecord<Long, GenericRecord>> allMessages = ImmutableList.<ProducerRecord<Long, GenericRecord>>builder()
                 .addAll(messages)

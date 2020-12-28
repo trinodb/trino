@@ -19,7 +19,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.kafka.BasicTestingKafka;
+import io.trino.testing.kafka.TestingKafka;
 import io.trino.tpch.TpchTable;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -66,7 +66,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_
 public class TestKafkaIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private BasicTestingKafka testingKafka;
+    private TestingKafka testingKafka;
     private String rawFormatTopic;
     private String headersTopic;
     private static final String JSON_CUSTOM_DATE_TIME_TABLE_NAME = "custom_date_time_table";
@@ -79,7 +79,7 @@ public class TestKafkaIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingKafka = closeAfterClass(new BasicTestingKafka());
+        testingKafka = closeAfterClass(TestingKafka.create());
         rawFormatTopic = "test_raw_" + UUID.randomUUID().toString().replaceAll("-", "_");
         headersTopic = "test_header_" + UUID.randomUUID().toString().replaceAll("-", "_");
 
