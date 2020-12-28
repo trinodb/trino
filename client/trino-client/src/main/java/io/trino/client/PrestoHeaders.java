@@ -15,6 +15,7 @@ package io.trino.client;
 
 public final class PrestoHeaders
 {
+    // request headers
     public static final String PRESTO_USER = "X-Presto-User";
     public static final String PRESTO_SOURCE = "X-Presto-Source";
     public static final String PRESTO_CATALOG = "X-Presto-Catalog";
@@ -24,24 +25,26 @@ public final class PrestoHeaders
     public static final String PRESTO_LANGUAGE = "X-Presto-Language";
     public static final String PRESTO_TRACE_TOKEN = "X-Presto-Trace-Token";
     public static final String PRESTO_SESSION = "X-Presto-Session";
+    public static final String PRESTO_ROLE = "X-Presto-Role";
+    public static final String PRESTO_PREPARED_STATEMENT = "X-Presto-Prepared-Statement";
+    public static final String PRESTO_TRANSACTION_ID = "X-Presto-Transaction-Id";
+    public static final String PRESTO_CLIENT_INFO = "X-Presto-Client-Info";
+    public static final String PRESTO_CLIENT_TAGS = "X-Presto-Client-Tags";
+    public static final String PRESTO_CLIENT_CAPABILITIES = "X-Presto-Client-Capabilities";
+    public static final String PRESTO_RESOURCE_ESTIMATE = "X-Presto-Resource-Estimate";
+    public static final String PRESTO_EXTRA_CREDENTIAL = "X-Presto-Extra-Credential";
+
+    // response headers
     public static final String PRESTO_SET_CATALOG = "X-Presto-Set-Catalog";
     public static final String PRESTO_SET_SCHEMA = "X-Presto-Set-Schema";
     public static final String PRESTO_SET_PATH = "X-Presto-Set-Path";
     public static final String PRESTO_SET_SESSION = "X-Presto-Set-Session";
     public static final String PRESTO_CLEAR_SESSION = "X-Presto-Clear-Session";
     public static final String PRESTO_SET_ROLE = "X-Presto-Set-Role";
-    public static final String PRESTO_ROLE = "X-Presto-Role";
-    public static final String PRESTO_PREPARED_STATEMENT = "X-Presto-Prepared-Statement";
     public static final String PRESTO_ADDED_PREPARE = "X-Presto-Added-Prepare";
     public static final String PRESTO_DEALLOCATED_PREPARE = "X-Presto-Deallocated-Prepare";
-    public static final String PRESTO_TRANSACTION_ID = "X-Presto-Transaction-Id";
     public static final String PRESTO_STARTED_TRANSACTION_ID = "X-Presto-Started-Transaction-Id";
     public static final String PRESTO_CLEAR_TRANSACTION_ID = "X-Presto-Clear-Transaction-Id";
-    public static final String PRESTO_CLIENT_INFO = "X-Presto-Client-Info";
-    public static final String PRESTO_CLIENT_TAGS = "X-Presto-Client-Tags";
-    public static final String PRESTO_CLIENT_CAPABILITIES = "X-Presto-Client-Capabilities";
-    public static final String PRESTO_RESOURCE_ESTIMATE = "X-Presto-Resource-Estimate";
-    public static final String PRESTO_EXTRA_CREDENTIAL = "X-Presto-Extra-Credential";
 
     private PrestoHeaders() {}
 }
