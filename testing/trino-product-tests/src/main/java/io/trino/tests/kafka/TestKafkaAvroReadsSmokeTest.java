@@ -16,12 +16,11 @@ package io.trino.tests.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.Requirement;
-import io.trino.tempto.RequirementsProvider;
-import io.trino.tempto.Requires;
-import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.fulfillment.table.TableHandle;
+import io.trino.tempto.fulfillment.table.TableManager;
 import io.trino.tempto.fulfillment.table.kafka.KafkaMessage;
 import io.trino.tempto.fulfillment.table.kafka.KafkaTableDefinition;
+import io.trino.tempto.fulfillment.table.kafka.KafkaTableManager;
 import io.trino.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import io.trino.tempto.query.QueryResult;
 import org.apache.avro.Schema;
@@ -39,13 +38,14 @@ import java.util.Map;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.KAFKA;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
 
+@Test(singleThreaded = true)
 public class TestKafkaAvroReadsSmokeTest
         extends ProductTest
 {
@@ -62,31 +62,13 @@ public class TestKafkaAvroReadsSmokeTest
     private static final String STRUCTURAL_AVRO_TOPIC_NAME = "read_structural_datatype_avro";
     private static final String STRUCTURAL_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
 
-    // kafka-connectors requires tables to be predefined in presto configuration
-    // the requirements here will be used to verify that table actually exists and to
-    // create topics and propagate them with data
-    private static class AllDataTypesAvroTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            ImmutableMap<String, Object> record = ImmutableMap.of(
-                    "a_varchar", "foobar",
-                    "a_bigint", 127L,
-                    "a_double", 234.567,
-                    "a_boolean", true);
-            return createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_DATATYPES_AVRO_TABLE_NAME, ALL_DATATYPES_AVRO_TOPIC_NAME, record);
-        }
-    }
-
-    private static Requirement createAvroTable(String schemaPath, String tableName, String topicName, ImmutableMap<String, Object> record)
+    private static void createAvroTable(String schemaPath, String tableName, String topicName, ImmutableMap<String, Object> record)
     {
         try {
             Schema schema = new Schema.Parser().parse(new File(schemaPath));
             byte[] avroData = convertRecordToAvro(schema, record);
 
-            return immutableTable(new KafkaTableDefinition(
+            KafkaTableDefinition tableDefinition = new KafkaTableDefinition(
                     tableName,
                     topicName,
                     new ListKafkaDataSource(ImmutableList.of(
@@ -95,7 +77,9 @@ public class TestKafkaAvroReadsSmokeTest
                                             .appendBytes(avroData)
                                             .build()))),
                     1,
-                    1));
+                    1);
+            KafkaTableManager kafkaTableManager = (KafkaTableManager) testContext().getDependency(TableManager.class, "kafka");
+            kafkaTableManager.createImmutable(tableDefinition, TableHandle.parse(tableName));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -118,9 +102,14 @@ public class TestKafkaAvroReadsSmokeTest
     }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(AllDataTypesAvroTable.class)
     public void testSelectPrimitiveDataType()
     {
+        ImmutableMap<String, Object> record = ImmutableMap.of(
+                "a_varchar", "foobar",
+                "a_bigint", 127L,
+                "a_double", 234.567,
+                "a_boolean", true);
+        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_DATATYPES_AVRO_TABLE_NAME, ALL_DATATYPES_AVRO_TOPIC_NAME, record);
         QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_DATATYPES_AVRO_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(
                 "foobar",
@@ -129,20 +118,10 @@ public class TestKafkaAvroReadsSmokeTest
                 true));
     }
 
-    private static class NullDataAvroTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TABLE_NAME, ALL_NULL_AVRO_TOPIC_NAME, ImmutableMap.of());
-        }
-    }
-
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(NullDataAvroTable.class)
     public void testNullType()
     {
+        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TABLE_NAME, ALL_NULL_AVRO_TOPIC_NAME, ImmutableMap.of());
         QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_NULL_AVRO_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(
                 null,
@@ -151,23 +130,13 @@ public class TestKafkaAvroReadsSmokeTest
                 null));
     }
 
-    private static class StructuralDataTypeTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            ImmutableMap<String, Object> record = ImmutableMap.of(
-                    "a_array", ImmutableList.of(100L, 102L),
-                    "a_map", ImmutableMap.of("key1", "value1"));
-            return createAvroTable(STRUCTURAL_SCHEMA_PATH, STRUCTURAL_AVRO_TABLE_NAME, STRUCTURAL_AVRO_TOPIC_NAME, record);
-        }
-    }
-
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(StructuralDataTypeTable.class)
     public void testSelectStructuralDataType()
     {
+        ImmutableMap<String, Object> record = ImmutableMap.of(
+                "a_array", ImmutableList.of(100L, 102L),
+                "a_map", ImmutableMap.of("key1", "value1"));
+        createAvroTable(STRUCTURAL_SCHEMA_PATH, STRUCTURAL_AVRO_TABLE_NAME, STRUCTURAL_AVRO_TOPIC_NAME, record);
         QueryResult queryResult = query(format("SELECT a[1], a[2], m['key1'] FROM (SELECT c_array as a, c_map as m FROM %s.%s) t", KAFKA_CATALOG, STRUCTURAL_AVRO_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(100, 102, "value1"));
     }
