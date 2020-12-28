@@ -750,6 +750,24 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testSubscriptReturnType()
+    {
+        // Test return type of array subscript by passing it to another operation
+        // One test for each specialization of the operator, as well as a Block-based type
+        assertSubscriptToJson("true", "true"); // boolean
+        assertSubscriptToJson("1234", "1234"); // long
+        assertSubscriptToJson("1.23", "1.23"); // double
+        assertSubscriptToJson("'vc'", "\"vc\""); // Slice
+        assertSubscriptToJson("TIMESTAMP '1970-01-01 00:00:00.000000001'", "\"1970-01-01 00:00:00.000000001\""); // Object (LongTimestamp)
+        assertSubscriptToJson("ARRAY [1]", "[1]"); // Block
+    }
+
+    private void assertSubscriptToJson(String literal, String expected)
+    {
+        assertFunction(format("CAST((ARRAY [%s])[1] AS JSON)", literal), JSON, expected);
+    }
+
+    @Test
     public void testElementAt()
     {
         assertInvalidFunction("ELEMENT_AT(ARRAY [], 0)", "SQL array indices start at 1");
