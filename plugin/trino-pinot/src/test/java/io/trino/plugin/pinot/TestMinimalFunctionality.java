@@ -15,7 +15,6 @@ package io.trino.plugin.pinot;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -23,7 +22,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.BasicTestingKafka;
 import io.trino.testing.kafka.TestingKafka;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -33,6 +31,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -61,16 +60,18 @@ public class TestMinimalFunctionality
         pinot = new TestingPinotCluster();
         pinot.start();
 
-        ImmutableList.Builder<ProducerRecord<Long, Object>> builder = ImmutableList.builder();
+        kafka.createTopic(TOPIC_AND_TABLE);
+
         long key = 0L;
-        builder.add(new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor1", "Los Angeles", Arrays.asList("foo1", "bar1", "baz1"), Arrays.asList(5, 6, 7), Arrays.asList(3.5F, 5.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 4)));
-        builder.add(new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor2", "New York", Arrays.asList("foo2", "bar1", "baz1"), Arrays.asList(6, 7, 8), Arrays.asList(4.5F, 6.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 6)));
-        builder.add(new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor3", "Los Angeles", Arrays.asList("foo3", "bar2", "baz1"), Arrays.asList(7, 8, 9), Arrays.asList(5.5F, 7.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 8)));
-        builder.add(new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor4", "New York", Arrays.asList("foo4", "bar2", "baz2"), Arrays.asList(8, 9, 10), Arrays.asList(6.5F, 8.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 10)));
-        builder.add(new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor5", "Los Angeles", Arrays.asList("foo5", "bar3", "baz2"), Arrays.asList(9, 10, 11), Arrays.asList(7.5F, 9.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)));
-        builder.add(new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor6", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)));
-        builder.add(new ProducerRecord<>(TOPIC_AND_TABLE, key, createTestRecord("vendor7", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)));
-        produceRecords(builder.build());
+        kafka.sendMessages(Stream.of(
+                new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor1", "Los Angeles", Arrays.asList("foo1", "bar1", "baz1"), Arrays.asList(5, 6, 7), Arrays.asList(3.5F, 5.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 4)),
+                new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor2", "New York", Arrays.asList("foo2", "bar1", "baz1"), Arrays.asList(6, 7, 8), Arrays.asList(4.5F, 6.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 6)),
+                new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor3", "Los Angeles", Arrays.asList("foo3", "bar2", "baz1"), Arrays.asList(7, 8, 9), Arrays.asList(5.5F, 7.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 8)),
+                new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor4", "New York", Arrays.asList("foo4", "bar2", "baz2"), Arrays.asList(8, 9, 10), Arrays.asList(6.5F, 8.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 10)),
+                new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor5", "Los Angeles", Arrays.asList("foo5", "bar3", "baz2"), Arrays.asList(9, 10, 11), Arrays.asList(7.5F, 9.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
+                new ProducerRecord<>(TOPIC_AND_TABLE, key++, createTestRecord("vendor6", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
+                new ProducerRecord<>(TOPIC_AND_TABLE, key, createTestRecord("vendor7", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12))));
+
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("schema.json"), TOPIC_AND_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("realtimeSpec.json"), TOPIC_AND_TABLE);
 
@@ -311,21 +312,6 @@ public class TestMinimalFunctionality
         public long getUpdatedAt()
         {
             return updatedAt;
-        }
-    }
-
-    private void produceRecords(List<ProducerRecord<Long, Object>> records)
-    {
-        KafkaProducer<Long, Object> producer = kafka.createProducer();
-
-        try {
-            for (ProducerRecord<Long, Object> record : records) {
-                producer.send(record);
-            }
-        }
-        finally {
-            producer.flush();
-            producer.close();
         }
     }
 }

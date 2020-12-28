@@ -19,13 +19,13 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.BasicTestingKafka;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.Test;
 
-import java.util.UUID;
+import java.util.stream.LongStream;
 
 import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
+import static java.util.UUID.randomUUID;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -40,7 +40,7 @@ public class TestMinimalFunctionality
             throws Exception
     {
         testingKafka = closeAfterClass(new BasicTestingKafka());
-        topicName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
+        topicName = "test_" + randomUUID().toString().replaceAll("-", "_");
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
                 .setExtraTopicDescription(ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
                         .put(createEmptyTopicDescription(topicName, new SchemaTableName("default", topicName)))
@@ -63,21 +63,9 @@ public class TestMinimalFunctionality
     {
         assertQuery("SELECT count(*) FROM default." + topicName, "VALUES 0");
 
-        createMessages(topicName);
+        testingKafka.sendMessages(LongStream.range(0, 100000)
+                .mapToObj(id -> new ProducerRecord<>(topicName, id, ImmutableMap.of("id", Long.toString(id), "value", randomUUID().toString()))));
 
         assertQuery("SELECT count(*) FROM default." + topicName, "VALUES 100000L");
-    }
-
-    private void createMessages(String topicName)
-    {
-        try (KafkaProducer<Long, Object> producer = testingKafka.createProducer()) {
-            int jMax = 10_000;
-            int iMax = 100_000 / jMax;
-            for (long i = 0; i < iMax; i++) {
-                for (long j = 0; j < jMax; j++) {
-                    producer.send(new ProducerRecord<>(topicName, i, ImmutableMap.of("id", Long.toString(i * iMax + j), "value", UUID.randomUUID().toString())));
-                }
-            }
-        }
     }
 }

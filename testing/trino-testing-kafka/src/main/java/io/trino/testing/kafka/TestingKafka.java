@@ -14,10 +14,12 @@
 package io.trino.testing.kafka;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 
 import java.io.Closeable;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public interface TestingKafka
         extends Closeable
@@ -28,12 +30,12 @@ public interface TestingKafka
 
     void createTopicWithConfig(int partitions, int replication, String topic, boolean enableLogAppendTime);
 
-    String getConnectString();
-
-    default <K, V> KafkaProducer<K, V> createProducer()
+    default <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream)
     {
-        return createProducer(ImmutableMap.of());
+        return sendMessages(recordStream, ImmutableMap.of());
     }
 
-    <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties);
+    <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream, Map<String, String> extraProducerProperties);
+
+    String getConnectString();
 }

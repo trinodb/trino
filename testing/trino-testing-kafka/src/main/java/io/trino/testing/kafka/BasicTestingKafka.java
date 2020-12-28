@@ -13,8 +13,11 @@
  */
 package io.trino.testing.kafka;
 
+import com.google.common.util.concurrent.Futures;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
@@ -24,6 +27,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.stream.Stream;
 
 import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
 
@@ -84,13 +90,31 @@ public class BasicTestingKafka
     }
 
     @Override
+    public <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream, Map<String, String> extraProducerProperties)
+    {
+        try (KafkaProducer<K, V> producer = createProducer(extraProducerProperties)) {
+            Future<RecordMetadata> future = recordStream.map(record -> producer.send(record))
+                    .reduce((first, second) -> second)
+                    .orElse(Futures.immediateFuture(null));
+            producer.flush();
+            return future.get();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     public String getConnectString()
     {
         return container.getContainerIpAddress() + ":" + container.getMappedPort(KAFKA_PORT);
     }
 
-    @Override
-    public <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties)
+    private <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties)
     {
         Map<String, String> properties = new HashMap<>(extraProperties);
 

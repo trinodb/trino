@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
@@ -31,16 +30,14 @@ import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Future;
+import java.util.stream.IntStream;
 
 import static io.airlift.units.Duration.succinctDuration;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
@@ -97,8 +94,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 format("SELECT col_1, col_2 FROM %s", toDoubleQuoted(topic)),
                 format("SELECT col_1, col_2, col_3 FROM %s", toDoubleQuoted(topic)),
                 false,
-                ImmutableMap.<String, String>builder()
-                        .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString())
+                schemaRegistryAwareProducer()
                         .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .build());
@@ -113,8 +109,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 format("SELECT \"%s-key\", col_1, col_2 FROM %s", topic, toDoubleQuoted(topic)),
                 format("SELECT \"%s-key\", col_1, col_2, col_3 FROM %s", topic, toDoubleQuoted(topic)),
                 true,
-                ImmutableMap.<String, String>builder()
-                        .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString())
+                schemaRegistryAwareProducer()
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .build());
@@ -129,8 +124,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
                 format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
                 true,
-                ImmutableMap.<String, String>builder()
-                        .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString())
+                schemaRegistryAwareProducer()
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SUBJECT_NAME_STRATEGY, RecordNameStrategy.class.getName())
@@ -146,8 +140,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
                 format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
                 true,
-                ImmutableMap.<String, String>builder()
-                        .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString())
+                schemaRegistryAwareProducer()
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SUBJECT_NAME_STRATEGY, TopicRecordNameStrategy.class.getName())
@@ -162,7 +155,12 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertNotExists(topicName);
 
         List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
-        sendMessages(messages, ImmutableMap.of(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName()));
+        testingKafkaWithSchemaRegistry.sendMessages(
+                messages.stream(),
+                schemaRegistryAwareProducer()
+                        .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                        .build());
 
         waitUntilTableExists(topicName);
 
@@ -171,19 +169,18 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
 
     @Test
     public void testUnsupportedFormat()
-            throws Exception
     {
         String topicName = "topic-unsupported-format";
 
         assertNotExists(topicName);
 
-        Future<RecordMetadata> lastSendFuture = Futures.immediateFuture(null);
-        try (KafkaProducer<Long, JsonValue> producer = testingKafkaWithSchemaRegistry.createProducer(ImmutableMap.of(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName()))) {
-            for (int key = 0; key < MESSAGE_COUNT; key++) {
-                lastSendFuture = producer.send(new ProducerRecord<>(topicName, (long) key, new JsonValue(key, "value_" + key)));
-            }
-        }
-        lastSendFuture.get();
+        testingKafkaWithSchemaRegistry.sendMessages(
+                IntStream.range(0, MESSAGE_COUNT)
+                .mapToObj(id -> new ProducerRecord<>(topicName, (long) id, new JsonValue(id, "value_" + id))),
+                schemaRegistryAwareProducer()
+                        .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
+                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName())
+                        .build());
 
         String errorMessage = "Not supported schema: JSON";
         assertEventually(
@@ -197,12 +194,18 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertQueryFails(format("INSERT INTO \"%s\" VALUES (0, 0, '')", topicName), errorMessage);
     }
 
+    private ImmutableMap.Builder<String, String> schemaRegistryAwareProducer()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString());
+    }
+
     private void assertTopic(String topicName, String initialQuery, String evolvedQuery, boolean isKeyIncluded, Map<String, String> producerConfig)
     {
         assertNotExists(topicName);
 
         List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
-        sendMessages(messages, producerConfig);
+        testingKafkaWithSchemaRegistry.sendMessages(messages.stream(), producerConfig);
 
         waitUntilTableExists(topicName);
         assertCount(topicName, MESSAGE_COUNT);
@@ -210,7 +213,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertQuery(initialQuery, getExpectedValues(messages, INITIAL_SCHEMA, isKeyIncluded));
 
         List<ProducerRecord<Long, GenericRecord>> newMessages = createMessages(topicName, MESSAGE_COUNT, false);
-        sendMessages(newMessages, producerConfig);
+        testingKafkaWithSchemaRegistry.sendMessages(newMessages.stream(), producerConfig);
 
         List<ProducerRecord<Long, GenericRecord>> allMessages = ImmutableList.<ProducerRecord<Long, GenericRecord>>builder()
                 .addAll(messages)
@@ -300,13 +303,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     {
         requireNonNull(value, "value is null");
         return format("'%s'", value);
-    }
-
-    private void sendMessages(List<ProducerRecord<Long, GenericRecord>> messages, Map<String, String> producerConfig)
-    {
-        try (KafkaProducer<Long, GenericRecord> producer = testingKafkaWithSchemaRegistry.createProducer(producerConfig)) {
-            messages.forEach(producer::send);
-        }
     }
 
     private static List<ProducerRecord<Long, GenericRecord>> createMessages(String topicName, int messageCount, boolean useInitialSchema)
