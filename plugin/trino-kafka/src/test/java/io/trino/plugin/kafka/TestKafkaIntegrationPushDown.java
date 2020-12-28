@@ -29,7 +29,6 @@ import io.trino.testing.kafka.BasicTestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -67,7 +66,7 @@ public class TestKafkaIntegrationPushDown
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        testingKafka = new BasicTestingKafka();
+        testingKafka = closeAfterClass(new BasicTestingKafka());
         topicNamePartition = "test_push_down_partition_" + UUID.randomUUID().toString().replaceAll("-", "_");
         topicNameOffset = "test_push_down_offset_" + UUID.randomUUID().toString().replaceAll("-", "_");
         topicNameCreateTime = "test_push_down_create_time_" + UUID.randomUUID().toString().replaceAll("-", "_");
@@ -89,15 +88,6 @@ public class TestKafkaIntegrationPushDown
         testingKafka.createTopicWithConfig(1, 1, topicNameCreateTime, false);
         testingKafka.createTopicWithConfig(1, 1, topicNameLogAppend, true);
         return queryRunner;
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void stopKafka()
-    {
-        if (testingKafka != null) {
-            testingKafka.close();
-            testingKafka = null;
-        }
     }
 
     @Test
