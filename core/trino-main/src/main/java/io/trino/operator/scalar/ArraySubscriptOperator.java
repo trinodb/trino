@@ -77,7 +77,8 @@ public class ArraySubscriptOperator
             methodHandle = METHOD_HANDLE_SLICE;
         }
         else {
-            methodHandle = METHOD_HANDLE_OBJECT;
+            methodHandle = METHOD_HANDLE_OBJECT.asType(
+                    METHOD_HANDLE_OBJECT.type().changeReturnType(elementType.getJavaType()));
         }
         methodHandle = methodHandle.bindTo(elementType);
         requireNonNull(methodHandle, "methodHandle is null");
