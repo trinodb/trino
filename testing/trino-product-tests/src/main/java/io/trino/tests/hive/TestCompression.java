@@ -17,6 +17,7 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -40,29 +41,47 @@ public class TestCompression
     }
 
     @Test(groups = {HIVE_COMPRESSION, SKIP_ON_CDH /* no lzo support in CDH image */})
-    public void testReadLzop()
+    public void testReadTextfileWithLzop()
     {
-        onHive().executeQuery("DROP TABLE IF EXISTS test_read_lzop");
+        testReadCompressedTable(
+                "STORED AS TEXTFILE",
+                "com.hadoop.compression.lzo.LzopCodec",
+                ".*\\.lzo"); // LZOP compression uses .lzo file extension by default
+    }
+
+    @Test(groups = {HIVE_COMPRESSION, SKIP_ON_CDH /* no lzo support in CDH image */})
+    public void testReadSequencefileWithLzo()
+    {
+        testReadCompressedTable(
+                "STORED AS SEQUENCEFILE",
+                "com.hadoop.compression.lzo.LzoCodec",
+                // sequencefile stores compression information in the file header, so no suffix expected
+                "\\d+_0");
+    }
+
+    private void testReadCompressedTable(String tableStorageDefinition, String compressionCodec, @Language("RegExp") String expectedFileNamePattern)
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS test_read_compressed");
 
         try {
             onHive().executeQuery("SET hive.exec.compress.output=true");
             onHive().executeQuery("SET mapreduce.output.fileoutputformat.compress=true");
-            onHive().executeQuery("SET mapreduce.output.fileoutputformat.compress.codec=com.hadoop.compression.lzo.LzopCodec");
-            onHive().executeQuery("CREATE TABLE test_read_lzop STORED AS TEXTFILE AS SELECT * FROM orders");
+            onHive().executeQuery("SET mapreduce.output.fileoutputformat.compress.codec=" + compressionCodec);
+            onHive().executeQuery("CREATE TABLE test_read_compressed " + tableStorageDefinition + " AS SELECT * FROM orders");
 
-            assertThat(onPresto().executeQuery("SELECT count(*) FROM test_read_lzop"))
+            assertThat(onPresto().executeQuery("SELECT count(*) FROM test_read_compressed"))
                     .containsExactly(row(1500000));
-            assertThat(onPresto().executeQuery("SELECT sum(o_orderkey) FROM test_read_lzop"))
+            assertThat(onPresto().executeQuery("SELECT sum(o_orderkey) FROM test_read_compressed"))
                     .containsExactly(row(4499987250000L));
 
-            assertThat((String) onPresto().executeQuery("SELECT \"$path\" FROM test_read_lzop LIMIT 1").row(0).get(0))
-                    .endsWith(".lzo"); // LZOP compression uses .lzo file extension by default
+            assertThat((String) onPresto().executeQuery("SELECT regexp_replace(\"$path\", '.*/') FROM test_read_compressed LIMIT 1").row(0).get(0))
+                    .matches(expectedFileNamePattern);
         }
         finally {
             // TODO use inNewConnection instead
             onHive().executeQuery("RESET");
 
-            onHive().executeQuery("DROP TABLE IF EXISTS test_read_lzop");
+            onHive().executeQuery("DROP TABLE IF EXISTS test_read_compressed");
         }
     }
 }
