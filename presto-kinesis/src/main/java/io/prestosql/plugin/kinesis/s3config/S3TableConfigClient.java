@@ -74,12 +74,14 @@ public class S3TableConfigClient
 
     private final Map<String, KinesisStreamDescription> descriptors = Collections.synchronizedMap(new HashMap<>());
 
+    private final int updateInterval;
     @Inject
     public S3TableConfigClient(
             KinesisConfig connectorConfig,
             KinesisClientProvider clientManager,
-            JsonCodec<KinesisStreamDescription> jsonCodec)
+            JsonCodec<KinesisStreamDescription> jsonCodec, int updateInterval)
     {
+        this.updateInterval = updateInterval;
         requireNonNull(connectorConfig, "connectorConfig is null");
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
         this.streamDescriptionCodec = requireNonNull(jsonCodec, "jsonCodec is null");
@@ -99,7 +101,7 @@ public class S3TableConfigClient
         // TODO: if required make the update interval configurable
         if (this.bucketUrl.isPresent()) {
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, 600, TimeUnit.SECONDS);
+            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, this.updateInterval, TimeUnit.SECONDS);
         }
     }
 
