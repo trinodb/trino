@@ -28,13 +28,13 @@ import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.spi.Page;
 
 import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
-import static io.prestosql.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
-import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
-import static io.prestosql.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static io.prestosql.server.InternalHeaders.PRESTO_BUFFER_COMPLETE;
+import static io.prestosql.server.InternalHeaders.PRESTO_PAGE_NEXT_TOKEN;
+import static io.prestosql.server.InternalHeaders.PRESTO_PAGE_TOKEN;
+import static io.prestosql.server.InternalHeaders.PRESTO_TASK_INSTANCE_ID;
 import static io.prestosql.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
