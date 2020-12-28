@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
@@ -33,14 +34,16 @@ import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.serialization.LongSerializer;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Future;
-import java.util.function.Supplier;
 
 import static io.airlift.units.Duration.succinctDuration;
+import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.multiplyExact;
@@ -48,6 +51,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
@@ -93,7 +97,11 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 format("SELECT col_1, col_2 FROM %s", toDoubleQuoted(topic)),
                 format("SELECT col_1, col_2, col_3 FROM %s", toDoubleQuoted(topic)),
                 false,
-                () -> testingKafkaWithSchemaRegistry.createProducer());
+                ImmutableMap.<String, String>builder()
+                        .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString())
+                        .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
+                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                        .build());
     }
 
     @Test
@@ -105,7 +113,11 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 format("SELECT \"%s-key\", col_1, col_2 FROM %s", topic, toDoubleQuoted(topic)),
                 format("SELECT \"%s-key\", col_1, col_2, col_3 FROM %s", topic, toDoubleQuoted(topic)),
                 true,
-                () -> testingKafkaWithSchemaRegistry.createConfluentProducer());
+                ImmutableMap.<String, String>builder()
+                        .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString())
+                        .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                        .build());
     }
 
     @Test
@@ -117,9 +129,12 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
                 format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
                 true,
-                () -> testingKafkaWithSchemaRegistry.createConfluentProducer(ImmutableMap.<String, String>builder()
+                ImmutableMap.<String, String>builder()
+                        .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString())
+                        .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SUBJECT_NAME_STRATEGY, RecordNameStrategy.class.getName())
-                        .build()));
+                        .build());
     }
 
     @Test
@@ -131,9 +146,12 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
                 format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
                 true,
-                () -> testingKafkaWithSchemaRegistry.createConfluentProducer(ImmutableMap.<String, String>builder()
+                ImmutableMap.<String, String>builder()
+                        .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafkaWithSchemaRegistry.getSchemaRegistryConnectString())
+                        .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SUBJECT_NAME_STRATEGY, TopicRecordNameStrategy.class.getName())
-                        .build()));
+                        .build());
     }
 
     @Test
@@ -144,7 +162,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertNotExists(topicName);
 
         List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
-        sendMessages(messages, () -> testingKafkaWithSchemaRegistry.createConfluentProducer());
+        sendMessages(messages, ImmutableMap.of(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName()));
 
         waitUntilTableExists(topicName);
 
@@ -179,12 +197,12 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertQueryFails(format("INSERT INTO \"%s\" VALUES (0, 0, '')", topicName), errorMessage);
     }
 
-    private void assertTopic(String topicName, String initialQuery, String evolvedQuery, boolean isKeyIncluded, Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier)
+    private void assertTopic(String topicName, String initialQuery, String evolvedQuery, boolean isKeyIncluded, Map<String, String> producerConfig)
     {
         assertNotExists(topicName);
 
         List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
-        sendMessages(messages, producerSupplier);
+        sendMessages(messages, producerConfig);
 
         waitUntilTableExists(topicName);
         assertCount(topicName, MESSAGE_COUNT);
@@ -192,7 +210,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         assertQuery(initialQuery, getExpectedValues(messages, INITIAL_SCHEMA, isKeyIncluded));
 
         List<ProducerRecord<Long, GenericRecord>> newMessages = createMessages(topicName, MESSAGE_COUNT, false);
-        sendMessages(newMessages, producerSupplier);
+        sendMessages(newMessages, producerConfig);
 
         List<ProducerRecord<Long, GenericRecord>> allMessages = ImmutableList.<ProducerRecord<Long, GenericRecord>>builder()
                 .addAll(messages)
@@ -284,9 +302,9 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         return format("'%s'", value);
     }
 
-    private static void sendMessages(List<ProducerRecord<Long, GenericRecord>> messages, Supplier<KafkaProducer<Long, GenericRecord>> producerSupplier)
+    private void sendMessages(List<ProducerRecord<Long, GenericRecord>> messages, Map<String, String> producerConfig)
     {
-        try (KafkaProducer<Long, GenericRecord> producer = producerSupplier.get()) {
+        try (KafkaProducer<Long, GenericRecord> producer = testingKafkaWithSchemaRegistry.createProducer(producerConfig)) {
             messages.forEach(producer::send);
         }
     }

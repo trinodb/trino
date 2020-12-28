@@ -13,10 +13,8 @@
  */
 package io.trino.testing.kafka;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.LongSerializer;
@@ -24,7 +22,6 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
@@ -102,17 +99,5 @@ public class TestingKafkaWithSchemaRegistry
     public String getSchemaRegistryConnectString()
     {
         return "http://" + schemaRegistryContainer.getContainerIpAddress() + ":" + schemaRegistryContainer.getMappedPort(SCHEMA_REGISTRY_PORT);
-    }
-
-    public <T> KafkaProducer<T, GenericRecord> createConfluentProducer()
-    {
-        return createConfluentProducer(ImmutableMap.of());
-    }
-
-    public <T> KafkaProducer<T, GenericRecord> createConfluentProducer(Map<String, String> extraProperties)
-    {
-        Map<String, String> properties = new HashMap<>(extraProperties);
-        properties.putIfAbsent(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName());
-        return createProducer(properties);
     }
 }
