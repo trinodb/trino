@@ -46,6 +46,6 @@ public class Suite6NonGeneric
                 testOnEnvironment(SinglenodeKerberosKmsHdfsNoImpersonation.class).withGroups("storage_formats").build(),
                 testOnEnvironment(SinglenodeKerberosKmsHdfsImpersonation.class).withGroups("storage_formats").build(),
                 testOnEnvironment(SinglenodeCassandra.class).withGroups("cassandra").build(),
-                testOnEnvironment(SinglenodeKafka.class).withGroups("kafka").build());
+                testOnEnvironment(SinglenodeKafka.class).withGroups("kafka", "kafka_schema_registry").build());
     }
 }

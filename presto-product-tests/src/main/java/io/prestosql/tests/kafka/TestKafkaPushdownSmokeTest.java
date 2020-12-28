@@ -40,7 +40,6 @@ import static java.lang.String.format;
 public class TestKafkaPushdownSmokeTest
         extends ProductTest
 {
-    private static final String KAFKA_CATALOG = "kafka";
     private static final String SCHEMA_NAME = "product_tests";
 
     private static final long NUM_MESSAGES = 100;
@@ -82,13 +81,13 @@ public class TestKafkaPushdownSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(PushdownPartitionTable.class)
-    public void testPartitionPushdown()
+    public void testPartitionPushdown(KafkaCatalog catalog)
     {
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_id = 1",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 PUSHDOWN_PARTITION_TABLE_NAME)))
                 .containsExactly(row(NUM_MESSAGES / 2));
@@ -117,48 +116,48 @@ public class TestKafkaPushdownSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(PushdownOffsetTable.class)
-    public void testOffsetPushdown()
+    public void testOffsetPushdown(KafkaCatalog catalog)
     {
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset BETWEEN 6 AND 10",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactly(row(10));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset > 5 AND _partition_offset < 10",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactly(row(8));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset >= 5 AND _partition_offset <= 10",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactly(row(12));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset >= 5 AND _partition_offset < 10",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactly(row(10));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset > 5 AND _partition_offset <= 10",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactly(row(10));
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _partition_offset = 5",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 PUSHDOWN_OFFSET_TABLE_NAME)))
                 .containsExactly(row(2));
@@ -179,15 +178,15 @@ public class TestKafkaPushdownSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(PushdownCreateTimeTable.class)
-    public void testCreateTimePushdown()
+    public void testCreateTimePushdown(KafkaCatalog catalog)
             throws InterruptedException
     {
         // Ensure a spread of at-least TIMESTAMP_NUM_MESSAGES * 100 milliseconds
         for (int i = 1; i <= TIMESTAMP_NUM_MESSAGES; i++) {
             query(format("INSERT INTO %s.%s.%s (bigint_key, bigint_value) VALUES (%s, %s)",
-                    KAFKA_CATALOG, SCHEMA_NAME, PUSHDOWN_CREATE_TIME_TABLE_NAME, i, i));
+                    catalog, SCHEMA_NAME, PUSHDOWN_CREATE_TIME_TABLE_NAME, i, i));
             Thread.sleep(100);
         }
 
@@ -195,7 +194,7 @@ public class TestKafkaPushdownSmokeTest
         long endKey = 6;
         List<List<?>> rows = query(format(
                 "SELECT CAST(_timestamp AS VARCHAR) FROM %s.%s.%s WHERE bigint_key IN (" + startKey + ", " + endKey + ") ORDER BY bigint_key",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 PUSHDOWN_CREATE_TIME_TABLE_NAME))
                 .rows();
@@ -204,7 +203,7 @@ public class TestKafkaPushdownSmokeTest
 
         assertThat(query(format(
                 "SELECT COUNT(*) FROM %s.%s.%s WHERE _timestamp >= TIMESTAMP '%s' AND _timestamp < TIMESTAMP '%s'",
-                KAFKA_CATALOG, SCHEMA_NAME, PUSHDOWN_CREATE_TIME_TABLE_NAME, startTime, endTime)))
+                catalog, SCHEMA_NAME, PUSHDOWN_CREATE_TIME_TABLE_NAME, startTime, endTime)))
                 .containsExactly(row(endKey - startKey));
     }
 }

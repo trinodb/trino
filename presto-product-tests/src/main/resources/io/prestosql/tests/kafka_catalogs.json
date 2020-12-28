@@ -1,0 +1,8 @@
+[
+  {
+    "catalogName": "kafka"
+  },
+  {
+    "catalogName": "kafka_schema_registry"
+  }
+]

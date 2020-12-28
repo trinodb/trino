@@ -49,8 +49,6 @@ import static java.lang.String.format;
 public class TestKafkaAvroReadsSmokeTest
         extends ProductTest
 {
-    private static final String KAFKA_CATALOG = "kafka";
-
     private static final String ALL_DATATYPES_AVRO_TABLE_NAME = "product_tests.read_all_datatypes_avro";
     private static final String ALL_DATATYPES_AVRO_TOPIC_NAME = "read_all_datatypes_avro";
     private static final String ALL_DATATYPE_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes_avro_schema.avsc";
@@ -117,11 +115,11 @@ public class TestKafkaAvroReadsSmokeTest
         return outputStream.toByteArray();
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(AllDataTypesAvroTable.class)
-    public void testSelectPrimitiveDataType()
+    public void testSelectPrimitiveDataType(KafkaCatalog catalog)
     {
-        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_DATATYPES_AVRO_TABLE_NAME));
+        QueryResult queryResult = query(format("select * from %s.%s", catalog, ALL_DATATYPES_AVRO_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(
                 "foobar",
                 127,
@@ -139,11 +137,11 @@ public class TestKafkaAvroReadsSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(NullDataAvroTable.class)
-    public void testNullType()
+    public void testNullType(KafkaCatalog catalog)
     {
-        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_NULL_AVRO_TABLE_NAME));
+        QueryResult queryResult = query(format("select * from %s.%s", catalog, ALL_NULL_AVRO_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(
                 null,
                 null,
@@ -164,11 +162,11 @@ public class TestKafkaAvroReadsSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(StructuralDataTypeTable.class)
-    public void testSelectStructuralDataType()
+    public void testSelectStructuralDataType(KafkaCatalog catalog)
     {
-        QueryResult queryResult = query(format("SELECT a[1], a[2], m['key1'] FROM (SELECT c_array as a, c_map as m FROM %s.%s) t", KAFKA_CATALOG, STRUCTURAL_AVRO_TABLE_NAME));
+        QueryResult queryResult = query(format("SELECT a[1], a[2], m['key1'] FROM (SELECT c_array as a, c_map as m FROM %s.%s) t", catalog, STRUCTURAL_AVRO_TABLE_NAME));
         assertThat(queryResult).containsOnly(row(100, 102, "value1"));
     }
 }

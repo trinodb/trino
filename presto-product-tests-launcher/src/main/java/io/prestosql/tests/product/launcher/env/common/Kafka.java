@@ -28,7 +28,8 @@ import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 public class Kafka
         implements EnvironmentExtender
 {
-    private static final String CONFLUENT_VERSION = "5.2.1";
+    private static final String CONFLUENT_VERSION = "5.5.2";
+    private static final int SCHEMA_REGISTRY_PORT = 8081;
 
     private final PortBinder portBinder;
 
@@ -41,8 +42,9 @@ public class Kafka
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainers(createZookeeper(), createKafka())
-                .containerDependsOn("kafka", "zookeeper");
+        builder.addContainers(createZookeeper(), createKafka(), createSchemaRegistry())
+                .containerDependsOn("kafka", "zookeeper")
+                .containerDependsOn("schema-registry", "kafka");
     }
 
     @SuppressWarnings("resource")
@@ -72,6 +74,21 @@ public class Kafka
                 .waitingForAll(forSelectedPorts(9092), forLogMessage(".*started \\(kafka.server.KafkaServer\\).*", 1));
 
         portBinder.exposePort(container, 9092);
+
+        return container;
+    }
+
+    @SuppressWarnings("resource")
+    private DockerContainer createSchemaRegistry()
+    {
+        DockerContainer container = new DockerContainer("confluentinc/cp-schema-registry:" + CONFLUENT_VERSION, "schema-registry")
+                .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
+                .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
+                .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
+                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
+                .waitingFor(forSelectedPorts(SCHEMA_REGISTRY_PORT));
+
+        portBinder.exposePort(container, SCHEMA_REGISTRY_PORT);
 
         return container;
     }

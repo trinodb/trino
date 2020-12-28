@@ -41,7 +41,6 @@ import static java.lang.String.format;
 public class TestKafkaWritesSmokeTest
         extends ProductTest
 {
-    private static final String KAFKA_CATALOG = "kafka";
     private static final String SCHEMA_NAME = "product_tests";
 
     private static final String SIMPLE_KEY_AND_VALUE_TABLE_NAME = "write_simple_key_and_value";
@@ -66,22 +65,22 @@ public class TestKafkaWritesSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(SimpleKeyAndValueTable.class)
-    public void testInsertSimpleKeyAndValue()
+    public void testInsertSimpleKeyAndValue(KafkaCatalog catalog)
     {
         assertThat(query(format(
                 "INSERT INTO %s.%s.%s VALUES " +
                         "('jasio', 1, 'ania', 2), " +
                         "('piotr', 3, 'kasia', 4)",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 SIMPLE_KEY_AND_VALUE_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(2);
 
         assertThat(query(format(
                 "SELECT * FROM %s.%s.%s",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 SIMPLE_KEY_AND_VALUE_TABLE_NAME)))
                 .containsOnly(
@@ -107,9 +106,9 @@ public class TestKafkaWritesSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(AllDataTypesRawTable.class)
-    public void testInsertRawTable()
+    public void testInsertRawTable(KafkaCatalog catalog)
     {
         // TODO RawRowEncoder doesn't take mapping length into considertion while writing so a
         //  BIGINT with dataFormat = BYTE takes up 8 bytes during write (as opposed to 1 byte
@@ -121,14 +120,14 @@ public class TestKafkaWritesSmokeTest
                         "('piotr', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false), " +
                         "('hasan', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, true), " +
                         "('kasia', -9223372036854775808, -2147483648, -32768, -128, -1234567890.123456789, false)",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 ALL_DATATYPES_RAW_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(4);
 
         assertThat(query(format(
                 "SELECT * FROM %s.%s.%s",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 ALL_DATATYPES_RAW_TABLE_NAME)))
                 .containsOnly(
@@ -156,9 +155,9 @@ public class TestKafkaWritesSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(AllDataTypesCsvTable.class)
-    public void testInsertCsvTable()
+    public void testInsertCsvTable(KafkaCatalog catalog)
     {
         assertThat(query(format(
                 "INSERT INTO %s.%s.%s VALUES " +
@@ -167,14 +166,14 @@ public class TestKafkaWritesSmokeTest
                         "(null, null, null, null, null, null, null), " +
                         "('krzysio', 9223372036854775807, 2147483647, 32767, 127, 1234567890.123456789, false), " +
                         "('kasia', 9223372036854775807, 2147483647, 32767, null, null, null)",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 ALL_DATATYPES_CSV_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(5);
 
         assertThat(query(format(
                 "SELECT * FROM %s.%s.%s",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 ALL_DATATYPES_CSV_TABLE_NAME)))
                 .containsOnly(
@@ -203,9 +202,9 @@ public class TestKafkaWritesSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(AllDataTypesJsonTable.class)
-    public void testInsertJsonTable()
+    public void testInsertJsonTable(KafkaCatalog catalog)
     {
         assertThat(query(format(
                 "INSERT INTO %s.%s.%s VALUES (" +
@@ -234,7 +233,7 @@ public class TestKafkaWritesSmokeTest
                         // Pacific/Apia was UTC-11:00 on epoch day 0
                         "TIME '02:15:18 -11:00'," +
                         "TIME '02:15:20 -11:00')",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 ALL_DATATYPES_JSON_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(1);
@@ -266,7 +265,7 @@ public class TestKafkaWritesSmokeTest
                         "CAST(c_timetz_iso8601 AS VARCHAR), " +
                         "CAST(c_timetz_custom AS VARCHAR) " +
                         "FROM %s.%s.%s",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 ALL_DATATYPES_JSON_TABLE_NAME)))
                 .containsOnly(row(

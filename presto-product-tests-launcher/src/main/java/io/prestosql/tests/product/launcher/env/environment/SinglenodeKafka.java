@@ -16,6 +16,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
+import io.prestosql.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Kafka;
@@ -33,13 +34,14 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class SinglenodeKafka
         extends EnvironmentProvider
 {
-    private final DockerFiles dockerFiles;
+    private final ResourceProvider configDir;
 
     @Inject
     public SinglenodeKafka(Kafka kafka, Standard standard, DockerFiles dockerFiles)
     {
         super(ImmutableList.of(standard, kafka));
-        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        requireNonNull(dockerFiles, "dockerFiles is null");
+        configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-kafka/");
     }
 
     @Override
@@ -47,7 +49,10 @@ public final class SinglenodeKafka
     {
         builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(
-                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kafka/kafka.properties")),
+                        forHostPath(configDir.getPath("kafka_schema_registry.properties")),
+                        CONTAINER_PRESTO_ETC + "/catalog/kafka_schema_registry.properties")
+                .withCopyFileToContainer(
+                        forHostPath(configDir.getPath("kafka.properties")),
                         CONTAINER_PRESTO_ETC + "/catalog/kafka.properties"));
     }
 }

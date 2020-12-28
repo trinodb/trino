@@ -46,7 +46,6 @@ import static java.lang.String.format;
 public class TestKafkaReadsSmokeTest
         extends ProductTest
 {
-    private static final String KAFKA_CATALOG = "kafka";
     private static final String SCHEMA_NAME = "product_tests";
 
     private static final String SIMPLE_KEY_AND_VALUE_TABLE_NAME = "read_simple_key_and_value";
@@ -77,13 +76,13 @@ public class TestKafkaReadsSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(SimpleKeyAndValueTable.class)
-    public void testSelectSimpleKeyAndValue()
+    public void testSelectSimpleKeyAndValue(KafkaCatalog catalog)
     {
         QueryResult queryResult = query(format(
                 "select varchar_key, bigint_key, varchar_value, bigint_value from %s.%s.%s",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 SIMPLE_KEY_AND_VALUE_TABLE_NAME));
         assertThat(queryResult).containsOnly(
@@ -129,13 +128,13 @@ public class TestKafkaReadsSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(AllDataTypesRawTable.class)
-    public void testSelectAllRawTable()
+    public void testSelectAllRawTable(KafkaCatalog catalog)
     {
         assertThat(query(format(
                 "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 ALL_DATATYPES_RAW_TABLE_NAME
         ))).containsOnly(
@@ -157,7 +156,7 @@ public class TestKafkaReadsSmokeTest
                 row("c_int_boolean", "boolean"),
                 row("c_long_boolean", "boolean"));
 
-        assertThat(query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_RAW_TABLE_NAME))).containsOnly(row(
+        assertThat(query(format("select * from %s.%s.%s", catalog, SCHEMA_NAME, ALL_DATATYPES_RAW_TABLE_NAME))).containsOnly(row(
                 "jasio",
                 0x01,
                 0x0203,
@@ -200,13 +199,13 @@ public class TestKafkaReadsSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(AllDataTypesCsvTable.class)
-    public void testSelectAllCsvTable()
+    public void testSelectAllCsvTable(KafkaCatalog catalog)
     {
         assertThat(query(format(
                 "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 ALL_DATATYPES_CSV_TABLE_NAME
         ))).containsOnly(
@@ -218,7 +217,7 @@ public class TestKafkaReadsSmokeTest
                 row("c_double", "double"),
                 row("c_boolean", "boolean"));
 
-        assertThat(query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_CSV_TABLE_NAME))).containsOnly(
+        assertThat(query(format("select * from %s.%s.%s", catalog, SCHEMA_NAME, ALL_DATATYPES_CSV_TABLE_NAME))).containsOnly(
                 row("jasio", 9223372036854775807L, 2147483647, 32767, 127, 1234567890.123456789, true),
                 row("stasio", -9223372036854775808L, -2147483648, -32768, -128, -1234567890.123456789, false),
                 row(null, null, null, null, null, null, null),
@@ -272,13 +271,13 @@ public class TestKafkaReadsSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(AllDataTypesJsonTable.class)
-    public void testSelectAllJsonTable()
+    public void testSelectAllJsonTable(KafkaCatalog catalog)
     {
         assertThat(query(format(
                 "select column_name,data_type from %s.information_schema.columns where table_schema='%s' and table_name='%s'",
-                KAFKA_CATALOG,
+                catalog,
                 SCHEMA_NAME,
                 ALL_DATATYPES_JSON_TABLE_NAME
         ))).containsOnly(
@@ -310,7 +309,7 @@ public class TestKafkaReadsSmokeTest
                 row("c_timetz_iso8601", "time(3) with time zone"),
                 row("c_timetz_custom", "time(3) with time zone"));
 
-        assertThat(query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_JSON_TABLE_NAME))).containsOnly(row(
+        assertThat(query(format("select * from %s.%s.%s", catalog, SCHEMA_NAME, ALL_DATATYPES_JSON_TABLE_NAME))).containsOnly(row(
                 "ala ma kota",
                 9223372036854775807L,
                 2147483647,

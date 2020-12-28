@@ -34,8 +34,6 @@ import static java.lang.String.format;
 public class TestKafkaAvroWritesSmokeTest
         extends ProductTest
 {
-    private static final String KAFKA_CATALOG = "kafka";
-
     private static final String ALL_DATATYPES_AVRO_TABLE_NAME = "product_tests.write_all_datatypes_avro";
     private static final String ALL_DATATYPES_AVRO_TOPIC_NAME = "write_all_datatypes_avro";
 
@@ -60,9 +58,9 @@ public class TestKafkaAvroWritesSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(AllDataTypesAvroTable.class)
-    public void testInsertPrimitiveDataType()
+    public void testInsertPrimitiveDataType(KafkaCatalog catalog)
     {
         assertThat(query(format(
                 "INSERT INTO %s.%s VALUES " +
@@ -71,14 +69,11 @@ public class TestKafkaAvroWritesSmokeTest
                         "(null, null, null, null), " +
                         "('krzysio', 9223372036854775807, 1234567890.123456789, false), " +
                         "('kasia', 9223372036854775807, null, null)",
-                KAFKA_CATALOG,
+                catalog,
                 ALL_DATATYPES_AVRO_TABLE_NAME)))
                 .updatedRowsCountIsEqualTo(5);
 
-        assertThat(query(format(
-                "SELECT * FROM %s.%s",
-                KAFKA_CATALOG,
-                ALL_DATATYPES_AVRO_TABLE_NAME)))
+        assertThat(query(format("SELECT * FROM %s.%s", catalog, ALL_DATATYPES_AVRO_TABLE_NAME)))
                 .containsOnly(
                         row("jasio", 9223372036854775807L, 1234567890.123456789, true),
                         row("stasio", -9223372036854775808L, -1234567890.123456789, false),
@@ -102,14 +97,14 @@ public class TestKafkaAvroWritesSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "kafkaCatalogs", dataProviderClass = KafkaDataProviders.class)
     @Requires(StructuralDataTypeTable.class)
-    public void testInsertStructuralDataType()
+    public void testInsertStructuralDataType(KafkaCatalog catalog)
     {
         assertThat(() -> query(format(
                 "INSERT INTO %s.%s VALUES " +
                         "(ARRAY[100, 102], map_from_entries(ARRAY[('key1', 'value1')]))",
-                KAFKA_CATALOG,
+                catalog,
                 STRUCTURAL_AVRO_TABLE_NAME)))
                 .failsWithMessageMatching("java.sql.SQLException: Query failed \\(.+\\): Unsupported column type 'array\\(bigint\\)' for column 'c_array'");
     }
