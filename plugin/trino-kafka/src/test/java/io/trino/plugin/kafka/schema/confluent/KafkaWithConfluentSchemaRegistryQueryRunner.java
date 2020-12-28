@@ -17,7 +17,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.plugin.kafka.KafkaQueryRunnerBuilder;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.kafka.TestingKafkaWithSchemaRegistry;
+import io.trino.testing.kafka.TestingKafka;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,17 +28,17 @@ public final class KafkaWithConfluentSchemaRegistryQueryRunner
 
     private static final String DEFAULT_SCHEMA = "default";
 
-    public static KafkaWithConfluentSchemaRegistryQueryRunner.Builder builder(TestingKafkaWithSchemaRegistry testingKafkaWithSchemaRegistry)
+    public static KafkaWithConfluentSchemaRegistryQueryRunner.Builder builder(TestingKafka testingKafka)
     {
-        return new KafkaWithConfluentSchemaRegistryQueryRunner.Builder(testingKafkaWithSchemaRegistry);
+        return new KafkaWithConfluentSchemaRegistryQueryRunner.Builder(testingKafka);
     }
 
     public static class Builder
-            extends KafkaQueryRunnerBuilder<TestingKafkaWithSchemaRegistry>
+            extends KafkaQueryRunnerBuilder
     {
-        protected Builder(TestingKafkaWithSchemaRegistry testingKafkaWithSchemaRegistry)
+        protected Builder(TestingKafka testingKafka)
         {
-            super(testingKafkaWithSchemaRegistry, DEFAULT_SCHEMA);
+            super(testingKafka, DEFAULT_SCHEMA);
         }
 
         @Override
@@ -55,7 +55,7 @@ public final class KafkaWithConfluentSchemaRegistryQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = builder(new TestingKafkaWithSchemaRegistry())
+        DistributedQueryRunner queryRunner = builder(TestingKafka.createWithSchemaRegistry())
                 .build();
         Logger log = Logger.get(KafkaWithConfluentSchemaRegistryQueryRunner.class);
         log.info("======== SERVER STARTED ========");

@@ -15,7 +15,7 @@ package io.trino.plugin.kafka;
 
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.kafka.BasicTestingKafka;
+import io.trino.testing.kafka.TestingKafka;
 import io.trino.tpch.TpchTable;
 
 public class TestKafkaDistributedLatest
@@ -25,7 +25,7 @@ public class TestKafkaDistributedLatest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        BasicTestingKafka testingKafka = closeAfterClass(new BasicTestingKafka("6.0.1"));
+        TestingKafka testingKafka = closeAfterClass(TestingKafka.create("6.0.1"));
         return KafkaQueryRunner.builder(testingKafka)
                 .setTables(TpchTable.getTables())
                 .build();
