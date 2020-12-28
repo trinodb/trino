@@ -14,18 +14,15 @@
 package io.trino.testing.kafka;
 
 import com.google.common.io.Closer;
-import io.confluent.kafka.serializers.KafkaAvroSerializer;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.LongSerializer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Properties;
+import java.util.stream.Stream;
 
-import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -79,21 +76,15 @@ public class TestingKafkaWithSchemaRegistry
     }
 
     @Override
-    public String getConnectString()
+    public <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream, Map<String, String> extraProducerProperties)
     {
-        return delegate.getConnectString();
+        return delegate.sendMessages(recordStream, extraProducerProperties);
     }
 
     @Override
-    public <K, V> KafkaProducer<K, V> createProducer(Map<String, String> extraProperties)
+    public String getConnectString()
     {
-        Properties properties = new Properties();
-        properties.put(SCHEMA_REGISTRY_URL_CONFIG, getSchemaRegistryConnectString());
-        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, delegate.getConnectString());
-        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName());
-        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName());
-        properties.putAll(extraProperties);
-        return new KafkaProducer<>(properties);
+        return delegate.getConnectString();
     }
 
     public String getSchemaRegistryConnectString()

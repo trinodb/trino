@@ -14,7 +14,6 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.spi.connector.SchemaTableName;
@@ -24,7 +23,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.kafka.BasicTestingKafka;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.testng.annotations.Test;
@@ -34,15 +32,15 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestKafkaIntegrationPushDown
@@ -89,7 +87,6 @@ public class TestKafkaIntegrationPushDown
 
     @Test
     public void testPartitionPushDown()
-            throws ExecutionException, InterruptedException
     {
         createMessages(topicNamePartition);
         String sql = format("SELECT count(*) FROM default.%s WHERE _partition_id=1", topicNamePartition);
@@ -100,7 +97,6 @@ public class TestKafkaIntegrationPushDown
 
     @Test
     public void testOffsetPushDown()
-            throws ExecutionException, InterruptedException
     {
         createMessages(topicNameOffset);
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
@@ -176,51 +172,37 @@ public class TestKafkaIntegrationPushDown
     {
         String startTime = null;
         String endTime = null;
-        Future<RecordMetadata> lastSendFuture = Futures.immediateFuture(null);
-        long lastTimeStamp = -1;
-        // Avoid last test case has impact on this test case when invocationCount of @Test enabled
-        Thread.sleep(100);
-        try (KafkaProducer<Long, Object> producer = testingKafka.createProducer()) {
-            for (long messageNum = 0; messageNum < MESSAGE_NUM; messageNum++) {
-                long key = messageNum;
-                long value = messageNum;
-                lastSendFuture = producer.send(new ProducerRecord<>(topicName, key, value));
-                // Record timestamp to build expected timestamp
-                if (messageNum < TIMESTAMP_TEST_COUNT) {
-                    RecordMetadata r = lastSendFuture.get();
-                    assertTrue(lastTimeStamp != r.timestamp());
-                    lastTimeStamp = r.timestamp();
-                    if (messageNum == TIMESTAMP_TEST_START_INDEX) {
-                        startTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-                                .format(LocalDateTime.ofInstant(Instant.ofEpochMilli(r.timestamp()), ZoneId.of("UTC")));
-                    }
-                    else if (messageNum == TIMESTAMP_TEST_END_INDEX) {
-                        endTime = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-                                .format(LocalDateTime.ofInstant(Instant.ofEpochMilli(r.timestamp()), ZoneId.of("UTC")));
-                    }
-                    // Sleep for a while to ensure different timestamps for different messages..
-                    Thread.sleep(100);
-                }
+        for (int messageNum = 0; messageNum < TIMESTAMP_TEST_COUNT; messageNum++) {
+            long key = messageNum;
+            long value = messageNum;
+            RecordMetadata recordMetadata = testingKafka.sendMessages(Stream.of(new ProducerRecord<>(topicName, key, value)));
+            if (messageNum == TIMESTAMP_TEST_START_INDEX) {
+                startTime = getTimestamp(recordMetadata);
             }
+            else if (messageNum == TIMESTAMP_TEST_END_INDEX) {
+                endTime = getTimestamp(recordMetadata);
+            }
+
+            // Sleep for a while to ensure different timestamps for different messages..
+            Thread.sleep(100);
         }
-        lastSendFuture.get();
-        requireNonNull(startTime, "startTime result is none");
-        requireNonNull(endTime, "endTime result is none");
+        testingKafka.sendMessages(
+                LongStream.range(TIMESTAMP_TEST_COUNT, MESSAGE_NUM)
+                        .mapToObj(id -> new ProducerRecord<>(topicName, id, id)));
         return new RecordMessage(startTime, endTime);
     }
 
-    private void createMessages(String topicName)
-            throws ExecutionException, InterruptedException
+    private static String getTimestamp(RecordMetadata recordMetadata)
     {
-        Future<RecordMetadata> lastSendFuture = Futures.immediateFuture(null);
-        try (KafkaProducer<Long, Object> producer = testingKafka.createProducer()) {
-            for (long messageNum = 0; messageNum < MESSAGE_NUM; messageNum++) {
-                long key = messageNum;
-                long value = messageNum;
-                lastSendFuture = producer.send(new ProducerRecord<>(topicName, key, value));
-            }
-        }
-        lastSendFuture.get();
+        return DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+                .format(LocalDateTime.ofInstant(Instant.ofEpochMilli(recordMetadata.timestamp()), ZoneId.of("UTC")));
+    }
+
+    private void createMessages(String topicName)
+    {
+        testingKafka.sendMessages(
+                IntStream.range(0, MESSAGE_NUM)
+                        .mapToObj(id -> new ProducerRecord<>(topicName, (long) id, (long) id)));
     }
 
     private static class RecordMessage
@@ -230,8 +212,8 @@ public class TestKafkaIntegrationPushDown
 
         public RecordMessage(String startTime, String endTime)
         {
-            this.startTime = startTime;
-            this.endTime = endTime;
+            this.startTime = requireNonNull(startTime, "startTime result is none");
+            this.endTime = requireNonNull(endTime, "endTime result is none");
         }
 
         public String getStartTime()

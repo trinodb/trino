@@ -21,18 +21,19 @@ import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.BasicTestingKafka;
 import io.trino.tpch.TpchTable;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import javax.annotation.Nullable;
+
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -152,44 +153,44 @@ public class TestKafkaIntegrationSmokeTest
 
     private void insertData(String topic, byte[] data)
     {
-        try (KafkaProducer<byte[], byte[]> producer = createProducer()) {
-            producer.send(new ProducerRecord<>(topic, data));
-            producer.flush();
-        }
+        testingKafka.sendMessages(Stream.of(new ProducerRecord<>(topic, data)), getProducerProperties());
     }
 
     private void createMessagesWithHeader(String topicName)
     {
-        try (KafkaProducer<byte[], byte[]> producer = createProducer()) {
-            // Messages without headers
-            ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topicName, null, "1".getBytes(UTF_8));
-            producer.send(record);
-            record = new ProducerRecord<>(topicName, null, "2".getBytes(UTF_8));
-            producer.send(record);
-            // Message with simple header
-            record = new ProducerRecord<>(topicName, null, "3".getBytes(UTF_8));
-            record.headers()
-                    .add("notfoo", "some value".getBytes(UTF_8));
-            producer.send(record);
-            // Message with multiple same key headers
-            record = new ProducerRecord<>(topicName, null, "4".getBytes(UTF_8));
-            record.headers()
-                    .add("foo", "bar".getBytes(UTF_8))
-                    .add("foo", null)
-                    .add("foo", "baz".getBytes(UTF_8));
-            producer.send(record);
-        }
+        testingKafka.sendMessages(
+                Stream.of(
+                        // Messages without headers
+                        new ProducerRecord<>(topicName, null, "1".getBytes(UTF_8)),
+                        new ProducerRecord<>(topicName, null, "2".getBytes(UTF_8)),
+                        // Message with simple header
+                        setHeader(new ProducerRecord<>(topicName, null, "3".getBytes(UTF_8)), "notfoo", "some value"),
+                        // Message with multiple same key headers
+                        setHeader(
+                                setHeader(
+                                        setHeader(new ProducerRecord<>(topicName, null, "4".getBytes(UTF_8)), "foo", "bar"),
+                                        "foo",
+                                        null),
+                                "foo",
+                                "baz")),
+                getProducerProperties());
     }
 
-    private KafkaProducer<byte[], byte[]> createProducer()
+    private static <K, V> ProducerRecord<K, V> setHeader(ProducerRecord<K, V> record, String key, @Nullable String value)
     {
-        Properties properties = new Properties();
-        properties.put(BOOTSTRAP_SERVERS_CONFIG, testingKafka.getConnectString());
-        properties.put(ACKS_CONFIG, "all");
-        properties.put(KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
-        properties.put(VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+        record.headers()
+                .add(key, value != null ? value.getBytes(UTF_8) : null);
+        return record;
+    }
 
-        return new KafkaProducer<>(properties);
+    private Map<String, String> getProducerProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put(BOOTSTRAP_SERVERS_CONFIG, testingKafka.getConnectString())
+                .put(ACKS_CONFIG, "all")
+                .put(KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName())
+                .put(VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName())
+                .build();
     }
 
     @Test
