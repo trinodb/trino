@@ -26,23 +26,10 @@ import io.trino.plugin.kafka.encoder.raw.RawRowEncoderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static java.util.Objects.requireNonNull;
 
 public class EncoderModule
         implements Module
 {
-    private final Module extension;
-
-    public EncoderModule()
-    {
-        this(new AvroEncoderModule());
-    }
-
-    public EncoderModule(Module extension)
-    {
-        this.extension = requireNonNull(extension, "extension is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
@@ -51,10 +38,9 @@ public class EncoderModule
         encoderFactoriesByName.addBinding(CsvRowEncoder.NAME).to(CsvRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(RawRowEncoder.NAME).to(RawRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(JsonRowEncoder.NAME).to(JsonRowEncoderFactory.class).in(SINGLETON);
+        binder.install(new AvroEncoderModule());
 
         binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
-
-        binder.install(extension);
     }
 
     public static MapBinder<String, RowEncoderFactory> encoderFactory(Binder binder)

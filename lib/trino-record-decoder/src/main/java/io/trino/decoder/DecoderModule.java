@@ -27,7 +27,6 @@ import io.trino.decoder.raw.RawRowDecoder;
 import io.trino.decoder.raw.RawRowDecoderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Default decoder module. Installs the registry and all known decoder submodules.
@@ -35,18 +34,6 @@ import static java.util.Objects.requireNonNull;
 public class DecoderModule
         implements Module
 {
-    private final Module extension;
-
-    public DecoderModule()
-    {
-        this(new AvroDecoderModule());
-    }
-
-    public DecoderModule(Module extension)
-    {
-        this.extension = requireNonNull(extension, "extension is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
@@ -55,7 +42,7 @@ public class DecoderModule
         decoderFactoriesByName.addBinding(CsvRowDecoder.NAME).to(CsvRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(JsonRowDecoder.NAME).to(JsonRowDecoderFactory.class).in(SINGLETON);
         decoderFactoriesByName.addBinding(RawRowDecoder.NAME).to(RawRowDecoderFactory.class).in(SINGLETON);
-        binder.install(extension);
+        binder.install(new AvroDecoderModule());
         binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
     }
 }
