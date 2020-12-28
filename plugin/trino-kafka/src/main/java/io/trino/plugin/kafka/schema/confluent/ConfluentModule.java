@@ -25,14 +25,16 @@ import io.confluent.kafka.schemaregistry.SchemaProvider;
 import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.trino.decoder.DecoderModule;
+import io.trino.decoder.DispatchingRowDecoderFactory;
 import io.trino.decoder.RowDecoderFactory;
 import io.trino.decoder.avro.AvroBytesDeserializer;
 import io.trino.decoder.avro.AvroDeserializer;
 import io.trino.decoder.avro.AvroReaderSupplier;
 import io.trino.decoder.avro.AvroRowDecoderFactory;
+import io.trino.decoder.dummy.DummyRowDecoder;
+import io.trino.decoder.dummy.DummyRowDecoderFactory;
 import io.trino.plugin.kafka.SessionPropertiesProvider;
-import io.trino.plugin.kafka.encoder.EncoderModule;
+import io.trino.plugin.kafka.encoder.DispatchingRowEncoderFactory;
 import io.trino.plugin.kafka.encoder.RowEncoderFactory;
 import io.trino.plugin.kafka.encoder.avro.AvroRowEncoder;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
@@ -45,6 +47,7 @@ import javax.inject.Singleton;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -58,8 +61,8 @@ public class ConfluentModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
-        install(new DecoderModule(new ConfluentAvroDecoderModule()));
-        install(new EncoderModule(new ConfluentAvroEncoderModule()));
+        install(new ConfluentDecoderModule());
+        install(new ConfluentEncoderModule());
         binder.bind(ContentSchemaReader.class).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
@@ -80,7 +83,7 @@ public class ConfluentModule
                 ImmutableMap.of());
     }
 
-    private static class ConfluentAvroDecoderModule
+    private static class ConfluentDecoderModule
             implements Module
     {
         @Override
@@ -89,10 +92,12 @@ public class ConfluentModule
             binder.bind(AvroReaderSupplier.Factory.class).to(ConfluentAvroReaderSupplier.Factory.class).in(Scopes.SINGLETON);
             binder.bind(AvroDeserializer.Factory.class).to(AvroBytesDeserializer.Factory.class).in(Scopes.SINGLETON);
             newMapBinder(binder, String.class, RowDecoderFactory.class).addBinding(AvroRowDecoderFactory.NAME).to(AvroRowDecoderFactory.class).in(Scopes.SINGLETON);
+            newMapBinder(binder, String.class, RowDecoderFactory.class).addBinding(DummyRowDecoder.NAME).to(DummyRowDecoderFactory.class).in(SINGLETON);
+            binder.bind(DispatchingRowDecoderFactory.class).in(SINGLETON);
         }
     }
 
-    private static class ConfluentAvroEncoderModule
+    private static class ConfluentEncoderModule
             implements Module
     {
         @Override
@@ -102,6 +107,7 @@ public class ConfluentModule
             encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).toInstance((session, dataSchema, columnHandles) -> {
                 throw new TrinoException(NOT_SUPPORTED, "Insert not supported");
             });
+            binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
         }
     }
 }
