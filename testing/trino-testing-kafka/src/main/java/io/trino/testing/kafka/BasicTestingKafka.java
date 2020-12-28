@@ -14,6 +14,8 @@
 package io.trino.testing.kafka;
 
 import com.google.common.util.concurrent.Futures;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -31,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
 
 public class BasicTestingKafka
@@ -93,7 +96,7 @@ public class BasicTestingKafka
     public <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream, Map<String, String> extraProducerProperties)
     {
         try (KafkaProducer<K, V> producer = createProducer(extraProducerProperties)) {
-            Future<RecordMetadata> future = recordStream.map(record -> producer.send(record))
+            Future<RecordMetadata> future = recordStream.map(record -> send(producer, record))
                     .reduce((first, second) -> second)
                     .orElse(Futures.immediateFuture(null));
             producer.flush();
@@ -106,6 +109,15 @@ public class BasicTestingKafka
         catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private <K, V> Future<RecordMetadata> send(KafkaProducer<K, V> producer, ProducerRecord<K, V> record)
+    {
+        return Failsafe.with(
+                new RetryPolicy<>()
+                        .withMaxAttempts(10)
+                        .withBackoff(1, 10_000, MILLIS))
+                .get(() -> producer.send(record));
     }
 
     @Override
