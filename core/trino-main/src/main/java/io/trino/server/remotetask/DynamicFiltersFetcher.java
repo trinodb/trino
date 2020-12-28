@@ -39,9 +39,9 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
-import static io.trino.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.trino.server.InternalHeaders.PRESTO_CURRENT_VERSION;
+import static io.trino.server.InternalHeaders.PRESTO_MAX_WAIT;
 import static java.util.Objects.requireNonNull;
 
 class DynamicFiltersFetcher

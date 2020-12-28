@@ -43,8 +43,8 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
-import static io.trino.client.PrestoHeaders.PRESTO_MAX_WAIT;
+import static io.trino.server.InternalHeaders.PRESTO_CURRENT_VERSION;
+import static io.trino.server.InternalHeaders.PRESTO_MAX_WAIT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static java.lang.String.format;
