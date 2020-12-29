@@ -44,6 +44,7 @@ public class KinesisConfig
     private Duration checkpointInterval = new Duration(60000, TimeUnit.MILLISECONDS);
     private String logicalProcessName = "process1";
     private int iteratorNumber;
+    private int updateInterval;
 
     @NotNull
     public String getTableDescriptionLocation()
@@ -297,6 +298,20 @@ public class KinesisConfig
     public KinesisConfig setIteratorNumber(int iteratorNumber)
     {
         this.iteratorNumber = iteratorNumber;
+        return this;
+    }
+
+    @Min(0)
+    public int getUpdateInterval()
+    {
+        return updateInterval;
+    }
+
+    @Config("kinesis.update-interval")
+    @ConfigDescription("Kinesis update interval")
+    public KinesisConfig setUpdateInterval(int updateInterval)
+    {
+        this.updateInterval = updateInterval;
         return this;
     }
 }

@@ -75,14 +75,15 @@ public class S3TableConfigClient
     private final Map<String, KinesisStreamDescription> descriptors = Collections.synchronizedMap(new HashMap<>());
 
     private final int updateInterval;
+
     @Inject
     public S3TableConfigClient(
             KinesisConfig connectorConfig,
             KinesisClientProvider clientManager,
-            JsonCodec<KinesisStreamDescription> jsonCodec, int updateInterval)
+            JsonCodec<KinesisStreamDescription> jsonCodec)
     {
-        this.updateInterval = updateInterval;
         requireNonNull(connectorConfig, "connectorConfig is null");
+        this.updateInterval = connectorConfig.getUpdateInterval();
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
         this.streamDescriptionCodec = requireNonNull(jsonCodec, "jsonCodec is null");
 
