@@ -44,6 +44,7 @@ import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.TopNRowNumberOperator.TopNRowNumberOperatorFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -93,30 +94,30 @@ public class TestTopNRowNumberOperator
     @Test(dataProvider = "hashEnabledValues")
     public void testPartitioned(boolean hashEnabled)
     {
-        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT, DOUBLE);
+        RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), VARCHAR, DOUBLE);
         List<Page> input = rowPagesBuilder
-                .row(1L, 0.3)
-                .row(2L, 0.2)
-                .row(3L, 0.1)
-                .row(3L, 0.91)
+                .row("a", 0.3)
+                .row("b", 0.2)
+                .row("c", 0.1)
+                .row("c", 0.91)
                 .pageBreak()
-                .row(1L, 0.4)
+                .row("a", 0.4)
                 .pageBreak()
-                .row(1L, 0.5)
-                .row(1L, 0.6)
-                .row(2L, 0.7)
-                .row(2L, 0.8)
+                .row("a", 0.5)
+                .row("a", 0.6)
+                .row("b", 0.7)
+                .row("b", 0.8)
                 .pageBreak()
-                .row(2L, 0.9)
+                .row("b", 0.9)
                 .build();
 
         TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                ImmutableList.of(BIGINT, DOUBLE),
+                ImmutableList.of(VARCHAR, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(0),
-                ImmutableList.of(BIGINT),
+                ImmutableList.of(VARCHAR),
                 Ints.asList(1),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 3,
@@ -127,15 +128,15 @@ public class TestTopNRowNumberOperator
                 typeOperators,
                 blockTypeOperators);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
-                .row(0.3, 1L, 1L)
-                .row(0.4, 1L, 2L)
-                .row(0.5, 1L, 3L)
-                .row(0.2, 2L, 1L)
-                .row(0.7, 2L, 2L)
-                .row(0.8, 2L, 3L)
-                .row(0.1, 3L, 1L)
-                .row(0.91, 3L, 2L)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR, BIGINT)
+                .row(0.3, "a", 1L)
+                .row(0.4, "a", 2L)
+                .row(0.5, "a", 3L)
+                .row(0.2, "b", 1L)
+                .row(0.7, "b", 2L)
+                .row(0.8, "b", 3L)
+                .row(0.1, "c", 1L)
+                .row(0.91, "c", 2L)
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
@@ -144,26 +145,26 @@ public class TestTopNRowNumberOperator
     @Test(dataProvider = "partial")
     public void testUnPartitioned(boolean partial)
     {
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1L, 0.3)
-                .row(2L, 0.2)
-                .row(3L, 0.1)
-                .row(3L, 0.91)
+        List<Page> input = rowPagesBuilder(VARCHAR, DOUBLE)
+                .row("a", 0.3)
+                .row("b", 0.2)
+                .row("c", 0.1)
+                .row("c", 0.91)
                 .pageBreak()
-                .row(1L, 0.4)
+                .row("a", 0.4)
                 .pageBreak()
-                .row(1L, 0.5)
-                .row(1L, 0.6)
-                .row(2L, 0.7)
-                .row(2L, 0.8)
+                .row("a", 0.5)
+                .row("a", 0.6)
+                .row("b", 0.7)
+                .row("b", 0.8)
                 .pageBreak()
-                .row(2L, 0.9)
+                .row("b", 0.9)
                 .build();
 
         TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                ImmutableList.of(BIGINT, DOUBLE),
+                ImmutableList.of(VARCHAR, DOUBLE),
                 Ints.asList(1, 0),
                 Ints.asList(),
                 ImmutableList.of(),
@@ -179,17 +180,17 @@ public class TestTopNRowNumberOperator
 
         MaterializedResult expected;
         if (partial) {
-            expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
-                    .row(0.1, 3L)
-                    .row(0.2, 2L)
-                    .row(0.3, 1L)
+            expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR)
+                    .row(0.1, "c")
+                    .row(0.2, "b")
+                    .row(0.3, "a")
                     .build();
         }
         else {
-            expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
-                    .row(0.1, 3L, 1L)
-                    .row(0.2, 2L, 2L)
-                    .row(0.3, 1L, 3L)
+            expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR, BIGINT)
+                    .row(0.1, "c", 1L)
+                    .row(0.2, "b", 2L)
+                    .row(0.3, "a", 3L)
                     .build();
         }
 
