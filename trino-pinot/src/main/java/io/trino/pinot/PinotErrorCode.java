@@ -13,12 +13,12 @@
  */
 package io.trino.pinot;
 
-import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.ErrorCodeSupplier;
-import io.prestosql.spi.ErrorType;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.ErrorType;
 
-import static io.prestosql.spi.ErrorType.EXTERNAL;
-import static io.prestosql.spi.ErrorType.INTERNAL_ERROR;
+import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 
 public enum PinotErrorCode
         implements ErrorCodeSupplier
@@ -37,7 +37,7 @@ public enum PinotErrorCode
      * Connectors can use error codes starting at the range 0x0100_0000
      * See https://github.com/prestodb/presto/wiki/Error-Codes
      *
-     * @see io.prestosql.spi.StandardErrorCode
+     * @see io.trino.spi.StandardErrorCode
      */
 
     private final ErrorCode errorCode;

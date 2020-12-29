@@ -15,29 +15,29 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionDependencyDeclaration;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.SingleMapBlock;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.type.TypeSignature.mapType;
-import static io.prestosql.spi.type.TypeUtils.readNativeValue;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.Signature.typeVariable;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.util.Reflection.methodHandle;
 
 public class MapElementAtFunction
         extends SqlScalarFunction

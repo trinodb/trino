@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.blackhole;
 
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 
 public enum BlackHolePartitioningHandle
         implements ConnectorPartitioningHandle

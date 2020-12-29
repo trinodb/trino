@@ -20,7 +20,7 @@ import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.COMMENT;
+import static io.trino.tests.TestGroups.COMMENT;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

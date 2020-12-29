@@ -13,19 +13,19 @@
  */
 package io.trino.operator.aggregation.histogram;
 
-import io.prestosql.array.IntBigArray;
-import io.prestosql.array.LongBigArray;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
-import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.array.IntBigArray;
+import io.trino.array.LongBigArray;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
+import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.util.Objects.requireNonNull;

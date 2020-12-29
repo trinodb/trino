@@ -13,10 +13,10 @@
  */
 package io.trino.operator.aggregation.histogram;
 
-import io.prestosql.spi.function.AccumulatorStateFactory;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
-import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
+import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 
 import static java.util.Objects.requireNonNull;
 

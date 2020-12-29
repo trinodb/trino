@@ -14,11 +14,11 @@
 package io.trino.testing.datatype;
 
 import io.airlift.log.Logger;
-import io.prestosql.Session;
-import io.prestosql.spi.type.Type;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.Session;
+import io.trino.spi.type.Type;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 
 import java.util.ArrayList;
 import java.util.List;

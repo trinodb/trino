@@ -13,9 +13,9 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 
 public class UndeclaredDependencyException
         extends PrestoException

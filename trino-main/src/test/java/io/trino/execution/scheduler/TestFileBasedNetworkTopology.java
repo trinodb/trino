@@ -18,7 +18,7 @@ import com.google.common.io.Resources;
 import io.airlift.testing.TempFile;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

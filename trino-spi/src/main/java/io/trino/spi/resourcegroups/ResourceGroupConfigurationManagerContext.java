@@ -13,7 +13,7 @@
  */
 package io.trino.spi.resourcegroups;
 
-import io.prestosql.spi.memory.ClusterMemoryPoolManager;
+import io.trino.spi.memory.ClusterMemoryPoolManager;
 
 public interface ResourceGroupConfigurationManagerContext
 {

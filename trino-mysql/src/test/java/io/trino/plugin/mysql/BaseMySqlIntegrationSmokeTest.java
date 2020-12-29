@@ -13,21 +13,21 @@
  */
 package io.trino.plugin.mysql;
 
-import io.prestosql.Session;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
+import io.trino.Session;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
@@ -279,7 +279,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     @Test
     public void testColumnComment()
     {
-        // TODO add support for setting comments on existing column and replace the test with io.prestosql.testing.AbstractTestDistributedQueries#testCommentColumn
+        // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn
 
         execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 

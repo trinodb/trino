@@ -26,7 +26,7 @@ import java.nio.file.Paths;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.tpch.util.Optionals.withBoth;
+import static io.trino.plugin.tpch.util.Optionals.withBoth;
 import static java.lang.String.format;
 
 public class TableStatisticsDataRepository

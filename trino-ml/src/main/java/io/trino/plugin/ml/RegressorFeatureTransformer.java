@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.ml;
 
-import io.prestosql.plugin.ml.type.ModelType;
-import io.prestosql.plugin.ml.type.RegressorType;
+import io.trino.plugin.ml.type.ModelType;
+import io.trino.plugin.ml.type.RegressorType;
 
 import java.util.List;
 

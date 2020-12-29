@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive.util;
 
-import io.prestosql.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordCursor;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestForwardingRecordCursor
 {

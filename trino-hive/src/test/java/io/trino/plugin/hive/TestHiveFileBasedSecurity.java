@@ -16,16 +16,16 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.prestosql.Session;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.spi.security.Identity;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tpch.TpchTable.NATION;
 
 public class TestHiveFileBasedSecurity

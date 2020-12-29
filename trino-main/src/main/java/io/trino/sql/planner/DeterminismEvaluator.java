@@ -13,11 +13,11 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Metadata;
+import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;

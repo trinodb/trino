@@ -14,10 +14,10 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.Maps;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.IndexSourceNode;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.IndexSourceNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
 import java.util.Map;
@@ -26,7 +26,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.sql.planner.plan.Patterns.indexSource;
+import static io.trino.sql.planner.plan.Patterns.indexSource;
 
 public class PruneIndexSourceColumns
         extends ProjectOffPushDownRule<IndexSourceNode>

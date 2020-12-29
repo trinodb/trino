@@ -17,8 +17,8 @@ import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.base.CatalogName;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -35,8 +35,8 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.plugin.atop.AtopErrorCode.ATOP_CANNOT_START_PROCESS_ERROR;
-import static io.prestosql.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
+import static io.trino.plugin.atop.AtopErrorCode.ATOP_CANNOT_START_PROCESS_ERROR;
+import static io.trino.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;

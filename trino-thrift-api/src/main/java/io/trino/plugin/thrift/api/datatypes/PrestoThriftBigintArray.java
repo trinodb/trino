@@ -16,12 +16,12 @@ package io.trino.plugin.thrift.api.datatypes;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
-import io.prestosql.spi.block.AbstractArrayBlock;
-import io.prestosql.spi.block.ArrayBlock;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LongArrayBlock;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.thrift.api.PrestoThriftBlock;
+import io.trino.spi.block.AbstractArrayBlock;
+import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -33,11 +33,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.bigintArrayData;
-import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.calculateOffsets;
-import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.sameSizeIfPresent;
-import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.totalSize;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.plugin.thrift.api.PrestoThriftBlock.bigintArrayData;
+import static io.trino.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.calculateOffsets;
+import static io.trino.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.sameSizeIfPresent;
+import static io.trino.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.totalSize;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 /**
  * Elements of {@code nulls} array determine if a value for a corresponding row is null.

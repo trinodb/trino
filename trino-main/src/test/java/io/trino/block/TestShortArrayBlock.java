@@ -14,9 +14,9 @@
 package io.trino.block;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.ShortArrayBlock;
-import io.prestosql.spi.block.ShortArrayBlockBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ShortArrayBlock;
+import io.trino.spi.block.ShortArrayBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

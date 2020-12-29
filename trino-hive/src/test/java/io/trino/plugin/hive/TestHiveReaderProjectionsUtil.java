@@ -15,25 +15,25 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.NamedTypeSignature;
-import io.prestosql.spi.type.RowFieldName;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.type.InternalTypeManager;
+import io.trino.spi.type.NamedTypeSignature;
+import io.trino.spi.type.RowFieldName;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
+import io.trino.type.InternalTypeManager;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.prestosql.plugin.hive.HiveTestUtils.rowType;
-import static io.prestosql.plugin.hive.HiveType.toHiveType;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveTestUtils.rowType;
+import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 public class TestHiveReaderProjectionsUtil
 {

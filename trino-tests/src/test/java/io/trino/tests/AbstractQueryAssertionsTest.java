@@ -14,15 +14,15 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.jdbc.JdbcPlugin;
-import io.prestosql.plugin.jdbc.TestingH2JdbcModule;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.query.QueryAssertions.QueryAssert;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.plugin.jdbc.JdbcPlugin;
+import io.trino.plugin.jdbc.TestingH2JdbcModule;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.query.QueryAssertions.QueryAssert;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -32,16 +32,16 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.QueryAssertions.copyTpchTables;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Test {@link io.prestosql.sql.query.QueryAssertions}.
+ * Test {@link io.trino.sql.query.QueryAssertions}.
  */
 public abstract class AbstractQueryAssertionsTest
         extends AbstractTestQueryFramework

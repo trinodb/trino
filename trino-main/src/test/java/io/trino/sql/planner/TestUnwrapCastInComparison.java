@@ -13,14 +13,14 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.Session;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.trino.Session;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;

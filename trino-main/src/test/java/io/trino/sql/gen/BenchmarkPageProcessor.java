@@ -15,16 +15,16 @@ package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.sql.relational.CallExpression;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SpecialForm;
-import io.prestosql.sql.relational.SpecialForm.Form;
+import io.trino.metadata.Metadata;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.sql.relational.CallExpression;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.relational.SpecialForm.Form;
 import io.prestosql.tpch.LineItem;
 import io.prestosql.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -48,17 +48,17 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.MULTIPLY;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.relational.Expressions.constant;
-import static io.prestosql.sql.relational.Expressions.field;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.relational.Expressions.field;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)

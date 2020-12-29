@@ -14,9 +14,9 @@
 
 package io.trino.execution.scheduler;
 
-import io.prestosql.execution.Lifespan;
-import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.Lifespan;
+import io.trino.spi.connector.ConnectorPartitionHandle;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 

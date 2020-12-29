@@ -13,18 +13,18 @@
  */
 package io.trino.type;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.testing.TestingSession;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.testing.TestingSession;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
-import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 
 public class TestTime
         extends AbstractTestFunctions

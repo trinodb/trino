@@ -15,11 +15,11 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
@@ -27,9 +27,9 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
-import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.SESSION;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcDeleteDeltaPageSource

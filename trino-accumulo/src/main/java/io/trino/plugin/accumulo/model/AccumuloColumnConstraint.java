@@ -15,7 +15,7 @@ package io.trino.plugin.accumulo.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.predicate.Domain;
+import io.trino.spi.predicate.Domain;
 
 import java.util.Objects;
 import java.util.Optional;

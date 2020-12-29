@@ -14,14 +14,14 @@
 package io.trino.plugin.jmx;
 
 import io.airlift.log.Logger;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
-import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 public class JmxConnector

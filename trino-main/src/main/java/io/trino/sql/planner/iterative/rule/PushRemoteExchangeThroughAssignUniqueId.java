@@ -14,14 +14,14 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.PartitioningScheme;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AssignUniqueId;
-import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.PartitioningScheme;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.ExchangeNode;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,12 +29,12 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPLICATE;
-import static io.prestosql.sql.planner.plan.Patterns.assignUniqueId;
-import static io.prestosql.sql.planner.plan.Patterns.exchange;
-import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static io.trino.sql.planner.plan.Patterns.assignUniqueId;
+import static io.trino.sql.planner.plan.Patterns.exchange;
+import static io.trino.sql.planner.plan.Patterns.source;
 
 /**
  * Pushes RemoteExchange node down through the AssignUniqueId to preserve

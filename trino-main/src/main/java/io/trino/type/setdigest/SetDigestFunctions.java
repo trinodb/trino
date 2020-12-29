@@ -19,20 +19,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
 
 import java.io.UncheckedIOException;
 import java.util.Map;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.type.setdigest.SetDigest.exactIntersectionCardinality;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.type.setdigest.SetDigest.exactIntersectionCardinality;
 
 public final class SetDigestFunctions
 {

@@ -15,8 +15,8 @@ package io.trino.operator.scalar;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class TestLuhnCheckFunction
         extends AbstractTestFunctions

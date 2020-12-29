@@ -13,12 +13,12 @@
  */
 package io.trino.operator;
 
-import io.prestosql.operator.aggregation.Accumulator;
-import io.prestosql.operator.aggregation.AccumulatorFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.AggregationNode;
+import io.trino.operator.aggregation.Accumulator;
+import io.trino.operator.aggregation.AccumulatorFactory;
+import io.trino.spi.Page;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.AggregationNode;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

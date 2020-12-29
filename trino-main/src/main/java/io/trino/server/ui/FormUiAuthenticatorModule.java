@@ -16,8 +16,8 @@ package io.trino.server.ui;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
-import io.prestosql.server.security.Authenticator;
-import io.prestosql.server.security.PasswordAuthenticatorManager;
+import io.trino.server.security.Authenticator;
+import io.trino.server.security.PasswordAuthenticatorManager;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;

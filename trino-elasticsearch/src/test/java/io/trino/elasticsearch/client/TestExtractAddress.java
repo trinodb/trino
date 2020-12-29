@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.elasticsearch.client.ElasticsearchClient.extractAddress;
+import static io.trino.elasticsearch.client.ElasticsearchClient.extractAddress;
 import static org.testng.Assert.assertEquals;
 
 public class TestExtractAddress

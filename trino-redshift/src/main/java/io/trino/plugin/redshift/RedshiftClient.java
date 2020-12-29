@@ -13,18 +13,18 @@
  */
 package io.trino.plugin.redshift;
 
-import io.prestosql.plugin.jdbc.BaseJdbcClient;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.ColumnMapping;
-import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcTableHandle;
-import io.prestosql.plugin.jdbc.JdbcTypeHandle;
-import io.prestosql.plugin.jdbc.WriteMapping;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.jdbc.BaseJdbcClient;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
@@ -34,7 +34,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 
 public class RedshiftClient

@@ -16,7 +16,7 @@ package io.trino.tests.sqlserver;
 import io.prestosql.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
 import io.prestosql.tempto.fulfillment.table.jdbc.tpch.JdbcTpchTableDefinitions;
 
-import static io.prestosql.tests.sqlserver.TestConstants.CONNECTOR_NAME;
+import static io.trino.tests.sqlserver.TestConstants.CONNECTOR_NAME;
 
 public final class SqlServerTpchTableDefinitions
 {

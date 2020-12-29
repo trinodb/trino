@@ -13,16 +13,16 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.TopNNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.TopNNode;
 
-import static io.prestosql.sql.planner.plan.Patterns.TopN.step;
-import static io.prestosql.sql.planner.plan.Patterns.topN;
-import static io.prestosql.sql.planner.plan.TopNNode.Step.FINAL;
-import static io.prestosql.sql.planner.plan.TopNNode.Step.PARTIAL;
-import static io.prestosql.sql.planner.plan.TopNNode.Step.SINGLE;
+import static io.trino.sql.planner.plan.Patterns.TopN.step;
+import static io.trino.sql.planner.plan.Patterns.topN;
+import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
+import static io.trino.sql.planner.plan.TopNNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.TopNNode.Step.SINGLE;
 
 public class CreatePartialTopN
         implements Rule<TopNNode>

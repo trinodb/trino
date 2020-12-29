@@ -14,18 +14,18 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.InMemoryRecordSet;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.transaction.TransactionId;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.connector.CatalogName;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.transaction.TransactionId;
+import io.trino.transaction.TransactionManager;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -33,9 +33,9 @@ import java.util.TreeMap;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 abstract class AbstractPropertiesSystemTable

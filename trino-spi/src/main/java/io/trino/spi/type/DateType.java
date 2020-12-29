@@ -13,8 +13,8 @@
  */
 package io.trino.spi.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorSession;
 
 //
 // A date is stored as days from 1970-01-01.

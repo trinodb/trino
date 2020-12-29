@@ -21,7 +21,7 @@ import java.util.UUID;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.BLACKHOLE_CONNECTOR;
+import static io.trino.tests.TestGroups.BLACKHOLE_CONNECTOR;
 import static java.lang.String.format;
 
 public class TestBlackHoleConnector

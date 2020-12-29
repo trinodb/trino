@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.jmx;
 
-import io.prestosql.Session;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.Session;
+import io.trino.testing.DistributedQueryRunner;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class JmxQueryRunner
 {

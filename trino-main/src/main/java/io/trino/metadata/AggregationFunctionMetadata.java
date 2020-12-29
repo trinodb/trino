@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.Optional;
 

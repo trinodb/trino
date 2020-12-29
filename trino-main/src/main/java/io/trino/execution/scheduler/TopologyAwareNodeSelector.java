@@ -19,13 +19,13 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.prestosql.execution.NodeTaskMap;
-import io.prestosql.execution.RemoteTask;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.metadata.Split;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.PrestoException;
+import io.trino.execution.NodeTaskMap;
+import io.trino.execution.RemoteTask;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.Split;
+import io.trino.spi.HostAddress;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.Nullable;
 
@@ -36,15 +36,15 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
-import static io.prestosql.execution.scheduler.NodeScheduler.calculateLowWatermark;
-import static io.prestosql.execution.scheduler.NodeScheduler.getAllNodes;
-import static io.prestosql.execution.scheduler.NodeScheduler.randomizedNodes;
-import static io.prestosql.execution.scheduler.NodeScheduler.selectDistributionNodes;
-import static io.prestosql.execution.scheduler.NodeScheduler.selectExactNodes;
-import static io.prestosql.execution.scheduler.NodeScheduler.selectNodes;
-import static io.prestosql.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
-import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static io.trino.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static io.trino.execution.scheduler.NodeScheduler.getAllNodes;
+import static io.trino.execution.scheduler.NodeScheduler.randomizedNodes;
+import static io.trino.execution.scheduler.NodeScheduler.selectDistributionNodes;
+import static io.trino.execution.scheduler.NodeScheduler.selectExactNodes;
+import static io.trino.execution.scheduler.NodeScheduler.selectNodes;
+import static io.trino.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
+import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Objects.requireNonNull;
 
 public class TopologyAwareNodeSelector

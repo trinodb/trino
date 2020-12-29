@@ -14,12 +14,12 @@
 package io.trino.orc.writer;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.orc.metadata.ColumnEncoding;
-import io.prestosql.orc.metadata.CompressedMetadataWriter;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.statistics.ColumnStatistics;
-import io.prestosql.orc.stream.StreamDataOutput;
-import io.prestosql.spi.block.Block;
+import io.trino.orc.metadata.ColumnEncoding;
+import io.trino.orc.metadata.CompressedMetadataWriter;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.statistics.ColumnStatistics;
+import io.trino.orc.stream.StreamDataOutput;
+import io.trino.spi.block.Block;
 
 import java.io.IOException;
 import java.util.List;

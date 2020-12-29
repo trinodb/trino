@@ -15,24 +15,24 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.ExpressionMatcher;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.tree.ComparisonExpression;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.ExpressionMatcher;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.tree.ComparisonExpression;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static java.util.Collections.emptyList;
 
 public class TestTransformUncorrelatedSubqueryToJoin

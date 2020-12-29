@@ -13,15 +13,15 @@
  */
 package io.trino.plugin.accumulo.io;
 
-import io.prestosql.plugin.accumulo.AccumuloClient;
-import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
-import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorPageSink;
-import io.prestosql.spi.connector.ConnectorPageSinkProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.plugin.accumulo.AccumuloClient;
+import io.trino.plugin.accumulo.conf.AccumuloConfig;
+import io.trino.plugin.accumulo.model.AccumuloTableHandle;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import org.apache.accumulo.core.client.Connector;
 
 import javax.inject.Inject;

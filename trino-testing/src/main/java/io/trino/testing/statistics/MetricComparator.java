@@ -15,21 +15,21 @@ package io.trino.testing.statistics;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.cost.PlanNodeStatsEstimate;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.OutputNode;
-import io.prestosql.testing.MaterializedRow;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.OutputNode;
+import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 
 import java.util.List;
 import java.util.OptionalDouble;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 

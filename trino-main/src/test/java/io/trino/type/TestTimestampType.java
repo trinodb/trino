@@ -13,11 +13,11 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.SqlTimestamp;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.SqlTimestamp;
 
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 
 public class TestTimestampType
         extends AbstractTestType

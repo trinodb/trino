@@ -17,8 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.prestosql.spi.memory.MemoryPoolId;
-import io.prestosql.spi.memory.MemoryPoolInfo;
+import io.trino.spi.memory.MemoryPoolId;
+import io.trino.spi.memory.MemoryPoolInfo;
 
 import javax.inject.Inject;
 
@@ -30,8 +30,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.memory.NodeMemoryConfig.QUERY_MAX_MEMORY_PER_NODE_CONFIG;
-import static io.prestosql.memory.NodeMemoryConfig.QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG;
+import static io.trino.memory.NodeMemoryConfig.QUERY_MAX_MEMORY_PER_NODE_CONFIG;
+import static io.trino.memory.NodeMemoryConfig.QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

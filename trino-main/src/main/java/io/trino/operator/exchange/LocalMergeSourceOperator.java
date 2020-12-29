@@ -15,25 +15,25 @@ package io.trino.operator.exchange;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.operator.DriverContext;
-import io.prestosql.operator.Operator;
-import io.prestosql.operator.OperatorContext;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.operator.PageWithPositionComparator;
-import io.prestosql.operator.WorkProcessor;
-import io.prestosql.operator.exchange.LocalExchange.LocalExchangeFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.OrderingCompiler;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.operator.DriverContext;
+import io.trino.operator.Operator;
+import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.PageWithPositionComparator;
+import io.trino.operator.WorkProcessor;
+import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
+import io.trino.spi.Page;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.OrderingCompiler;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.util.MergeSortedPages.mergeSortedPages;
+import static io.trino.util.MergeSortedPages.mergeSortedPages;
 import static java.util.Objects.requireNonNull;
 
 public class LocalMergeSourceOperator

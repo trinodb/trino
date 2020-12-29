@@ -14,26 +14,26 @@
 package io.trino.sql.gen;
 
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.sql.relational.CallExpression;
-import io.prestosql.sql.relational.RowExpression;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataManager;
+import io.trino.sql.relational.CallExpression;
+import io.trino.sql.relational.RowExpression;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.gen.InCodeGenerator.SwitchGenerationCase.DIRECT_SWITCH;
-import static io.prestosql.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
-import static io.prestosql.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
-import static io.prestosql.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
-import static io.prestosql.sql.relational.Expressions.constant;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.DIRECT_SWITCH;
+import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWITCH;
+import static io.trino.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
+import static io.trino.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
+import static io.trino.sql.relational.Expressions.constant;
 import static org.testng.Assert.assertEquals;
 
 public class TestInCodeGenerator

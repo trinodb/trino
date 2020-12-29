@@ -14,8 +14,8 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.client.ClientTypeSignature;
-import io.prestosql.client.ClientTypeSignatureParameter;
+import io.trino.client.ClientTypeSignature;
+import io.trino.client.ClientTypeSignatureParameter;
 
 import java.sql.Types;
 import java.util.List;

@@ -13,21 +13,21 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.TableDeleteNode;
-import io.prestosql.sql.planner.plan.TableFinishNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.plan.Patterns.delete;
-import static io.prestosql.sql.planner.plan.Patterns.source;
-import static io.prestosql.sql.planner.plan.Patterns.tableFinish;
-import static io.prestosql.sql.planner.plan.Patterns.tableScan;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.plan.Patterns.delete;
+import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.Patterns.tableFinish;
+import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
 public class PushDeleteIntoConnector

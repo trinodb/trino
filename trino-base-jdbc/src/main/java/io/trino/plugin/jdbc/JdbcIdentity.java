@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.security.Principal;
 import java.util.Map;

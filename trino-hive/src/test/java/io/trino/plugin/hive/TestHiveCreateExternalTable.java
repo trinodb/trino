@@ -15,9 +15,9 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -27,7 +27,7 @@ import java.io.IOException;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;

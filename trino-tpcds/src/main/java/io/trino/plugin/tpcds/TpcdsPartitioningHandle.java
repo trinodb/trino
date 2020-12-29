@@ -15,7 +15,7 @@ package io.trino.plugin.tpcds;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 
 import java.util.Objects;
 

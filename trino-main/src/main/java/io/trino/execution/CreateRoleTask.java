@@ -14,25 +14,25 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.sql.tree.CreateRole;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.sql.tree.CreateRole;
+import io.trino.sql.tree.Expression;
+import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createPrincipal;
-import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
-import static io.prestosql.spi.StandardErrorCode.ROLE_ALREADY_EXISTS;
-import static io.prestosql.spi.StandardErrorCode.ROLE_NOT_FOUND;
-import static io.prestosql.spi.security.PrincipalType.ROLE;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.metadata.MetadataUtil.createPrincipal;
+import static io.trino.metadata.MetadataUtil.getSessionCatalog;
+import static io.trino.spi.StandardErrorCode.ROLE_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
+import static io.trino.spi.security.PrincipalType.ROLE;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
 
 public class CreateRoleTask

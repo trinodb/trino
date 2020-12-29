@@ -15,10 +15,10 @@ package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.security.ConnectorIdentity;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.PrincipalType;
-import io.prestosql.spi.security.SelectedRole;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.PrincipalType;
+import io.trino.spi.security.SelectedRole;
 
 import java.util.Objects;
 import java.util.Set;

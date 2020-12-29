@@ -14,17 +14,17 @@
 package io.trino.plugin.accumulo;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
-import io.prestosql.plugin.accumulo.conf.AccumuloTableProperties;
-import io.prestosql.plugin.accumulo.index.ColumnCardinalityCache;
-import io.prestosql.plugin.accumulo.index.IndexLookup;
-import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
-import io.prestosql.plugin.accumulo.metadata.ZooKeeperMetadataManager;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.type.InternalTypeManager;
+import io.trino.plugin.accumulo.conf.AccumuloConfig;
+import io.trino.plugin.accumulo.conf.AccumuloTableProperties;
+import io.trino.plugin.accumulo.index.ColumnCardinalityCache;
+import io.trino.plugin.accumulo.index.IndexLookup;
+import io.trino.plugin.accumulo.metadata.AccumuloTable;
+import io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TypeOperators;
+import io.trino.type.InternalTypeManager;
 import org.apache.accumulo.core.client.Connector;
 import org.testng.annotations.Test;
 
@@ -32,8 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertNotNull;
 
 public class TestAccumuloClient

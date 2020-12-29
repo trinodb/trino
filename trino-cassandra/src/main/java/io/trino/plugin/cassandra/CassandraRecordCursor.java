@@ -16,16 +16,16 @@ package io.trino.plugin.cassandra;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.cassandra.CassandraType.TIMESTAMP;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.plugin.cassandra.CassandraType.TIMESTAMP;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static java.lang.Float.floatToRawIntBits;
 
 public class CassandraRecordCursor

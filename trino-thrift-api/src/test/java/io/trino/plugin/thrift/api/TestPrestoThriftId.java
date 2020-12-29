@@ -16,7 +16,7 @@ package io.trino.plugin.thrift.api;
 import com.google.common.primitives.UnsignedBytes;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.thrift.api.PrestoThriftId.summarize;
+import static io.trino.plugin.thrift.api.PrestoThriftId.summarize;
 import static org.testng.Assert.assertEquals;
 
 public class TestPrestoThriftId

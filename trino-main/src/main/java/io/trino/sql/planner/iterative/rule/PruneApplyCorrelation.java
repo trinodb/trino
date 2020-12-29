@@ -13,18 +13,18 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.ApplyNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.ApplyNode;
 
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
-import static io.prestosql.sql.planner.plan.Patterns.applyNode;
+import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.plan.Patterns.applyNode;
 
 /**
  * This rule updates ApplyNode's correlation list.

@@ -19,28 +19,28 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
-import io.prestosql.plugin.accumulo.conf.AccumuloSessionProperties;
-import io.prestosql.plugin.accumulo.conf.AccumuloTableProperties;
-import io.prestosql.plugin.accumulo.index.IndexLookup;
-import io.prestosql.plugin.accumulo.index.Indexer;
-import io.prestosql.plugin.accumulo.io.AccumuloPageSink;
-import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
-import io.prestosql.plugin.accumulo.metadata.AccumuloView;
-import io.prestosql.plugin.accumulo.metadata.ZooKeeperMetadataManager;
-import io.prestosql.plugin.accumulo.model.AccumuloColumnConstraint;
-import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
-import io.prestosql.plugin.accumulo.model.TabletSplitMetadata;
-import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.TableNotFoundException;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.Marker.Bound;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.plugin.accumulo.conf.AccumuloConfig;
+import io.trino.plugin.accumulo.conf.AccumuloSessionProperties;
+import io.trino.plugin.accumulo.conf.AccumuloTableProperties;
+import io.trino.plugin.accumulo.index.IndexLookup;
+import io.trino.plugin.accumulo.index.Indexer;
+import io.trino.plugin.accumulo.io.AccumuloPageSink;
+import io.trino.plugin.accumulo.metadata.AccumuloTable;
+import io.trino.plugin.accumulo.metadata.AccumuloView;
+import io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager;
+import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
+import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
+import io.trino.plugin.accumulo.model.TabletSplitMetadata;
+import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Marker.Bound;
+import io.trino.spi.type.TimestampType;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -69,14 +69,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
-import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
-import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
+import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
+import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -906,14 +906,14 @@ public class AccumuloClient
         }
 
         ImmutableSet.Builder<Range> rangeBuilder = ImmutableSet.builder();
-        for (io.prestosql.spi.predicate.Range range : domain.get().getValues().getRanges().getOrderedRanges()) {
+        for (io.trino.spi.predicate.Range range : domain.get().getValues().getRanges().getOrderedRanges()) {
             rangeBuilder.add(getRangeFromPrestoRange(range, serializer));
         }
 
         return rangeBuilder.build();
     }
 
-    private static Range getRangeFromPrestoRange(io.prestosql.spi.predicate.Range prestoRange, AccumuloRowSerializer serializer)
+    private static Range getRangeFromPrestoRange(io.trino.spi.predicate.Range prestoRange, AccumuloRowSerializer serializer)
             throws TableNotFoundException
     {
         Range accumuloRange;

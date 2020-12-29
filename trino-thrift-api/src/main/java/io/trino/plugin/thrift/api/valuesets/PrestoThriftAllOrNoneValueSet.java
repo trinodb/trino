@@ -16,7 +16,7 @@ package io.trino.plugin.thrift.api.valuesets;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.spi.predicate.AllOrNoneValueSet;
+import io.trino.spi.predicate.AllOrNoneValueSet;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

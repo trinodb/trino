@@ -16,9 +16,9 @@ package io.trino.orc;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.orc.stream.AbstractDiskOrcDataReader;
-import io.prestosql.orc.stream.MemoryOrcDataReader;
-import io.prestosql.orc.stream.OrcDataReader;
+import io.trino.orc.stream.AbstractDiskOrcDataReader;
+import io.trino.orc.stream.MemoryOrcDataReader;
+import io.trino.orc.stream.OrcDataReader;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -29,8 +29,8 @@ import java.util.Map.Entry;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.orc.OrcDataSourceUtils.getDiskRangeSlice;
-import static io.prestosql.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
+import static io.trino.orc.OrcDataSourceUtils.getDiskRangeSlice;
+import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

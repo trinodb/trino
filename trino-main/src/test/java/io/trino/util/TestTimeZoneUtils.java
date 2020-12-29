@@ -13,7 +13,7 @@
  */
 package io.trino.util;
 
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -21,13 +21,13 @@ import org.testng.annotations.Test;
 import java.time.ZoneId;
 import java.util.TreeSet;
 
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.prestosql.spi.type.TimeZoneKey.isUtcZoneId;
-import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
-import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
-import static io.prestosql.util.DateTimeZoneIndex.unpackDateTimeZone;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.TimeZoneKey.isUtcZoneId;
+import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static io.trino.util.DateTimeZoneIndex.unpackDateTimeZone;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;

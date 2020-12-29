@@ -16,9 +16,9 @@ package io.trino.execution;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import io.airlift.stats.TimeStat;
-import io.prestosql.dispatcher.DispatchQuery;
-import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.server.BasicQueryInfo;
+import io.trino.dispatcher.DispatchQuery;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.server.BasicQueryInfo;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -27,9 +27,9 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.prestosql.execution.QueryState.RUNNING;
-import static io.prestosql.spi.StandardErrorCode.ABANDONED_QUERY;
-import static io.prestosql.spi.StandardErrorCode.USER_CANCELED;
+import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.spi.StandardErrorCode.ABANDONED_QUERY;
+import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

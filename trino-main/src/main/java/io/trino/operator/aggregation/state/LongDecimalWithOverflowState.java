@@ -14,8 +14,8 @@
 package io.trino.operator.aggregation.state;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateFactoryClass = LongDecimalWithOverflowStateFactory.class, stateSerializerClass = LongDecimalWithOverflowStateSerializer.class)
 public interface LongDecimalWithOverflowState

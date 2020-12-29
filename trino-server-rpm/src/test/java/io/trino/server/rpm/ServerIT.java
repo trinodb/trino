@@ -30,7 +30,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
-import static io.prestosql.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.sql.DriverManager.getConnection;
 import static java.util.Arrays.asList;

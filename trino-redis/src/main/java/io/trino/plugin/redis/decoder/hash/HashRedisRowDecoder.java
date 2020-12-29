@@ -14,10 +14,10 @@
 package io.trino.plugin.redis.decoder.hash;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.plugin.redis.RedisFieldDecoder;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.decoder.RowDecoder;
+import io.trino.plugin.redis.RedisFieldDecoder;
 
 import java.util.HashMap;
 import java.util.Map;

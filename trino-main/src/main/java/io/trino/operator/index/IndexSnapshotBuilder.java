@@ -15,15 +15,15 @@ package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.Session;
-import io.prestosql.operator.DriverContext;
-import io.prestosql.operator.LookupSource;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.Session;
+import io.trino.operator.DriverContext;
+import io.trino.operator.LookupSource;
+import io.trino.operator.PagesIndex;
+import io.trino.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordCursor;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;

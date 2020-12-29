@@ -15,10 +15,10 @@ package io.trino.plugin.atop;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,17 +26,17 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static io.prestosql.plugin.atop.AtopTable.AtopColumn.END_TIME;
-import static io.prestosql.plugin.atop.AtopTable.AtopColumn.HOST_IP;
-import static io.prestosql.plugin.atop.AtopTable.AtopColumn.START_TIME;
-import static io.prestosql.plugin.atop.AtopTable.AtopColumnParser.bigintParser;
-import static io.prestosql.plugin.atop.AtopTable.AtopColumnParser.varcharParser;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.atop.AtopTable.AtopColumn.END_TIME;
+import static io.trino.plugin.atop.AtopTable.AtopColumn.HOST_IP;
+import static io.trino.plugin.atop.AtopTable.AtopColumn.START_TIME;
+import static io.trino.plugin.atop.AtopTable.AtopColumnParser.bigintParser;
+import static io.trino.plugin.atop.AtopTable.AtopColumnParser.varcharParser;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public enum AtopTable

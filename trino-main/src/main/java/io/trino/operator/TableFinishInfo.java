@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.spi.connector.ConnectorOutputMetadata;
+import io.trino.spi.connector.ConnectorOutputMetadata;
 
 import java.util.Optional;
 

@@ -15,7 +15,7 @@ package io.trino.pinot.decoders;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 
 import java.util.function.Supplier;
 

@@ -13,10 +13,10 @@
  */
 package io.trino.operator.aggregation.minmaxby;
 
-import io.prestosql.array.ObjectBigArray;
-import io.prestosql.operator.aggregation.TypedKeyValueHeap;
-import io.prestosql.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateFactory;
+import io.trino.array.ObjectBigArray;
+import io.trino.operator.aggregation.TypedKeyValueHeap;
+import io.trino.operator.aggregation.state.AbstractGroupedAccumulatorState;
+import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
 public class MinMaxByNStateFactory

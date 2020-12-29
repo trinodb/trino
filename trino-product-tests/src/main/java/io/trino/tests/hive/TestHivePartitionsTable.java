@@ -41,7 +41,7 @@ import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.create
 import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
 import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
+import static io.trino.tests.TestGroups.HIVE_PARTITIONING;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -76,7 +76,7 @@ public class TestHivePartitionsTable
                 "PARTITIONED BY (part_col INT) " +
                 "STORED AS ORC";
 
-        HiveDataSource dataSource = createResourceDataSource(PARTITIONED_TABLE, "io/prestosql/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource dataSource = createResourceDataSource(PARTITIONED_TABLE, "io/trino/tests/hive/data/single_int_column/data.orc");
         HiveDataSource invalidData = createStringDataSource(PARTITIONED_TABLE, "INVALID DATA");
         return HiveTableDefinition.builder(PARTITIONED_TABLE)
                 .setCreateTableDDLTemplate(createTableDdl)

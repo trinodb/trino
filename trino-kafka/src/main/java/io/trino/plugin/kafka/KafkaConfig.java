@@ -20,8 +20,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplier;
-import io.prestosql.spi.HostAddress;
+import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
+import io.trino.spi.HostAddress;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;

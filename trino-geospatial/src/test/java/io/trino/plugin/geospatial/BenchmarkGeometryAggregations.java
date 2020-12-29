@@ -14,9 +14,9 @@
 package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.memory.MemoryConnectorFactory;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.MaterializedResult;
+import io.trino.plugin.memory.MemoryConnectorFactory;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.MaterializedResult;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -38,7 +38,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Collectors;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;

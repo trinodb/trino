@@ -14,19 +14,19 @@
 package io.trino.orc.stream;
 
 import io.airlift.slice.SliceOutput;
-import io.prestosql.orc.OrcCorruptionException;
+import io.trino.orc.OrcCorruptionException;
 
 import java.io.IOException;
 
-import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.FIFTY_SIX;
-import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.FORTY;
-import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.FORTY_EIGHT;
-import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.ONE;
-import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.THIRTY;
-import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.THIRTY_TWO;
-import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.TWENTY_EIGHT;
-import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.TWENTY_FOUR;
-import static io.prestosql.orc.stream.LongDecode.FixedBitSizes.TWENTY_SIX;
+import static io.trino.orc.stream.LongDecode.FixedBitSizes.FIFTY_SIX;
+import static io.trino.orc.stream.LongDecode.FixedBitSizes.FORTY;
+import static io.trino.orc.stream.LongDecode.FixedBitSizes.FORTY_EIGHT;
+import static io.trino.orc.stream.LongDecode.FixedBitSizes.ONE;
+import static io.trino.orc.stream.LongDecode.FixedBitSizes.THIRTY;
+import static io.trino.orc.stream.LongDecode.FixedBitSizes.THIRTY_TWO;
+import static io.trino.orc.stream.LongDecode.FixedBitSizes.TWENTY_EIGHT;
+import static io.trino.orc.stream.LongDecode.FixedBitSizes.TWENTY_FOUR;
+import static io.trino.orc.stream.LongDecode.FixedBitSizes.TWENTY_SIX;
 
 // This is based on the Apache Hive ORC code
 public final class LongDecode

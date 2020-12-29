@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.hive.HiveBooleanParser.parseHiveBoolean;
+import static io.trino.plugin.hive.HiveBooleanParser.parseHiveBoolean;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;

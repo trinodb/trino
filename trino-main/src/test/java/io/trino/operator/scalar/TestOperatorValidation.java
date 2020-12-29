@@ -13,13 +13,13 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.metadata.FunctionListBuilder;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.metadata.FunctionListBuilder;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.ADD;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestOperatorValidation

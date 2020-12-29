@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.systemtables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -28,7 +28,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
+import static io.trino.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;

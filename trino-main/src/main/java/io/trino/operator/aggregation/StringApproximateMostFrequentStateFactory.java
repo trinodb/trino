@@ -14,9 +14,9 @@
 package io.trino.operator.aggregation;
 
 import io.airlift.slice.Slice;
-import io.prestosql.array.ObjectBigArray;
-import io.prestosql.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateFactory;
+import io.trino.array.ObjectBigArray;
+import io.trino.operator.aggregation.state.AbstractGroupedAccumulatorState;
+import io.trino.spi.function.AccumulatorStateFactory;
 
 public class StringApproximateMostFrequentStateFactory
         implements AccumulatorStateFactory<VarcharApproximateMostFrequent.State>

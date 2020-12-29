@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.base.classloader;
 
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ConnectorPartitionHandle;
+import io.trino.spi.connector.ConnectorSplitSource;
 
 import javax.inject.Inject;
 

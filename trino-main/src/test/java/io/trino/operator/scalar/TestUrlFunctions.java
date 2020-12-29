@@ -15,8 +15,8 @@ package io.trino.operator.scalar;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 
 public class TestUrlFunctions
         extends AbstractTestFunctions

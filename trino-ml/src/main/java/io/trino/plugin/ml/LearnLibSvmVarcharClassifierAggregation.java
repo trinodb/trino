@@ -14,17 +14,17 @@
 package io.trino.plugin.ml;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationState;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
 
-import static io.prestosql.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.trino.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
+import static io.trino.spi.type.StandardTypes.VARCHAR;
 
 @AggregationFunction(value = "learn_libsvm_classifier", decomposable = false)
 public final class LearnLibSvmVarcharClassifierAggregation

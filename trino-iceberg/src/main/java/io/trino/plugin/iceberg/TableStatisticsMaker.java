@@ -15,16 +15,16 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.Constraint;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.statistics.ColumnStatistics;
-import io.prestosql.spi.statistics.DoubleRange;
-import io.prestosql.spi.statistics.Estimate;
-import io.prestosql.spi.statistics.TableStatistics;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.DoubleRange;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
@@ -46,11 +46,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
-import static io.prestosql.plugin.iceberg.Partition.toMap;
-import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
+import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
+import static io.trino.plugin.iceberg.Partition.toMap;
+import static io.trino.plugin.iceberg.TypeConverter.toPrestoType;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
@@ -228,7 +228,7 @@ public class TableStatisticsMaker
         return true;
     }
 
-    private NullableValue makeNullableValue(io.prestosql.spi.type.Type type, Object value)
+    private NullableValue makeNullableValue(io.trino.spi.type.Type type, Object value)
     {
         return value == null ? NullableValue.asNull(type) : NullableValue.of(type, value);
     }
@@ -249,10 +249,10 @@ public class TableStatisticsMaker
         private final PartitionField field;
         private final IcebergColumnHandle columnHandle;
         private final Type icebergType;
-        private final io.prestosql.spi.type.Type prestoType;
+        private final io.trino.spi.type.Type prestoType;
         private final Class<?> javaClass;
 
-        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, io.prestosql.spi.type.Type prestoType, Class<?> javaClass)
+        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, io.trino.spi.type.Type prestoType, Class<?> javaClass)
         {
             this.field = requireNonNull(field, "field is null");
             this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
@@ -276,7 +276,7 @@ public class TableStatisticsMaker
             return icebergType;
         }
 
-        public io.prestosql.spi.type.Type getPrestoType()
+        public io.trino.spi.type.Type getPrestoType()
         {
             return prestoType;
         }

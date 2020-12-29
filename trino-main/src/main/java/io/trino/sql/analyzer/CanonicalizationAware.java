@@ -13,13 +13,13 @@
  */
 package io.trino.sql.analyzer;
 
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.Node;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Node;
 
 import java.util.OptionalInt;
 
-import static io.prestosql.sql.util.AstUtils.treeEqual;
-import static io.prestosql.sql.util.AstUtils.treeHash;
+import static io.trino.sql.util.AstUtils.treeEqual;
+import static io.trino.sql.util.AstUtils.treeHash;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

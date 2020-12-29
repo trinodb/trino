@@ -16,10 +16,10 @@ package io.trino.metadata;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,12 +33,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 
 public class FunctionResolver

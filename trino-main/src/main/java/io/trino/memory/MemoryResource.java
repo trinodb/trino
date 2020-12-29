@@ -13,9 +13,9 @@
  */
 package io.trino.memory;
 
-import io.prestosql.execution.TaskManager;
-import io.prestosql.server.security.ResourceSecurity;
-import io.prestosql.spi.memory.MemoryPoolInfo;
+import io.trino.execution.TaskManager;
+import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.memory.MemoryPoolInfo;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -27,10 +27,10 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
+import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.trino.memory.LocalMemoryManager.RESERVED_POOL;
+import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
+import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 

@@ -17,21 +17,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.DecoderTestColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarbinaryType;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.DecoderTestColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.decoder.RowDecoder;
+import io.trino.metadata.Metadata;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -58,24 +58,24 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkArrayValues;
-import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkMapValues;
-import static io.prestosql.decoder.avro.AvroDecoderTestUtil.checkRowValues;
-import static io.prestosql.decoder.util.DecoderTestUtil.checkIsNull;
-import static io.prestosql.decoder.util.DecoderTestUtil.checkValue;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.mapType;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.trino.decoder.avro.AvroDecoderTestUtil.checkArrayValues;
+import static io.trino.decoder.avro.AvroDecoderTestUtil.checkMapValues;
+import static io.trino.decoder.avro.AvroDecoderTestUtil.checkRowValues;
+import static io.trino.decoder.util.DecoderTestUtil.checkIsNull;
+import static io.trino.decoder.util.DecoderTestUtil.checkValue;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -136,7 +136,7 @@ public class TestAvroDecoder
     private static FieldAssembler<Schema> getFieldBuilder()
     {
         return SchemaBuilder.record("test_schema")
-                .namespace("io.prestosql.decoder.avro")
+                .namespace("io.trino.decoder.avro")
                 .fields();
     }
 
@@ -485,7 +485,7 @@ public class TestAvroDecoder
     {
         String schema = "{\"type\" : \"record\", " +
                 "  \"name\" : \"nested_schema\"," +
-                "  \"namespace\" : \"io.prestosql.decoder.avro\"," +
+                "  \"namespace\" : \"io.trino.decoder.avro\"," +
                 "  \"fields\" :" +
                 "  [{" +
                 "            \"name\":\"nested\"," +

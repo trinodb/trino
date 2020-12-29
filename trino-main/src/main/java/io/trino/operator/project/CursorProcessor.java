@@ -13,10 +13,10 @@
  */
 package io.trino.operator.project;
 
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.RecordCursor;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RecordCursor;
 
 public interface CursorProcessor
 {

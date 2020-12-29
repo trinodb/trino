@@ -14,8 +14,8 @@
 package io.trino.plugin.phoenix;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.jdbc.TablePropertiesProvider;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.plugin.jdbc.TablePropertiesProvider;
+import io.trino.spi.session.PropertyMetadata;
 import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.regionserver.BloomType;
@@ -29,10 +29,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static java.util.Objects.requireNonNull;
 
 /**

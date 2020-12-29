@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.plugin.hive.PartitionUpdate.UpdateMode;
+import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 

@@ -19,10 +19,10 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
-import static io.prestosql.array.BigArrays.INITIAL_SEGMENTS;
-import static io.prestosql.array.BigArrays.SEGMENT_SIZE;
-import static io.prestosql.array.BigArrays.offset;
-import static io.prestosql.array.BigArrays.segment;
+import static io.trino.array.BigArrays.INITIAL_SEGMENTS;
+import static io.trino.array.BigArrays.SEGMENT_SIZE;
+import static io.trino.array.BigArrays.offset;
+import static io.trino.array.BigArrays.segment;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna

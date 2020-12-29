@@ -17,17 +17,17 @@ import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.statistics.ColumnStatisticType;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.PrestoException;
+import io.trino.spi.statistics.ColumnStatisticType;
+import io.trino.spi.type.Type;
 
 import java.util.Map;
 import java.util.Set;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class DisabledGlueColumnStatisticsProvider
         implements GlueColumnStatisticsProvider

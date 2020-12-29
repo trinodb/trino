@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.kinesis;
 
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.Map;
 import java.util.Optional;

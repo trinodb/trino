@@ -16,14 +16,14 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Booleans;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class TestApproximateCountDistinctBoolean
         extends AbstractTestApproximateCountDistinct

@@ -16,9 +16,9 @@ package io.trino.plugin.session.file;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
-import io.prestosql.spi.session.SessionPropertyConfigurationManager;
-import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
+import io.trino.spi.session.SessionPropertyConfigurationManager;
+import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 
 import java.util.Map;
 

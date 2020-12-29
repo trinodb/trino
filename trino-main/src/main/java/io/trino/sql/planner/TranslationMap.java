@@ -15,25 +15,25 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.sql.analyzer.Analysis;
-import io.prestosql.sql.analyzer.ResolvedField;
-import io.prestosql.sql.analyzer.Scope;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.FieldReference;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.GenericDataType;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.LambdaArgumentDeclaration;
-import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.RowDataType;
-import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.sql.util.AstUtils;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.ResolvedField;
+import io.trino.sql.analyzer.Scope;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.FieldReference;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GenericDataType;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.RowDataType;
+import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.util.AstUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,14 +45,14 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.sql.planner.ScopeAware.scopeAwareKey;
+import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Keeps mappings of fields and AST expressions to symbols in the current plan within query boundary.
  *
- * AST and IR expressions use the same class hierarchy ({@link io.prestosql.sql.tree.Expression},
+ * AST and IR expressions use the same class hierarchy ({@link io.trino.sql.tree.Expression},
  * but differ in the following ways:
  * <li>AST expressions contain Identifiers, while IR expressions contain SymbolReferences</li>
  * <li>FunctionCalls in AST expressions are SQL function names. In IR expressions, they contain an encoded name representing a resolved function</li>

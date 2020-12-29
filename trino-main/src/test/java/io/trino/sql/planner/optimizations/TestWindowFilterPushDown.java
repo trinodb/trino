@@ -15,31 +15,31 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.assertions.RowNumberSymbolMatcher;
-import io.prestosql.sql.planner.assertions.TopNRowNumberSymbolMatcher;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.TopNRowNumberNode;
-import io.prestosql.sql.planner.plan.WindowNode;
+import io.trino.Session;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
+import io.trino.sql.planner.assertions.TopNRowNumberSymbolMatcher;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.TopNRowNumberNode;
+import io.trino.sql.planner.plan.WindowNode;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.OPTIMIZE_TOP_N_ROW_NUMBER;
-import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_LAST;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.rowNumber;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.SystemSessionProperties.OPTIMIZE_TOP_N_ROW_NUMBER;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyNot;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestWindowFilterPushDown
         extends BasePlanTest

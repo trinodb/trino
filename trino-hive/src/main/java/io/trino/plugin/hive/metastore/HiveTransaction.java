@@ -14,11 +14,11 @@
 package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveMetastoreClosure;
-import io.prestosql.plugin.hive.HiveTableHandle;
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.hive.HiveMetastoreClosure;
+import io.trino.plugin.hive.HiveTableHandle;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
 
 import java.util.HashMap;

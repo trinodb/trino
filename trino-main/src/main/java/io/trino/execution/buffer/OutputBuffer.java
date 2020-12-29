@@ -15,8 +15,8 @@ package io.trino.execution.buffer;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.List;
 

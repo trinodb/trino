@@ -14,18 +14,18 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.JoinNode.Type;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinNode.Type;
+import io.trino.sql.planner.plan.ValuesNode;
 
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
-import static io.prestosql.sql.planner.plan.Patterns.join;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.Patterns.join;
 
 public class RemoveRedundantJoin
         implements Rule<JoinNode>

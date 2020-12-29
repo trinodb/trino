@@ -18,8 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.ViewExpression;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.ViewExpression;
 
 import java.util.List;
 import java.util.Map;
@@ -28,8 +28,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
-import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
+import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
+import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static java.util.Objects.requireNonNull;
 
 public class TableAccessControlRule

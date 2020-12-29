@@ -13,24 +13,24 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.DateType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.RealType;
-import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TinyintType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.InterpretedFunctionInvoker;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.Type;
+import io.trino.sql.InterpretedFunctionInvoker;
 
 import java.util.OptionalDouble;
 
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.util.Collections.singletonList;
 
 final class StatsUtil

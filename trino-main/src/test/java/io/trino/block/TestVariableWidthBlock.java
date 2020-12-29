@@ -15,11 +15,11 @@ package io.trino.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.VariableWidthBlock;
-import io.prestosql.spi.block.VariableWidthBlockBuilder;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -27,7 +27,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.Arrays.copyOfRange;
 import static org.testng.Assert.assertEquals;

@@ -14,14 +14,14 @@
 package io.trino.operator.window;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.aggregation.Accumulator;
-import io.prestosql.operator.aggregation.AccumulatorFactory;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.aggregation.LambdaProvider;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.WindowFunction;
-import io.prestosql.spi.function.WindowIndex;
+import io.trino.metadata.Signature;
+import io.trino.operator.aggregation.Accumulator;
+import io.trino.operator.aggregation.AccumulatorFactory;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.LambdaProvider;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.WindowFunction;
+import io.trino.spi.function.WindowIndex;
 
 import java.util.List;
 import java.util.Optional;

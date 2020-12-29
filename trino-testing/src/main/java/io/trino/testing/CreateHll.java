@@ -15,9 +15,9 @@ package io.trino.testing;
 
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 public final class CreateHll
 {

@@ -24,12 +24,12 @@ import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
-import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
-import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
-import static io.prestosql.spi.block.BlockUtil.compactArray;
-import static io.prestosql.spi.block.BlockUtil.countUsedPositions;
-import static io.prestosql.spi.block.Int96ArrayBlock.INT96_BYTES;
+import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.countUsedPositions;
+import static io.trino.spi.block.Int96ArrayBlock.INT96_BYTES;
 import static java.lang.Math.max;
 
 public class Int96ArrayBlockBuilder

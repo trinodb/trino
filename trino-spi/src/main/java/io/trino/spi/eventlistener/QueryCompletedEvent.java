@@ -13,7 +13,7 @@
  */
 package io.trino.spi.eventlistener;
 
-import io.prestosql.spi.PrestoWarning;
+import io.trino.spi.PrestoWarning;
 
 import java.time.Instant;
 import java.util.List;

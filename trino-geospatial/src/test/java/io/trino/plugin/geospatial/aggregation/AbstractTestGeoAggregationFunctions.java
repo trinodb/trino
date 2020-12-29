@@ -15,14 +15,14 @@ package io.trino.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
-import io.prestosql.block.BlockAssertions;
-import io.prestosql.geospatial.serde.GeometrySerde;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.plugin.geospatial.GeoPlugin;
-import io.prestosql.spi.Page;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.block.BlockAssertions;
+import io.trino.geospatial.serde.GeometrySerde;
+import io.trino.metadata.Metadata;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.plugin.geospatial.GeoPlugin;
+import io.trino.spi.Page;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.BeforeClass;
 
 import java.util.Arrays;
@@ -31,9 +31,9 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public abstract class AbstractTestGeoAggregationFunctions
         extends AbstractTestFunctions

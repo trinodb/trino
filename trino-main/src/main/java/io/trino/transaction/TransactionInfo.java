@@ -15,8 +15,8 @@ package io.trino.transaction;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.connector.CatalogName;
+import io.trino.spi.transaction.IsolationLevel;
 import org.joda.time.DateTime;
 
 import java.util.List;

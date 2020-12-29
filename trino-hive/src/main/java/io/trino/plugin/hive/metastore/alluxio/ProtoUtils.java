@@ -29,17 +29,17 @@ import alluxio.grpc.table.StringColumnStatsData;
 import alluxio.grpc.table.layout.hive.PartitionInfo;
 import alluxio.shaded.client.com.google.protobuf.InvalidProtocolBufferException;
 import com.google.common.collect.Lists;
-import io.prestosql.plugin.hive.HiveBucketProperty;
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.SortingColumn;
-import io.prestosql.plugin.hive.metastore.StorageFormat;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.plugin.hive.util.HiveBucketing;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.SortingColumn;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.util.HiveBucketing;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.Nullable;
 
@@ -55,18 +55,18 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
-import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
-import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
-import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
-import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
-import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
-import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreDistinctValuesCount;
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreNullsCount;
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getTotalSizeInBytes;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreDistinctValuesCount;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreNullsCount;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getTotalSizeInBytes;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public final class ProtoUtils
 {
@@ -78,7 +78,7 @@ public final class ProtoUtils
                 .setDatabaseName(db.getDbName())
                 .setLocation(db.hasLocation() ? Optional.of(db.getLocation()) : Optional.empty())
                 .setOwnerName(db.getOwnerName())
-                .setOwnerType(db.getOwnerType() == PrincipalType.USER ? io.prestosql.spi.security.PrincipalType.USER : io.prestosql.spi.security.PrincipalType.ROLE)
+                .setOwnerType(db.getOwnerType() == PrincipalType.USER ? io.trino.spi.security.PrincipalType.USER : io.trino.spi.security.PrincipalType.ROLE)
                 .setComment(db.hasComment() ? Optional.of(db.getComment()) : Optional.empty())
                 .setParameters(db.getParameterMap())
                 .build();

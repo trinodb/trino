@@ -13,11 +13,11 @@
  */
 package io.trino.execution;
 
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.NodeLocation;
-import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.Statement;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Statement;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

@@ -15,8 +15,8 @@ package io.trino.orc.metadata;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcOutputBuffer;
-import io.prestosql.orc.metadata.statistics.BloomFilter;
+import io.trino.orc.OrcOutputBuffer;
+import io.trino.orc.metadata.statistics.BloomFilter;
 
 import java.io.IOException;
 import java.util.List;

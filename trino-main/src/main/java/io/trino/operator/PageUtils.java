@@ -13,13 +13,13 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 
-import static io.prestosql.spi.block.LazyBlock.listenForLoads;
+import static io.trino.spi.block.LazyBlock.listenForLoads;
 import static java.util.Objects.requireNonNull;
 
 public final class PageUtils

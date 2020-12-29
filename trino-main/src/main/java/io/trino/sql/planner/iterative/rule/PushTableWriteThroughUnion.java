@@ -16,28 +16,28 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.optimizations.SymbolMapper;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.TableWriterNode;
-import io.prestosql.sql.planner.plan.UnionNode;
+import io.trino.Session;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.SymbolMapper;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.UnionNode;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.SystemSessionProperties.isPushTableWriteThroughUnion;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.optimizations.SymbolMapper.symbolMapper;
-import static io.prestosql.sql.planner.plan.Patterns.source;
-import static io.prestosql.sql.planner.plan.Patterns.tableWriterNode;
-import static io.prestosql.sql.planner.plan.Patterns.union;
+import static io.trino.SystemSessionProperties.isPushTableWriteThroughUnion;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.optimizations.SymbolMapper.symbolMapper;
+import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.Patterns.tableWriterNode;
+import static io.trino.sql.planner.plan.Patterns.union;
 
 public class PushTableWriteThroughUnion
         implements Rule<TableWriterNode>

@@ -14,18 +14,18 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.sql.SqlExecutor;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.Session;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_USER;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;

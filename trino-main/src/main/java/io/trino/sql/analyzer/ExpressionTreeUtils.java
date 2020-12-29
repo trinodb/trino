@@ -14,15 +14,15 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.Location;
-import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.spi.Location;
+import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Optional;

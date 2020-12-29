@@ -13,24 +13,24 @@
  */
 package io.trino.security;
 
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorSecurityContext;
-import io.prestosql.spi.connector.SchemaRoutineName;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
-import io.prestosql.spi.security.ViewExpression;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.SchemaRoutineName;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
+import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
 
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class InjectedConnectorAccessControl

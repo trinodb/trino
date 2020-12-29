@@ -24,8 +24,8 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockEncodingSerde;
 
 import java.io.IOException;
 import java.util.Base64;

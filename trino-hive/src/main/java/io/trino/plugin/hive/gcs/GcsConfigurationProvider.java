@@ -14,14 +14,14 @@
 package io.trino.plugin.hive.gcs;
 
 import com.google.cloud.hadoop.gcsio.GoogleCloudStorageFileSystem;
-import io.prestosql.plugin.hive.DynamicConfigurationProvider;
+import io.trino.plugin.hive.DynamicConfigurationProvider;
 import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 
-import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
-import static io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import static io.prestosql.plugin.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_CONF;
+import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
+import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import static io.trino.plugin.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_CONF;
 
 public class GcsConfigurationProvider
         implements DynamicConfigurationProvider

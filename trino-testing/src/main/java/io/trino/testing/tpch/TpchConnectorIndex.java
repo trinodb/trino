@@ -13,11 +13,11 @@
  */
 package io.trino.testing.tpch;
 
-import io.prestosql.spi.connector.ConnectorIndex;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.RecordPageSource;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.testing.tpch.TpchIndexedData.IndexedTable;
+import io.trino.spi.connector.ConnectorIndex;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.RecordSet;
+import io.trino.testing.tpch.TpchIndexedData.IndexedTable;
 
 import java.util.function.Function;
 

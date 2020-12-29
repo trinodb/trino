@@ -15,17 +15,17 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.memory.context.MemoryTrackingContext;
-import io.prestosql.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
-import io.prestosql.operator.SetBuilderOperator.SetSupplier;
-import io.prestosql.operator.WorkProcessor.TransformationState;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
+import io.trino.operator.SetBuilderOperator.SetSupplier;
+import io.trino.operator.WorkProcessor.TransformationState;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 
@@ -36,12 +36,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.prestosql.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
-import static io.prestosql.operator.WorkProcessor.TransformationState.blocked;
-import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
-import static io.prestosql.operator.WorkProcessor.TransformationState.ofResult;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.operator.WorkProcessor.TransformationState.blocked;
+import static io.trino.operator.WorkProcessor.TransformationState.finished;
+import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class HashSemiJoinOperator

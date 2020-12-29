@@ -14,14 +14,14 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.ExpressionUtils;
-import io.prestosql.sql.tree.AstVisitor;
-import io.prestosql.sql.tree.BetweenPredicate;
-import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.metadata.Metadata;
+import io.trino.sql.ExpressionUtils;
+import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.BetweenPredicate;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,8 +30,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static java.util.Collections.singletonList;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -39,7 +39,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 /**
- * Extracts sort expression to be used for creating {@link io.prestosql.operator.SortedPositionLinks} from join filter expression.
+ * Extracts sort expression to be used for creating {@link io.trino.operator.SortedPositionLinks} from join filter expression.
  * Currently this class can extract sort and search expressions from filter function conjuncts of shape:
  * <p>
  * {@code A.a < f(B.x, B.y, B.z)} or {@code f(B.x, B.y, B.z) < A.a}

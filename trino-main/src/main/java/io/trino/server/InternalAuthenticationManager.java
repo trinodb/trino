@@ -21,8 +21,8 @@ import io.airlift.node.NodeInfo;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.prestosql.server.security.InternalPrincipal;
-import io.prestosql.spi.security.Identity;
+import io.trino.server.security.InternalPrincipal;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
@@ -32,7 +32,7 @@ import java.time.ZonedDateTime;
 import java.util.Date;
 
 import static io.airlift.http.client.Request.Builder.fromRequest;
-import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
+import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;

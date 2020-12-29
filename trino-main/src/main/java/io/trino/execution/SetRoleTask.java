@@ -14,19 +14,19 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.security.SecurityContext;
-import io.prestosql.spi.security.SelectedRole;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.SetRole;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.security.SecurityContext;
+import io.trino.spi.security.SelectedRole;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SetRole;
+import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.getSessionCatalog;
+import static io.trino.metadata.MetadataUtil.getSessionCatalog;
 import static java.util.Locale.ENGLISH;
 
 public class SetRoleTask

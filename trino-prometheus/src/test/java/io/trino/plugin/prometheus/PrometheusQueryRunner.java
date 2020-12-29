@@ -17,19 +17,19 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.type.InternalTypeManager;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.type.InternalTypeManager;
 
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.plugin.prometheus.MetadataUtil.METRIC_CODEC;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class PrometheusQueryRunner
 {

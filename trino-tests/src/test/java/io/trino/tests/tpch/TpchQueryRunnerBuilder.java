@@ -14,18 +14,18 @@
 package io.trino.tests.tpch;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.Session;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.DistributedQueryRunner;
 
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_MAX_ROWS_PER_PAGE_PROPERTY;
-import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_PRODUCE_PAGES;
-import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_CATALOG;
-import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_SCHEMA;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_MAX_ROWS_PER_PAGE_PROPERTY;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_PRODUCE_PAGES;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_CATALOG;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_SCHEMA;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
         extends DistributedQueryRunner.Builder

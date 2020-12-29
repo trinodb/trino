@@ -13,12 +13,12 @@
  */
 package io.trino.testing;
 
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlTime;
-import io.prestosql.spi.type.SqlTimeWithTimeZone;
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 
 import java.time.LocalDate;
@@ -26,10 +26,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 
-import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
-import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.trino.type.DateTimes.MILLISECONDS_PER_SECOND;
+import static io.trino.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static java.lang.Math.toIntExact;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 import static java.util.concurrent.TimeUnit.DAYS;

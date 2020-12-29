@@ -14,8 +14,8 @@
 package io.trino.spi.function;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
 /**
  * A window index contains the sorted values for a window partition.

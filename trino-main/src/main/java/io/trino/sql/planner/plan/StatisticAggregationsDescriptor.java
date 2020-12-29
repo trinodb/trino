@@ -24,9 +24,9 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.statistics.ColumnStatisticMetadata;
-import io.prestosql.spi.statistics.ColumnStatisticType;
-import io.prestosql.spi.statistics.TableStatisticType;
+import io.trino.spi.statistics.ColumnStatisticMetadata;
+import io.trino.spi.statistics.ColumnStatisticType;
+import io.trino.spi.statistics.TableStatisticType;
 
 import java.io.IOException;
 import java.util.Map;

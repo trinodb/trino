@@ -13,7 +13,7 @@
  */
 package io.trino.jdbc;
 
-import io.prestosql.client.Column;
+import io.trino.client.Column;
 
 import java.sql.SQLException;
 import java.util.List;

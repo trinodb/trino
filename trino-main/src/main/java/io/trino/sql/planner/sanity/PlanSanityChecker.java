@@ -15,13 +15,13 @@ package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.PlanNode;
 
 /**
  * It is going to be executed to verify logical planner correctness

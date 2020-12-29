@@ -14,8 +14,8 @@
 package io.trino.plugin.hive.s3select;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.plugin.hive.GenericHiveRecordCursor;
-import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.GenericHiveRecordCursor;
+import io.trino.plugin.hive.HiveColumnHandle;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;

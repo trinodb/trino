@@ -15,21 +15,21 @@ package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.DeterminismEvaluator;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.GenericDataType;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.IsNullPredicate;
-import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.LogicalBinaryExpression;
-import io.prestosql.sql.tree.LogicalBinaryExpression.Operator;
-import io.prestosql.sql.tree.RowDataType;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.DeterminismEvaluator;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.GenericDataType;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IsNullPredicate;
+import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.LogicalBinaryExpression;
+import io.trino.sql.tree.LogicalBinaryExpression.Operator;
+import io.trino.sql.tree.RowDataType;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -43,8 +43,8 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

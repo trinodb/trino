@@ -15,19 +15,19 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.BoundSignature;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionId;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionId;
+import io.trino.spi.connector.ConnectorSession;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.util.Reflection.methodHandle;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

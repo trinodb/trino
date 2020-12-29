@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.HIVE_TRANSACTIONAL;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.TestGroups.HIVE_TRANSACTIONAL;
+import static io.trino.tests.utils.QueryExecutors.onHive;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 

@@ -16,7 +16,7 @@ package io.trino.operator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.util.Mergeable;
+import io.trino.util.Mergeable;
 
 import java.util.List;
 

@@ -13,14 +13,14 @@
  */
 package io.trino.cli;
 
-import io.prestosql.client.Warning;
+import io.trino.client.Warning;
 import org.jline.utils.AttributedStringBuilder;
 
 import java.util.List;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.cli.TerminalUtils.isRealTerminal;
+import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.jline.utils.AttributedStyle.DEFAULT;

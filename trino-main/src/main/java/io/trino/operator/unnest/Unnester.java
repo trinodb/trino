@@ -13,9 +13,9 @@
  */
 package io.trino.operator.unnest;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.PageBuilderStatus;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.type.Type;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

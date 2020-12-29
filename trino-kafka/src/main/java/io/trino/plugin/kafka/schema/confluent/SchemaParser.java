@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.kafka.schema.confluent;
 
-import io.prestosql.plugin.kafka.KafkaTopicFieldGroup;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.kafka.KafkaTopicFieldGroup;
+import io.trino.spi.connector.ConnectorSession;
 
 public interface SchemaParser
 {

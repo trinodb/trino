@@ -15,10 +15,10 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
+import io.trino.sql.tree.QualifiedName;
 
 import java.util.LinkedHashSet;
 import java.util.List;

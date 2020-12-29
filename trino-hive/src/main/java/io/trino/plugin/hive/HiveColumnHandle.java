@@ -15,26 +15,26 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.hive.acid.AcidSchema;
-import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.acid.AcidSchema;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
-import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
-import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
-import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
-import static io.prestosql.plugin.hive.HiveType.toHiveType;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static io.trino.plugin.hive.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 /**

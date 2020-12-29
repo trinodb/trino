@@ -22,8 +22,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.ADD_DUMMY;
-import static io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
+import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.ADD_DUMMY;
+import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestConfluentSchemaRegistryConfig

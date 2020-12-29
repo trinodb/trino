@@ -16,9 +16,9 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
+import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -29,10 +29,10 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
-import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
-import static io.prestosql.sql.analyzer.RegexLibrary.RE2J;
+import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.sql.analyzer.RegexLibrary.JONI;
+import static io.trino.sql.analyzer.RegexLibrary.RE2J;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

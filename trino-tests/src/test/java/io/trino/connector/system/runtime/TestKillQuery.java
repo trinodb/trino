@@ -13,12 +13,12 @@
  */
 package io.trino.connector.system.runtime;
 
-import io.prestosql.Session;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.security.Identity;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -31,9 +31,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.threadsNamed;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.KILL_QUERY;
-import static io.prestosql.testing.TestingAccessControlManager.privilege;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.KILL_QUERY;
+import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

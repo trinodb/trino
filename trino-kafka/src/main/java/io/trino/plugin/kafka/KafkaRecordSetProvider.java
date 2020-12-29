@@ -14,15 +14,15 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.decoder.DispatchingRowDecoderFactory;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.RecordSet;
+import io.trino.decoder.DispatchingRowDecoderFactory;
+import io.trino.decoder.RowDecoder;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.RecordSet;
 
 import javax.inject.Inject;
 
@@ -32,7 +32,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertSplit;
+import static io.trino.plugin.kafka.KafkaHandleResolver.convertSplit;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaRecordSetProvider

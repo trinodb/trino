@@ -13,8 +13,8 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.security.ConnectorIdentity;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.TimeZoneKey;
 
 import java.time.Instant;
 import java.util.Locale;

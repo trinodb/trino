@@ -13,10 +13,10 @@
  */
 package io.trino.operator.annotations;
 
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.spi.function.InvocationConvention;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.spi.function.InvocationConvention;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandleProxies;

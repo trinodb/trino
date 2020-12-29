@@ -13,9 +13,9 @@
  */
 package io.trino.orc;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlock;
-import io.prestosql.spi.block.LazyBlockLoader;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LazyBlock;
+import io.trino.spi.block.LazyBlockLoader;
 
 import java.io.IOException;
 import java.util.function.Function;

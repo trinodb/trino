@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.suite;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.reflect.ClassPath;
-import io.prestosql.tests.product.launcher.env.Environments;
+import io.trino.tests.product.launcher.env.Environments;
 
 import java.io.IOException;
 import java.util.List;

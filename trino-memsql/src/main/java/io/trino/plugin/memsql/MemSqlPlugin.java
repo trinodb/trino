@@ -14,7 +14,7 @@
 
 package io.trino.plugin.memsql;
 
-import io.prestosql.plugin.jdbc.JdbcPlugin;
+import io.trino.plugin.jdbc.JdbcPlugin;
 
 public class MemSqlPlugin
         extends JdbcPlugin

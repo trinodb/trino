@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.thrift;
 
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Map;
 

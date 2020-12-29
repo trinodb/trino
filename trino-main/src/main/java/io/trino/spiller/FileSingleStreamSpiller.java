@@ -23,13 +23,13 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.execution.buffer.PagesSerde;
-import io.prestosql.execution.buffer.PagesSerdeUtil;
-import io.prestosql.execution.buffer.SerializedPage;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.operator.SpillContext;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
+import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PagesSerdeUtil;
+import io.trino.execution.buffer.SerializedPage;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.SpillContext;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -44,10 +44,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPage;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
-import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
+import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPage;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
+import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 

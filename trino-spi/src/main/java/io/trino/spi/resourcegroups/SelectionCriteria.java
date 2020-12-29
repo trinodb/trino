@@ -13,7 +13,7 @@
  */
 package io.trino.spi.resourcegroups;
 
-import io.prestosql.spi.session.ResourceEstimates;
+import io.trino.spi.session.ResourceEstimates;
 
 import java.util.Optional;
 import java.util.Set;

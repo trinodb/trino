@@ -15,8 +15,8 @@ package io.trino.operator.aggregation.state;
 
 import io.airlift.slice.SizeOf;
 import io.airlift.stats.TDigest;
-import io.prestosql.array.ObjectBigArray;
-import io.prestosql.spi.function.AccumulatorStateFactory;
+import io.trino.array.ObjectBigArray;
+import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;

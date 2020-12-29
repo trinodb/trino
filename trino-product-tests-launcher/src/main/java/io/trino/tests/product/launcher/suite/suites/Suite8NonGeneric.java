@@ -14,16 +14,16 @@
 package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.EnvironmentDefaults;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeHdp3;
-import io.prestosql.tests.product.launcher.suite.Suite;
-import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.EnvironmentDefaults;
+import io.trino.tests.product.launcher.env.environment.SinglenodeHdp3;
+import io.trino.tests.product.launcher.suite.Suite;
+import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
+import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite8NonGeneric
         extends Suite

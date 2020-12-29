@@ -15,7 +15,7 @@ package io.trino.cost;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Objects;
 import java.util.stream.Stream;

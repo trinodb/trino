@@ -13,23 +13,23 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.type.DateTimes;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.type.DateTimes;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
-import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
-import static io.prestosql.type.DateTimes.epochSecondToMicrosWithRounding;
-import static io.prestosql.type.DateTimes.round;
+import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.type.DateTimes.epochSecondToMicrosWithRounding;
+import static io.trino.type.DateTimes.round;
 
 @ScalarFunction(value = "$localtimestamp", hidden = true)
 public final class LocalTimestamp

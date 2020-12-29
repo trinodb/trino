@@ -13,16 +13,16 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
-import static io.prestosql.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
+import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Quarter of the year of the given timestamp")
 @ScalarFunction("quarter")

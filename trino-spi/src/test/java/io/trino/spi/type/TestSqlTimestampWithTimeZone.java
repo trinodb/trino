@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
 
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static org.testng.Assert.assertEquals;
 
 public class TestSqlTimestampWithTimeZone

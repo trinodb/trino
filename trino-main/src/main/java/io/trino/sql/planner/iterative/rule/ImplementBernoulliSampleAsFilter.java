@@ -13,20 +13,20 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.FunctionCallBuilder;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.SampleNode;
-import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.DoubleLiteral;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.SampleNode;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.DoubleLiteral;
+import io.trino.sql.tree.QualifiedName;
 
-import static io.prestosql.sql.planner.plan.Patterns.Sample.sampleType;
-import static io.prestosql.sql.planner.plan.Patterns.sample;
-import static io.prestosql.sql.planner.plan.SampleNode.Type.BERNOULLI;
+import static io.trino.sql.planner.plan.Patterns.Sample.sampleType;
+import static io.trino.sql.planner.plan.Patterns.sample;
+import static io.trino.sql.planner.plan.SampleNode.Type.BERNOULLI;
 import static java.util.Objects.requireNonNull;
 
 /**

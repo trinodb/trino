@@ -14,9 +14,9 @@
 package io.trino.plugin.base.classloader;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.connector.ConnectorPageSink;
+import io.trino.spi.Page;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ConnectorPageSink;
 
 import javax.inject.Inject;
 

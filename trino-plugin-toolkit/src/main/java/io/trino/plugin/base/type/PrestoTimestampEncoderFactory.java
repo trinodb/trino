@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.base.type;
 
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TimestampType;
 import org.joda.time.DateTimeZone;
 
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
@@ -37,7 +37,7 @@ public final class PrestoTimestampEncoderFactory
         return new LongTimestampEncoder(type, timeZone);
     }
 
-    // copied from io.prestosql.type.DateTimes
+    // copied from io.trino.type.DateTimes
     static LongTimestamp longTimestamp(long epochSecond, long fractionInPicos)
     {
         return new LongTimestamp(

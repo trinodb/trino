@@ -15,8 +15,8 @@ package io.trino.sql.query;
 
 import org.testng.annotations.BeforeClass;
 
-import static io.prestosql.SystemSessionProperties.USE_MARK_DISTINCT;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDistinctAggregationsNoMarkDistinct
         extends TestDistinctAggregations

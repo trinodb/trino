@@ -13,14 +13,14 @@
  */
 package io.trino.sql.query;
 
-import io.prestosql.Session;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.sql.SqlPath;
+import io.trino.Session;
+import io.trino.spi.security.Identity;
+import io.trino.sql.SqlPath;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSessionFunctions

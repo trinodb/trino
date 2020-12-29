@@ -19,26 +19,26 @@ import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.CreateTable;
-import io.prestosql.sql.tree.CreateTableAsSelect;
-import io.prestosql.sql.tree.DropTable;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.Insert;
-import io.prestosql.sql.tree.LikeClause;
-import io.prestosql.sql.tree.Limit;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.QueryBody;
-import io.prestosql.sql.tree.QuerySpecification;
-import io.prestosql.sql.tree.Select;
-import io.prestosql.sql.tree.SelectItem;
-import io.prestosql.sql.tree.SingleColumn;
-import io.prestosql.sql.tree.Statement;
-import io.prestosql.sql.tree.Table;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.CreateTable;
+import io.trino.sql.tree.CreateTableAsSelect;
+import io.trino.sql.tree.DropTable;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Insert;
+import io.trino.sql.tree.LikeClause;
+import io.trino.sql.tree.Limit;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.QueryBody;
+import io.trino.sql.tree.QuerySpecification;
+import io.trino.sql.tree.Select;
+import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SingleColumn;
+import io.trino.sql.tree.Statement;
+import io.trino.sql.tree.Table;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -55,11 +55,11 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.sql.SqlFormatter.formatSql;
-import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static io.prestosql.sql.tree.LikeClause.PropertiesOption.INCLUDING;
-import static io.prestosql.verifier.QueryType.READ;
-import static io.prestosql.verifier.VerifyCommand.statementToQueryType;
+import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
+import static io.trino.verifier.QueryType.READ;
+import static io.trino.verifier.VerifyCommand.statementToQueryType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
@@ -190,11 +190,11 @@ public class QueryRewriter
     private List<Column> getColumns(Connection connection, CreateTableAsSelect createTableAsSelect)
             throws SQLException
     {
-        io.prestosql.sql.tree.Query createSelectClause = createTableAsSelect.getQuery();
+        io.trino.sql.tree.Query createSelectClause = createTableAsSelect.getQuery();
 
         // Rewrite the query to select zero rows, so that we can get the column names and types
         QueryBody innerQuery = createSelectClause.getQueryBody();
-        io.prestosql.sql.tree.Query zeroRowsQuery;
+        io.trino.sql.tree.Query zeroRowsQuery;
         if (innerQuery instanceof QuerySpecification) {
             QuerySpecification querySpecification = (QuerySpecification) innerQuery;
             innerQuery = new QuerySpecification(
@@ -207,10 +207,10 @@ public class QueryRewriter
                     querySpecification.getOffset(),
                     Optional.of(new Limit(new LongLiteral("0"))));
 
-            zeroRowsQuery = new io.prestosql.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.empty());
+            zeroRowsQuery = new io.trino.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.empty());
         }
         else {
-            zeroRowsQuery = new io.prestosql.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.of(new Limit(new LongLiteral("0"))));
+            zeroRowsQuery = new io.trino.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.of(new Limit(new LongLiteral("0"))));
         }
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();

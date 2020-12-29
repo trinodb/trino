@@ -78,7 +78,7 @@ public final class HiveTableDefinitions
 
     private static String partitionDataFileResource(String key, String partition)
     {
-        return format("io/prestosql/tests/hive/data/partitioned_nation_%s/nation_region_%s.textfile", key, partition);
+        return format("io/trino/tests/hive/data/partitioned_nation_%s/nation_region_%s.textfile", key, partition);
     }
 
     private HiveTableDefinitions()

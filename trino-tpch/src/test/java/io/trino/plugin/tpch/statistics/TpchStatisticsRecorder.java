@@ -24,7 +24,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static io.prestosql.plugin.tpch.TpchMetadata.schemaNameToScaleFactor;
+import static io.trino.plugin.tpch.TpchMetadata.schemaNameToScaleFactor;
 import static io.prestosql.tpch.OrderColumn.ORDER_STATUS;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;

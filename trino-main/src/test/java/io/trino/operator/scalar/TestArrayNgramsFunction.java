@@ -14,14 +14,14 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.spi.type.ArrayType;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
 
 public class TestArrayNgramsFunction

@@ -15,29 +15,29 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
-import io.prestosql.cost.CostComparator;
-import io.prestosql.cost.LocalCostEstimate;
-import io.prestosql.cost.PlanNodeStatsEstimate;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.cost.TaskCountEstimator;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.trino.cost.CostComparator;
+import io.trino.cost.LocalCostEstimate;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.StatsProvider;
+import io.trino.cost.TaskCountEstimator;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.SemiJoinNode;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
-import static io.prestosql.SystemSessionProperties.getJoinMaxBroadcastTableSize;
-import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
-import static io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
-import static io.prestosql.sql.planner.plan.Patterns.semiJoin;
-import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
-import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
+import static io.trino.SystemSessionProperties.getJoinDistributionType;
+import static io.trino.SystemSessionProperties.getJoinMaxBroadcastTableSize;
+import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
+import static io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
+import static io.trino.sql.planner.plan.Patterns.semiJoin;
+import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
+import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static java.util.Objects.requireNonNull;
 
 /**

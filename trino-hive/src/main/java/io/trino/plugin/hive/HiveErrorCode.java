@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.ErrorCodeSupplier;
-import io.prestosql.spi.ErrorType;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.ErrorType;
 
-import static io.prestosql.spi.ErrorType.EXTERNAL;
-import static io.prestosql.spi.ErrorType.INTERNAL_ERROR;
-import static io.prestosql.spi.ErrorType.USER_ERROR;
+import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.ErrorType.INTERNAL_ERROR;
+import static io.trino.spi.ErrorType.USER_ERROR;
 
 public enum HiveErrorCode
         implements ErrorCodeSupplier

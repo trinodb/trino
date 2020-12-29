@@ -15,10 +15,10 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.predicate.ValueSet;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.ValueSet;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -26,10 +26,10 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.prestosql.plugin.hive.HiveMetadata.createPredicate;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveMetadata.createPredicate;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 

@@ -13,9 +13,9 @@
  */
 package io.trino.decoder.avro;
 
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
-import io.prestosql.decoder.RowDecoder;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.decoder.RowDecoder;
 import org.apache.avro.generic.GenericRecord;
 
 import java.util.AbstractMap;

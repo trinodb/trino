@@ -19,7 +19,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 
 public final class TableLocationUtils

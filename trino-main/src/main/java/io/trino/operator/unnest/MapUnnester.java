@@ -13,12 +13,12 @@
  */
 package io.trino.operator.unnest;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.ColumnarMap;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarMap;
+import io.trino.spi.type.Type;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
+import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 
 /**
  * Unnester for a nested column with map type.

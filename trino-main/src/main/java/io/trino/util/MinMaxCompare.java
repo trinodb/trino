@@ -13,20 +13,20 @@
  */
 package io.trino.util;
 
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static io.prestosql.spi.function.OperatorType.COMPARISON;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.util.Reflection.methodHandle;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.invoke.MethodHandles.filterReturnValue;
 

@@ -14,15 +14,15 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.CountingMockConnector;
-import io.prestosql.testing.CountingMockConnector.MetadataCallsCount;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.Session;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.CountingMockConnector;
+import io.trino.testing.CountingMockConnector.MetadataCallsCount;
+import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

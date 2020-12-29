@@ -16,8 +16,8 @@ package io.trino.plugin.hive.metastore.thrift;
 import org.apache.thrift.TException;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
 public class TestFailureAwareThriftMetastoreClient
 {

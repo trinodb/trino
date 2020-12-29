@@ -13,21 +13,21 @@
  */
 package io.trino.execution;
 
-import io.prestosql.Session;
-import io.prestosql.execution.QueryPreparer.PreparedQuery;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.AllColumns;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.Session;
+import io.trino.execution.QueryPreparer.PreparedQuery;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.sql.QueryUtil.selectList;
-import static io.prestosql.sql.QueryUtil.simpleQuery;
-import static io.prestosql.sql.QueryUtil.table;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.sql.QueryUtil.selectList;
+import static io.trino.sql.QueryUtil.simpleQuery;
+import static io.trino.sql.QueryUtil.table;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryPreparer

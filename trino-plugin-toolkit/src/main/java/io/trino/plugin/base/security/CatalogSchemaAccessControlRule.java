@@ -15,7 +15,7 @@ package io.trino.plugin.base.security;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaName;
 
 import java.util.Optional;
 import java.util.Set;

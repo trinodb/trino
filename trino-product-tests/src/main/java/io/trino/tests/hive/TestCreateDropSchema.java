@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

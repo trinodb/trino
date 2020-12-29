@@ -18,8 +18,8 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import static io.prestosql.spi.block.EncoderUtil.decodeNullBits;
-import static io.prestosql.spi.block.EncoderUtil.encodeNullsAsBits;
+import static io.trino.spi.block.EncoderUtil.decodeNullBits;
+import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 
 public class Int128ArrayBlockEncoding
         implements BlockEncoding

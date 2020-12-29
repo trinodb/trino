@@ -15,8 +15,8 @@ package io.trino.plugin.kafka;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -27,7 +27,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Json description to parse a single field from a Kafka topic message. See {@link io.prestosql.plugin.kafka.KafkaTopicDescription} for more details.
+ * Json description to parse a single field from a Kafka topic message. See {@link io.trino.plugin.kafka.KafkaTopicDescription} for more details.
  */
 public final class KafkaTopicFieldDescription
 {

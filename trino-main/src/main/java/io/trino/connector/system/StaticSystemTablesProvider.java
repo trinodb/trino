@@ -14,9 +14,9 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
 
 import java.util.Map;
 import java.util.Optional;

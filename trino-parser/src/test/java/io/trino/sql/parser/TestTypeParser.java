@@ -15,22 +15,22 @@ package io.trino.sql.parser;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.parser.ParserAssert.type;
-import static io.prestosql.sql.parser.TreeNodes.dateTimeType;
-import static io.prestosql.sql.parser.TreeNodes.field;
-import static io.prestosql.sql.parser.TreeNodes.identifier;
-import static io.prestosql.sql.parser.TreeNodes.intervalType;
-import static io.prestosql.sql.parser.TreeNodes.location;
-import static io.prestosql.sql.parser.TreeNodes.parameter;
-import static io.prestosql.sql.parser.TreeNodes.parametricType;
-import static io.prestosql.sql.parser.TreeNodes.rowType;
-import static io.prestosql.sql.parser.TreeNodes.simpleType;
-import static io.prestosql.sql.tree.DateTimeDataType.Type.TIME;
-import static io.prestosql.sql.tree.DateTimeDataType.Type.TIMESTAMP;
-import static io.prestosql.sql.tree.IntervalDayTimeDataType.Field.DAY;
-import static io.prestosql.sql.tree.IntervalDayTimeDataType.Field.MONTH;
-import static io.prestosql.sql.tree.IntervalDayTimeDataType.Field.SECOND;
-import static io.prestosql.sql.tree.IntervalDayTimeDataType.Field.YEAR;
+import static io.trino.sql.parser.ParserAssert.type;
+import static io.trino.sql.parser.TreeNodes.dateTimeType;
+import static io.trino.sql.parser.TreeNodes.field;
+import static io.trino.sql.parser.TreeNodes.identifier;
+import static io.trino.sql.parser.TreeNodes.intervalType;
+import static io.trino.sql.parser.TreeNodes.location;
+import static io.trino.sql.parser.TreeNodes.parameter;
+import static io.trino.sql.parser.TreeNodes.parametricType;
+import static io.trino.sql.parser.TreeNodes.rowType;
+import static io.trino.sql.parser.TreeNodes.simpleType;
+import static io.trino.sql.tree.DateTimeDataType.Type.TIME;
+import static io.trino.sql.tree.DateTimeDataType.Type.TIMESTAMP;
+import static io.trino.sql.tree.IntervalDayTimeDataType.Field.DAY;
+import static io.trino.sql.tree.IntervalDayTimeDataType.Field.MONTH;
+import static io.trino.sql.tree.IntervalDayTimeDataType.Field.SECOND;
+import static io.trino.sql.tree.IntervalDayTimeDataType.Field.YEAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTypeParser

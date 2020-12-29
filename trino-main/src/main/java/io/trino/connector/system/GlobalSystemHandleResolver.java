@@ -13,7 +13,7 @@
  */
 package io.trino.connector.system;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public class GlobalSystemHandleResolver
         extends SystemHandleResolver

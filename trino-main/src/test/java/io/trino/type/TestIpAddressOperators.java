@@ -15,19 +15,19 @@ package io.trino.type;
 
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slices;
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
-import static io.prestosql.type.IpAddressType.IPADDRESS;
+import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
+import static io.trino.type.IpAddressType.IPADDRESS;
 
 public class TestIpAddressOperators
         extends AbstractTestFunctions

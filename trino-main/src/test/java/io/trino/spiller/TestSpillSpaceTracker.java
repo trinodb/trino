@@ -14,7 +14,7 @@
 package io.trino.spiller;
 
 import io.airlift.units.DataSize;
-import io.prestosql.ExceededSpillLimitException;
+import io.trino.ExceededSpillLimitException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

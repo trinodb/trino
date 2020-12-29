@@ -14,12 +14,12 @@
 package io.trino.server.remotetask;
 
 import io.airlift.http.server.HttpServerInfo;
-import io.prestosql.execution.LocationFactory;
-import io.prestosql.execution.TaskId;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.server.InternalCommunicationConfig;
-import io.prestosql.spi.QueryId;
+import io.trino.execution.LocationFactory;
+import io.trino.execution.TaskId;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
+import io.trino.server.InternalCommunicationConfig;
+import io.trino.spi.QueryId;
 
 import javax.inject.Inject;
 

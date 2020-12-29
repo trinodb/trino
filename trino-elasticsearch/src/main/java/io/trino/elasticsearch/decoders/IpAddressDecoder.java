@@ -16,17 +16,17 @@ package io.trino.elasticsearch.decoders;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;

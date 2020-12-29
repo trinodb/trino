@@ -15,8 +15,8 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.split.SplitSource.SplitBatch;
+import io.trino.execution.Lifespan;
+import io.trino.split.SplitSource.SplitBatch;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.Future;
@@ -24,9 +24,9 @@ import java.util.concurrent.Future;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.testing.Assertions.assertContains;
-import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static io.prestosql.split.MockSplitSource.Action.FAIL;
-import static io.prestosql.split.MockSplitSource.Action.FINISH;
+import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.split.MockSplitSource.Action.FAIL;
+import static io.trino.split.MockSplitSource.Action.FINISH;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

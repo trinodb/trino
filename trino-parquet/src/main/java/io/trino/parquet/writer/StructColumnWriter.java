@@ -14,18 +14,18 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.parquet.writer.repdef.DefLevelIterable;
-import io.prestosql.parquet.writer.repdef.DefLevelIterables;
-import io.prestosql.parquet.writer.repdef.RepLevelIterable;
-import io.prestosql.parquet.writer.repdef.RepLevelIterables;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.ColumnarRow;
+import io.trino.parquet.writer.repdef.DefLevelIterable;
+import io.trino.parquet.writer.repdef.DefLevelIterables;
+import io.trino.parquet.writer.repdef.RepLevelIterable;
+import io.trino.parquet.writer.repdef.RepLevelIterables;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarRow;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.List;
 
-import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.Preconditions.checkArgument;
 

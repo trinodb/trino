@@ -13,9 +13,9 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -38,9 +38,9 @@ import java.lang.invoke.MethodHandle;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.addElement;
-import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.getHashCodeBlockMethod;
-import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.toType;
+import static io.trino.operator.scalar.TypeOperatorBenchmarkUtil.addElement;
+import static io.trino.operator.scalar.TypeOperatorBenchmarkUtil.getHashCodeBlockMethod;
+import static io.trino.operator.scalar.TypeOperatorBenchmarkUtil.toType;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)

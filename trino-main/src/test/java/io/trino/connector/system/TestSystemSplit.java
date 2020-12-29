@@ -14,8 +14,8 @@
 package io.trino.connector.system;
 
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.HostAddress;
+import io.trino.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;

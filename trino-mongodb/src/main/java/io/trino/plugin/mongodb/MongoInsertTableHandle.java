@@ -16,8 +16,8 @@ package io.trino.plugin.mongodb;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 

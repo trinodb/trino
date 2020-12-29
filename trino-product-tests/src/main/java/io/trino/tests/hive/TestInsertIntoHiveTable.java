@@ -34,7 +34,7 @@ import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTa
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestInsertIntoHiveTable

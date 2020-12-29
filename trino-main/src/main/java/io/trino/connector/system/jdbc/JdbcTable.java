@@ -13,13 +13,13 @@
  */
 package io.trino.connector.system.jdbc;
 
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.Constraint;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.TupleDomain;
 
-import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 
 public abstract class JdbcTable
         implements SystemTable
@@ -31,7 +31,7 @@ public abstract class JdbcTable
     }
 
     /**
-     * @param constraint a {@link Constraint} using {@link io.prestosql.connector.system.SystemColumnHandle} to identify columns
+     * @param constraint a {@link Constraint} using {@link io.trino.connector.system.SystemColumnHandle} to identify columns
      */
     /*
      * This method is not part of the SystemTable interface, because system tables do not operate on column handles,

@@ -19,7 +19,7 @@ import io.prestosql.tempto.Requires;
 import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestosql.tempto.query.QueryExecutor;
 import io.prestosql.tempto.query.QueryResult;
-import io.prestosql.testng.services.Flaky;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -27,12 +27,12 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
-import static io.prestosql.tests.hive.util.TableLocationUtils.getTableLocation;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.SKIP_ON_CDH;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.hive.util.TableLocationUtils.getTableLocation;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;

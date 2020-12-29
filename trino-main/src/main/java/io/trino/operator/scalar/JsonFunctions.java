@@ -19,17 +19,17 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.base.util.JsonTypeUtil;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.type.JsonPathType;
+import io.trino.plugin.base.util.JsonTypeUtil;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.type.JsonPathType;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -46,10 +46,10 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_STRING;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_TRUE;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.Chars.padSpaces;
-import static io.prestosql.util.JsonUtil.createJsonParser;
-import static io.prestosql.util.JsonUtil.truncateIfNecessaryForErrorMessage;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.util.JsonUtil.createJsonParser;
+import static io.trino.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 
 public final class JsonFunctions
 {

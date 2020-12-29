@@ -13,11 +13,11 @@
  */
 package io.trino.pinot.decoders;
 
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
 public class DoubleDecoder
         implements Decoder

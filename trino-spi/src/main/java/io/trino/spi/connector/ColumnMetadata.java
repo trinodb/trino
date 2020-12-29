@@ -13,7 +13,7 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
+import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;

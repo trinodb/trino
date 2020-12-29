@@ -14,12 +14,12 @@
 package io.trino.elasticsearch.decoders;
 
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class SourceColumnDecoder
         implements Decoder

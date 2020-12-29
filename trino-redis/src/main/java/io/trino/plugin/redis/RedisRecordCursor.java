@@ -15,12 +15,12 @@ package io.trino.plugin.redis;
 
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.type.Type;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.decoder.RowDecoder;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.type.Type;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.ScanParams;
@@ -36,9 +36,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.decoder.FieldValueProviders.booleanValueProvider;
-import static io.prestosql.decoder.FieldValueProviders.bytesValueProvider;
-import static io.prestosql.decoder.FieldValueProviders.longValueProvider;
+import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
+import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
+import static io.trino.decoder.FieldValueProviders.longValueProvider;
 import static java.lang.String.format;
 import static redis.clients.jedis.ScanParams.SCAN_POINTER_START;
 

@@ -13,13 +13,13 @@
  */
 package io.trino.decoder.avro;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
@@ -28,8 +28,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

@@ -18,11 +18,11 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorContext;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.NodeManager;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 import java.util.function.Supplier;

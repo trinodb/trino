@@ -15,8 +15,8 @@ package io.trino.orc;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.orc.OrcTester.fullOrcTester;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.orc.OrcTester.fullOrcTester;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
 @Test
 public class TestOrcReader

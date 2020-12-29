@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.base.classloader;
 
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 

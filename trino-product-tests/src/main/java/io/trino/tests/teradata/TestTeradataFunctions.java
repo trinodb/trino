@@ -22,8 +22,8 @@ import java.time.LocalDateTime;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tests.TestGroups.FUNCTIONS;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.FUNCTIONS;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 
 public class TestTeradataFunctions
         extends ProductTest

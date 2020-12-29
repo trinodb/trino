@@ -16,7 +16,7 @@ package io.trino.plugin.thrift.api;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 
 import java.util.Objects;
 

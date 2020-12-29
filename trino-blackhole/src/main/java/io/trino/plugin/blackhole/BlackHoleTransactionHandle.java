@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.blackhole;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public enum BlackHoleTransactionHandle
         implements ConnectorTransactionHandle

@@ -14,10 +14,10 @@
 package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.security.PrincipalType;
+import io.trino.spi.security.PrincipalType;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 

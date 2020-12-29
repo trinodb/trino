@@ -15,18 +15,18 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.tpcds.TpcdsConnectorFactory;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.Session;
+import io.trino.plugin.tpcds.TpcdsConnectorFactory;
+import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.testing.LocalQueryRunner;
 
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 /**

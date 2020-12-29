@@ -14,13 +14,13 @@
 package io.trino.pinot;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.pinot.query.DynamicTable;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.testing.TestingConnectorSession;
+import io.trino.pinot.query.DynamicTable;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -30,12 +30,12 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.prestosql.pinot.PinotSplit.SplitType.BROKER;
-import static io.prestosql.pinot.PinotSplit.SplitType.SEGMENT;
-import static io.prestosql.pinot.query.DynamicTableBuilder.buildFromPql;
-import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
-import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.pinot.PinotSplit.SplitType.BROKER;
+import static io.trino.pinot.PinotSplit.SplitType.SEGMENT;
+import static io.trino.pinot.query.DynamicTableBuilder.buildFromPql;
+import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;

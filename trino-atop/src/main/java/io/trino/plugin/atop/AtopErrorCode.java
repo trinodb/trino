@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.atop;
 
-import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.ErrorCodeSupplier;
-import io.prestosql.spi.ErrorType;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.ErrorType;
 
-import static io.prestosql.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.ErrorType.EXTERNAL;
 
 public enum AtopErrorCode
         implements ErrorCodeSupplier

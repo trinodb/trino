@@ -15,11 +15,11 @@ package io.trino.plugin.resourcegroups.db;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.resourcegroups.ResourceGroupIdTemplate;
-import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.resourcegroups.SelectionContext;
-import io.prestosql.spi.resourcegroups.SelectionCriteria;
+import io.trino.plugin.resourcegroups.ResourceGroupIdTemplate;
+import io.trino.plugin.resourcegroups.ResourceGroupSelector;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.SelectionContext;
+import io.trino.spi.resourcegroups.SelectionCriteria;
 import org.jdbi.v3.core.JdbiException;
 
 import java.util.Optional;

@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;
 
 public class TestStatisticsAwareJdbcClient
 {

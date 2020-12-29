@@ -13,19 +13,19 @@
  */
 package io.trino.plugin.druid;
 
-import io.prestosql.plugin.jdbc.JdbcTableHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.assertions.Assert;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.assertions.Assert;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseDruidIntegrationSmokeTest

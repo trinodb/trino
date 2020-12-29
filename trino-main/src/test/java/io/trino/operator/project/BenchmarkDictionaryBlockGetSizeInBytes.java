@@ -15,12 +15,12 @@ package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -43,9 +43,9 @@ import java.util.Optional;
 import java.util.Random;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.block.BlockAssertions.createSlicesBlock;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.block.BlockAssertions.createSlicesBlock;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 @SuppressWarnings("MethodMayBeStatic")

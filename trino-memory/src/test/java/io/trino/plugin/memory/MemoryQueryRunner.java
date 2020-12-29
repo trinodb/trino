@@ -16,17 +16,17 @@ package io.trino.plugin.memory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.Session;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.Session;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.DistributedQueryRunner;
 import io.prestosql.tpch.TpchTable;
 
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.QueryAssertions.copyTpchTables;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class MemoryQueryRunner
 {

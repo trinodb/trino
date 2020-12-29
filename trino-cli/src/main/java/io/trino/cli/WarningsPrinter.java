@@ -13,7 +13,7 @@
  */
 package io.trino.cli;
 
-import io.prestosql.client.Warning;
+import io.trino.client.Warning;
 
 import java.util.List;
 

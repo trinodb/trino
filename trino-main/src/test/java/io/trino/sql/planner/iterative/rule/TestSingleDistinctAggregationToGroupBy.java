@@ -15,23 +15,23 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.tree.FunctionCall;
+import io.trino.sql.planner.assertions.ExpectedValueProvider;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.FunctionCall;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.globalAggregation;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestSingleDistinctAggregationToGroupBy
         extends BaseRuleTest

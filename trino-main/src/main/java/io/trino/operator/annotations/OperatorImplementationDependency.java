@@ -14,21 +14,21 @@
 package io.trino.operator.annotations;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.trino.metadata.SignatureBinder.applyBoundVariables;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static java.util.Objects.requireNonNull;
 
 public final class OperatorImplementationDependency

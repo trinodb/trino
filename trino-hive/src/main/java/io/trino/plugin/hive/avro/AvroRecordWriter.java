@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.avro;
 
-import io.prestosql.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
+import io.trino.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
 import org.apache.avro.Schema;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileWriter;

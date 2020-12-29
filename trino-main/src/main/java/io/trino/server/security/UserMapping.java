@@ -25,8 +25,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
-import static io.prestosql.server.security.UserMapping.Case.KEEP;
+import static io.trino.plugin.base.util.JsonUtils.parseJson;
+import static io.trino.server.security.UserMapping.Case.KEEP;
 import static java.lang.Boolean.TRUE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

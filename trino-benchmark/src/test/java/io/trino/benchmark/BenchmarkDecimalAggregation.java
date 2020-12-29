@@ -13,7 +13,7 @@
  */
 package io.trino.benchmark;
 
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

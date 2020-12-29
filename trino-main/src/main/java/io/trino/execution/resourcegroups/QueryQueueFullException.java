@@ -13,10 +13,10 @@
  */
 package io.trino.execution.resourcegroups;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.PrestoException;
+import io.trino.spi.resourcegroups.ResourceGroupId;
 
-import static io.prestosql.spi.StandardErrorCode.QUERY_QUEUE_FULL;
+import static io.trino.spi.StandardErrorCode.QUERY_QUEUE_FULL;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

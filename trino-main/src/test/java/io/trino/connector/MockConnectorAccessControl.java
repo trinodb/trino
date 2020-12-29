@@ -13,21 +13,21 @@
  */
 package io.trino.connector;
 
-import io.prestosql.plugin.base.security.AllowAllAccessControl;
-import io.prestosql.spi.connector.ConnectorSecurityContext;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.ConnectorIdentity;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
+import io.trino.plugin.base.security.AllowAllAccessControl;
+import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
 
 import java.util.Arrays;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
-import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
-import static io.prestosql.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
-import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static java.util.Objects.requireNonNull;
 
 class MockConnectorAccessControl

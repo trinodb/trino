@@ -13,8 +13,8 @@
  */
 package io.trino.connector;
 
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
 
 import java.util.Set;
 

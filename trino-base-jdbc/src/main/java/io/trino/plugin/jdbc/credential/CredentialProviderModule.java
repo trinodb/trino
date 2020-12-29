@@ -18,8 +18,8 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationFactory;
-import io.prestosql.plugin.jdbc.credential.file.ConfigFileBasedCredentialProviderConfig;
-import io.prestosql.plugin.jdbc.credential.keystore.KeyStoreBasedCredentialProviderConfig;
+import io.trino.plugin.jdbc.credential.file.ConfigFileBasedCredentialProviderConfig;
+import io.trino.plugin.jdbc.credential.keystore.KeyStoreBasedCredentialProviderConfig;
 
 import javax.inject.Singleton;
 
@@ -33,11 +33,11 @@ import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.FILE;
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.KEYSTORE;
-import static io.prestosql.plugin.jdbc.credential.keystore.KeyStoreUtils.loadKeyStore;
-import static io.prestosql.plugin.jdbc.credential.keystore.KeyStoreUtils.readEntity;
+import static io.trino.plugin.jdbc.credential.CredentialProviderType.FILE;
+import static io.trino.plugin.jdbc.credential.CredentialProviderType.INLINE;
+import static io.trino.plugin.jdbc.credential.CredentialProviderType.KEYSTORE;
+import static io.trino.plugin.jdbc.credential.keystore.KeyStoreUtils.loadKeyStore;
+import static io.trino.plugin.jdbc.credential.keystore.KeyStoreUtils.readEntity;
 
 public class CredentialProviderModule
         extends AbstractConfigurationAwareModule

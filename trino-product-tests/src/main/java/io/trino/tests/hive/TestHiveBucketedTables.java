@@ -21,7 +21,7 @@ import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.fulfillment.table.MutableTableRequirement;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
-import io.prestosql.testng.services.Flaky;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -37,11 +37,11 @@ import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableT
 import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestosql.tempto.query.QueryExecutor.param;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.BIG_QUERY;
-import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
-import static io.prestosql.tests.utils.TableDefinitionUtils.mutableTableInstanceOf;
+import static io.trino.tests.TestGroups.BIG_QUERY;
+import static io.trino.tests.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.TableDefinitionUtils.mutableTableInstanceOf;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.sql.JDBCType.VARCHAR;

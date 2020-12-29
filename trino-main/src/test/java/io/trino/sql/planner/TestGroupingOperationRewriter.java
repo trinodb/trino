@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Set;
 
-import static io.prestosql.sql.planner.GroupingOperationRewriter.calculateGrouping;
+import static io.trino.sql.planner.GroupingOperationRewriter.calculateGrouping;
 import static org.testng.Assert.assertEquals;
 
 public class TestGroupingOperationRewriter

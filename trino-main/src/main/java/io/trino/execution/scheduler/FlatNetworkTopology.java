@@ -13,7 +13,7 @@
  */
 package io.trino.execution.scheduler;
 
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 
 public class FlatNetworkTopology
         implements NetworkTopology

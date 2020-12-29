@@ -14,8 +14,8 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.s3.HiveS3Config;
-import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationInitializer;
+import io.trino.plugin.hive.s3.HiveS3Config;
+import io.trino.plugin.hive.s3.PrestoS3ConfigurationInitializer;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;

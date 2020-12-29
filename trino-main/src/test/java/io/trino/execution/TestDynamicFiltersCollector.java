@@ -15,15 +15,15 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
+import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.trino.spi.predicate.Domain;
+import io.trino.sql.planner.plan.DynamicFilterId;
 import org.testng.annotations.Test;
 
-import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
-import static io.prestosql.spi.predicate.Domain.multipleValues;
-import static io.prestosql.spi.predicate.Domain.singleValue;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.trino.spi.predicate.Domain.multipleValues;
+import static io.trino.spi.predicate.Domain.singleValue;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestDynamicFiltersCollector

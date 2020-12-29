@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.annotation.PreDestroy;
 

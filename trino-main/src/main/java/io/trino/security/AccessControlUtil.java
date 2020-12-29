@@ -14,9 +14,9 @@
 package io.trino.security;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.SessionRepresentation;
-import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.spi.security.Identity;
+import io.trino.SessionRepresentation;
+import io.trino.server.BasicQueryInfo;
+import io.trino.spi.security.Identity;
 
 import java.util.List;
 import java.util.Set;

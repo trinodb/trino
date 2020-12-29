@@ -14,24 +14,24 @@
 
 package io.trino.sql.planner.optimizations;
 
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolAllocator;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.plan.ApplyNode;
-import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.tree.Node;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.spi.PrestoException;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.tree.Node;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 
 public class CheckSubqueryNodesAreRewritten
         implements PlanOptimizer

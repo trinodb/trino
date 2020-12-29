@@ -13,23 +13,23 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
-import static io.prestosql.type.DateTimes.rescale;
-import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToSeconds;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.trino.type.DateTimes.rescale;
+import static io.trino.type.DateTimes.round;
+import static io.trino.type.DateTimes.scaleEpochMicrosToSeconds;
 import static java.lang.Math.multiplyExact;
 
 @ScalarOperator(CAST)

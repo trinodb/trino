@@ -16,21 +16,21 @@ package io.trino.testing.tpch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.tpch.TpchMetadata;
-import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorResolvedIndex;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.tpch.TpchMetadata;
+import io.trino.plugin.tpch.TpchTableHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorResolvedIndex;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static io.prestosql.testing.tpch.TpchIndexProvider.handleToNames;
+import static io.trino.testing.tpch.TpchIndexProvider.handleToNames;
 import static java.util.Objects.requireNonNull;
 
 public class TpchIndexMetadata

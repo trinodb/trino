@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.hive.util;
 
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.prestosql.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
-import static io.prestosql.plugin.hive.util.HiveWriteUtils.isViewFileSystem;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
+import static io.trino.plugin.hive.util.HiveWriteUtils.isViewFileSystem;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

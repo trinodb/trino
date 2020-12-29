@@ -13,10 +13,10 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
-import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 
 public class TestIntervalYearMonthType
         extends AbstractTestType

@@ -14,11 +14,11 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.aggregation.LambdaProvider;
-import io.prestosql.operator.window.FrameInfo;
-import io.prestosql.operator.window.WindowFunctionSupplier;
-import io.prestosql.spi.function.WindowFunction;
-import io.prestosql.spi.type.Type;
+import io.trino.operator.aggregation.LambdaProvider;
+import io.trino.operator.window.FrameInfo;
+import io.trino.operator.window.WindowFunctionSupplier;
+import io.trino.spi.function.WindowFunction;
+import io.trino.spi.type.Type;
 
 import java.util.Arrays;
 import java.util.List;

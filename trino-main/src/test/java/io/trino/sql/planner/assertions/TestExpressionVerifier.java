@@ -13,13 +13,13 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

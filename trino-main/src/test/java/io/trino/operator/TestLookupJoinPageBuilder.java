@@ -14,19 +14,19 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.JoinProbe.JoinProbeFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.type.Type;
+import io.trino.operator.JoinProbe.JoinProbeFactory;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.OptionalInt;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

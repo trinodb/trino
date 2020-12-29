@@ -14,9 +14,9 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.plugin.jdbc.SessionPropertiesProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
@@ -24,8 +24,8 @@ import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
 public final class OracleSessionProperties
         implements SessionPropertiesProvider

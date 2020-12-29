@@ -13,13 +13,13 @@
  */
 package io.trino.cost;
 
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class TestSemiJoinStatsRule
         extends BaseStatsCalculatorTest

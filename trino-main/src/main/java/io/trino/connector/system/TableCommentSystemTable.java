@@ -15,35 +15,35 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.prestosql.FullConnectorSession;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.QualifiedTablePrefix;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.InMemoryRecordSet;
-import io.prestosql.spi.connector.InMemoryRecordSet.Builder;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.FullConnectorSession;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.security.AccessControl;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.InMemoryRecordSet.Builder;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
-import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
-import static io.prestosql.metadata.MetadataListing.listCatalogs;
-import static io.prestosql.metadata.MetadataListing.listTables;
-import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
+import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
+import static io.trino.metadata.MetadataListing.listCatalogs;
+import static io.trino.metadata.MetadataListing.listTables;
+import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class TableCommentSystemTable

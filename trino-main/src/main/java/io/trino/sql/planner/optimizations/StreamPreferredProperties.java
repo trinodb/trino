@@ -16,10 +16,10 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.prestosql.Session;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
-import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution;
+import io.trino.Session;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
+import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution;
 
 import java.util.Collection;
 import java.util.List;
@@ -30,11 +30,11 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.SystemSessionProperties.getTaskConcurrency;
-import static io.prestosql.SystemSessionProperties.preferStreamingOperators;
-import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
-import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
-import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
+import static io.trino.SystemSessionProperties.getTaskConcurrency;
+import static io.trino.SystemSessionProperties.preferStreamingOperators;
+import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
+import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
+import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static java.util.Objects.requireNonNull;
 
 public class StreamPreferredProperties

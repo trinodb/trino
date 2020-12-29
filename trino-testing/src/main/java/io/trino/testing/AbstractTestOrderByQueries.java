@@ -13,15 +13,15 @@
  */
 package io.trino.testing;
 
-import io.prestosql.Session;
+import io.trino.Session;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.DISTRIBUTED_SORT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.tests.QueryTemplate.parameter;
-import static io.prestosql.tests.QueryTemplate.queryTemplate;
+import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.tests.QueryTemplate.parameter;
+import static io.trino.tests.QueryTemplate.queryTemplate;
 
 public abstract class AbstractTestOrderByQueries
         extends AbstractTestQueryFramework

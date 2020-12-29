@@ -14,7 +14,7 @@
 
 package io.trino.spi.statistics;
 
-import io.prestosql.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnHandle;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -15,16 +15,16 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
-import io.prestosql.sql.planner.plan.ExceptNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.ExceptNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.except;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.except;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestMergeExcept
         extends BaseRuleTest

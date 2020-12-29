@@ -14,12 +14,12 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.procedure.Procedure;
-import io.prestosql.spi.procedure.Procedure.Argument;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.procedure.Procedure;
+import io.trino.spi.procedure.Procedure.Argument;
+import io.trino.spi.type.ArrayType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
@@ -27,12 +27,12 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

@@ -13,18 +13,18 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.block.ArrayBlock;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
+import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Block;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.StandardTypes.INTEGER;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.StandardTypes.INTEGER;
+import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.min;
 import static java.lang.StrictMath.toIntExact;
 

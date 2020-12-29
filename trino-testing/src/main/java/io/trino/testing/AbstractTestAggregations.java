@@ -14,14 +14,14 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.Session;
+import io.trino.spi.type.TimeZoneKey;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

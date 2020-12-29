@@ -21,7 +21,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.util.function.Predicate.not;
 
 public final class OAuthWebUiCookie

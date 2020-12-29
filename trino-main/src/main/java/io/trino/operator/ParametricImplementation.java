@@ -13,8 +13,8 @@
  */
 package io.trino.operator;
 
-import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.Signature;
+import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.Signature;
 
 import java.util.List;
 

@@ -15,14 +15,14 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.iterative.Rule.Context;
-import io.prestosql.sql.planner.plan.ExceptNode;
-import io.prestosql.sql.planner.plan.IntersectNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.SetOperationNode;
-import io.prestosql.sql.planner.plan.UnionNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.iterative.Rule.Context;
+import io.trino.sql.planner.plan.ExceptNode;
+import io.trino.sql.planner.plan.IntersectNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.SetOperationNode;
+import io.trino.sql.planner.plan.UnionNode;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -14,8 +14,8 @@
 package io.trino.plugin.google.sheets;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
 public class SheetsPlugin
         implements Plugin

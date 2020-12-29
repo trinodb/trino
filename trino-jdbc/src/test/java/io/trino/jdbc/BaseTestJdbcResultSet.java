@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Arrays.asList;

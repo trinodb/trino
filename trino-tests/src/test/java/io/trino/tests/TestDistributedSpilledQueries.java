@@ -14,16 +14,16 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.testing.AbstractTestQueries;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.Session;
+import io.trino.SystemSessionProperties;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.DistributedQueryRunner;
 
 import java.nio.file.Paths;
 
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDistributedSpilledQueries
         extends AbstractTestQueries

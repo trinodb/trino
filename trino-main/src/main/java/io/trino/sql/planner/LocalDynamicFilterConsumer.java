@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.DynamicFilterId;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.ArrayList;
 import java.util.HashMap;

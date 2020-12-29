@@ -14,7 +14,7 @@
 package io.trino.tests.hive;
 
 import io.prestosql.tempto.ProductTest;
-import io.prestosql.testng.services.Flaky;
+import io.trino.testng.services.Flaky;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
@@ -25,13 +25,13 @@ import java.util.Optional;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tests.TestGroups.HDP3_ONLY;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.HDP3_ONLY;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.util.Objects.requireNonNull;
 
 public class TestHiveCreateTable

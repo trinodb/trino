@@ -16,8 +16,8 @@ package io.trino.connector.informationschema;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.QualifiedTablePrefix;
-import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.spi.connector.ConnectorTableHandle;
 
 import java.util.Objects;
 import java.util.Optional;

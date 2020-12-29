@@ -17,12 +17,12 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.plugin.redis.RedisTableDescription;
-import io.prestosql.plugin.redis.TestingRedisPlugin;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.TestingPrestoClient;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.redis.RedisTableDescription;
+import io.trino.plugin.redis.TestingRedisPlugin;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingPrestoClient;
 
 import java.io.IOException;
 import java.io.InputStream;

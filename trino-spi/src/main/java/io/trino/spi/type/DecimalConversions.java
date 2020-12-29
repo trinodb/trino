@@ -14,18 +14,18 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.type.Decimals.overflows;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compareAbsolute;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.rescale;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.type.Decimals.overflows;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.compareAbsolute;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;

@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import io.prestosql.memory.context.LocalMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 
 public interface ExchangeClientSupplier
 {

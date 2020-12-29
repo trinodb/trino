@@ -14,10 +14,10 @@
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.memory.MemoryAllocation;
-import io.prestosql.spi.memory.MemoryPoolId;
-import io.prestosql.spi.memory.MemoryPoolInfo;
+import io.trino.spi.QueryId;
+import io.trino.spi.memory.MemoryAllocation;
+import io.trino.spi.memory.MemoryPoolId;
+import io.trino.spi.memory.MemoryPoolInfo;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;

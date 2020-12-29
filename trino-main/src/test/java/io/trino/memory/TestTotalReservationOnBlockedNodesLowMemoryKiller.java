@@ -15,15 +15,15 @@
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.QueryId;
+import io.trino.spi.QueryId;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
-import static io.prestosql.memory.LowMemoryKillerTestingUtils.toQueryMemoryInfoList;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
+import static io.trino.memory.LowMemoryKillerTestingUtils.toQueryMemoryInfoList;
+import static io.trino.testing.assertions.Assert.assertEquals;
 
 @Test
 public class TestTotalReservationOnBlockedNodesLowMemoryKiller

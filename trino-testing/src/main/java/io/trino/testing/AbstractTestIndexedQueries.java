@@ -14,9 +14,9 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.tpch.TpchMetadata;
-import io.prestosql.testing.tpch.TpchIndexSpec;
-import io.prestosql.testing.tpch.TpchIndexSpec.Builder;
+import io.trino.plugin.tpch.TpchMetadata;
+import io.trino.testing.tpch.TpchIndexSpec;
+import io.trino.testing.tpch.TpchIndexSpec.Builder;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

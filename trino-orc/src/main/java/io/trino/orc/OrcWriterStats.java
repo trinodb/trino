@@ -19,10 +19,10 @@ import org.weakref.jmx.Nested;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.orc.OrcWriterStats.FlushReason.CLOSED;
-import static io.prestosql.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
-import static io.prestosql.orc.OrcWriterStats.FlushReason.MAX_BYTES;
-import static io.prestosql.orc.OrcWriterStats.FlushReason.MAX_ROWS;
+import static io.trino.orc.OrcWriterStats.FlushReason.CLOSED;
+import static io.trino.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
+import static io.trino.orc.OrcWriterStats.FlushReason.MAX_BYTES;
+import static io.trino.orc.OrcWriterStats.FlushReason.MAX_ROWS;
 
 public class OrcWriterStats
 {

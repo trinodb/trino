@@ -15,17 +15,17 @@ package io.trino.cli;
 
 import au.com.bytecode.opencsv.CSVWriter;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.client.Row;
+import io.trino.client.Row;
 
 import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.cli.AlignedTablePrinter.formatHexDump;
-import static io.prestosql.cli.AlignedTablePrinter.formatList;
-import static io.prestosql.cli.AlignedTablePrinter.formatMap;
-import static io.prestosql.cli.AlignedTablePrinter.formatRow;
+import static io.trino.cli.AlignedTablePrinter.formatHexDump;
+import static io.trino.cli.AlignedTablePrinter.formatList;
+import static io.trino.cli.AlignedTablePrinter.formatMap;
+import static io.trino.cli.AlignedTablePrinter.formatRow;
 import static java.util.Objects.requireNonNull;
 
 public class CsvPrinter

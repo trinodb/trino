@@ -14,8 +14,8 @@
 package io.trino.operator.aggregation.state;
 
 import io.airlift.stats.cardinality.HyperLogLog;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateSerializerClass = HyperLogLogStateSerializer.class, stateFactoryClass = HyperLogLogStateFactory.class)
 public interface HyperLogLogState

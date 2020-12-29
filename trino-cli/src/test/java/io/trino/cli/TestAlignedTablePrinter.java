@@ -14,8 +14,8 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.client.ClientTypeSignature;
-import io.prestosql.client.Column;
+import io.trino.client.ClientTypeSignature;
+import io.trino.client.Column;
 import org.testng.annotations.Test;
 
 import java.io.StringWriter;
@@ -23,11 +23,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.client.ClientStandardTypes.ARRAY;
-import static io.prestosql.client.ClientStandardTypes.BIGINT;
-import static io.prestosql.client.ClientStandardTypes.MAP;
-import static io.prestosql.client.ClientStandardTypes.VARBINARY;
-import static io.prestosql.client.ClientStandardTypes.VARCHAR;
+import static io.trino.client.ClientStandardTypes.ARRAY;
+import static io.trino.client.ClientStandardTypes.BIGINT;
+import static io.trino.client.ClientStandardTypes.MAP;
+import static io.trino.client.ClientStandardTypes.VARBINARY;
+import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toMap;

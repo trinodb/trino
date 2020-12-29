@@ -15,9 +15,9 @@ package io.trino.rcfile.binary;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.rcfile.ColumnEncoding;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.rcfile.ColumnEncoding;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
 public interface BinaryColumnEncoding
         extends ColumnEncoding

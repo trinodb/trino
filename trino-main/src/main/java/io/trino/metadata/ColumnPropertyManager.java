@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 
 public class ColumnPropertyManager
         extends AbstractPropertyManager

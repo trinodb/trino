@@ -16,15 +16,15 @@ package io.trino.tests.iceberg;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
-import io.prestosql.testng.services.Flaky;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tests.TestGroups.ICEBERG;
-import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
-import static io.prestosql.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.ICEBERG;
+import static io.trino.tests.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 
 public class TestIcebergCreateTable
         extends ProductTest

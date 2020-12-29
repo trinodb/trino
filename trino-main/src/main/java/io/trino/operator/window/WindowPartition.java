@@ -14,15 +14,15 @@
 package io.trino.operator.window;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.PagesHashStrategy;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.operator.PagesIndexComparator;
-import io.prestosql.operator.WindowOperator.FrameBoundKey;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.function.WindowIndex;
-import io.prestosql.sql.tree.FrameBound;
-import io.prestosql.sql.tree.FrameBound.Type;
-import io.prestosql.sql.tree.SortItem.Ordering;
+import io.trino.operator.PagesHashStrategy;
+import io.trino.operator.PagesIndex;
+import io.trino.operator.PagesIndexComparator;
+import io.trino.operator.WindowOperator.FrameBoundKey;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.function.WindowIndex;
+import io.trino.sql.tree.FrameBound;
+import io.trino.sql.tree.FrameBound.Type;
+import io.trino.sql.tree.SortItem.Ordering;
 
 import java.util.HashMap;
 import java.util.List;
@@ -31,19 +31,19 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.WindowOperator.FrameBoundKey.Type.END;
-import static io.prestosql.operator.WindowOperator.FrameBoundKey.Type.START;
-import static io.prestosql.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
-import static io.prestosql.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
-import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
-import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
-import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
-import static io.prestosql.sql.tree.WindowFrame.Type.GROUPS;
-import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.operator.WindowOperator.FrameBoundKey.Type.END;
+import static io.trino.operator.WindowOperator.FrameBoundKey.Type.START;
+import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
+import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
+import static io.trino.sql.tree.WindowFrame.Type.GROUPS;
+import static io.trino.sql.tree.WindowFrame.Type.RANGE;
+import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.mongodb;
 
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 

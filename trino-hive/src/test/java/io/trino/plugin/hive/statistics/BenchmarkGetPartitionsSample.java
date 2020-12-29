@@ -15,8 +15,8 @@ package io.trino.plugin.hive.statistics;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HivePartition;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.hive.HivePartition;
+import io.trino.spi.connector.SchemaTableName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -35,7 +35,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
+import static io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider.getPartitionsSample;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)

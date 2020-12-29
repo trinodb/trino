@@ -13,8 +13,8 @@
  */
 package io.trino.testing.statistics;
 
-import io.prestosql.cost.PlanNodeStatsEstimate;
-import io.prestosql.cost.SymbolStatsEstimate;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.SymbolStatsEstimate;
 
 import java.util.Optional;
 import java.util.OptionalDouble;

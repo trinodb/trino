@@ -15,23 +15,23 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.function.TypeParameterSpecialization;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.function.TypeParameterSpecialization;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.util.Comparator;
 import java.util.List;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.util.Failures.checkCondition;
 
 @ScalarFunction("array_sort")
 @Description("Sorts the given array with a lambda comparator.")

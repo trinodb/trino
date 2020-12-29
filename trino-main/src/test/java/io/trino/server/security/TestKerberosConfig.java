@@ -24,8 +24,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.server.security.KerberosNameType.HOSTBASED_SERVICE;
-import static io.prestosql.server.security.KerberosNameType.USER_NAME;
+import static io.trino.server.security.KerberosNameType.HOSTBASED_SERVICE;
+import static io.trino.server.security.KerberosNameType.USER_NAME;
 
 public class TestKerberosConfig
 {

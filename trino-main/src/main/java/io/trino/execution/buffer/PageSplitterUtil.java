@@ -14,7 +14,7 @@
 package io.trino.execution.buffer;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import java.util.List;
 

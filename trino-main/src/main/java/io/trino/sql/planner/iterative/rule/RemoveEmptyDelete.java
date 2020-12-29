@@ -14,20 +14,20 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.TableFinishNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.GenericLiteral;
-import io.prestosql.sql.tree.Row;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.Row;
 
-import static io.prestosql.sql.planner.plan.Patterns.Values.rowCount;
-import static io.prestosql.sql.planner.plan.Patterns.delete;
-import static io.prestosql.sql.planner.plan.Patterns.exchange;
-import static io.prestosql.sql.planner.plan.Patterns.source;
-import static io.prestosql.sql.planner.plan.Patterns.tableFinish;
-import static io.prestosql.sql.planner.plan.Patterns.values;
+import static io.trino.sql.planner.plan.Patterns.Values.rowCount;
+import static io.trino.sql.planner.plan.Patterns.delete;
+import static io.trino.sql.planner.plan.Patterns.exchange;
+import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.Patterns.tableFinish;
+import static io.trino.sql.planner.plan.Patterns.values;
 
 /**
  * If the predicate for a delete is optimized to false, the target table scan

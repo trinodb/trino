@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.prestosql.parquet.writer.ParquetWriterOptions;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.parquet.ParquetFileWriter;
-import io.prestosql.spi.type.Type;
+import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.parquet.ParquetFileWriter;
+import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;

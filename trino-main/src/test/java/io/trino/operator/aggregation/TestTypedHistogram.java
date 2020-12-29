@@ -13,20 +13,20 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.operator.aggregation.histogram.SingleTypedHistogram;
-import io.prestosql.operator.aggregation.histogram.TypedHistogram;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.operator.aggregation.histogram.SingleTypedHistogram;
+import io.trino.operator.aggregation.histogram.TypedHistogram;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.TypeOperators;
+import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.Test;
 
 import java.util.function.IntUnaryOperator;
 import java.util.stream.IntStream;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.util.StructuralTestUtil.mapType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypedHistogram

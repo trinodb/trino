@@ -16,11 +16,11 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.testing.DistributedQueryRunner;
 
 import java.util.Map;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class GeoQueryRunner
 {

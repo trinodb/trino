@@ -14,9 +14,9 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.testing.LocalQueryRunner;
 
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static java.lang.String.format;
 
 public class SqlTopNBenchmark

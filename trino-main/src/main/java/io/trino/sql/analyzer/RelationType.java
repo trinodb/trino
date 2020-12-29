@@ -16,7 +16,7 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.sql.tree.QualifiedName;
 
 import javax.annotation.concurrent.Immutable;
 

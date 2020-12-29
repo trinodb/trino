@@ -14,31 +14,31 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.expression.FieldDereference;
-import io.prestosql.spi.expression.Variable;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.testing.TestingSession;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.FieldDereference;
+import io.trino.spi.expression.Variable;
+import io.trino.spi.type.Type;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.SymbolReference;
+import io.trino.testing.TestingSession;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RowType.field;
-import static io.prestosql.spi.type.RowType.rowType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.sql.planner.ConnectorExpressionTranslator.translate;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static org.testng.Assert.assertEquals;
 
 public class TestConnectorExpressionTranslator

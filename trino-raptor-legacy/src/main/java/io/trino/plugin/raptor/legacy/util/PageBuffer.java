@@ -14,11 +14,11 @@
 package io.trino.plugin.raptor.legacy.util;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.raptor.legacy.storage.StoragePageSink;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageSorter;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.raptor.legacy.storage.StoragePageSink;
+import io.trino.spi.Page;
+import io.trino.spi.PageSorter;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;

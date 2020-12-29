@@ -19,8 +19,8 @@ import org.testng.annotations.Test;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.LOGICAL;
-import static io.prestosql.tests.TestGroups.QUERY_ENGINE;
+import static io.trino.tests.TestGroups.LOGICAL;
+import static io.trino.tests.TestGroups.QUERY_ENGINE;
 
 public class TestLogical
         extends ProductTest

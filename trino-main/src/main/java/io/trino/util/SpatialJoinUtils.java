@@ -13,13 +13,13 @@
  */
 package io.trino.util;
 
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.Literal;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.List;
@@ -28,10 +28,10 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
-import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.metadata.ResolvedFunction.extractFunctionName;
+import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 
 public final class SpatialJoinUtils
 {

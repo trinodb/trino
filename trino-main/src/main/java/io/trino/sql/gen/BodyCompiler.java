@@ -14,7 +14,7 @@
 package io.trino.sql.gen;
 
 import io.airlift.bytecode.ClassDefinition;
-import io.prestosql.sql.relational.RowExpression;
+import io.trino.sql.relational.RowExpression;
 
 import java.util.List;
 

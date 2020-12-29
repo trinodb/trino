@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.storage;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.TypeId;
+import io.trino.spi.type.TypeId;
 
 import java.util.Map;
 import java.util.Objects;

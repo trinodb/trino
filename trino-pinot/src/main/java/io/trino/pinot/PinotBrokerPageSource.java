@@ -13,17 +13,17 @@
  */
 package io.trino.pinot;
 
-import io.prestosql.pinot.client.PinotClient;
-import io.prestosql.pinot.client.PinotClient.BrokerResultRow;
-import io.prestosql.pinot.decoders.Decoder;
-import io.prestosql.pinot.decoders.DecoderFactory;
-import io.prestosql.pinot.query.PinotQuery;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.PageBuilderStatus;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.pinot.client.PinotClient;
+import io.trino.pinot.client.PinotClient.BrokerResultRow;
+import io.trino.pinot.decoders.Decoder;
+import io.trino.pinot.decoders.DecoderFactory;
+import io.trino.pinot.query.PinotQuery;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Arrays;
 import java.util.Iterator;

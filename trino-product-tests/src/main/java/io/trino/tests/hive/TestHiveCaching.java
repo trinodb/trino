@@ -16,7 +16,7 @@ package io.trino.tests.hive;
 import io.airlift.units.Duration;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert.Row;
-import io.prestosql.tests.hive.util.CachingTestUtils.CacheStats;
+import io.trino.tests.hive.util.CachingTestUtils.CacheStats;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -27,10 +27,10 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.HIVE_CACHING;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.hive.util.CachingTestUtils.getCacheStats;
-import static io.prestosql.tests.utils.QueryAssertions.assertEventually;
+import static io.trino.tests.TestGroups.HIVE_CACHING;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.hive.util.CachingTestUtils.getCacheStats;
+import static io.trino.tests.utils.QueryAssertions.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 

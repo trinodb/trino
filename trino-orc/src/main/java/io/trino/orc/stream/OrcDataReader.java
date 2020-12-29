@@ -14,7 +14,7 @@
 package io.trino.orc.stream;
 
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcDataSourceId;
+import io.trino.orc.OrcDataSourceId;
 
 import java.io.IOException;
 

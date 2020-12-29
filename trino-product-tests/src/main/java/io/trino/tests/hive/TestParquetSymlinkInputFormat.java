@@ -26,10 +26,10 @@ import java.nio.file.Paths;
 import static com.google.common.io.Resources.getResource;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tests.TestGroups.AVRO;
-import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.AVRO;
+import static io.trino.tests.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 
 public class TestParquetSymlinkInputFormat
@@ -101,7 +101,7 @@ public class TestParquetSymlinkInputFormat
             throws IOException
     {
         hdfsClient.delete(location);
-        try (InputStream inputStream = getResource(Paths.get("io/prestosql/tests/hive/data/single_int_column/", resource).toString()).openStream()) {
+        try (InputStream inputStream = getResource(Paths.get("io/trino/tests/hive/data/single_int_column/", resource).toString()).openStream()) {
             hdfsClient.saveFile(location, inputStream);
         }
     }

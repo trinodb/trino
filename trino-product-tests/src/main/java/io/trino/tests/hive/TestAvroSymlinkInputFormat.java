@@ -26,10 +26,10 @@ import java.nio.file.Paths;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tests.TestGroups.AVRO;
-import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.AVRO;
+import static io.trino.tests.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 
@@ -54,7 +54,7 @@ public class TestAvroSymlinkInputFormat
                 "CREATE TABLE " + table +
                 " ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                 "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
-                "\"namespace\": \"io.prestosql.tests.hive\"," +
+                "\"namespace\": \"io.trino.tests.hive\"," +
                 "\"name\": \"test_avro_symlink\"," +
                 "\"type\": \"record\"," +
                 "\"fields\": [" +
@@ -88,7 +88,7 @@ public class TestAvroSymlinkInputFormat
                 "CREATE TABLE " + table +
                 " ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                 "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
-                "\"namespace\": \"io.prestosql.tests.hive\"," +
+                "\"namespace\": \"io.trino.tests.hive\"," +
                 "\"name\": \"test_avro_symlink\"," +
                 "\"type\": \"record\"," +
                 "\"fields\": [" +
@@ -125,7 +125,7 @@ public class TestAvroSymlinkInputFormat
                 "CREATE TABLE " + table +
                 " ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                 "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
-                "\"namespace\": \"io.prestosql.tests.hive\"," +
+                "\"namespace\": \"io.trino.tests.hive\"," +
                 "\"name\": \"test_avro_symlink\"," +
                 "\"type\": \"record\"," +
                 "\"fields\": [" +

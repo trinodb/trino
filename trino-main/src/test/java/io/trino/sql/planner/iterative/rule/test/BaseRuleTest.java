@@ -15,8 +15,8 @@ package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.Plugin;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.spi.Plugin;
+import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
+import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 
 public abstract class BaseRuleTest
 {

@@ -14,16 +14,16 @@
 package io.trino.plugin.kinesis;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.kinesis.util.TestUtils;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.testing.TestingConnectorContext;
+import io.trino.plugin.kinesis.util.TestUtils;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 

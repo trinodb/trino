@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.tpch;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.BucketFunction;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.BucketFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 
 public class TpchBucketFunction

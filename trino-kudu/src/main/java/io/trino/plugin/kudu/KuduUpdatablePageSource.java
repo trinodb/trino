@@ -14,10 +14,10 @@
 package io.trino.plugin.kudu;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.RecordPageSource;
-import io.prestosql.spi.connector.UpdatablePageSource;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.UpdatablePageSource;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.Delete;
 import org.apache.kudu.client.KeyEncoderAccessor;

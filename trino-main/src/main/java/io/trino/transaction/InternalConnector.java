@@ -13,9 +13,9 @@
  */
 package io.trino.transaction;
 
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.transaction.IsolationLevel;
 
 public interface InternalConnector
         extends Connector

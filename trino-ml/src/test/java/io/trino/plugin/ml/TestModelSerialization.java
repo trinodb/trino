@@ -16,7 +16,7 @@ package io.trino.plugin.ml;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.ml.TestUtils.getDataset;
+import static io.trino.plugin.ml.TestUtils.getDataset;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

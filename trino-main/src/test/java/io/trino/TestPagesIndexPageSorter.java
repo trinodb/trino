@@ -15,23 +15,23 @@ package io.trino;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.testing.MaterializedResult;
+import io.trino.operator.PagesIndex;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
+import io.trino.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
 import java.util.List;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.operator.OperatorAssertion.toMaterializedResult;
-import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.operator.OperatorAssertion.toMaterializedResult;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestPagesIndexPageSorter

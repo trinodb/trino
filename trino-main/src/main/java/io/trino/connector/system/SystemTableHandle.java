@@ -15,15 +15,15 @@ package io.trino.connector.system;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
-import static io.prestosql.metadata.MetadataUtil.checkSchemaName;
-import static io.prestosql.metadata.MetadataUtil.checkTableName;
+import static io.trino.metadata.MetadataUtil.checkSchemaName;
+import static io.trino.metadata.MetadataUtil.checkTableName;
 import static java.util.Objects.requireNonNull;
 
 public class SystemTableHandle

@@ -13,7 +13,7 @@
  */
 package io.trino.elasticsearch.decoders;
 
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;

@@ -24,8 +24,8 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static io.prestosql.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
+import static io.trino.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 

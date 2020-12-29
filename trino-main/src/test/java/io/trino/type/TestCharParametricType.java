@@ -13,10 +13,10 @@
  */
 package io.trino.type;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.CharType.createCharType;
+import static io.trino.spi.type.CharType.createCharType;
 
 public class TestCharParametricType
         extends AbstractTestFunctions

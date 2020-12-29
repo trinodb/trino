@@ -13,7 +13,7 @@
  */
 package io.trino.spi.block;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -22,8 +22,8 @@ import java.util.Arrays;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.spi.block.ArrayBlock.createArrayBlockInternal;
-import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
+import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 

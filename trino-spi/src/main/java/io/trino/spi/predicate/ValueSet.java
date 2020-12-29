@@ -15,8 +15,8 @@ package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.Type;
 
 import java.util.Collection;
 import java.util.List;

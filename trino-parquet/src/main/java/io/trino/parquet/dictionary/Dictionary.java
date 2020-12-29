@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.dictionary;
 
-import io.prestosql.parquet.ParquetEncoding;
+import io.trino.parquet.ParquetEncoding;
 import org.apache.parquet.io.api.Binary;
 
 import static com.google.common.base.Preconditions.checkArgument;

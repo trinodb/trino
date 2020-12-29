@@ -20,8 +20,8 @@ import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Network;
-import io.prestosql.tests.product.launcher.env.DockerContainer;
-import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
+import io.trino.tests.product.launcher.env.DockerContainer;
+import io.trino.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 

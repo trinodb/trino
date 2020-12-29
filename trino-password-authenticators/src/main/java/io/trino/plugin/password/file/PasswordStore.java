@@ -19,8 +19,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.password.Credential;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.password.Credential;
+import io.trino.spi.PrestoException;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,11 +29,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.plugin.password.file.EncryptionUtil.doesBCryptPasswordMatch;
-import static io.prestosql.plugin.password.file.EncryptionUtil.doesPBKDF2PasswordMatch;
-import static io.prestosql.plugin.password.file.EncryptionUtil.getHashingAlgorithm;
-import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
+import static io.trino.plugin.password.file.EncryptionUtil.doesBCryptPasswordMatch;
+import static io.trino.plugin.password.file.EncryptionUtil.doesPBKDF2PasswordMatch;
+import static io.trino.plugin.password.file.EncryptionUtil.getHashingAlgorithm;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static java.lang.String.format;
 
 public class PasswordStore

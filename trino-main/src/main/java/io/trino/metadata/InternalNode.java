@@ -13,9 +13,9 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.client.NodeVersion;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.Node;
+import io.trino.client.NodeVersion;
+import io.trino.spi.HostAddress;
+import io.trino.spi.Node;
 
 import java.net.URI;
 

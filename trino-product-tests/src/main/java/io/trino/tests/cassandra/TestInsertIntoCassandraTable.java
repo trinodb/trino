@@ -34,12 +34,12 @@ import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.Stat
 import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.CASSANDRA;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
-import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
-import static io.prestosql.tests.utils.QueryAssertions.assertContainsEventually;
+import static io.trino.tests.TestGroups.CASSANDRA;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
+import static io.trino.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.trino.tests.cassandra.TestConstants.KEY_SPACE;
+import static io.trino.tests.utils.QueryAssertions.assertContainsEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 

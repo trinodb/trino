@@ -14,9 +14,9 @@
 package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 
-import static io.prestosql.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
+import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.LINE_ITEM;
 import static io.prestosql.tpch.TpchTable.NATION;

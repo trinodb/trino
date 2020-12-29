@@ -13,11 +13,11 @@
  */
 package io.trino.pinot.decoders;
 
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 public class BigintDecoder
         implements Decoder

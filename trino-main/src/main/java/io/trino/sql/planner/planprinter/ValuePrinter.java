@@ -14,14 +14,14 @@
 package io.trino.sql.planner.planprinter;
 
 import io.airlift.slice.Slice;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.OperatorNotFoundException;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.InterpretedFunctionInvoker;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.OperatorNotFoundException;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.Type;
+import io.trino.sql.InterpretedFunctionInvoker;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public final class ValuePrinter

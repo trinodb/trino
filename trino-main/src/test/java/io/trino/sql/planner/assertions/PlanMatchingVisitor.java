@@ -13,23 +13,23 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.Session;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.GroupReference;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
-import io.prestosql.sql.planner.plan.ProjectNode;
+import io.trino.Session;
+import io.trino.cost.StatsProvider;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
-import static io.prestosql.sql.planner.assertions.MatchResult.match;
+import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
+import static io.trino.sql.planner.assertions.MatchResult.match;
 import static java.util.Objects.requireNonNull;
 
 final class PlanMatchingVisitor

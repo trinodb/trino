@@ -13,9 +13,9 @@
  */
 package io.trino.testing;
 
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorTableLayoutHandle;
 
 public enum TestingHandle
         implements ConnectorOutputTableHandle, ConnectorInsertTableHandle, ConnectorTableLayoutHandle

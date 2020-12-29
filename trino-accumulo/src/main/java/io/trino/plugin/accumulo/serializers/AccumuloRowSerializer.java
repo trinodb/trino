@@ -15,12 +15,12 @@ package io.trino.plugin.accumulo.serializers;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.accumulo.Types;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeUtils;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.plugin.accumulo.Types;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeUtils;
+import io.trino.spi.type.VarcharType;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;
@@ -354,7 +354,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * <tr>
      * <td>ARRAY</td>
-     * <td>io.prestosql.spi.block.Block</td>
+     * <td>io.trino.spi.block.Block</td>
      * </tr>
      * <tr>
      * <td>BIGINT</td>
@@ -378,7 +378,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * <tr>
      * <td>Map</td>
-     * <td>io.prestosql.spi.block.Block</td>
+     * <td>io.trino.spi.block.Block</td>
      * </tr>
      * <tr>
      * <td>REAL</td>
@@ -410,7 +410,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * </table>
      *
-     * @param type The presto {@link io.prestosql.spi.type.Type}
+     * @param type The presto {@link io.trino.spi.type.Type}
      * @param value The Java object per the table in the method description
      * @return Encoded bytes
      */
@@ -482,7 +482,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * </table>
      *
-     * @param type The presto {@link io.prestosql.spi.type.Type}
+     * @param type The presto {@link io.trino.spi.type.Type}
      * @param value Encoded bytes to decode
      * @param <T> The Java type of the object that has been encoded to the given byte array
      * @return The Java object per the table in the method description

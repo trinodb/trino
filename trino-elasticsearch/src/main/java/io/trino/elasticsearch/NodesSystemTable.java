@@ -14,28 +14,28 @@
 package io.trino.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.elasticsearch.client.ElasticsearchClient;
-import io.prestosql.elasticsearch.client.ElasticsearchNode;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.FixedPageSource;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.elasticsearch.client.ElasticsearchClient;
+import io.trino.elasticsearch.client.ElasticsearchNode;
+import io.trino.spi.Node;
+import io.trino.spi.NodeManager;
+import io.trino.spi.Page;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.Set;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class NodesSystemTable

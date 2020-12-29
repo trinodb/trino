@@ -14,17 +14,17 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.ApplyNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.InPredicate;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
@@ -32,7 +32,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionMatcher

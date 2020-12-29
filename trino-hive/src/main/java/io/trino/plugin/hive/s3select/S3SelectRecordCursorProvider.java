@@ -14,16 +14,16 @@
 package io.trino.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveColumnHandle;
-import io.prestosql.plugin.hive.HiveRecordCursorProvider;
-import io.prestosql.plugin.hive.IonSqlQueryBuilder;
-import io.prestosql.plugin.hive.ReaderColumns;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveRecordCursorProvider;
+import io.trino.plugin.hive.IonSqlQueryBuilder;
+import io.trino.plugin.hive.ReaderColumns;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
@@ -36,9 +36,9 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
-import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableList;
 

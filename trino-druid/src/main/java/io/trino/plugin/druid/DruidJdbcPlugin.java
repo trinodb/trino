@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.druid;
 
-import io.prestosql.plugin.jdbc.JdbcPlugin;
+import io.trino.plugin.jdbc.JdbcPlugin;
 
 public class DruidJdbcPlugin
         extends JdbcPlugin

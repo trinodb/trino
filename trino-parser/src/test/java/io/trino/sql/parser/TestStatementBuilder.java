@@ -14,17 +14,17 @@
 package io.trino.sql.parser;
 
 import com.google.common.io.Resources;
-import io.prestosql.sql.SqlFormatter;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Statement;
+import io.trino.sql.SqlFormatter;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Statement;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
 import static com.google.common.base.Strings.repeat;
-import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static io.prestosql.sql.testing.TreeAssertions.assertFormattedSql;
+import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;

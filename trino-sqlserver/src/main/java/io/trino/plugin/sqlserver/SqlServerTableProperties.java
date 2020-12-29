@@ -14,14 +14,14 @@
 package io.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.jdbc.TablePropertiesProvider;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.plugin.jdbc.TablePropertiesProvider;
+import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 
 public class SqlServerTableProperties
         implements TablePropertiesProvider

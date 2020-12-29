@@ -14,7 +14,7 @@
 package io.trino.pinot.client;
 
 import com.yammer.metrics.core.MetricsRegistry;
-import io.prestosql.pinot.PinotException;
+import io.trino.pinot.PinotException;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.request.BrokerRequest;
@@ -40,8 +40,8 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
-import static io.prestosql.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
+import static io.trino.pinot.PinotErrorCode.PINOT_EXCEPTION;
+import static io.trino.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

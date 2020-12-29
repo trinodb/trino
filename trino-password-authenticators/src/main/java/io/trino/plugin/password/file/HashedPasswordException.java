@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.password.file;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 
 public class HashedPasswordException
         extends PrestoException

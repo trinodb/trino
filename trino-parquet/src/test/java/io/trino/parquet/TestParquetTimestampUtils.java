@@ -13,16 +13,16 @@
  */
 package io.trino.parquet;
 
-import io.prestosql.plugin.base.type.DecodedTimestamp;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 
-import static io.prestosql.parquet.ParquetTimestampUtils.decode;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.parquet.ParquetTimestampUtils.decode;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.time.ZoneOffset.UTC;
 import static org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils.getNanoTime;
 import static org.testng.Assert.assertEquals;

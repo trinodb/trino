@@ -15,15 +15,15 @@ package io.trino.block;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.trino.metadata.Metadata;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

@@ -18,14 +18,14 @@ import com.google.re2j.Options;
 import com.google.re2j.Pattern;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.re2j.Options.Algorithm.DFA_FALLBACK_TO_NFA;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 

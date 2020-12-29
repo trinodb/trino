@@ -15,10 +15,10 @@
 package io.trino.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
-import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import io.prestosql.sql.relational.LambdaDefinitionExpression;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SpecialForm;
+import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import io.trino.sql.relational.LambdaDefinitionExpression;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 
 import java.util.List;
 import java.util.Map;

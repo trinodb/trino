@@ -13,15 +13,15 @@
  */
 package io.trino.spi.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockBuilderStatus;
-import io.prestosql.spi.block.MapBlock;
-import io.prestosql.spi.block.MapBlockBuilder;
-import io.prestosql.spi.block.SingleMapBlock;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.OperatorMethodHandle;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.MapBlock;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.OperatorMethodHandle;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -32,15 +32,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
-import static io.prestosql.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
-import static io.prestosql.spi.type.TypeUtils.NULL_HASH_CODE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
+import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
@@ -277,7 +277,7 @@ public class MapType
     }
 
     /**
-     * Internal use by this package and io.prestosql.spi.block only.
+     * Internal use by this package and io.trino.spi.block only.
      */
     public MethodHandle getKeyNativeHashCode()
     {
@@ -285,7 +285,7 @@ public class MapType
     }
 
     /**
-     * Internal use by this package and io.prestosql.spi.block only.
+     * Internal use by this package and io.trino.spi.block only.
      */
     public MethodHandle getKeyBlockHashCode()
     {
@@ -293,7 +293,7 @@ public class MapType
     }
 
     /**
-     * Internal use by this package and io.prestosql.spi.block only.
+     * Internal use by this package and io.trino.spi.block only.
      */
     public MethodHandle getKeyBlockNativeEqual()
     {
@@ -301,7 +301,7 @@ public class MapType
     }
 
     /**
-     * Internal use by this package and io.prestosql.spi.block only.
+     * Internal use by this package and io.trino.spi.block only.
      */
     public MethodHandle getKeyBlockEqual()
     {

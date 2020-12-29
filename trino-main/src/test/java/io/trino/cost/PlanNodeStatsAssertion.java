@@ -14,12 +14,12 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 
 import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.union;
-import static io.prestosql.cost.EstimateAssertion.assertEstimateEquals;
+import static io.trino.cost.EstimateAssertion.assertEstimateEquals;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

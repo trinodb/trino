@@ -13,11 +13,11 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
+import io.trino.Session;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
 

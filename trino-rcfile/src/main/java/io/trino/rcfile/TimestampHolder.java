@@ -13,17 +13,17 @@
  */
 package io.trino.rcfile;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.TimestampType;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.function.BiFunction;
 
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;

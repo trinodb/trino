@@ -13,8 +13,8 @@
  */
 package io.trino.orc.stream;
 
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.checkpoint.ByteStreamCheckpoint;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.checkpoint.ByteStreamCheckpoint;
 
 import java.io.IOException;
 import java.util.Arrays;

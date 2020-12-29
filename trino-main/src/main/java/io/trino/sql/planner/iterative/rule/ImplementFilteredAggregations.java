@@ -15,26 +15,26 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.Expression;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.Expression;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.ExpressionUtils.and;
-import static io.prestosql.sql.ExpressionUtils.combineDisjunctsWithDefault;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.ExpressionUtils.combineDisjunctsWithDefault;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Implements filtered aggregations by transforming plans of the following shape:

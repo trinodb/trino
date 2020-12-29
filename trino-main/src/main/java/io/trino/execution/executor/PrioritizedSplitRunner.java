@@ -21,14 +21,14 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
-import io.prestosql.execution.SplitRunner;
+import io.trino.execution.SplitRunner;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

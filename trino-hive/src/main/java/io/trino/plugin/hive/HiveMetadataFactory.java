@@ -16,13 +16,13 @@ package io.trino.plugin.hive;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.MetastoreConfig;
-import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.prestosql.plugin.hive.security.AccessControlMetadataFactory;
-import io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.security.AccessControlMetadataFactory;
+import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -32,7 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetadataFactory

@@ -13,16 +13,16 @@
  */
 package io.trino.cost;
 
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.tree.ComparisonExpression;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.ComparisonExpression;
 
 import java.util.Optional;
 import java.util.OptionalDouble;
 
-import static io.prestosql.cost.SymbolStatsEstimate.buildFrom;
-import static io.prestosql.util.MoreMath.firstNonNaN;
-import static io.prestosql.util.MoreMath.max;
-import static io.prestosql.util.MoreMath.min;
+import static io.trino.cost.SymbolStatsEstimate.buildFrom;
+import static io.trino.util.MoreMath.firstNonNaN;
+import static io.trino.util.MoreMath.max;
+import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

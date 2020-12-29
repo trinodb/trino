@@ -13,8 +13,8 @@
  */
 package io.trino.util;
 
-import io.prestosql.array.BigArrays;
-import io.prestosql.array.LongBigArray;
+import io.trino.array.BigArrays;
+import io.trino.array.LongBigArray;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.HashCommon;
 import org.openjdk.jol.info.ClassLayout;

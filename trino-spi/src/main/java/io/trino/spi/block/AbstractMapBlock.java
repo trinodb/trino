@@ -14,7 +14,7 @@
 
 package io.trino.spi.block;
 
-import io.prestosql.spi.type.MapType;
+import io.trino.spi.type.MapType;
 
 import javax.annotation.Nullable;
 
@@ -22,13 +22,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
-import static io.prestosql.spi.block.BlockUtil.checkValidPositions;
-import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
-import static io.prestosql.spi.block.BlockUtil.compactArray;
-import static io.prestosql.spi.block.BlockUtil.compactOffsets;
-import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
-import static io.prestosql.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkValidPositions;
+import static io.trino.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactOffsets;
+import static io.trino.spi.block.MapBlock.createMapBlockInternal;
+import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock

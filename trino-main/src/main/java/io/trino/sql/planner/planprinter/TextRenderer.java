@@ -15,11 +15,11 @@ package io.trino.sql.planner.planprinter;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.prestosql.cost.PlanCostEstimate;
-import io.prestosql.cost.PlanNodeStatsAndCostSummary;
-import io.prestosql.cost.PlanNodeStatsEstimate;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
+import io.trino.cost.PlanCostEstimate;
+import io.trino.cost.PlanNodeStatsAndCostSummary;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 
 import java.util.Iterator;
 import java.util.List;

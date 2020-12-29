@@ -16,9 +16,9 @@ package io.trino.server;
 import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.execution.buffer.SerializedPage;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
+import io.trino.execution.buffer.SerializedPage;
+import io.trino.sql.analyzer.FeaturesConfig;
+import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 
 import javax.inject.Inject;
 import javax.ws.rs.Produces;
@@ -36,10 +36,10 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.List;
 
-import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
-import static io.prestosql.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
-import static io.prestosql.execution.buffer.PagesSerdeUtil.calculateChecksum;
-import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPages;
+import static io.trino.PrestoMediaTypes.PRESTO_PAGES;
+import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
+import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
+import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPages;
 import static java.util.Objects.requireNonNull;
 
 @Provider

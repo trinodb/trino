@@ -13,14 +13,14 @@
  */
 package io.trino.server.security;
 
-import io.prestosql.security.AccessControl;
-import io.prestosql.server.InternalAuthenticationManager;
-import io.prestosql.server.security.ResourceSecurity.AccessType;
-import io.prestosql.server.ui.WebUiAuthenticationFilter;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.GroupProvider;
-import io.prestosql.spi.security.Identity;
+import io.trino.security.AccessControl;
+import io.trino.server.InternalAuthenticationManager;
+import io.trino.server.security.ResourceSecurity.AccessType;
+import io.trino.server.ui.WebUiAuthenticationFilter;
+import io.trino.spi.PrestoException;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.GroupProvider;
+import io.trino.spi.security.Identity;
 
 import javax.annotation.Priority;
 import javax.inject.Inject;
@@ -37,11 +37,11 @@ import javax.ws.rs.core.FeatureContext;
 
 import java.util.Optional;
 
-import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
-import static io.prestosql.server.HttpRequestSessionContext.extractAuthorizedIdentity;
-import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
-import static io.prestosql.spi.StandardErrorCode.SERVER_STARTING_UP;
+import static io.trino.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
+import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
+import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static java.util.Objects.requireNonNull;
 
 public class ResourceSecurityDynamicFeature

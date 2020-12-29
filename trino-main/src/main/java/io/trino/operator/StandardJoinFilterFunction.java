@@ -14,13 +14,13 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 
-import static io.prestosql.operator.SyntheticAddress.decodePosition;
-import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
+import static io.trino.operator.SyntheticAddress.decodePosition;
+import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static java.util.Objects.requireNonNull;
 
 public class StandardJoinFilterFunction

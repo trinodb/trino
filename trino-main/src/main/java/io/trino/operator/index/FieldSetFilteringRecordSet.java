@@ -16,10 +16,10 @@ package io.trino.operator.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Iterator;
@@ -28,9 +28,9 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 

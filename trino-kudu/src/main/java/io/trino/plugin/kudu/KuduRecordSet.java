@@ -14,10 +14,10 @@
 package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.type.Type;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduTable;
@@ -25,7 +25,7 @@ import org.apache.kudu.client.KuduTable;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
+import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
 
 public class KuduRecordSet
         implements RecordSet

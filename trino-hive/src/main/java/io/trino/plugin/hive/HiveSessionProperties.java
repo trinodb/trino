@@ -16,14 +16,14 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
-import io.prestosql.plugin.hive.orc.OrcReaderConfig;
-import io.prestosql.plugin.hive.orc.OrcWriterConfig;
-import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
-import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
@@ -31,15 +31,15 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
-import static io.prestosql.plugin.base.session.PropertyMetadataUtil.durationProperty;
-import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
+import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 

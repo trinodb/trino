@@ -21,12 +21,12 @@ import io.airlift.joni.Syntax;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import java.util.Optional;
 
@@ -36,9 +36,9 @@ import static io.airlift.joni.constants.SyntaxProperties.OP_DOT_ANYCHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_LINE_ANCHOR;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.Chars.padSpaces;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.util.Failures.checkCondition;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class LikeFunctions

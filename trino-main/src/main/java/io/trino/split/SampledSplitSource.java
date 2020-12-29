@@ -15,9 +15,9 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.trino.connector.CatalogName;
+import io.trino.execution.Lifespan;
+import io.trino.spi.connector.ConnectorPartitionHandle;
 
 import javax.annotation.Nullable;
 

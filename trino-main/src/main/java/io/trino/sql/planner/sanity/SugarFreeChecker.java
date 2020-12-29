@@ -14,25 +14,25 @@
 package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList.Builder;
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.planner.ExpressionExtractor;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.tree.ArrayConstructor;
-import io.prestosql.sql.tree.AtTimeZone;
-import io.prestosql.sql.tree.CurrentPath;
-import io.prestosql.sql.tree.CurrentUser;
-import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Extract;
-import io.prestosql.sql.tree.LikePredicate;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.TryExpression;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.ExpressionExtractor;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.AtTimeZone;
+import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentUser;
+import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Extract;
+import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.TryExpression;
 
 /**
  * Verifies the plan does not contain any "syntactic sugar" from the AST.

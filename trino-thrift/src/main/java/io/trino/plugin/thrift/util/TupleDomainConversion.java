@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.thrift.util;
 
-import io.prestosql.plugin.thrift.ThriftColumnHandle;
-import io.prestosql.plugin.thrift.api.PrestoThriftTupleDomain;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.thrift.ThriftColumnHandle;
+import io.trino.plugin.thrift.api.PrestoThriftTupleDomain;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.TupleDomain;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.plugin.thrift.api.PrestoThriftDomain.fromDomain;
+import static io.trino.plugin.thrift.api.PrestoThriftDomain.fromDomain;
 
 public final class TupleDomainConversion
 {

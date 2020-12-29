@@ -13,11 +13,11 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.IterativeOptimizer;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.Session;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.IterativeOptimizer;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.PlanNode;
 
 public interface StatsCalculator
 {

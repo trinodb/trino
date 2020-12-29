@@ -13,14 +13,14 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.prestosql.Session;
-import io.prestosql.sql.query.QueryAssertions;
+import io.trino.Session;
+import io.trino.sql.query.QueryAssertions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAtTimeZone

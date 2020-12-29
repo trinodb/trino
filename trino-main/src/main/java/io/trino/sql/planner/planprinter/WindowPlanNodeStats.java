@@ -15,7 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
 

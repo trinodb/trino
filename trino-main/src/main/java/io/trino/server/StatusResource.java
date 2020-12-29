@@ -15,9 +15,9 @@ package io.trino.server;
 
 import com.sun.management.OperatingSystemMXBean;
 import io.airlift.node.NodeInfo;
-import io.prestosql.client.NodeVersion;
-import io.prestosql.memory.LocalMemoryManager;
-import io.prestosql.server.security.ResourceSecurity;
+import io.trino.client.NodeVersion;
+import io.trino.memory.LocalMemoryManager;
+import io.trino.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -30,7 +30,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 

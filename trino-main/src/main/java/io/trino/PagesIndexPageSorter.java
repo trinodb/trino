@@ -13,18 +13,18 @@
  */
 package io.trino;
 
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageSorter;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
+import io.trino.operator.PagesIndex;
+import io.trino.spi.Page;
+import io.trino.spi.PageSorter;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.prestosql.operator.SyntheticAddress.decodePosition;
-import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
+import static io.trino.operator.SyntheticAddress.decodePosition;
+import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static java.util.Objects.requireNonNull;
 
 public class PagesIndexPageSorter

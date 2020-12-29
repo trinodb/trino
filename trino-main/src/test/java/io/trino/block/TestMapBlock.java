@@ -14,14 +14,14 @@
 
 package io.trino.block;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.ByteArrayBlock;
-import io.prestosql.spi.block.DuplicateMapKeyException;
-import io.prestosql.spi.block.MapBlock;
-import io.prestosql.spi.block.MapBlockBuilder;
-import io.prestosql.spi.block.SingleMapBlock;
-import io.prestosql.spi.type.MapType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.DuplicateMapKeyException;
+import io.trino.spi.block.MapBlock;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.type.MapType;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -32,12 +32,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.block.BlockAssertions.createLongsBlock;
-import static io.prestosql.block.BlockAssertions.createStringsBlock;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.util.StructuralTestUtil.mapType;
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.util.StructuralTestUtil.mapType;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;

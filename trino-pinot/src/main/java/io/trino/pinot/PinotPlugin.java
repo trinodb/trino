@@ -15,8 +15,8 @@ package io.trino.pinot;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Optional;
 

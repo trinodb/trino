@@ -33,8 +33,8 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.KAFKA;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.TestGroups.KAFKA;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
 
 public class TestKafkaPushdownSmokeTest

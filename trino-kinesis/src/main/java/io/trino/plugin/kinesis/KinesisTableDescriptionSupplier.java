@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.kinesis.s3config.S3TableConfigClient;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.kinesis.s3config.S3TableConfigClient;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.SchemaTableName;
 
 import javax.annotation.PreDestroy;
 

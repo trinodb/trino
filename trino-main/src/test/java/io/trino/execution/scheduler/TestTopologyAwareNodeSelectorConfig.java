@@ -16,7 +16,7 @@ package io.trino.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
-import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType;
+import io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType;
 import org.testng.annotations.Test;
 
 import java.util.Map;

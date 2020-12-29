@@ -13,8 +13,8 @@
  */
 package io.trino.orc.metadata;
 
-import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
-import io.prestosql.orc.metadata.statistics.BloomFilter;
+import io.trino.orc.metadata.PostScript.HiveWriterVersion;
+import io.trino.orc.metadata.statistics.BloomFilter;
 
 import java.io.IOException;
 import java.io.InputStream;

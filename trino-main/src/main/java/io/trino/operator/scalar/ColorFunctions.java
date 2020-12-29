@@ -15,21 +15,21 @@ package io.trino.operator.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.type.ColorType;
-import io.prestosql.type.Constraint;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.type.ColorType;
+import io.trino.type.Constraint;
 
 import java.awt.Color;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.operator.scalar.StringFunctions.upper;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.operator.scalar.StringFunctions.upper;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.util.Failures.checkCondition;
 import static java.lang.String.format;
 
 public final class ColorFunctions

@@ -18,7 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType.NONE;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType.NONE;
 
 public class ThriftMetastoreAuthenticationConfig
 {

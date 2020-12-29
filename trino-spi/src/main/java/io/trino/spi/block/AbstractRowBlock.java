@@ -15,13 +15,13 @@ package io.trino.spi.block;
 
 import java.util.List;
 
-import static io.prestosql.spi.block.BlockUtil.arraySame;
-import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
-import static io.prestosql.spi.block.BlockUtil.checkValidPositions;
-import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
-import static io.prestosql.spi.block.BlockUtil.compactArray;
-import static io.prestosql.spi.block.BlockUtil.compactOffsets;
-import static io.prestosql.spi.block.RowBlock.createRowBlockInternal;
+import static io.trino.spi.block.BlockUtil.arraySame;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkValidPositions;
+import static io.trino.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactOffsets;
+import static io.trino.spi.block.RowBlock.createRowBlockInternal;
 
 public abstract class AbstractRowBlock
         implements Block

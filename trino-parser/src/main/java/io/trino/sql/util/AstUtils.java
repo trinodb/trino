@@ -15,7 +15,7 @@ package io.trino.sql.util;
 
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
-import io.prestosql.sql.tree.Node;
+import io.trino.sql.tree.Node;
 
 import java.util.List;
 import java.util.OptionalInt;

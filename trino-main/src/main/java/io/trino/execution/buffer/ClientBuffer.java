@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
-import io.prestosql.execution.buffer.SerializedPageReference.PagesReleasedListener;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
@@ -37,8 +37,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.execution.buffer.BufferResult.emptyResults;
-import static io.prestosql.execution.buffer.SerializedPageReference.dereferencePages;
+import static io.trino.execution.buffer.BufferResult.emptyResults;
+import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

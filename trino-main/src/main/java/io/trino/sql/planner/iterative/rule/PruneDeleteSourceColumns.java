@@ -14,13 +14,13 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.DeleteNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.DeleteNode;
 
-import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
-import static io.prestosql.sql.planner.plan.Patterns.delete;
+import static io.trino.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static io.trino.sql.planner.plan.Patterns.delete;
 
 public class PruneDeleteSourceColumns
         implements Rule<DeleteNode>

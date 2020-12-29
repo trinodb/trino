@@ -14,23 +14,23 @@
 package io.trino.operator.unnest;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.block.PageBuilderStatus;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.PageBuilderStatus;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
-import static io.prestosql.block.ColumnarTestUtils.assertBlock;
-import static io.prestosql.operator.unnest.TestingUnnesterUtil.array;
-import static io.prestosql.operator.unnest.TestingUnnesterUtil.column;
-import static io.prestosql.operator.unnest.TestingUnnesterUtil.computeExpectedUnnestedOutput;
-import static io.prestosql.operator.unnest.TestingUnnesterUtil.createArrayBlock;
-import static io.prestosql.operator.unnest.TestingUnnesterUtil.getFieldElements;
-import static io.prestosql.operator.unnest.TestingUnnesterUtil.nullExists;
-import static io.prestosql.operator.unnest.TestingUnnesterUtil.toSlices;
-import static io.prestosql.operator.unnest.TestingUnnesterUtil.validateTestInput;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.block.ColumnarTestUtils.assertBlock;
+import static io.trino.operator.unnest.TestingUnnesterUtil.array;
+import static io.trino.operator.unnest.TestingUnnesterUtil.column;
+import static io.trino.operator.unnest.TestingUnnesterUtil.computeExpectedUnnestedOutput;
+import static io.trino.operator.unnest.TestingUnnesterUtil.createArrayBlock;
+import static io.trino.operator.unnest.TestingUnnesterUtil.getFieldElements;
+import static io.trino.operator.unnest.TestingUnnesterUtil.nullExists;
+import static io.trino.operator.unnest.TestingUnnesterUtil.toSlices;
+import static io.trino.operator.unnest.TestingUnnesterUtil.validateTestInput;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

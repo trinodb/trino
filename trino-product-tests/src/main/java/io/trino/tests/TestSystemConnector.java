@@ -18,8 +18,8 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.TestGroups.SYSTEM_CONNECTOR;
+import static io.trino.tests.TestGroups.JDBC;
+import static io.trino.tests.TestGroups.SYSTEM_CONNECTOR;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;

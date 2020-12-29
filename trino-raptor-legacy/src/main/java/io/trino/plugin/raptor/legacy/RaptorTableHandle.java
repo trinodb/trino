@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Objects;
@@ -27,8 +27,8 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.raptor.legacy.util.MetadataUtil.checkSchemaName;
-import static io.prestosql.plugin.raptor.legacy.util.MetadataUtil.checkTableName;
+import static io.trino.plugin.raptor.legacy.util.MetadataUtil.checkSchemaName;
+import static io.trino.plugin.raptor.legacy.util.MetadataUtil.checkTableName;
 import static java.util.Objects.requireNonNull;
 
 public final class RaptorTableHandle

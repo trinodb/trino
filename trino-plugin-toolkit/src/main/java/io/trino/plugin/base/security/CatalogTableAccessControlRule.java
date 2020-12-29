@@ -15,9 +15,9 @@ package io.trino.plugin.base.security;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.security.ViewExpression;
+import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.security.ViewExpression;
 
 import java.util.List;
 import java.util.Optional;

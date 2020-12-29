@@ -14,12 +14,12 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.metastore.SortingColumn;
-import io.prestosql.plugin.hive.orc.OrcWriterConfig;
-import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.plugin.hive.metastore.SortingColumn;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.spi.PrestoException;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.ArrayType;
 
 import javax.inject.Inject;
 
@@ -31,17 +31,17 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
-import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
-import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
-import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
-import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
+import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
+import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.doubleProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 

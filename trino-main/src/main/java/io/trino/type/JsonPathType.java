@@ -15,12 +15,12 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.operator.scalar.JsonPath;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractVariableWidthType;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.operator.scalar.JsonPath;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.TypeSignature;
 
 public class JsonPathType
         extends AbstractVariableWidthType

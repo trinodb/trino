@@ -17,8 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.orc.stream.MemoryOrcDataReader;
-import io.prestosql.orc.stream.OrcDataReader;
+import io.trino.orc.stream.MemoryOrcDataReader;
+import io.trino.orc.stream.OrcDataReader;
 
 import java.io.IOException;
 import java.util.Map;

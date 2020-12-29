@@ -13,13 +13,13 @@
  */
 package io.trino.connector;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
+import io.trino.spi.PrestoException;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
 
 import java.util.Set;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class AllowAllGrants<T>
         implements Grants<T>

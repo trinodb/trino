@@ -14,23 +14,23 @@
 package io.trino.security;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
-import io.prestosql.spi.security.ViewExpression;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.Identity;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
+import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.spi.security.AccessDeniedException.denySetViewAuthorization;
+import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 
 public interface AccessControl
 {
@@ -189,7 +189,7 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to comment the specified column.
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName);
 

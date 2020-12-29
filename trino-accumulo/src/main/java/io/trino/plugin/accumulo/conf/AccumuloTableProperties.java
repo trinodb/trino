@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
-import io.prestosql.plugin.accumulo.serializers.StringRowSerializer;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
+import io.trino.plugin.accumulo.serializers.LexicoderRowSerializer;
+import io.trino.plugin.accumulo.serializers.StringRowSerializer;
+import io.trino.spi.PrestoException;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.VarcharType;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -35,9 +35,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static java.util.Objects.requireNonNull;
 
 /**

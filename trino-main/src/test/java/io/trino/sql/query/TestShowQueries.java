@@ -15,16 +15,16 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;

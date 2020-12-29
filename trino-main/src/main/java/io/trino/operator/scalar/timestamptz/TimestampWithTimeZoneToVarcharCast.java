@@ -14,21 +14,21 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.type.DateTimes;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.type.DateTimes;
 
 import java.time.ZoneId;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.DateTimes.formatTimestampWithTimeZone;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.type.DateTimes.formatTimestampWithTimeZone;
 
 @ScalarOperator(CAST)
 public final class TimestampWithTimeZoneToVarcharCast

@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.raptor.legacy.metadata.Table;
+import io.trino.plugin.raptor.legacy.metadata.Table;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.createOrganizationSet;
-import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
+import static io.trino.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.createOrganizationSet;
+import static io.trino.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.getShardsByDaysBuckets;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;

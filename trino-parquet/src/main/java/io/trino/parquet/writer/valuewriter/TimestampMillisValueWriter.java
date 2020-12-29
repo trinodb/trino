@@ -13,12 +13,12 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
 

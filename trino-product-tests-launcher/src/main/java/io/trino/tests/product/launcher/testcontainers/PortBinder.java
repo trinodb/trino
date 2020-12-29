@@ -13,9 +13,9 @@
  */
 package io.trino.tests.product.launcher.testcontainers;
 
-import io.prestosql.tests.product.launcher.docker.ContainerUtil;
-import io.prestosql.tests.product.launcher.env.DockerContainer;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.trino.tests.product.launcher.docker.ContainerUtil;
+import io.trino.tests.product.launcher.env.DockerContainer;
+import io.trino.tests.product.launcher.env.EnvironmentOptions;
 
 import javax.inject.Inject;
 

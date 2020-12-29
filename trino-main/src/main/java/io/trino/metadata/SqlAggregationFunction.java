@@ -14,11 +14,11 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.aggregation.AggregationFromAnnotationsParser;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.trino.operator.aggregation.AggregationFromAnnotationsParser;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 import java.util.Optional;

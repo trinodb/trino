@@ -13,12 +13,12 @@
  */
 package io.trino.operator;
 
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.util.MergeSortedPages.PageWithPosition;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators;
+import io.trino.util.MergeSortedPages.PageWithPosition;
 
 import java.io.Closeable;
 import java.util.List;
@@ -26,7 +26,7 @@ import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.util.MergeSortedPages.mergeSortedPages;
+import static io.trino.util.MergeSortedPages.mergeSortedPages;
 
 /**
  * This class performs merge of previously hash sorted pages streams.

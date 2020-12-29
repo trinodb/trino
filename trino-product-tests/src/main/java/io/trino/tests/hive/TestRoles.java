@@ -32,12 +32,12 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.anyOf;
-import static io.prestosql.tests.TestGroups.AUTHORIZATION;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.TestGroups.ROLES;
-import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.AUTHORIZATION;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.TestGroups.ROLES;
+import static io.trino.tests.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 

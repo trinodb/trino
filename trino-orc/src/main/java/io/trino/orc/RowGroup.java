@@ -13,7 +13,7 @@
  */
 package io.trino.orc;
 
-import io.prestosql.orc.stream.InputStreamSources;
+import io.trino.orc.stream.InputStreamSources;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

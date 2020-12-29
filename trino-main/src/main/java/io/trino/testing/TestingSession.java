@@ -14,27 +14,27 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.Session.SessionBuilder;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.connector.system.StaticSystemTablesProvider;
-import io.prestosql.connector.system.SystemTablesMetadata;
-import io.prestosql.execution.QueryIdGenerator;
-import io.prestosql.metadata.Catalog;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.transaction.IsolationLevel;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.sql.SqlPath;
+import io.trino.Session;
+import io.trino.Session.SessionBuilder;
+import io.trino.connector.CatalogName;
+import io.trino.connector.system.StaticSystemTablesProvider;
+import io.trino.connector.system.SystemTablesMetadata;
+import io.trino.execution.QueryIdGenerator;
+import io.trino.metadata.Catalog;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.security.Identity;
+import io.trino.spi.transaction.IsolationLevel;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.SqlPath;
 
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
-import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
-import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
+import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
+import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession

@@ -13,15 +13,15 @@
  */
 package io.trino.testing;
 
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.planprinter.PlanPrinter;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.planprinter.PlanPrinter;
 
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
-import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static org.testng.Assert.assertEquals;
 
 public class PlanDeterminismChecker

@@ -15,21 +15,21 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testng.services.Flaky;
+import io.trino.spi.Plugin;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.Type;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.Set;
 
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.spi.type.StandardTypes.BOOLEAN;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestQuerySerializationFailures
         extends AbstractTestQueryFramework

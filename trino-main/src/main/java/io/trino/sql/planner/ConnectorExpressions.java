@@ -15,8 +15,8 @@ package io.trino.sql.planner;
 
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;
-import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.expression.Variable;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
 
 import java.util.List;
 import java.util.stream.Stream;

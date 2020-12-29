@@ -15,22 +15,22 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.sql.tree.TryExpression;
-import io.prestosql.type.FunctionType;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.tree.TryExpression;
+import io.trino.type.FunctionType;
 
 import java.util.Map;
 
-import static io.prestosql.operator.scalar.TryFunction.NAME;
+import static io.trino.operator.scalar.TryFunction.NAME;
 
 public final class DesugarTryExpressionRewriter
 {

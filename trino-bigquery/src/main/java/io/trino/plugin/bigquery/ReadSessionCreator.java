@@ -29,7 +29,7 @@ import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.airlift.log.Logger;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,9 +37,9 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
-import static io.prestosql.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED;
+import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;

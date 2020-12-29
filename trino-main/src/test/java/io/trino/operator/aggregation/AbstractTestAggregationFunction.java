@@ -14,18 +14,18 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
-import io.prestosql.block.BlockAssertions;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.operator.window.PagesWindowIndex;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.function.WindowIndex;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.block.BlockAssertions;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.PagesIndex;
+import io.trino.operator.window.PagesWindowIndex;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.function.WindowIndex;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -33,14 +33,14 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.createArgs;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.operator.aggregation.AggregationTestUtils.createArgs;
+import static io.trino.operator.aggregation.AggregationTestUtils.getFinalBlock;
+import static io.trino.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 
 public abstract class AbstractTestAggregationFunction
 {

@@ -15,9 +15,9 @@
 package io.trino.cost;
 
 import com.google.inject.BindingAnnotation;
-import io.prestosql.Session;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.Session;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.PlanNode;
 
 import javax.annotation.concurrent.ThreadSafe;
 

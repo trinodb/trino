@@ -13,9 +13,9 @@
  */
 package io.trino.benchmark;
 
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.testing.LocalQueryRunner;
 
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 
 public class SqlTpchQuery6
         extends AbstractSqlBenchmark

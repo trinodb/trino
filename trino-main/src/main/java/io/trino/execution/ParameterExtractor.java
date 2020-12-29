@@ -13,9 +13,9 @@
  */
 package io.trino.execution;
 
-import io.prestosql.sql.tree.DefaultTraversalVisitor;
-import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.Statement;
+import io.trino.sql.tree.DefaultTraversalVisitor;
+import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Statement;
 
 import java.util.ArrayList;
 import java.util.List;

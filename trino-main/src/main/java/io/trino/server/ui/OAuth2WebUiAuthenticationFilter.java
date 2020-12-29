@@ -18,12 +18,12 @@ import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
-import io.prestosql.server.security.UserMapping;
-import io.prestosql.server.security.UserMappingException;
-import io.prestosql.server.security.oauth2.OAuth2Config;
-import io.prestosql.server.security.oauth2.OAuth2Service;
-import io.prestosql.spi.security.BasicPrincipal;
-import io.prestosql.spi.security.Identity;
+import io.trino.server.security.UserMapping;
+import io.trino.server.security.UserMappingException;
+import io.trino.server.security.oauth2.OAuth2Config;
+import io.trino.server.security.oauth2.OAuth2Service;
+import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
@@ -33,12 +33,12 @@ import java.net.URI;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.prestosql.server.ServletSecurityUtils.sendErrorMessage;
-import static io.prestosql.server.ServletSecurityUtils.sendWwwAuthenticate;
-import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
-import static io.prestosql.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
+import static io.trino.server.ServletSecurityUtils.sendErrorMessage;
+import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
+import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
+import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 

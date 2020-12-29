@@ -13,8 +13,8 @@
  */
 package io.trino.execution;
 
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.spi.QueryId;
+import io.trino.metadata.InternalNode;
+import io.trino.spi.QueryId;
 
 import java.net.URI;
 

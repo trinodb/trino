@@ -14,12 +14,12 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.sql.SqlFormatter;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Statement;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.sql.SqlFormatter;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Statement;
+import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 

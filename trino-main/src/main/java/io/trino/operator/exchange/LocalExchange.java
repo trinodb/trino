@@ -16,11 +16,11 @@ package io.trino.operator.exchange;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.operator.PipelineExecutionStrategy;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.PartitioningHandle;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.execution.Lifespan;
+import io.trino.operator.PipelineExecutionStrategy;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.PartitioningHandle;
+import io.trino.type.BlockTypeOperators;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -41,13 +41,13 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
-import static io.prestosql.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

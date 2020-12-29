@@ -16,15 +16,15 @@ package io.trino.plugin.hive.authentication;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
+import io.trino.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
 
 import java.util.function.Predicate;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
-import static io.prestosql.plugin.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
-import static io.prestosql.plugin.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
-import static io.prestosql.plugin.hive.authentication.AuthenticationModules.noHdfsAuthenticationModule;
-import static io.prestosql.plugin.hive.authentication.AuthenticationModules.simpleImpersonatingHdfsAuthenticationModule;
+import static io.trino.plugin.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
+import static io.trino.plugin.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
+import static io.trino.plugin.hive.authentication.AuthenticationModules.noHdfsAuthenticationModule;
+import static io.trino.plugin.hive.authentication.AuthenticationModules.simpleImpersonatingHdfsAuthenticationModule;
 
 public class HiveAuthenticationModule
         extends AbstractConfigurationAwareModule

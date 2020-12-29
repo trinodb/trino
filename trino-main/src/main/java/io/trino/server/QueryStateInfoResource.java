@@ -13,14 +13,14 @@
  */
 package io.trino.server;
 
-import io.prestosql.dispatcher.DispatchManager;
-import io.prestosql.execution.resourcegroups.ResourceGroupManager;
-import io.prestosql.security.AccessControl;
-import io.prestosql.server.security.ResourceSecurity;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.GroupProvider;
+import io.trino.dispatcher.DispatchManager;
+import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.security.AccessControl;
+import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.QueryId;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.GroupProvider;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -42,13 +42,13 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.execution.QueryState.QUEUED;
-import static io.prestosql.security.AccessControlUtil.checkCanViewQueryOwnedBy;
-import static io.prestosql.security.AccessControlUtil.filterQueries;
-import static io.prestosql.server.HttpRequestSessionContext.extractAuthorizedIdentity;
-import static io.prestosql.server.QueryStateInfo.createQueryStateInfo;
-import static io.prestosql.server.QueryStateInfo.createQueuedQueryStateInfo;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
+import static io.trino.execution.QueryState.QUEUED;
+import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
+import static io.trino.security.AccessControlUtil.filterQueries;
+import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.trino.server.QueryStateInfo.createQueryStateInfo;
+import static io.trino.server.QueryStateInfo.createQueuedQueryStateInfo;
+import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 

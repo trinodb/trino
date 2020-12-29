@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 
 public class AnalyzePropertyManager
         extends AbstractPropertyManager

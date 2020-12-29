@@ -14,15 +14,15 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session.SessionBuilder;
-import io.prestosql.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
-import io.prestosql.execution.warnings.WarningCollectorConfig;
-import io.prestosql.spi.PrestoWarning;
-import io.prestosql.spi.WarningCode;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.TestingWarningCollector;
-import io.prestosql.testing.TestingWarningCollectorConfig;
+import io.trino.Session.SessionBuilder;
+import io.trino.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
+import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.spi.PrestoWarning;
+import io.trino.spi.WarningCode;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingWarningCollector;
+import io.trino.testing.TestingWarningCollectorConfig;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -35,7 +35,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)

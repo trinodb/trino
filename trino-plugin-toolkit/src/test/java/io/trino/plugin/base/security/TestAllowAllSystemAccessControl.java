@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.base.security;
 
-import io.prestosql.spi.security.SystemAccessControl;
+import io.trino.spi.security.SystemAccessControl;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestAllowAllSystemAccessControl
 {

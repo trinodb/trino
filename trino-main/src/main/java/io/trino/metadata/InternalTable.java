@@ -15,10 +15,10 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 
 public class InternalTable

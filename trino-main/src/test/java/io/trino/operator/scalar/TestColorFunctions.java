@@ -17,16 +17,16 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.operator.scalar.ColorFunctions.bar;
-import static io.prestosql.operator.scalar.ColorFunctions.color;
-import static io.prestosql.operator.scalar.ColorFunctions.getBlue;
-import static io.prestosql.operator.scalar.ColorFunctions.getGreen;
-import static io.prestosql.operator.scalar.ColorFunctions.getRed;
-import static io.prestosql.operator.scalar.ColorFunctions.parseRgb;
-import static io.prestosql.operator.scalar.ColorFunctions.render;
-import static io.prestosql.operator.scalar.ColorFunctions.rgb;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.operator.scalar.ColorFunctions.bar;
+import static io.trino.operator.scalar.ColorFunctions.color;
+import static io.trino.operator.scalar.ColorFunctions.getBlue;
+import static io.trino.operator.scalar.ColorFunctions.getGreen;
+import static io.trino.operator.scalar.ColorFunctions.getRed;
+import static io.trino.operator.scalar.ColorFunctions.parseRgb;
+import static io.trino.operator.scalar.ColorFunctions.render;
+import static io.trino.operator.scalar.ColorFunctions.rgb;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

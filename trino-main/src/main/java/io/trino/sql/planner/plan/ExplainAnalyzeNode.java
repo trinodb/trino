@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 

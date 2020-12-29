@@ -13,11 +13,11 @@
  */
 package io.trino.sql.parser;
 
-import io.prestosql.sql.tree.DataType;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.PathSpecification;
-import io.prestosql.sql.tree.Statement;
+import io.trino.sql.tree.DataType;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.PathSpecification;
+import io.trino.sql.tree.Statement;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonToken;

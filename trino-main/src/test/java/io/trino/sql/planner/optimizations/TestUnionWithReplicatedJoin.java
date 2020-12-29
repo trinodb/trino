@@ -15,8 +15,8 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableMap;
 
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 
 public class TestUnionWithReplicatedJoin
         extends TestUnion

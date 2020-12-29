@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.oracle;
 
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.RetryingConnectionFactory;
-import io.prestosql.plugin.jdbc.credential.StaticCredentialProvider;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.RetryingConnectionFactory;
+import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 import oracle.jdbc.OracleDriver;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.MountableFile;
@@ -28,7 +28,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 
 public class TestingOracleServer

@@ -13,7 +13,7 @@
  */
 package io.trino.cost;
 
-import static io.prestosql.cost.EstimateAssertion.assertEstimateEquals;
+import static io.trino.cost.EstimateAssertion.assertEstimateEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;

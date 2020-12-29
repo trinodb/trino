@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-import static io.prestosql.spi.type.TimestampType.MAX_PRECISION;
+import static io.trino.spi.type.TimestampType.MAX_PRECISION;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;

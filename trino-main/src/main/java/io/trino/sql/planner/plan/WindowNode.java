@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.sql.planner.OrderingScheme;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FrameBound;
-import io.prestosql.sql.tree.WindowFrame;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FrameBound;
+import io.trino.sql.tree.WindowFrame;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -37,7 +37,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
-import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
+import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

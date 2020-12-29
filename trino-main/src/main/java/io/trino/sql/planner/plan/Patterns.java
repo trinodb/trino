@@ -13,21 +13,21 @@
  */
 package io.trino.sql.planner.plan;
 
-import io.prestosql.matching.Pattern;
-import io.prestosql.matching.Property;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type;
-import io.prestosql.sql.tree.Expression;
+import io.trino.matching.Pattern;
+import io.trino.matching.Property;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.CorrelatedJoinNode.Type;
+import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.matching.Pattern.typeOf;
-import static io.prestosql.matching.Property.optionalProperty;
-import static io.prestosql.matching.Property.property;
+import static io.trino.matching.Pattern.typeOf;
+import static io.trino.matching.Property.optionalProperty;
+import static io.trino.matching.Property.property;
 
 public final class Patterns
 {

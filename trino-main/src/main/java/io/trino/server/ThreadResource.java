@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.prestosql.server.security.ResourceSecurity;
+import io.trino.server.security.ResourceSecurity;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -33,8 +33,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static io.prestosql.server.ThreadResource.Info.byName;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
+import static io.trino.server.ThreadResource.Info.byName;
+import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Comparator.comparing;
 
 @Path("/v1/thread")

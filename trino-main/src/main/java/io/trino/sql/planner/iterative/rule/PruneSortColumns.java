@@ -14,16 +14,16 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.Streams;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.SortNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.SortNode;
 
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
-import static io.prestosql.sql.planner.plan.Patterns.sort;
+import static io.trino.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static io.trino.sql.planner.plan.Patterns.sort;
 
 public class PruneSortColumns
         extends ProjectOffPushDownRule<SortNode>

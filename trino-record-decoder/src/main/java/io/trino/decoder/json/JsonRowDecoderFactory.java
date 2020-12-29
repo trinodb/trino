@@ -14,10 +14,10 @@
 package io.trino.decoder.json;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.decoder.RowDecoderFactory;
-import io.prestosql.spi.PrestoException;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderFactory;
+import io.trino.spi.PrestoException;
 
 import javax.inject.Inject;
 
@@ -27,7 +27,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;

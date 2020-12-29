@@ -14,9 +14,9 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.NullableValue;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.NullableValue;
 
 import java.util.Map;
 import java.util.Objects;

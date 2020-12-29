@@ -14,14 +14,14 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
 import java.util.List;
 
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
 public class TestDoubleStdDevPopAggregation
         extends AbstractTestAggregationFunction

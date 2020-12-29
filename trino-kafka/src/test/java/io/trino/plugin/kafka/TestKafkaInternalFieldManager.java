@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.kafka;
 
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.BigintType;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.BigintType;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaInternalFieldManager

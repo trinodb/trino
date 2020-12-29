@@ -18,8 +18,8 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
-import static io.prestosql.plugin.base.util.TestJsonUtils.TestEnum.OPTION_A;
+import static io.trino.plugin.base.util.JsonUtils.parseJson;
+import static io.trino.plugin.base.util.TestJsonUtils.TestEnum.OPTION_A;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.assertj.core.api.Assertions.assertThat;
 

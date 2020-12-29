@@ -15,11 +15,11 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.plan.MarkDistinctNode;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.Session;
+import io.trino.cost.StatsProvider;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,8 +27,8 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
-import static io.prestosql.sql.planner.assertions.MatchResult.match;
+import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
+import static io.trino.sql.planner.assertions.MatchResult.match;
 import static java.util.Objects.requireNonNull;
 
 public class MarkDistinctMatcher

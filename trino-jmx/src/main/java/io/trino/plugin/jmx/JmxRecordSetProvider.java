@@ -16,16 +16,16 @@ package io.trino.plugin.jmx;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.InMemoryRecordSet;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.NodeManager;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 import javax.management.Attribute;
@@ -42,8 +42,8 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Objects.requireNonNull;
 
 public class JmxRecordSetProvider

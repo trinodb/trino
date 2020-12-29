@@ -14,7 +14,7 @@
 package io.trino.cli;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.parser.StatementSplitter;
+import io.trino.sql.parser.StatementSplitter;
 import org.jline.reader.EOFError;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.Parser;
@@ -24,7 +24,7 @@ import org.jline.reader.impl.DefaultParser;
 import java.util.Set;
 
 import static com.google.common.base.CharMatcher.whitespace;
-import static io.prestosql.cli.Console.STATEMENT_DELIMITERS;
+import static io.trino.cli.Console.STATEMENT_DELIMITERS;
 import static java.util.Locale.ENGLISH;
 
 public class InputParser

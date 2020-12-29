@@ -14,8 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.ArrayType;
 import org.apache.iceberg.FileFormat;
 
 import javax.inject.Inject;
@@ -25,9 +25,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Locale.ENGLISH;
 
 public class IcebergTableProperties

@@ -14,11 +14,11 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Row;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Row;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,8 +27,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.planner.plan.Patterns.values;
-import static io.prestosql.util.MoreLists.filteredCopy;
+import static io.trino.sql.planner.plan.Patterns.values;
+import static io.trino.util.MoreLists.filteredCopy;
 
 public class PruneValuesColumns
         extends ProjectOffPushDownRule<ValuesNode>

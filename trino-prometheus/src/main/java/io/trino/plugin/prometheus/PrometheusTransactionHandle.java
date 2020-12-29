@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.prometheus;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public enum PrometheusTransactionHandle
         implements ConnectorTransactionHandle

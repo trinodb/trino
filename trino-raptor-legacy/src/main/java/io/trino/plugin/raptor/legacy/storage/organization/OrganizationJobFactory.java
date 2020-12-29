@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.raptor.legacy.storage.organization;
 
-import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
-import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
-import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
+import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
+import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
 
-import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
+import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static java.util.Objects.requireNonNull;
 
 public class OrganizationJobFactory

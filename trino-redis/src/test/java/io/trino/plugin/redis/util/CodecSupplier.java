@@ -19,9 +19,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeId;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
 
 import java.util.function.Supplier;
 

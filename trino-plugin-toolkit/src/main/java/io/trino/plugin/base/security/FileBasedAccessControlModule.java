@@ -18,7 +18,7 @@ import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import io.airlift.log.Logger;
-import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorAccessControl;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static io.airlift.configuration.ConfigBinder.configBinder;

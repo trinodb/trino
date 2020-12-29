@@ -13,14 +13,14 @@
  */
 package io.trino.memory;
 
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.Session;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
-import static io.prestosql.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
+import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
+import static io.trino.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
 import static org.testng.Assert.fail;
 
 public class TestMemorySessionProperties

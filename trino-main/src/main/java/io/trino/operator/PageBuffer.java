@@ -14,17 +14,17 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
-import io.prestosql.spi.Page;
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
+import io.trino.spi.Page;
 
 import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.Operator.NOT_BLOCKED;
-import static io.prestosql.operator.WorkProcessor.ProcessState.blocked;
-import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
-import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
-import static io.prestosql.operator.WorkProcessor.ProcessState.yield;
+import static io.trino.operator.Operator.NOT_BLOCKED;
+import static io.trino.operator.WorkProcessor.ProcessState.blocked;
+import static io.trino.operator.WorkProcessor.ProcessState.finished;
+import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
+import static io.trino.operator.WorkProcessor.ProcessState.yield;
 import static java.util.Objects.requireNonNull;
 
 /**

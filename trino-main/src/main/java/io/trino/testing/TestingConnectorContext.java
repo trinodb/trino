@@ -13,26 +13,26 @@
  */
 package io.trino.testing;
 
-import io.prestosql.GroupByHashPageIndexerFactory;
-import io.prestosql.PagesIndexPageSorter;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.connector.ConnectorAwareNodeManager;
-import io.prestosql.metadata.InMemoryNodeManager;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.PageIndexerFactory;
-import io.prestosql.spi.PageSorter;
-import io.prestosql.spi.VersionEmbedder;
-import io.prestosql.spi.connector.ConnectorContext;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.type.InternalTypeManager;
-import io.prestosql.version.EmbedVersion;
+import io.trino.GroupByHashPageIndexerFactory;
+import io.trino.PagesIndexPageSorter;
+import io.trino.connector.CatalogName;
+import io.trino.connector.ConnectorAwareNodeManager;
+import io.trino.metadata.InMemoryNodeManager;
+import io.trino.metadata.Metadata;
+import io.trino.operator.PagesIndex;
+import io.trino.spi.NodeManager;
+import io.trino.spi.PageIndexerFactory;
+import io.trino.spi.PageSorter;
+import io.trino.spi.VersionEmbedder;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
+import io.trino.type.InternalTypeManager;
+import io.trino.version.EmbedVersion;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 
 public final class TestingConnectorContext
         implements ConnectorContext

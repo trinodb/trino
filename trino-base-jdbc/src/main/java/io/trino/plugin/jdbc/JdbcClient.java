@@ -13,19 +13,19 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.AggregateFunction;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.statistics.TableStatistics;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface JdbcClient
 {

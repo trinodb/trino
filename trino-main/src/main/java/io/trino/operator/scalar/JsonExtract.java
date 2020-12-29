@@ -22,7 +22,7 @@ import com.fasterxml.jackson.core.io.SerializedString;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -35,9 +35,9 @@ import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.util.JsonUtil.createJsonGenerator;
-import static io.prestosql.util.JsonUtil.createJsonParser;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.util.JsonUtil.createJsonGenerator;
+import static io.trino.util.JsonUtil.createJsonParser;
 import static java.util.Objects.requireNonNull;
 
 /**

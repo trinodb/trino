@@ -14,16 +14,16 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.plan.AggregationNode;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.globalAggregation;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.globalAggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestHaving
         extends BasePlanTest

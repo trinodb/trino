@@ -13,16 +13,16 @@
  */
 package io.trino.split;
 
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.Split;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.EmptyPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.Split;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;

@@ -15,7 +15,7 @@ package io.trino;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
-import io.prestosql.jdbc.BaseTestJdbcResultSet;
+import io.trino.jdbc.BaseTestJdbcResultSet;
 import org.testcontainers.containers.PrestoContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -32,7 +32,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
-import static io.prestosql.testing.DataProviders.toDataProvider;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;

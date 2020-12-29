@@ -15,9 +15,9 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.Signature;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Map;
@@ -25,7 +25,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
+import static io.trino.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
 import static java.util.Objects.requireNonNull;
 
 /**

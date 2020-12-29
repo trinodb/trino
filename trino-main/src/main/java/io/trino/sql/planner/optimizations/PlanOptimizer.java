@@ -13,12 +13,12 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.SymbolAllocator;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.PlanNode;
 
 public interface PlanOptimizer
 {

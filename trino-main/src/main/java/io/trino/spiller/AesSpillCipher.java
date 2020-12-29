@@ -14,7 +14,7 @@
 package io.trino.spiller;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -26,7 +26,7 @@ import java.security.NoSuchAlgorithmException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 @VisibleForTesting
 public final class AesSpillCipher

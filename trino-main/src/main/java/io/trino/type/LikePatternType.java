@@ -14,13 +14,13 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractVariableWidthType;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.TypeSignature;
 
-import static io.prestosql.operator.scalar.JoniRegexpCasts.joniRegexp;
+import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 
 public class LikePatternType
         extends AbstractVariableWidthType

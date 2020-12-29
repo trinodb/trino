@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.accumulo.model;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.Arrays;

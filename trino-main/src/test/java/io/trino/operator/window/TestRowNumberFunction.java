@@ -14,16 +14,16 @@
 package io.trino.operator.window;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.testing.MaterializedResult;
+import io.trino.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
 import java.util.stream.Collectors;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestRowNumberFunction

@@ -25,20 +25,20 @@ import io.confluent.kafka.schemaregistry.SchemaProvider;
 import io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.prestosql.decoder.DecoderModule;
-import io.prestosql.decoder.RowDecoderFactory;
-import io.prestosql.decoder.avro.AvroBytesDeserializer;
-import io.prestosql.decoder.avro.AvroDeserializer;
-import io.prestosql.decoder.avro.AvroReaderSupplier;
-import io.prestosql.decoder.avro.AvroRowDecoderFactory;
-import io.prestosql.plugin.kafka.SessionPropertiesProvider;
-import io.prestosql.plugin.kafka.encoder.EncoderModule;
-import io.prestosql.plugin.kafka.encoder.RowEncoderFactory;
-import io.prestosql.plugin.kafka.encoder.avro.AvroRowEncoder;
-import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
-import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.PrestoException;
+import io.trino.decoder.DecoderModule;
+import io.trino.decoder.RowDecoderFactory;
+import io.trino.decoder.avro.AvroBytesDeserializer;
+import io.trino.decoder.avro.AvroDeserializer;
+import io.trino.decoder.avro.AvroReaderSupplier;
+import io.trino.decoder.avro.AvroRowDecoderFactory;
+import io.trino.plugin.kafka.SessionPropertiesProvider;
+import io.trino.plugin.kafka.encoder.EncoderModule;
+import io.trino.plugin.kafka.encoder.RowEncoderFactory;
+import io.trino.plugin.kafka.encoder.avro.AvroRowEncoder;
+import io.trino.plugin.kafka.schema.ContentSchemaReader;
+import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
+import io.trino.spi.HostAddress;
+import io.trino.spi.PrestoException;
 
 import javax.inject.Singleton;
 
@@ -48,8 +48,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.plugin.kafka.encoder.EncoderModule.encoderFactory;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.plugin.kafka.encoder.EncoderModule.encoderFactory;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class ConfluentModule
         extends AbstractConfigurationAwareModule

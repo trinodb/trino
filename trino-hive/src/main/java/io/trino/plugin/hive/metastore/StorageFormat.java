@@ -15,16 +15,16 @@ package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.hive.HiveStorageFormat;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

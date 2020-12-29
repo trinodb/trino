@@ -16,12 +16,12 @@ package io.trino.plugin.thrift.api;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.thrift.api.NameValidationUtils.checkValidName;
+import static io.trino.plugin.thrift.api.NameValidationUtils.checkValidName;
 
 @ThriftStruct
 public final class PrestoThriftSchemaTableName

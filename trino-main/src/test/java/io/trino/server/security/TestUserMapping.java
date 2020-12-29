@@ -15,7 +15,7 @@ package io.trino.server.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
-import io.prestosql.server.security.UserMapping.Rule;
+import io.trino.server.security.UserMapping.Rule;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -23,8 +23,8 @@ import java.io.File;
 import java.net.URISyntaxException;
 import java.util.Optional;
 
-import static io.prestosql.server.security.UserMapping.Case.KEEP;
-import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static io.trino.server.security.UserMapping.Case.KEEP;
+import static io.trino.server.security.UserMapping.createUserMapping;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 

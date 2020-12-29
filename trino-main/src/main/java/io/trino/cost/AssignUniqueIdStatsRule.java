@@ -13,16 +13,16 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.AssignUniqueId;
-import io.prestosql.sql.planner.plan.Patterns;
+import io.trino.Session;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.Patterns;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 public class AssignUniqueIdStatsRule
         implements ComposableStatsCalculator.Rule<AssignUniqueId>

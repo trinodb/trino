@@ -16,13 +16,13 @@ package io.trino.plugin.thrift.api;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet;
-import io.prestosql.spi.predicate.Domain;
+import io.trino.plugin.thrift.api.valuesets.PrestoThriftValueSet;
+import io.trino.spi.predicate.Domain;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct

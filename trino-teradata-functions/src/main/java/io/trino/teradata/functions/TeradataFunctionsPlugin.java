@@ -14,7 +14,7 @@
 package io.trino.teradata.functions;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.Plugin;
+import io.trino.spi.Plugin;
 
 import java.util.Set;
 

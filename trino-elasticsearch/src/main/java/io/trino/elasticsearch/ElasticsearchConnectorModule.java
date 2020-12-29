@@ -18,10 +18,10 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.elasticsearch.client.ElasticsearchClient;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeId;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.elasticsearch.client.ElasticsearchClient;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -29,8 +29,8 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
-import static io.prestosql.elasticsearch.ElasticsearchConfig.Security.AWS;
-import static io.prestosql.elasticsearch.ElasticsearchConfig.Security.PASSWORD;
+import static io.trino.elasticsearch.ElasticsearchConfig.Security.AWS;
+import static io.trino.elasticsearch.ElasticsearchConfig.Security.PASSWORD;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;

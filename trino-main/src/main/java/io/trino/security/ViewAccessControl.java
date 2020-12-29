@@ -13,11 +13,11 @@
  */
 package io.trino.security;
 
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.ViewExpression;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.Identity;
+import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Set;

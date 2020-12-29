@@ -15,12 +15,12 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorPageSink;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -33,9 +33,9 @@ import java.util.concurrent.CompletableFuture;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class JdbcPageSink

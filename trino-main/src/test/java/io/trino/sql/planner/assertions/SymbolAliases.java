@@ -14,10 +14,10 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.Map;

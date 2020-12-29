@@ -16,10 +16,10 @@ package io.trino.execution.executor;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
-import io.prestosql.execution.TaskId;
-import io.prestosql.execution.executor.SimulationTask.IntermediateTask;
-import io.prestosql.execution.executor.SimulationTask.LeafTask;
-import io.prestosql.execution.executor.SplitGenerators.SplitGenerator;
+import io.trino.execution.TaskId;
+import io.trino.execution.executor.SimulationTask.IntermediateTask;
+import io.trino.execution.executor.SimulationTask.LeafTask;
+import io.trino.execution.executor.SplitGenerators.SplitGenerator;
 
 import java.util.Map;
 import java.util.OptionalInt;
@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
-import static io.prestosql.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
+import static io.trino.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

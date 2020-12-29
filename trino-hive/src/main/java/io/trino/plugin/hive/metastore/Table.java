@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 
 import javax.annotation.concurrent.Immutable;
 

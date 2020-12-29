@@ -13,9 +13,9 @@
  */
 package io.trino.tests;
 
-import io.prestosql.Session;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Test {@link io.prestosql.sql.query.QueryAssertions} with {@link io.prestosql.testing.LocalQueryRunner}
+ * Test {@link io.trino.sql.query.QueryAssertions} with {@link io.trino.testing.LocalQueryRunner}
  */
 public class TestLocalQueryAssertions
         extends AbstractQueryAssertionsTest

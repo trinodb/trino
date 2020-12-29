@@ -13,10 +13,10 @@
  */
 package io.trino.security;
 
-import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorAccessControl;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestInjectedConnectorAccessControl
 {

@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -24,13 +24,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
-import static io.prestosql.plugin.hive.HivePageSourceProvider.projectSufficientColumns;
-import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_PRIMITIVES;
-import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
-import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
-import static io.prestosql.plugin.hive.TestHiveReaderProjectionsUtil.createTestFullColumns;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectSufficientColumns;
+import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_PRIMITIVES;
+import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
+import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
+import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createTestFullColumns;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

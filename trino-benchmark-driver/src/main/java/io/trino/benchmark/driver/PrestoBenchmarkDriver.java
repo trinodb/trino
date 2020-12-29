@@ -19,10 +19,10 @@ import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
-import io.prestosql.benchmark.driver.BenchmarkDriverOptions.ClientExtraCredential;
-import io.prestosql.benchmark.driver.BenchmarkDriverOptions.ClientSessionProperty;
-import io.prestosql.benchmark.driver.PrestoBenchmarkDriver.VersionProvider;
-import io.prestosql.client.ClientSession;
+import io.trino.benchmark.driver.BenchmarkDriverOptions.ClientExtraCredential;
+import io.trino.benchmark.driver.BenchmarkDriverOptions.ClientSessionProperty;
+import io.trino.benchmark.driver.PrestoBenchmarkDriver.VersionProvider;
+import io.trino.client.ClientSession;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.IVersionProvider;
@@ -164,7 +164,7 @@ public class PrestoBenchmarkDriver
             if (debug) {
                 Logging logging = Logging.initialize();
                 logging.configure(new LoggingConfiguration());
-                logging.setLevel("io.prestosql", Level.DEBUG);
+                logging.setLevel("io.trino", Level.DEBUG);
             }
             else {
                 System.setOut(new PrintStream(nullOutputStream()));

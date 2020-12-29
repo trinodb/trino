@@ -16,39 +16,39 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.StandardErrorCode;
-import io.prestosql.sql.planner.FunctionCallBuilder;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.tree.Cast;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.SimpleCaseExpression;
-import io.prestosql.sql.tree.StringLiteral;
-import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.sql.tree.WhenClause;
+import io.trino.spi.StandardErrorCode;
+import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.StringLiteral;
+import io.trino.sql.tree.SymbolReference;
+import io.trino.sql.tree.WhenClause;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.markDistinct;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expressions;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestTransformCorrelatedScalarSubquery
         extends BaseRuleTest

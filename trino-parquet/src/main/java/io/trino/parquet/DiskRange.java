@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-// same as io.prestosql.orc.DiskRange
+// same as io.trino.orc.DiskRange
 public final class DiskRange
 {
     private final long offset;

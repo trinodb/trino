@@ -21,8 +21,8 @@ import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.orc.checkpoint.InputStreamCheckpoint;
-import io.prestosql.orc.metadata.CompressionKind;
+import io.trino.orc.checkpoint.InputStreamCheckpoint;
+import io.trino.orc.metadata.CompressionKind;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;

@@ -14,14 +14,14 @@
 
 package io.trino.plugin.tpcds;
 
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.statistics.ColumnStatistics;
-import io.prestosql.spi.statistics.DoubleRange;
-import io.prestosql.spi.statistics.Estimate;
-import io.prestosql.spi.statistics.TableStatistics;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.DoubleRange;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.prestosql.tpcds.Table;
 import io.prestosql.tpcds.column.CallCenterColumn;
 import io.prestosql.tpcds.column.WebSiteColumn;
@@ -30,7 +30,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static io.prestosql.spi.connector.Constraint.alwaysTrue;
+import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;

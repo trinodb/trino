@@ -13,7 +13,7 @@
  */
 package io.trino.jdbc;
 
-import io.prestosql.client.StatementStats;
+import io.trino.client.StatementStats;
 
 import java.util.Optional;
 import java.util.OptionalDouble;

@@ -15,10 +15,10 @@ package io.trino.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.rcfile.RcFileCorruptionException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.rcfile.RcFileCorruptionException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 

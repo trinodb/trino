@@ -14,9 +14,9 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestJoinQueries;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.testing.AbstractTestJoinQueries;
+import io.trino.testing.QueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
 /**

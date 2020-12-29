@@ -14,27 +14,27 @@
 package io.trino.type;
 
 import com.google.common.base.Joiner;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.FixedWidthType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.TimeWithTimeZoneType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.StandardTypes.ARRAY;
+import static io.trino.spi.type.StandardTypes.MAP;
+import static io.trino.spi.type.StandardTypes.ROW;
 import static java.lang.String.format;
 
 public final class TypeUtils

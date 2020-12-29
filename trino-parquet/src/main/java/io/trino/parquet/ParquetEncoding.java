@@ -13,13 +13,13 @@
  */
 package io.trino.parquet;
 
-import io.prestosql.parquet.dictionary.BinaryDictionary;
-import io.prestosql.parquet.dictionary.Dictionary;
-import io.prestosql.parquet.dictionary.DictionaryReader;
-import io.prestosql.parquet.dictionary.DoubleDictionary;
-import io.prestosql.parquet.dictionary.FloatDictionary;
-import io.prestosql.parquet.dictionary.IntegerDictionary;
-import io.prestosql.parquet.dictionary.LongDictionary;
+import io.trino.parquet.dictionary.BinaryDictionary;
+import io.trino.parquet.dictionary.Dictionary;
+import io.trino.parquet.dictionary.DictionaryReader;
+import io.trino.parquet.dictionary.DoubleDictionary;
+import io.trino.parquet.dictionary.FloatDictionary;
+import io.trino.parquet.dictionary.IntegerDictionary;
+import io.trino.parquet.dictionary.LongDictionary;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;

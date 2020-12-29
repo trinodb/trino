@@ -19,8 +19,8 @@ import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
-import io.prestosql.plugin.hive.DynamicConfigurationProvider;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
+import io.trino.plugin.hive.DynamicConfigurationProvider;
+import io.trino.plugin.hive.authentication.HiveAuthenticationConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Set;

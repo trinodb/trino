@@ -22,11 +22,11 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.execution.StateMachine;
-import io.prestosql.execution.TaskId;
-import io.prestosql.execution.TaskStatus;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.PrestoException;
+import io.trino.execution.StateMachine;
+import io.trino.execution.TaskId;
+import io.trino.execution.TaskStatus;
+import io.trino.spi.HostAddress;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -43,10 +43,10 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
-import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
-import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
-import static io.prestosql.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
+import static io.trino.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
+import static io.trino.client.PrestoHeaders.PRESTO_MAX_WAIT;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.trino.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

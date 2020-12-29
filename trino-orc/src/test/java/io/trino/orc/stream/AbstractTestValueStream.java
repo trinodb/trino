@@ -15,12 +15,12 @@ package io.trino.orc.stream;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcDataSourceId;
-import io.prestosql.orc.checkpoint.StreamCheckpoint;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.Stream;
-import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcDataSourceId;
+import io.trino.orc.checkpoint.StreamCheckpoint;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.Stream;
+import io.trino.orc.metadata.Stream.StreamKind;
 
 import java.io.IOException;
 import java.util.List;

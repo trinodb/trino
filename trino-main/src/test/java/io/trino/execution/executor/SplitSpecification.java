@@ -13,8 +13,8 @@
  */
 package io.trino.execution.executor;
 
-import io.prestosql.execution.executor.SimulationSplit.IntermediateSplit;
-import io.prestosql.execution.executor.SimulationSplit.LeafSplit;
+import io.trino.execution.executor.SimulationSplit.IntermediateSplit;
+import io.trino.execution.executor.SimulationSplit.LeafSplit;
 
 import java.util.concurrent.ScheduledExecutorService;
 

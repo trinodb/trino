@@ -15,21 +15,21 @@ package io.trino.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.rcfile.ColumnData;
-import io.prestosql.rcfile.EncodeOutput;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.Type;
+import io.trino.rcfile.ColumnData;
+import io.trino.rcfile.EncodeOutput;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
-import static io.prestosql.spi.type.Decimals.isShortDecimal;
+import static io.trino.spi.type.Decimals.encodeUnscaledValue;
+import static io.trino.spi.type.Decimals.isShortDecimal;
 import static java.math.RoundingMode.HALF_UP;
 
 public class DecimalEncoding

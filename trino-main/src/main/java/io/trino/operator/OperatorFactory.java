@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import io.prestosql.execution.Lifespan;
+import io.trino.execution.Lifespan;
 
 public interface OperatorFactory
 {

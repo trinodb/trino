@@ -38,8 +38,8 @@ import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTab
 import static io.prestosql.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestosql.tempto.query.QueryExecutor.param;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.trino.tests.TestGroups.JDBC;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;

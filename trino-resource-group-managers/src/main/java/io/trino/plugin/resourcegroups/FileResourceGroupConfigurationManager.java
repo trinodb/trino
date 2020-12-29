@@ -21,10 +21,10 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
-import io.prestosql.spi.memory.ClusterMemoryPoolManager;
-import io.prestosql.spi.resourcegroups.ResourceGroup;
-import io.prestosql.spi.resourcegroups.SelectionContext;
-import io.prestosql.spi.resourcegroups.SelectionCriteria;
+import io.trino.spi.memory.ClusterMemoryPoolManager;
+import io.trino.spi.resourcegroups.ResourceGroup;
+import io.trino.spi.resourcegroups.SelectionContext;
+import io.trino.spi.resourcegroups.SelectionCriteria;
 
 import javax.inject.Inject;
 

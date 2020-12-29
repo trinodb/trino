@@ -17,23 +17,23 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
 
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.StandardTypes.JSON;
-import static io.prestosql.type.DateTimes.formatTimestamp;
-import static io.prestosql.util.JsonUtil.JSON_FACTORY;
-import static io.prestosql.util.JsonUtil.createJsonGenerator;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.type.DateTimes.formatTimestamp;
+import static io.trino.util.JsonUtil.JSON_FACTORY;
+import static io.trino.util.JsonUtil.createJsonGenerator;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 

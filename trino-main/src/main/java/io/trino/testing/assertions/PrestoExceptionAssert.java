@@ -13,8 +13,8 @@
  */
 package io.trino.testing.assertions;
 
-import io.prestosql.spi.ErrorCodeSupplier;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.PrestoException;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.assertj.core.util.CheckReturnValue;

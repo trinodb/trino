@@ -17,15 +17,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.kafka.TestingKafka;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.kafka.TestingKafka;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.kafka.KafkaPlugin.DEFAULT_EXTENSION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
 public abstract class KafkaQueryRunnerBuilder<T extends TestingKafka>

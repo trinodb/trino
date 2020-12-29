@@ -16,13 +16,13 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.spi.type.MapType;
+import io.trino.spi.type.MapType;
 
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedIntArray;
-import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
-import static io.prestosql.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static io.trino.spi.block.MapBlock.createMapBlockInternal;
+import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.lang.String.format;
 
 public class MapBlockEncoding

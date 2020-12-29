@@ -13,8 +13,8 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.security.ConnectorIdentity;
+import io.trino.spi.QueryId;
+import io.trino.spi.security.ConnectorIdentity;
 
 import static java.util.Objects.requireNonNull;
 

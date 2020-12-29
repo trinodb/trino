@@ -15,22 +15,22 @@ package io.trino.operator.aggregation;
 
 import io.airlift.stats.QuantileDigest;
 import io.airlift.stats.TDigest;
-import io.prestosql.operator.aggregation.state.QuantileDigestAndPercentileState;
-import io.prestosql.operator.aggregation.state.TDigestAndPercentileState;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationState;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.operator.aggregation.state.QuantileDigestAndPercentileState;
+import io.trino.operator.aggregation.state.TDigestAndPercentileState;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.util.Failures.checkCondition;
 
 @AggregationFunction("approx_percentile")
 public final class ApproximateLongPercentileAggregations

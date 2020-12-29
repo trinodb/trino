@@ -16,11 +16,11 @@ package io.trino.operator.scalar;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.type.JsonType.JSON;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 
 public class TestJsonFunctions

@@ -13,9 +13,9 @@
  */
 package io.trino.operator.window;
 
-import io.prestosql.sql.tree.FrameBound;
-import io.prestosql.sql.tree.SortItem.Ordering;
-import io.prestosql.sql.tree.WindowFrame;
+import io.trino.sql.tree.FrameBound;
+import io.trino.sql.tree.SortItem.Ordering;
+import io.trino.sql.tree.WindowFrame;
 
 import java.util.Objects;
 import java.util.Optional;

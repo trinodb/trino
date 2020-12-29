@@ -14,9 +14,9 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -33,8 +33,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
-import static io.prestosql.plugin.memory.MemoryErrorCode.MISSING_DATA;
+import static io.trino.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
+import static io.trino.plugin.memory.MemoryErrorCode.MISSING_DATA;
 import static java.lang.String.format;
 
 @ThreadSafe

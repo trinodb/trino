@@ -13,10 +13,10 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
-import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
 public class TestIntervalDayTimeType
         extends AbstractTestType

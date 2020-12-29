@@ -13,12 +13,12 @@
  */
 package io.trino.split;
 
-import io.prestosql.Session;
-import io.prestosql.metadata.Split;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.DynamicFilter;
+import io.trino.Session;
+import io.trino.metadata.Split;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.DynamicFilter;
 
 import java.util.List;
 

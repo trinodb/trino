@@ -18,12 +18,12 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.jdbc.MetadataUtil.COLUMN_CODEC;
-import static io.prestosql.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
-import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
-import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.jdbc.MetadataUtil.COLUMN_CODEC;
+import static io.trino.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestJdbcColumnHandle
 {

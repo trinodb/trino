@@ -13,9 +13,9 @@
  */
 package io.trino.operator.index;
 
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.RecordSet;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.RecordSet;
 
 import java.util.List;
 

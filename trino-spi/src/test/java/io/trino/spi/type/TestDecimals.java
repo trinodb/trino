@@ -22,9 +22,9 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Objects;
 
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.Decimals.encodeScaledValue;
-import static io.prestosql.spi.type.Decimals.encodeShortScaledValue;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.encodeScaledValue;
+import static io.trino.spi.type.Decimals.encodeShortScaledValue;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;

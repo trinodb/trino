@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.prestosql.client.ClientSession;
+import io.trino.client.ClientSession;
 
 import java.net.URI;
 import java.net.URISyntaxException;

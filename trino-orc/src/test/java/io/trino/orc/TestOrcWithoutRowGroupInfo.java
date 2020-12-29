@@ -14,11 +14,11 @@
 package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.type.RowType;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.type.RowType;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
@@ -27,11 +27,11 @@ import java.io.IOException;
 import java.util.OptionalInt;
 
 import static com.google.common.io.Resources.getResource;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.prestosql.orc.OrcReader.createOrcReader;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.trino.orc.OrcReader.createOrcReader;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcWithoutRowGroupInfo

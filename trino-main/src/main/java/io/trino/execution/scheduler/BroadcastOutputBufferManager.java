@@ -13,8 +13,8 @@
  */
 package io.trino.execution.scheduler;
 
-import io.prestosql.execution.buffer.OutputBuffers;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -22,9 +22,9 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
-import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
-import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
+import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
+import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

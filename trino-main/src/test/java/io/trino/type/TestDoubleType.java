@@ -13,14 +13,14 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.LongArrayBlockBuilder;
-import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
-import io.prestosql.type.BlockTypeOperators.BlockPositionXxHash64;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlockBuilder;
+import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static org.testng.Assert.assertEquals;

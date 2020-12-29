@@ -18,8 +18,8 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
-import io.prestosql.client.NodeVersion;
-import io.prestosql.spi.VersionEmbedder;
+import io.trino.client.NodeVersion;
+import io.trino.spi.VersionEmbedder;
 
 import javax.inject.Inject;
 
@@ -33,9 +33,9 @@ import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.prestosql.util.CompilerUtils.defineClass;
-import static io.prestosql.util.CompilerUtils.makeClassName;
-import static io.prestosql.util.Reflection.constructorMethodHandle;
+import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.Reflection.constructorMethodHandle;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

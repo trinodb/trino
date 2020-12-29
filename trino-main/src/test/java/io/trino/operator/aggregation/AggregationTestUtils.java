@@ -14,12 +14,12 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
-import io.prestosql.block.BlockAssertions;
-import io.prestosql.operator.GroupByIdBlock;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.trino.block.BlockAssertions;
+import io.trino.operator.GroupByIdBlock;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import org.apache.commons.math3.util.Precision;
 
 import java.util.Collections;
@@ -28,8 +28,8 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;

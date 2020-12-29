@@ -16,12 +16,12 @@ package io.trino.operator.exchange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.operator.HashGenerator;
-import io.prestosql.operator.InterpretedHashGenerator;
-import io.prestosql.operator.PrecomputedHashGenerator;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.operator.HashGenerator;
+import io.trino.operator.InterpretedHashGenerator;
+import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 

@@ -14,21 +14,21 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.memory.context.MemoryTrackingContext;
-import io.prestosql.operator.WorkProcessor.TransformationState;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.operator.WorkProcessor.TransformationState;
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
+import io.trino.spi.Page;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 /**

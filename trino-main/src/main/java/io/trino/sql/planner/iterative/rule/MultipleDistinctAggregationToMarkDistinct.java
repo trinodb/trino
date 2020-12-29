@@ -17,15 +17,15 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.prestosql.SystemSessionProperties;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import io.prestosql.sql.planner.plan.MarkDistinctNode;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.SystemSessionProperties;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,8 +33,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.stream.Collectors.toSet;
 
 /**

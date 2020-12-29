@@ -14,25 +14,25 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.execution.resourcegroups.InternalResourceGroupManager;
-import io.prestosql.plugin.resourcegroups.ResourceGroupManagerPlugin;
-import io.prestosql.server.PrefixObjectNameGeneratorModule;
-import io.prestosql.spi.QueryId;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.Session;
+import io.trino.execution.resourcegroups.InternalResourceGroupManager;
+import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
+import io.trino.server.PrefixObjectNameGeneratorModule;
+import io.trino.spi.QueryId;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
-import static io.prestosql.execution.QueryState.FAILED;
-import static io.prestosql.execution.QueryState.QUEUED;
-import static io.prestosql.execution.QueryState.RUNNING;
-import static io.prestosql.execution.TestQueryRunnerUtil.cancelQuery;
-import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
-import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.execution.QueryState.FAILED;
+import static io.trino.execution.QueryState.QUEUED;
+import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.execution.TestQueryRunnerUtil.cancelQuery;
+import static io.trino.execution.TestQueryRunnerUtil.createQuery;
+import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestExecutionJmxMetrics
@@ -44,7 +44,7 @@ public class TestExecutionJmxMetrics
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setAdditionalModule(new PrefixObjectNameGeneratorModule("io.prestosql"))
+                .setAdditionalModule(new PrefixObjectNameGeneratorModule("io.trino"))
                 .build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             InternalResourceGroupManager<?> resourceGroupManager = queryRunner.getCoordinator().getResourceGroupManager()

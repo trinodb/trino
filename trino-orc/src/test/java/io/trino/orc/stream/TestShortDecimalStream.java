@@ -14,10 +14,10 @@
 package io.trino.orc.stream;
 
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcDecompressor;
-import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
-import io.prestosql.spi.type.Decimals;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcDecompressor;
+import io.trino.orc.checkpoint.DecimalStreamCheckpoint;
+import io.trino.spi.type.Decimals;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -26,9 +26,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcDecompressor.createOrcDecompressor;
-import static io.prestosql.orc.metadata.CompressionKind.SNAPPY;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.orc.OrcDecompressor.createOrcDecompressor;
+import static io.trino.orc.metadata.CompressionKind.SNAPPY;
 
 public class TestShortDecimalStream
         extends AbstractTestValueStream<Long, DecimalStreamCheckpoint, DecimalOutputStream, DecimalInputStream>

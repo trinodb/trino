@@ -15,9 +15,9 @@ package io.trino.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;

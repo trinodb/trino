@@ -15,17 +15,17 @@ package io.trino.plugin.accumulo;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
+import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

@@ -14,10 +14,10 @@
 package io.trino.plugin.thrift.integration;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestQueries;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.QueryRunner;
 
-import static io.prestosql.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
+import static io.trino.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
 
 public class TestThriftDistributedQueries
         extends AbstractTestQueries

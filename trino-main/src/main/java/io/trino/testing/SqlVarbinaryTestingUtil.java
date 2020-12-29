@@ -14,7 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.primitives.UnsignedBytes;
-import io.prestosql.spi.type.SqlVarbinary;
+import io.trino.spi.type.SqlVarbinary;
 
 import static com.google.common.base.CharMatcher.ascii;
 import static com.google.common.base.Preconditions.checkArgument;

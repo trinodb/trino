@@ -15,10 +15,10 @@ package io.trino.testing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.execution.warnings.WarningCollectorConfig;
-import io.prestosql.spi.PrestoWarning;
-import io.prestosql.spi.WarningCode;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.spi.PrestoWarning;
+import io.trino.spi.WarningCode;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

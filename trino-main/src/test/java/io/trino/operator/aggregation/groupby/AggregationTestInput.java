@@ -16,11 +16,11 @@ package io.trino.operator.aggregation.groupby;
 
 import com.google.common.base.Suppliers;
 import com.google.common.primitives.Ints;
-import io.prestosql.operator.GroupByIdBlock;
-import io.prestosql.operator.aggregation.AggregationTestUtils;
-import io.prestosql.operator.aggregation.GroupedAccumulator;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.spi.Page;
+import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.aggregation.AggregationTestUtils;
+import io.trino.operator.aggregation.GroupedAccumulator;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.spi.Page;
 
 import java.util.Optional;
 import java.util.function.Supplier;

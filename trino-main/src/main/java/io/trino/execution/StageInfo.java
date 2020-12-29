@@ -17,9 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.PlanFragment;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;

@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive.authentication;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Objects;
 import java.util.Optional;

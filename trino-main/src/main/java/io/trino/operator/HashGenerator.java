@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import static com.google.common.base.Preconditions.checkState;
 

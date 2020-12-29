@@ -13,25 +13,25 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.SortItem;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.sql.planner.plan.TopNNode;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SortItem;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.plan.Patterns.source;
-import static io.prestosql.sql.planner.plan.Patterns.tableScan;
-import static io.prestosql.sql.planner.plan.Patterns.topN;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static io.trino.sql.planner.plan.Patterns.topN;
 
 public class PushTopNIntoTableScan
         implements Rule<TopNNode>

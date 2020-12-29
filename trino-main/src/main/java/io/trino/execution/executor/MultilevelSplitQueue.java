@@ -16,7 +16,7 @@ package io.trino.execution.executor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.CounterStat;
-import io.prestosql.execution.TaskManagerConfig;
+import io.trino.execution.TaskManagerConfig;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

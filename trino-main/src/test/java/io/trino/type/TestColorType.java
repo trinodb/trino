@@ -13,11 +13,11 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
-import static io.prestosql.operator.scalar.ColorFunctions.rgb;
-import static io.prestosql.type.ColorType.COLOR;
+import static io.trino.operator.scalar.ColorFunctions.rgb;
+import static io.trino.type.ColorType.COLOR;
 
 public class TestColorType
         extends AbstractTestType

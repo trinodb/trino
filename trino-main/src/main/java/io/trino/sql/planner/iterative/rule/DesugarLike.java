@@ -14,10 +14,10 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.DesugarLikeRewriter;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.iterative.Rule;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.DesugarLikeRewriter;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.iterative.Rule;
 
 import java.util.Set;
 

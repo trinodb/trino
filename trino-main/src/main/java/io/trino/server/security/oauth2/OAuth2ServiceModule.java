@@ -21,8 +21,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClient;
 import io.airlift.units.Duration;
 import io.jsonwebtoken.SigningKeyResolver;
-import io.prestosql.server.security.jwt.JwkService;
-import io.prestosql.server.security.jwt.JwkSigningKeyResolver;
+import io.trino.server.security.jwt.JwkService;
+import io.trino.server.security.jwt.JwkSigningKeyResolver;
 
 import java.net.URI;
 import java.util.concurrent.TimeUnit;

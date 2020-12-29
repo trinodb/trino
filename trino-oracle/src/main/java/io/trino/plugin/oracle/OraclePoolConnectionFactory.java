@@ -14,9 +14,9 @@
 package io.trino.plugin.oracle;
 
 import io.airlift.units.Duration;
-import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.credential.CredentialProvider;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.spi.connector.ConnectorSession;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;

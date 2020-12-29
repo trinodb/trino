@@ -15,10 +15,10 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.PeekingIterator;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import static com.google.common.collect.Iterators.peekingIterator;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static org.apache.hadoop.hive.ql.parse.BaseSemanticAnalyzer.unescapeSQLString;
 
 /**

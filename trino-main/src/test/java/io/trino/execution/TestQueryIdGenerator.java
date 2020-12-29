@@ -13,7 +13,7 @@
  */
 package io.trino.execution;
 
-import io.prestosql.spi.QueryId;
+import io.trino.spi.QueryId;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;

@@ -13,13 +13,13 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.FunctionCallBuilder;
-import io.prestosql.sql.tree.CurrentUser;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.tree.CurrentUser;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.QualifiedName;
 
 public class DesugarCurrentUser
         extends ExpressionRewriteRuleSet
@@ -31,7 +31,7 @@ public class DesugarCurrentUser
 
     private static ExpressionRewriter createRewrite(Metadata metadata)
     {
-        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<>()
+        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteCurrentUser(CurrentUser node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

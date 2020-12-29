@@ -14,24 +14,24 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.tpch.ColumnNaming;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.statistics.StatisticsAssertion;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.plugin.tpch.ColumnNaming;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.statistics.StatisticsAssertion;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
-import static io.prestosql.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
-import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
-import static io.prestosql.testing.statistics.MetricComparisonStrategies.absoluteError;
-import static io.prestosql.testing.statistics.MetricComparisonStrategies.defaultTolerance;
-import static io.prestosql.testing.statistics.MetricComparisonStrategies.noError;
-import static io.prestosql.testing.statistics.MetricComparisonStrategies.relativeError;
-import static io.prestosql.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
-import static io.prestosql.testing.statistics.Metrics.distinctValuesCount;
+import static io.trino.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
+import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.trino.testing.statistics.MetricComparisonStrategies.absoluteError;
+import static io.trino.testing.statistics.MetricComparisonStrategies.defaultTolerance;
+import static io.trino.testing.statistics.MetricComparisonStrategies.noError;
+import static io.trino.testing.statistics.MetricComparisonStrategies.relativeError;
+import static io.trino.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
+import static io.trino.testing.statistics.Metrics.distinctValuesCount;
 
 public class TestTpchDistributedStats
 {

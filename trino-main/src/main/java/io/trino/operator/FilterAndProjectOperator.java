@@ -15,23 +15,23 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.Session;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.memory.context.MemoryTrackingContext;
-import io.prestosql.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.Session;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
-import static io.prestosql.operator.project.MergePages.mergePages;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 
 public class FilterAndProjectOperator

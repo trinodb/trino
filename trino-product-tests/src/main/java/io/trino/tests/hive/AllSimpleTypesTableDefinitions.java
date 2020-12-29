@@ -20,7 +20,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public final class AllSimpleTypesTableDefinitions
@@ -122,7 +122,7 @@ public final class AllSimpleTypesTableDefinitions
 
     private static HiveDataSource getTextFileDataSource()
     {
-        return createResourceDataSource(format(tableNameFormat, "textfile"), "io/prestosql/tests/hive/data/all_types/data.textfile");
+        return createResourceDataSource(format(tableNameFormat, "textfile"), "io/trino/tests/hive/data/all_types/data.textfile");
     }
 
     public static void populateDataToHiveTable(String tableName)

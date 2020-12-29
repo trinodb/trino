@@ -15,21 +15,21 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.DistinctLimitNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.prestosql.sql.planner.plan.Patterns.distinctLimit;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.planner.plan.Patterns.distinctLimit;
 
 /**
  * Replace DistinctLimit node

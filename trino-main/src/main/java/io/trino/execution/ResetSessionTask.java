@@ -14,19 +14,19 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ResetSession;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ResetSession;
+import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
-import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
 public class ResetSessionTask
         implements DataDefinitionTask<ResetSession>

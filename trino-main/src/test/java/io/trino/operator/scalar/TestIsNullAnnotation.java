@@ -14,20 +14,20 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.IsNull;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.IsNull;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestIsNullAnnotation
         extends AbstractTestFunctions

@@ -13,12 +13,12 @@
  */
 package io.trino.operator;
 
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.Page;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 
 import javax.annotation.Nullable;
 

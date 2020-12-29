@@ -15,9 +15,9 @@ package io.trino.operator.scalar;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestFormatFunction
         extends AbstractTestFunctions

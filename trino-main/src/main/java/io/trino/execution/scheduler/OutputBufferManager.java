@@ -13,7 +13,7 @@
  */
 package io.trino.execution.scheduler;
 
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.List;
 

@@ -14,19 +14,19 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.AbstractMockMetadata;
-import io.prestosql.metadata.Catalog;
-import io.prestosql.metadata.CatalogManager;
-import io.prestosql.metadata.SchemaPropertyManager;
-import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.sql.tree.CreateSchema;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.AbstractMockMetadata;
+import io.trino.metadata.Catalog;
+import io.trino.metadata.CatalogManager;
+import io.trino.metadata.SchemaPropertyManager;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.sql.tree.CreateSchema;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.transaction.TransactionManager;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -36,10 +36,10 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.testing.TestingSession.createBogusTestingCatalog;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;

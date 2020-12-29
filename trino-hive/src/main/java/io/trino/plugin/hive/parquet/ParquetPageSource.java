@@ -14,17 +14,17 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.parquet.Field;
-import io.prestosql.parquet.ParquetCorruptionException;
-import io.prestosql.parquet.reader.ParquetReader;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlock;
-import io.prestosql.spi.block.LazyBlockLoader;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.type.Type;
+import io.trino.parquet.Field;
+import io.trino.parquet.ParquetCorruptionException;
+import io.trino.parquet.reader.ParquetReader;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LazyBlock;
+import io.trino.spi.block.LazyBlockLoader;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.type.Type;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -32,8 +32,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetPageSource

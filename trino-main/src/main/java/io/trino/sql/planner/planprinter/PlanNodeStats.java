@@ -15,15 +15,15 @@ package io.trino.sql.planner.planprinter;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.util.Mergeable;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.util.Mergeable;
 
 import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.prestosql.util.MoreMaps.mergeMaps;
+import static io.trino.util.MoreMaps.mergeMaps;
 import static java.lang.Double.max;
 import static java.lang.Math.sqrt;
 import static java.util.Objects.requireNonNull;

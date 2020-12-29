@@ -14,7 +14,7 @@
 package io.trino.rcfile;
 
 import io.airlift.slice.SliceOutput;
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 
 public interface ColumnEncoding
 {

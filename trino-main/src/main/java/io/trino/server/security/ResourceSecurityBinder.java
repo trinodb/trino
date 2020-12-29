@@ -16,7 +16,7 @@ package io.trino.server.security;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.multibindings.MapBinder;
-import io.prestosql.server.security.ResourceSecurity.AccessType;
+import io.trino.server.security.ResourceSecurity.AccessType;
 
 import javax.inject.Inject;
 

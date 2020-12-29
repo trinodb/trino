@@ -16,29 +16,29 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
-import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
+import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.block.BlockSerdeUtil.READ_BLOCK;
-import static io.prestosql.block.BlockSerdeUtil.READ_BLOCK_VALUE;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.block.BlockSerdeUtil.READ_BLOCK;
+import static io.trino.block.BlockSerdeUtil.READ_BLOCK_VALUE;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.Signature.typeVariable;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
 public class LiteralFunction
         extends SqlScalarFunction

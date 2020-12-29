@@ -14,12 +14,12 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.client.NodeVersion;
-import io.prestosql.execution.MockRemoteTaskFactory;
-import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
-import io.prestosql.execution.RemoteTask;
-import io.prestosql.execution.TaskId;
-import io.prestosql.metadata.InternalNode;
+import io.trino.client.NodeVersion;
+import io.trino.execution.MockRemoteTaskFactory;
+import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import io.trino.execution.RemoteTask;
+import io.trino.execution.TaskId;
+import io.trino.metadata.InternalNode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

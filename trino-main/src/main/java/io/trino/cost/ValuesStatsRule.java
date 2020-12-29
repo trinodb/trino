@@ -14,18 +14,18 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.cost.ComposableStatsCalculator.Rule;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.block.SingleRowBlock;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.Session;
+import io.trino.cost.ComposableStatsCalculator.Rule;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
 import java.util.Objects;
@@ -36,11 +36,11 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.cost.StatsUtil.toStatsRepresentation;
-import static io.prestosql.spi.type.TypeUtils.readNativeValue;
-import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static io.prestosql.sql.planner.plan.Patterns.values;
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.cost.StatsUtil.toStatsRepresentation;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.sql.planner.plan.Patterns.values;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.stream.Collectors.toList;
 
 public class ValuesStatsRule

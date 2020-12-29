@@ -15,31 +15,31 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.kudu.properties.ColumnDesign;
-import io.prestosql.plugin.kudu.properties.HashPartitionDefinition;
-import io.prestosql.plugin.kudu.properties.KuduTableProperties;
-import io.prestosql.plugin.kudu.properties.PartitionDesign;
-import io.prestosql.plugin.kudu.properties.RangePartition;
-import io.prestosql.plugin.kudu.properties.RangePartitionDefinition;
-import io.prestosql.plugin.kudu.schema.SchemaEmulation;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.SchemaNotFoundException;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.TableNotFoundException;
-import io.prestosql.spi.predicate.DiscreteValues;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.EquatableValueSet;
-import io.prestosql.spi.predicate.Marker;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.predicate.Ranges;
-import io.prestosql.spi.predicate.SortedRangeSet;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.type.DecimalType;
+import io.trino.plugin.kudu.properties.ColumnDesign;
+import io.trino.plugin.kudu.properties.HashPartitionDefinition;
+import io.trino.plugin.kudu.properties.KuduTableProperties;
+import io.trino.plugin.kudu.properties.PartitionDesign;
+import io.trino.plugin.kudu.properties.RangePartition;
+import io.trino.plugin.kudu.properties.RangePartitionDefinition;
+import io.trino.plugin.kudu.schema.SchemaEmulation;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SchemaNotFoundException;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.DiscreteValues;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.EquatableValueSet;
+import io.trino.spi.predicate.Marker;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.Ranges;
+import io.trino.spi.predicate.SortedRangeSet;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.DecimalType;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
@@ -66,10 +66,10 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.StandardErrorCode.QUERY_REJECTED;
-import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
-import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.trino.spi.predicate.Marker.Bound.ABOVE;
+import static io.trino.spi.predicate.Marker.Bound.BELOW;
 import static java.util.stream.Collectors.toList;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER;
 import static org.apache.kudu.client.KuduPredicate.ComparisonOp.GREATER_EQUAL;
@@ -517,7 +517,7 @@ public class KuduClientSession
                     Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
                     List<Range> rangeList = ranges.getOrderedRanges();
                     if (rangeList.stream().allMatch(Range::isSingleValue)) {
-                        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+                        io.trino.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
                         List<Object> javaValues = rangeList.stream()
                                 .map(range -> TypeHelper.getJavaValue(type, range.getSingleValue()))
                                 .collect(toImmutableList());
@@ -549,7 +549,7 @@ public class KuduClientSession
 
     private KuduPredicate createInListPredicate(ColumnSchema columnSchema, DiscreteValues discreteValues)
     {
-        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+        io.trino.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         List<Object> javaValues = discreteValues.getValues().stream().map(value -> TypeHelper.getJavaValue(type, value)).collect(toImmutableList());
         return KuduPredicate.newInListPredicate(columnSchema, javaValues);
     }
@@ -561,7 +561,7 @@ public class KuduClientSession
 
     private KuduPredicate createComparisonPredicate(ColumnSchema columnSchema, KuduPredicate.ComparisonOp op, Object value)
     {
-        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+        io.trino.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         Object javaValue = TypeHelper.getJavaValue(type, value);
         if (javaValue instanceof Long) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Long) javaValue);

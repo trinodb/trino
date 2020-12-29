@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.JSON_FUNCTIONS;
+import static io.trino.tests.TestGroups.JSON_FUNCTIONS;
 
 public class TestFunctions
         extends ProductTest

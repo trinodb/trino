@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 
 import javax.annotation.concurrent.Immutable;
 

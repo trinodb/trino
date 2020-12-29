@@ -16,9 +16,9 @@ package io.trino.plugin.hive.metastore.file;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
-import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 

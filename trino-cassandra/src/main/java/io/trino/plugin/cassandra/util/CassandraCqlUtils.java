@@ -18,10 +18,10 @@ import com.datastax.driver.core.querybuilder.Select;
 import com.datastax.driver.core.querybuilder.Select.Selection;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.cassandra.CassandraColumnHandle;
-import io.prestosql.plugin.cassandra.CassandraPartition;
-import io.prestosql.plugin.cassandra.CassandraTableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
+import io.trino.plugin.cassandra.CassandraColumnHandle;
+import io.trino.plugin.cassandra.CassandraPartition;
+import io.trino.plugin.cassandra.CassandraTableHandle;
+import io.trino.spi.connector.ColumnHandle;
 
 import java.util.ArrayList;
 import java.util.List;

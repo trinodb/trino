@@ -13,7 +13,7 @@
  */
 package io.trino.sql.tree;
 
-import io.prestosql.sql.ExpressionFormatter;
+import io.trino.sql.ExpressionFormatter;
 
 import java.util.Optional;
 

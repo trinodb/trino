@@ -15,15 +15,15 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.TestingColumnHandle;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.TestingColumnHandle;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.metadata.TableLayoutResult.computeEnforced;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static org.testng.Assert.fail;
 

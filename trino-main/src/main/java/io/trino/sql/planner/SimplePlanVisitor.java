@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
 
 public class SimplePlanVisitor<C>
         extends PlanVisitor<Void, C>

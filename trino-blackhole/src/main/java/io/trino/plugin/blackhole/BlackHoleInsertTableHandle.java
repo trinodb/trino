@@ -16,7 +16,7 @@ package io.trino.plugin.blackhole;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.Duration;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 
 import static java.util.Objects.requireNonNull;
 

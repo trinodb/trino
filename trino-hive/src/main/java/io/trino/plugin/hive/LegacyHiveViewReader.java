@@ -13,18 +13,18 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorViewDefinition;
-import io.prestosql.spi.type.TypeId;
+import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.type.TypeId;
 
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.prestosql.plugin.hive.HiveQlToPrestoTranslator.translateHiveViewToPresto;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveQlToPrestoTranslator.translateHiveViewToPresto;
 
 public class LegacyHiveViewReader
         implements ViewReaderUtil.ViewReader

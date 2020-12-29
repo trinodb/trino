@@ -14,14 +14,14 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestValuesNodeStats
         extends BaseStatsCalculatorTest

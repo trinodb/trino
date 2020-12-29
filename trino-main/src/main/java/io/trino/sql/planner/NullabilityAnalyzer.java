@@ -13,18 +13,18 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.tree.Cast;
-import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.IfExpression;
-import io.prestosql.sql.tree.InPredicate;
-import io.prestosql.sql.tree.NullIfExpression;
-import io.prestosql.sql.tree.SearchedCaseExpression;
-import io.prestosql.sql.tree.SimpleCaseExpression;
-import io.prestosql.sql.tree.SubscriptExpression;
-import io.prestosql.sql.tree.TryExpression;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.IfExpression;
+import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.NullIfExpression;
+import io.trino.sql.tree.SearchedCaseExpression;
+import io.trino.sql.tree.SimpleCaseExpression;
+import io.trino.sql.tree.SubscriptExpression;
+import io.trino.sql.tree.TryExpression;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

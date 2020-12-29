@@ -16,12 +16,12 @@ package io.trino.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.tree.ExistsPredicate;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.InPredicate;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.ExistsPredicate;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.QuantifiedComparisonExpression;
 
 import javax.annotation.concurrent.Immutable;
 

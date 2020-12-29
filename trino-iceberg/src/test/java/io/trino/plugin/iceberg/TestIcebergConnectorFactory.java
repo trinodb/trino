@@ -14,8 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.testing.TestingConnectorContext;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import java.util.Map;

@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 
-import static io.prestosql.cli.AlignedTablePrinter.formatHexDump;
+import static io.trino.cli.AlignedTablePrinter.formatHexDump;
 import static java.util.Objects.requireNonNull;
 
 public class JsonPrinter

@@ -13,10 +13,10 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.prestosql.array.ObjectBigArray;
-import io.prestosql.operator.aggregation.KeyValuePairs;
-import io.prestosql.spi.function.AccumulatorStateFactory;
-import io.prestosql.spi.type.Type;
+import io.trino.array.ObjectBigArray;
+import io.trino.operator.aggregation.KeyValuePairs;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import static java.util.Objects.requireNonNull;

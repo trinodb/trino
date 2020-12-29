@@ -16,22 +16,22 @@ package io.trino.plugin.hive;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.hive.util.ForwardingRecordCursor;
-import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.plugin.hive.util.ForwardingRecordCursor;
+import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
-import static io.prestosql.plugin.hive.HivePageSource.BucketValidator.VALIDATION_STRIDE;
-import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucket;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static io.trino.plugin.hive.HivePageSource.BucketValidator.VALIDATION_STRIDE;
+import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

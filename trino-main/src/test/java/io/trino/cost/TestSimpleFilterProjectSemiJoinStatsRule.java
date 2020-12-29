@@ -13,16 +13,16 @@
  */
 package io.trino.cost;
 
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestSimpleFilterProjectSemiJoinStatsRule
         extends BaseStatsCalculatorTest

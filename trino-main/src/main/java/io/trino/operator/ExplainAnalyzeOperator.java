@@ -14,21 +14,21 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryPerformanceFetcher;
-import io.prestosql.execution.StageId;
-import io.prestosql.execution.StageInfo;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.QueryInfo;
+import io.trino.execution.QueryPerformanceFetcher;
+import io.trino.execution.StageId;
+import io.trino.execution.StageInfo;
+import io.trino.metadata.Metadata;
+import io.trino.spi.Page;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static java.util.Objects.requireNonNull;
 
 public class ExplainAnalyzeOperator

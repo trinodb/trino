@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -32,7 +32,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.util.MoreLists.listOfListsCopy;
+import static io.trino.util.MoreLists.listOfListsCopy;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 

@@ -15,21 +15,21 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.prestosql.Session;
-import io.prestosql.operator.GroupByIdBlock;
-import io.prestosql.operator.MarkDistinctHash;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.operator.UpdateMemory;
-import io.prestosql.operator.Work;
-import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.function.WindowIndex;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.Session;
+import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.MarkDistinctHash;
+import io.trino.operator.PagesIndex;
+import io.trino.operator.UpdateMemory;
+import io.trino.operator.Work;
+import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.WindowIndex;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
 
 import javax.annotation.Nullable;
 
@@ -43,8 +43,8 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Long.max;
 import static java.util.Objects.isNull;
 import static java.util.Objects.requireNonNull;

@@ -14,8 +14,8 @@
 
 package io.trino.type.setdigest;
 
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateSerializerClass = SetDigestStateSerializer.class, stateFactoryClass = SetDigestStateFactory.class)
 public interface SetDigestState

@@ -13,10 +13,10 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.Session;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
+import io.trino.Session;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.ColumnHandle;
 
 import java.util.Map;
 import java.util.Optional;

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 

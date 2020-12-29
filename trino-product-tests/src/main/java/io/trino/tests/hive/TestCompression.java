@@ -23,10 +23,10 @@ import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.ORDERS;
-import static io.prestosql.tests.TestGroups.HIVE_COMPRESSION;
-import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.HIVE_COMPRESSION;
+import static io.trino.tests.TestGroups.SKIP_ON_CDH;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCompression

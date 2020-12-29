@@ -13,14 +13,14 @@
  */
 package io.trino.operator.project;
 
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.Work;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.relational.RowExpression;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.Work;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.Type;
+import io.trino.sql.relational.RowExpression;
 
 import java.lang.invoke.MethodHandle;
 

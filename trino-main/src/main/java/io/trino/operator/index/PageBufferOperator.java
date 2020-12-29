@@ -14,12 +14,12 @@
 package io.trino.operator.index;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.operator.DriverContext;
-import io.prestosql.operator.Operator;
-import io.prestosql.operator.OperatorContext;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.operator.DriverContext;
+import io.trino.operator.Operator;
+import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactory;
+import io.trino.spi.Page;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

@@ -37,9 +37,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.geospatial.GeoFunctions.stGeometryFromText;
-import static io.prestosql.plugin.geospatial.GeoFunctions.toSphericalGeography;
-import static io.prestosql.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
+import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
+import static io.trino.plugin.geospatial.GeoFunctions.toSphericalGeography;
+import static io.trino.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 import static org.testng.Assert.assertEquals;
 
 @State(Scope.Thread)

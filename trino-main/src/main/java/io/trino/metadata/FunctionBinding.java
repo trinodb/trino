@@ -14,7 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSortedMap;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.Map;
 import java.util.Objects;

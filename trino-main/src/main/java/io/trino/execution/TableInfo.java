@@ -15,9 +15,9 @@ package io.trino.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.annotation.concurrent.Immutable;
 

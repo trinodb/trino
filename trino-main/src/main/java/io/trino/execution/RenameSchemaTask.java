@@ -14,22 +14,22 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.RenameSchema;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.RenameSchema;
+import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
-import static io.prestosql.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
-import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
+import static io.trino.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
 public class RenameSchemaTask
         implements DataDefinitionTask<RenameSchema>

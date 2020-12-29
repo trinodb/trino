@@ -16,7 +16,7 @@ package io.trino.decoder.avro;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.decoder.RowDecoderFactory;
+import io.trino.decoder.RowDecoderFactory;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 

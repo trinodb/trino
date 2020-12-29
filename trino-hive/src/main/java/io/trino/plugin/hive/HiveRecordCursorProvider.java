@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 

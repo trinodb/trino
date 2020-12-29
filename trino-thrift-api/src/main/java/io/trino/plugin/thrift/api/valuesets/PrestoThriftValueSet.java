@@ -16,10 +16,10 @@ package io.trino.plugin.thrift.api.valuesets;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.spi.predicate.AllOrNoneValueSet;
-import io.prestosql.spi.predicate.EquatableValueSet;
-import io.prestosql.spi.predicate.SortedRangeSet;
-import io.prestosql.spi.predicate.ValueSet;
+import io.trino.spi.predicate.AllOrNoneValueSet;
+import io.trino.spi.predicate.EquatableValueSet;
+import io.trino.spi.predicate.SortedRangeSet;
+import io.trino.spi.predicate.ValueSet;
 
 import javax.annotation.Nullable;
 
@@ -28,9 +28,9 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftAllOrNoneValueSet.fromAllOrNoneValueSet;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftEquatableValueSet.fromEquatableValueSet;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.fromSortedRangeSet;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftAllOrNoneValueSet.fromAllOrNoneValueSet;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftEquatableValueSet.fromEquatableValueSet;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.fromSortedRangeSet;
 
 @ThriftStruct
 public final class PrestoThriftValueSet

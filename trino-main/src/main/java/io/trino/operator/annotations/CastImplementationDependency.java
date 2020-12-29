@@ -13,16 +13,16 @@
  */
 package io.trino.operator.annotations;
 
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.Objects;
 
-import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
+import static io.trino.metadata.SignatureBinder.applyBoundVariables;
 import static java.util.Objects.requireNonNull;
 
 public final class CastImplementationDependency

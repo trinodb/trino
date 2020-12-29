@@ -15,8 +15,8 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import io.prestosql.spi.Page;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.spi.Page;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Iterator;
 import java.util.List;

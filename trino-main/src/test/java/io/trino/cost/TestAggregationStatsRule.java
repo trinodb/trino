@@ -14,13 +14,13 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestAggregationStatsRule
         extends BaseStatsCalculatorTest

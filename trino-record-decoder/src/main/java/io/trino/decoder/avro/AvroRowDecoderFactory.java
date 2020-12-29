@@ -13,10 +13,10 @@
  */
 package io.trino.decoder.avro;
 
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.decoder.RowDecoderFactory;
-import io.prestosql.decoder.dummy.DummyRowDecoderFactory;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderFactory;
+import io.trino.decoder.dummy.DummyRowDecoderFactory;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 

@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.sql.planner.plan.IndexJoinNode;
+import io.trino.sql.planner.plan.IndexJoinNode;
 
 import static java.util.Objects.requireNonNull;
 

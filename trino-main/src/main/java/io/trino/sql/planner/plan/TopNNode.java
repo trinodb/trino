@@ -17,16 +17,16 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.prestosql.sql.planner.OrderingScheme;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

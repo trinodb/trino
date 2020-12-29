@@ -20,8 +20,8 @@ import com.google.common.collect.SetMultimap;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
-import static io.prestosql.spi.security.PrincipalType.ROLE;
-import static io.prestosql.spi.security.PrincipalType.USER;
+import static io.trino.spi.security.PrincipalType.ROLE;
+import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 

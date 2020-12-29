@@ -13,7 +13,7 @@
  */
 package io.trino;
 
-import io.prestosql.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingPrestoServer;
 
 import java.lang.reflect.Field;
 

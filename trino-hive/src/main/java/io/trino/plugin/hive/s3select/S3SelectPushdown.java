@@ -14,10 +14,10 @@
 package io.trino.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
@@ -32,13 +32,13 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
-import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
-import static io.prestosql.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
-import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
-import static io.prestosql.plugin.hive.util.HiveUtil.getCompressionCodec;
-import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
-import static io.prestosql.plugin.hive.util.HiveUtil.getInputFormatName;
+import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
+import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
+import static io.trino.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
+import static io.trino.plugin.hive.util.HiveUtil.getCompressionCodec;
+import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
 import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;

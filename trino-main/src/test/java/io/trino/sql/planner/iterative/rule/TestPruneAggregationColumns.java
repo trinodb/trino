@@ -15,11 +15,11 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ProjectNode;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -27,13 +27,13 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestPruneAggregationColumns
         extends BaseRuleTest

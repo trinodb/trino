@@ -34,21 +34,21 @@ import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
-import io.prestosql.client.NodeVersion;
-import io.prestosql.eventlistener.EventListenerManager;
-import io.prestosql.eventlistener.EventListenerModule;
-import io.prestosql.execution.resourcegroups.ResourceGroupManager;
-import io.prestosql.execution.warnings.WarningCollectorModule;
-import io.prestosql.metadata.Catalog;
-import io.prestosql.metadata.CatalogManager;
-import io.prestosql.metadata.StaticCatalogStore;
-import io.prestosql.security.AccessControlManager;
-import io.prestosql.security.AccessControlModule;
-import io.prestosql.security.GroupProviderManager;
-import io.prestosql.server.security.CertificateAuthenticatorManager;
-import io.prestosql.server.security.PasswordAuthenticatorManager;
-import io.prestosql.server.security.ServerSecurityModule;
-import io.prestosql.version.EmbedVersion;
+import io.trino.client.NodeVersion;
+import io.trino.eventlistener.EventListenerManager;
+import io.trino.eventlistener.EventListenerModule;
+import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.execution.warnings.WarningCollectorModule;
+import io.trino.metadata.Catalog;
+import io.trino.metadata.CatalogManager;
+import io.trino.metadata.StaticCatalogStore;
+import io.trino.security.AccessControlManager;
+import io.trino.security.AccessControlModule;
+import io.trino.security.GroupProviderManager;
+import io.trino.server.security.CertificateAuthenticatorManager;
+import io.trino.server.security.PasswordAuthenticatorManager;
+import io.trino.server.security.ServerSecurityModule;
+import io.trino.version.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.IOException;
@@ -61,8 +61,8 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
-import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
-import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static io.trino.server.PrestoSystemRequirements.verifyJvmRequirements;
+import static io.trino.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
@@ -89,7 +89,7 @@ public class Server
                 new JsonModule(),
                 new JaxrsModule(),
                 new MBeanModule(),
-                new PrefixObjectNameGeneratorModule("io.prestosql"),
+                new PrefixObjectNameGeneratorModule("io.trino"),
                 new JmxModule(),
                 new JmxHttpModule(),
                 new LogJmxModule(),

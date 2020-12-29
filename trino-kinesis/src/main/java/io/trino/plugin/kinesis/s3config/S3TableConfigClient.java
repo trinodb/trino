@@ -26,10 +26,10 @@ import com.google.common.io.CharStreams;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.kinesis.KinesisClientProvider;
-import io.prestosql.plugin.kinesis.KinesisConfig;
-import io.prestosql.plugin.kinesis.KinesisStreamDescription;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.kinesis.KinesisClientProvider;
+import io.trino.plugin.kinesis.KinesisConfig;
+import io.trino.plugin.kinesis.KinesisStreamDescription;
+import io.trino.spi.connector.SchemaTableName;
 
 import javax.annotation.PostConstruct;
 

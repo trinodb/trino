@@ -14,10 +14,10 @@
 package io.trino.plugin.google.sheets;
 
 import com.google.common.io.Resources;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.testing.TestingConnectorContext;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -26,7 +26,7 @@ import java.util.Base64;
 
 import static com.google.common.collect.ImmutableMap.Builder;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.plugin.google.sheets.TestGoogleSheets.GOOGLE_SHEETS;
+import static io.trino.plugin.google.sheets.TestGoogleSheets.GOOGLE_SHEETS;
 import static java.io.File.createTempFile;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertNotNull;

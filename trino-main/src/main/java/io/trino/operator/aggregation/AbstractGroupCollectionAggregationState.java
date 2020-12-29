@@ -13,11 +13,11 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.array.IntBigArray;
-import io.prestosql.array.ShortBigArray;
-import io.prestosql.operator.aggregation.state.AbstractGroupedAccumulatorState;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
+import io.trino.array.IntBigArray;
+import io.trino.array.ShortBigArray;
+import io.trino.operator.aggregation.state.AbstractGroupedAccumulatorState;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import org.openjdk.jol.info.ClassLayout;

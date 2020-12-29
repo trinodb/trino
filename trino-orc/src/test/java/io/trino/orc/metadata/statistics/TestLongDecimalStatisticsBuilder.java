@@ -24,9 +24,9 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DECIMAL;
-import static io.prestosql.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
-import static io.prestosql.orc.metadata.statistics.LongDecimalStatisticsBuilder.LONG_DECIMAL_VALUE_BYTES;
+import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DECIMAL;
+import static io.trino.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_BYTES_OVERHEAD;
+import static io.trino.orc.metadata.statistics.LongDecimalStatisticsBuilder.LONG_DECIMAL_VALUE_BYTES;
 import static java.math.BigDecimal.ZERO;
 
 public class TestLongDecimalStatisticsBuilder

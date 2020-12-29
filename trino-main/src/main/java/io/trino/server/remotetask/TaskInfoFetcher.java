@@ -22,11 +22,11 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.prestosql.execution.StateMachine;
-import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.execution.TaskId;
-import io.prestosql.execution.TaskInfo;
-import io.prestosql.execution.TaskStatus;
+import io.trino.execution.StateMachine;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.TaskId;
+import io.trino.execution.TaskInfo;
+import io.trino.execution.TaskStatus;
 
 import javax.annotation.concurrent.GuardedBy;
 

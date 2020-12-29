@@ -15,9 +15,9 @@ package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
-import io.prestosql.client.ClientException;
-import io.prestosql.client.QueryStatusInfo;
-import io.prestosql.client.StatementClient;
+import io.trino.client.ClientException;
+import io.trino.client.QueryStatusInfo;
+import io.trino.client.StatementClient;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static io.prestosql.jdbc.AbstractPrestoResultSet.resultsException;
+import static io.trino.jdbc.AbstractPrestoResultSet.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

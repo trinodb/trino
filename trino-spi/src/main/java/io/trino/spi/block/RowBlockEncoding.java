@@ -18,7 +18,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
 import static io.airlift.slice.Slices.wrappedIntArray;
-import static io.prestosql.spi.block.RowBlock.createRowBlockInternal;
+import static io.trino.spi.block.RowBlock.createRowBlockInternal;
 
 public class RowBlockEncoding
         implements BlockEncoding

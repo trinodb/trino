@@ -16,26 +16,26 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
-import io.prestosql.sql.planner.iterative.IterativeOptimizer;
-import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import io.prestosql.sql.planner.optimizations.UnaliasSymbolReferences;
-import io.prestosql.sql.planner.plan.WindowNode;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.ExpectedValueProvider;
+import io.trino.sql.planner.iterative.IterativeOptimizer;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
+import io.trino.sql.planner.plan.WindowNode;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.specification;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.window;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestCanonicalize
         extends BasePlanTest

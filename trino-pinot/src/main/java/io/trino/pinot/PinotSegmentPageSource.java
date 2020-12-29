@@ -17,17 +17,17 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.pinot.client.PinotQueryClient;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarbinaryType;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.pinot.client.PinotQueryClient;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.pinot.common.utils.DataSchema;
@@ -46,9 +46,9 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.prestosql.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
-import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
-import static io.prestosql.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
+import static io.trino.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
+import static io.trino.pinot.PinotErrorCode.PINOT_EXCEPTION;
+import static io.trino.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -237,9 +237,9 @@ public class PinotSegmentPageSource
     }
 
     /**
-     * Generates the {@link io.prestosql.spi.block.Block} for the specific column from the {@link #currentDataTable}.
+     * Generates the {@link io.trino.spi.block.Block} for the specific column from the {@link #currentDataTable}.
      *
-     * <p>Based on the original Pinot column types, write as Presto-supported values to {@link io.prestosql.spi.block.BlockBuilder}, e.g.
+     * <p>Based on the original Pinot column types, write as Presto-supported values to {@link io.trino.spi.block.BlockBuilder}, e.g.
      * FLOAT -> Double, INT -> Long, String -> Slice.
      *
      * @param blockBuilder blockBuilder for the current column

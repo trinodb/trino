@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.postgresql;
 
-import io.prestosql.Session;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -30,8 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;

@@ -15,21 +15,21 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.dispatcher.DispatchManager;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.server.protocol.Slug;
-import io.prestosql.spi.QueryId;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.TestingSessionContext;
+import io.trino.Session;
+import io.trino.dispatcher.DispatchManager;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.server.BasicQueryInfo;
+import io.trino.server.protocol.Slug;
+import io.trino.spi.QueryId;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.TestingSessionContext;
 
 import java.util.Map;
 import java.util.Set;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.prestosql.execution.QueryState.RUNNING;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class TestQueryRunnerUtil

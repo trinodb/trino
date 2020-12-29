@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.operator.BlockedReason;
+import io.trino.operator.BlockedReason;
 
 import java.util.HashSet;
 import java.util.OptionalDouble;

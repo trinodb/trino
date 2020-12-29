@@ -14,7 +14,7 @@
 package io.trino.pinot;
 
 import com.google.common.net.HostAndPort;
-import io.prestosql.pinot.client.PinotHostMapper;
+import io.trino.pinot.client.PinotHostMapper;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.core.transport.ServerInstance;
 

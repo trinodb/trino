@@ -13,7 +13,7 @@
  */
 package io.trino.type;
 
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestUnknownType
         extends AbstractTestType

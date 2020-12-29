@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
 
-import static io.prestosql.testng.services.FlakyAnnotationVerifier.findMethodsWithFlakyAndNoTestAnnotation;
+import static io.trino.testng.services.FlakyAnnotationVerifier.findMethodsWithFlakyAndNoTestAnnotation;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFlakyAnnotationVerifier
@@ -66,7 +66,7 @@ public class TestFlakyAnnotationVerifier
         assertThat(FlakyAnnotationVerifier.verifyFlakyAnnotations(TestFlakyInvalidPattern.class))
                 .hasValueSatisfying(value -> {
                     assertThat(value)
-                            .startsWith("Test method public void io.prestosql.testng.services.TestFlakyAnnotationVerifier$TestFlakyInvalidPattern.test() has invalid @Flaky.match: java.util.regex.PatternSyntaxException: Unclosed group near");
+                            .startsWith("Test method public void io.trino.testng.services.TestFlakyAnnotationVerifier$TestFlakyInvalidPattern.test() has invalid @Flaky.match: java.util.regex.PatternSyntaxException: Unclosed group near");
                 });
     }
 

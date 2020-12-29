@@ -15,11 +15,11 @@ package io.trino.plugin.hive.parquet;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveQueryRunner;
-import io.prestosql.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -52,8 +52,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.transform;
-import static io.prestosql.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
-import static io.prestosql.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
+import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
+import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.String.format;

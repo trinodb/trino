@@ -13,8 +13,8 @@
  */
 package io.trino.execution.buffer;
 
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.SqlDecimal;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.SqlDecimal;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Function;
 
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 
 public class BenchmarkDataGenerator
 {

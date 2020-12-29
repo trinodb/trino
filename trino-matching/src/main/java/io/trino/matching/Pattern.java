@@ -14,10 +14,10 @@
 package io.trino.matching;
 
 import com.google.common.collect.Iterables;
-import io.prestosql.matching.pattern.CapturePattern;
-import io.prestosql.matching.pattern.FilterPattern;
-import io.prestosql.matching.pattern.TypeOfPattern;
-import io.prestosql.matching.pattern.WithPattern;
+import io.trino.matching.pattern.CapturePattern;
+import io.trino.matching.pattern.FilterPattern;
+import io.trino.matching.pattern.TypeOfPattern;
+import io.trino.matching.pattern.WithPattern;
 
 import java.util.Optional;
 import java.util.function.BiPredicate;

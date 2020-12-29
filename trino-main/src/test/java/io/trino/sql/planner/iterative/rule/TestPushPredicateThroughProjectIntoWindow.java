@@ -16,30 +16,30 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.OrderingScheme;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.TopNRowNumberSymbolMatcher;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.WindowNode.Frame;
-import io.prestosql.sql.planner.plan.WindowNode.Function;
-import io.prestosql.sql.planner.plan.WindowNode.Specification;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.TopNRowNumberSymbolMatcher;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.WindowNode.Frame;
+import io.trino.sql.planner.plan.WindowNode.Function;
+import io.trino.sql.planner.plan.WindowNode.Specification;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 
 public class TestPushPredicateThroughProjectIntoWindow
         extends BaseRuleTest

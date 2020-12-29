@@ -15,9 +15,9 @@
 package io.trino.plugin.kafka.schema;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.kafka.KafkaTopicDescription;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.kafka.KafkaTopicDescription;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Map;
 import java.util.Optional;

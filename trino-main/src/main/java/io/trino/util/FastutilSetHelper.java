@@ -13,8 +13,8 @@
  */
 package io.trino.util;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
 import it.unimi.dsi.fastutil.doubles.DoubleHash;
@@ -29,7 +29,7 @@ import java.util.Set;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verifyNotNull;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Boolean.TRUE;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;

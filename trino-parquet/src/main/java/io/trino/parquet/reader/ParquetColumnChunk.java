@@ -15,11 +15,11 @@ package io.trino.parquet.reader;
 
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
-import io.prestosql.parquet.DataPage;
-import io.prestosql.parquet.DataPageV1;
-import io.prestosql.parquet.DataPageV2;
-import io.prestosql.parquet.DictionaryPage;
-import io.prestosql.parquet.ParquetCorruptionException;
+import io.trino.parquet.DataPage;
+import io.trino.parquet.DataPageV1;
+import io.trino.parquet.DataPageV2;
+import io.trino.parquet.DictionaryPage;
+import io.trino.parquet.ParquetCorruptionException;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.DataPageHeader;
 import org.apache.parquet.format.DataPageHeaderV2;
@@ -32,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.parquet.ParquetTypeUtils.getParquetEncoding;
+import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetColumnChunk

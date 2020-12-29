@@ -14,9 +14,9 @@
 package io.trino.decoder.avro;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
-import io.prestosql.decoder.RowDecoder;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.decoder.RowDecoder;
 
 import java.util.Map;
 import java.util.Optional;

@@ -14,9 +14,9 @@
 package io.trino.plugin.resourcegroups;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.resourcegroups.db.DbResourceGroupConfigurationManagerFactory;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManagerFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 
 public class ResourceGroupManagerPlugin
         implements Plugin

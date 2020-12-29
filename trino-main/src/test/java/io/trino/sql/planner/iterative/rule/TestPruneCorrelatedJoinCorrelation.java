@@ -14,14 +14,14 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.tree.ComparisonExpression;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.tree.ComparisonExpression;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
 public class TestPruneCorrelatedJoinCorrelation
         extends BaseRuleTest

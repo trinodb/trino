@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcDataSourceId;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcDataSourceId;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -29,10 +29,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
-import static io.prestosql.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
+import static io.trino.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static java.math.BigInteger.ONE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;

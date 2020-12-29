@@ -17,13 +17,13 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.drift.transport.netty.client.DriftNettyClientModule;
-import io.prestosql.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
-import io.prestosql.plugin.base.jmx.MBeanServerModule;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorContext;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
+import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -60,7 +60,7 @@ public class ThriftConnectorFactory
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName, "io.prestosql.plugin.thrift", "presto.plugin.thrift"),
+                new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.thrift", "presto.plugin.thrift"),
                 new DriftNettyClientModule(),
                 binder -> {
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());

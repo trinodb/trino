@@ -14,19 +14,19 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.ExpressionCompiler;
-import io.prestosql.sql.gen.PageFunctionCompiler;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SpecialForm;
-import io.prestosql.sql.relational.SpecialForm.Form;
+import io.trino.metadata.Metadata;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.relational.SpecialForm.Form;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -53,14 +53,14 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.relational.Expressions.call;
-import static io.prestosql.sql.relational.Expressions.field;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.relational.Expressions.call;
+import static io.trino.sql.relational.Expressions.field;
 
 @State(Scope.Thread)
 @Fork(3)

@@ -14,9 +14,9 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.iterative.IterativeOptimizer;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.iterative.RuleStats;
+import io.trino.sql.planner.iterative.IterativeOptimizer;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.iterative.RuleStats;
 import org.weakref.jmx.MBeanExport;
 import org.weakref.jmx.MBeanExporter;
 

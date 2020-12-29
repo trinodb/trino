@@ -14,8 +14,8 @@
 package io.trino.plugin.blackhole;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ConnectorSplit;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
 

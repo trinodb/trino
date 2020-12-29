@@ -17,16 +17,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.ParametricImplementationsGroup;
-import io.prestosql.operator.annotations.FunctionsParserHelper;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.RemoveInputFunction;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.Signature;
+import io.trino.operator.ParametricImplementationsGroup;
+import io.trino.operator.annotations.FunctionsParserHelper;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.RemoveInputFunction;
+import io.trino.spi.type.TypeSignature;
 
 import javax.annotation.Nullable;
 
@@ -40,8 +40,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
-import static io.prestosql.operator.annotations.FunctionsParserHelper.parseDescription;
+import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
+import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

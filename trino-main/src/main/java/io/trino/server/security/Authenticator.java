@@ -13,7 +13,7 @@
  */
 package io.trino.server.security;
 
-import io.prestosql.spi.security.Identity;
+import io.trino.spi.security.Identity;
 
 import javax.ws.rs.container.ContainerRequestContext;
 

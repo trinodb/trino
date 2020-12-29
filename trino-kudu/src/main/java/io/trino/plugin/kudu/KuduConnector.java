@@ -15,25 +15,25 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.prestosql.plugin.kudu.properties.KuduTableProperties;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
-import io.prestosql.spi.connector.ConnectorPageSinkProvider;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.procedure.Procedure;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.plugin.kudu.properties.KuduTableProperties;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.procedure.Procedure;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Set;
 
-import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 public class KuduConnector

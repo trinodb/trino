@@ -13,10 +13,10 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.SqlDecimal;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.SqlDecimal;
 
 import java.math.BigDecimal;
 

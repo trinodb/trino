@@ -13,20 +13,20 @@
  */
 package io.trino.orc.reader;
 
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.orc.OrcColumn;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.metadata.ColumnEncoding;
-import io.prestosql.orc.metadata.ColumnMetadata;
-import io.prestosql.orc.stream.BooleanInputStream;
-import io.prestosql.orc.stream.ByteInputStream;
-import io.prestosql.orc.stream.InputStreamSource;
-import io.prestosql.orc.stream.InputStreamSources;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.ByteArrayBlock;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.type.TinyintType;
-import io.prestosql.spi.type.Type;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.orc.OrcColumn;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.metadata.ColumnEncoding;
+import io.trino.orc.metadata.ColumnMetadata;
+import io.trino.orc.stream.BooleanInputStream;
+import io.trino.orc.stream.ByteInputStream;
+import io.trino.orc.stream.InputStreamSource;
+import io.trino.orc.stream.InputStreamSources;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -38,12 +38,12 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
-import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
-import static io.prestosql.orc.reader.ReaderUtils.minNonNullValueSize;
-import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
-import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.trino.orc.metadata.Stream.StreamKind.DATA;
+import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.trino.orc.reader.ReaderUtils.minNonNullValueSize;
+import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
+import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 
 public class ByteColumnReader

@@ -15,8 +15,8 @@ package io.trino.sql.relational;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.FunctionType;
+import io.trino.spi.type.Type;
+import io.trino.type.FunctionType;
 
 import java.util.List;
 import java.util.Objects;

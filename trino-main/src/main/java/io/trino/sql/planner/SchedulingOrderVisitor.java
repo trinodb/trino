@@ -15,13 +15,13 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.plan.IndexJoinNode;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.planner.plan.SemiJoinNode;
-import io.prestosql.sql.planner.plan.SpatialJoinNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.IndexJoinNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SpatialJoinNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.function.Consumer;

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.sql.gen.CallSiteBinder;
+import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
@@ -34,9 +34,9 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.prestosql.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
-import static io.prestosql.util.CompilerUtils.defineClass;
-import static io.prestosql.util.CompilerUtils.makeClassName;
+import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.invoke.MethodType.methodType;
 
 final class SingleAccessMethodCompiler

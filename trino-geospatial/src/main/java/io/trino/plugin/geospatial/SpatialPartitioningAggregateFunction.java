@@ -14,16 +14,16 @@
 package io.trino.plugin.geospatial;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
-import static io.prestosql.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
+import static io.trino.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
 
 @AggregationFunction(value = NAME, decomposable = false)
 public final class SpatialPartitioningAggregateFunction

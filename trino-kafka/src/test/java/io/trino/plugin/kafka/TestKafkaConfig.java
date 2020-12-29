@@ -14,7 +14,7 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.kafka.schema.file.FileTableDescriptionSupplier;
+import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import org.testng.annotations.Test;
 
 import java.util.Map;

@@ -15,30 +15,30 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.prestosql.Session;
-import io.prestosql.cost.StatsCalculator;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.security.GroupProvider;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.rewrite.StatementRewrite;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.GroupingOperation;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.Statement;
+import io.trino.Session;
+import io.trino.cost.StatsCalculator;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.spi.security.GroupProvider;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.rewrite.StatementRewrite;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GroupingOperation;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
-import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
-import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractExpressions;
-import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer

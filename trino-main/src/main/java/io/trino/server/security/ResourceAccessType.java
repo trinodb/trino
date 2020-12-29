@@ -14,8 +14,8 @@
 package io.trino.server.security;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.server.security.ResourceSecurity.AccessType;
-import io.prestosql.server.security.ResourceSecurityBinder.StaticResourceAccessTypeLoader;
+import io.trino.server.security.ResourceSecurity.AccessType;
+import io.trino.server.security.ResourceSecurityBinder.StaticResourceAccessTypeLoader;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ResourceInfo;
@@ -24,7 +24,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
+import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 
 public class ResourceAccessType
 {
@@ -71,7 +71,7 @@ public class ResourceAccessType
     private static void verifyNotPrestoResource(ResourceInfo resourceInfo)
     {
         Method resourceMethod = resourceInfo.getResourceMethod();
-        if (resourceMethod != null && resourceMethod.getDeclaringClass().getPackageName().startsWith("io.prestosql.")) {
+        if (resourceMethod != null && resourceMethod.getDeclaringClass().getPackageName().startsWith("io.trino.")) {
             throw new IllegalArgumentException("Presto resource is not annotated with @" + ResourceSecurity.class.getSimpleName() + ": " + resourceInfo.getResourceMethod());
         }
     }

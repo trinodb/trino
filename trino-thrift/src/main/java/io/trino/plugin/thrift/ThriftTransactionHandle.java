@@ -14,7 +14,7 @@
 
 package io.trino.plugin.thrift;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public enum ThriftTransactionHandle
         implements ConnectorTransactionHandle

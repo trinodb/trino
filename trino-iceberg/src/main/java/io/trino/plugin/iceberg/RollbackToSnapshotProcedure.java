@@ -14,11 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.procedure.Procedure;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.procedure.Procedure;
 import org.apache.iceberg.Table;
 
 import javax.inject.Inject;
@@ -26,10 +26,10 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.plugin.iceberg.IcebergUtil.getIcebergTable;
-import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTable;
+import static io.trino.spi.block.MethodHandleUtil.methodHandle;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class RollbackToSnapshotProcedure

@@ -15,7 +15,7 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.util.Mergeable;
+import io.trino.util.Mergeable;
 
 public class HashCollisionsInfo
         implements Mergeable<HashCollisionsInfo>, OperatorInfo

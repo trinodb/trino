@@ -14,27 +14,27 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.TimeWithTimeZoneType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.AtTimeZone;
-import io.prestosql.sql.tree.Cast;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.AtTimeZone;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 
-import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
 
 public final class DesugarAtTimeZoneRewriter

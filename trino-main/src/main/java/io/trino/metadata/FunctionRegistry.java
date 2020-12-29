@@ -21,243 +21,243 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.prestosql.operator.aggregation.ApproximateCountDistinctAggregation;
-import io.prestosql.operator.aggregation.ApproximateDoublePercentileAggregations;
-import io.prestosql.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
-import io.prestosql.operator.aggregation.ApproximateLongPercentileAggregations;
-import io.prestosql.operator.aggregation.ApproximateLongPercentileArrayAggregations;
-import io.prestosql.operator.aggregation.ApproximateRealPercentileAggregations;
-import io.prestosql.operator.aggregation.ApproximateRealPercentileArrayAggregations;
-import io.prestosql.operator.aggregation.ApproximateSetAggregation;
-import io.prestosql.operator.aggregation.AverageAggregations;
-import io.prestosql.operator.aggregation.BigintApproximateMostFrequent;
-import io.prestosql.operator.aggregation.BitwiseAndAggregation;
-import io.prestosql.operator.aggregation.BitwiseOrAggregation;
-import io.prestosql.operator.aggregation.BooleanAndAggregation;
-import io.prestosql.operator.aggregation.BooleanOrAggregation;
-import io.prestosql.operator.aggregation.CentralMomentsAggregation;
-import io.prestosql.operator.aggregation.ChecksumAggregationFunction;
-import io.prestosql.operator.aggregation.CountAggregation;
-import io.prestosql.operator.aggregation.CountIfAggregation;
-import io.prestosql.operator.aggregation.DefaultApproximateCountDistinctAggregation;
-import io.prestosql.operator.aggregation.DoubleCorrelationAggregation;
-import io.prestosql.operator.aggregation.DoubleCovarianceAggregation;
-import io.prestosql.operator.aggregation.DoubleHistogramAggregation;
-import io.prestosql.operator.aggregation.DoubleRegressionAggregation;
-import io.prestosql.operator.aggregation.DoubleSumAggregation;
-import io.prestosql.operator.aggregation.GeometricMeanAggregations;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.aggregation.IntervalDayToSecondAverageAggregation;
-import io.prestosql.operator.aggregation.IntervalDayToSecondSumAggregation;
-import io.prestosql.operator.aggregation.IntervalYearToMonthAverageAggregation;
-import io.prestosql.operator.aggregation.IntervalYearToMonthSumAggregation;
-import io.prestosql.operator.aggregation.LongSumAggregation;
-import io.prestosql.operator.aggregation.MapAggregationFunction;
-import io.prestosql.operator.aggregation.MapUnionAggregation;
-import io.prestosql.operator.aggregation.MaxDataSizeForStats;
-import io.prestosql.operator.aggregation.MaxNAggregationFunction;
-import io.prestosql.operator.aggregation.MergeHyperLogLogAggregation;
-import io.prestosql.operator.aggregation.MergeQuantileDigestFunction;
-import io.prestosql.operator.aggregation.MergeTDigestAggregation;
-import io.prestosql.operator.aggregation.MinNAggregationFunction;
-import io.prestosql.operator.aggregation.RealCorrelationAggregation;
-import io.prestosql.operator.aggregation.RealCovarianceAggregation;
-import io.prestosql.operator.aggregation.RealGeometricMeanAggregations;
-import io.prestosql.operator.aggregation.RealHistogramAggregation;
-import io.prestosql.operator.aggregation.RealRegressionAggregation;
-import io.prestosql.operator.aggregation.RealSumAggregation;
-import io.prestosql.operator.aggregation.SumDataSizeForStats;
-import io.prestosql.operator.aggregation.TDigestAggregationFunction;
-import io.prestosql.operator.aggregation.VarcharApproximateMostFrequent;
-import io.prestosql.operator.aggregation.VarianceAggregation;
-import io.prestosql.operator.aggregation.histogram.Histogram;
-import io.prestosql.operator.aggregation.minmaxby.MaxByNAggregationFunction;
-import io.prestosql.operator.aggregation.minmaxby.MinByNAggregationFunction;
-import io.prestosql.operator.aggregation.multimapagg.MultimapAggregationFunction;
-import io.prestosql.operator.scalar.ArrayAllMatchFunction;
-import io.prestosql.operator.scalar.ArrayAnyMatchFunction;
-import io.prestosql.operator.scalar.ArrayCardinalityFunction;
-import io.prestosql.operator.scalar.ArrayCombinationsFunction;
-import io.prestosql.operator.scalar.ArrayContains;
-import io.prestosql.operator.scalar.ArrayContainsSequence;
-import io.prestosql.operator.scalar.ArrayDistinctFunction;
-import io.prestosql.operator.scalar.ArrayElementAtFunction;
-import io.prestosql.operator.scalar.ArrayExceptFunction;
-import io.prestosql.operator.scalar.ArrayFilterFunction;
-import io.prestosql.operator.scalar.ArrayFunctions;
-import io.prestosql.operator.scalar.ArrayIntersectFunction;
-import io.prestosql.operator.scalar.ArrayMaxFunction;
-import io.prestosql.operator.scalar.ArrayMinFunction;
-import io.prestosql.operator.scalar.ArrayNgramsFunction;
-import io.prestosql.operator.scalar.ArrayNoneMatchFunction;
-import io.prestosql.operator.scalar.ArrayPositionFunction;
-import io.prestosql.operator.scalar.ArrayRemoveFunction;
-import io.prestosql.operator.scalar.ArrayReverseFunction;
-import io.prestosql.operator.scalar.ArrayShuffleFunction;
-import io.prestosql.operator.scalar.ArraySliceFunction;
-import io.prestosql.operator.scalar.ArraySortComparatorFunction;
-import io.prestosql.operator.scalar.ArraySortFunction;
-import io.prestosql.operator.scalar.ArrayUnionFunction;
-import io.prestosql.operator.scalar.ArraysOverlapFunction;
-import io.prestosql.operator.scalar.BitwiseFunctions;
-import io.prestosql.operator.scalar.CharacterStringCasts;
-import io.prestosql.operator.scalar.ColorFunctions;
-import io.prestosql.operator.scalar.CombineHashFunction;
-import io.prestosql.operator.scalar.ConcatWsFunction;
-import io.prestosql.operator.scalar.DataSizeFunctions;
-import io.prestosql.operator.scalar.DateTimeFunctions;
-import io.prestosql.operator.scalar.EmptyMapConstructor;
-import io.prestosql.operator.scalar.FailureFunction;
-import io.prestosql.operator.scalar.GenericComparisonOperator;
-import io.prestosql.operator.scalar.GenericDistinctFromOperator;
-import io.prestosql.operator.scalar.GenericEqualOperator;
-import io.prestosql.operator.scalar.GenericHashCodeOperator;
-import io.prestosql.operator.scalar.GenericIndeterminateOperator;
-import io.prestosql.operator.scalar.GenericLessThanOperator;
-import io.prestosql.operator.scalar.GenericLessThanOrEqualOperator;
-import io.prestosql.operator.scalar.GenericXxHash64Operator;
-import io.prestosql.operator.scalar.HmacFunctions;
-import io.prestosql.operator.scalar.HyperLogLogFunctions;
-import io.prestosql.operator.scalar.JoniRegexpCasts;
-import io.prestosql.operator.scalar.JoniRegexpFunctions;
-import io.prestosql.operator.scalar.JoniRegexpReplaceLambdaFunction;
-import io.prestosql.operator.scalar.JsonFunctions;
-import io.prestosql.operator.scalar.JsonOperators;
-import io.prestosql.operator.scalar.LuhnCheckFunction;
-import io.prestosql.operator.scalar.MapCardinalityFunction;
-import io.prestosql.operator.scalar.MapConcatFunction;
-import io.prestosql.operator.scalar.MapEntriesFunction;
-import io.prestosql.operator.scalar.MapFromEntriesFunction;
-import io.prestosql.operator.scalar.MapKeys;
-import io.prestosql.operator.scalar.MapSubscriptOperator;
-import io.prestosql.operator.scalar.MapToMapCast;
-import io.prestosql.operator.scalar.MapTransformKeysFunction;
-import io.prestosql.operator.scalar.MapValues;
-import io.prestosql.operator.scalar.MathFunctions;
-import io.prestosql.operator.scalar.MultimapFromEntriesFunction;
-import io.prestosql.operator.scalar.QuantileDigestFunctions;
-import io.prestosql.operator.scalar.Re2JRegexpFunctions;
-import io.prestosql.operator.scalar.Re2JRegexpReplaceLambdaFunction;
-import io.prestosql.operator.scalar.RepeatFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.operator.scalar.SequenceFunction;
-import io.prestosql.operator.scalar.SessionFunctions;
-import io.prestosql.operator.scalar.SplitToMapFunction;
-import io.prestosql.operator.scalar.SplitToMultimapFunction;
-import io.prestosql.operator.scalar.StringFunctions;
-import io.prestosql.operator.scalar.TDigestFunctions;
-import io.prestosql.operator.scalar.TryFunction;
-import io.prestosql.operator.scalar.TypeOfFunction;
-import io.prestosql.operator.scalar.UrlFunctions;
-import io.prestosql.operator.scalar.VarbinaryFunctions;
-import io.prestosql.operator.scalar.WilsonInterval;
-import io.prestosql.operator.scalar.WordStemFunction;
-import io.prestosql.operator.scalar.time.LocalTimeFunction;
-import io.prestosql.operator.scalar.time.TimeFunctions;
-import io.prestosql.operator.scalar.time.TimeOperators;
-import io.prestosql.operator.scalar.time.TimeToTimeWithTimeZoneCast;
-import io.prestosql.operator.scalar.time.TimeToTimestampCast;
-import io.prestosql.operator.scalar.time.TimeToTimestampWithTimeZoneCast;
-import io.prestosql.operator.scalar.timestamp.DateAdd;
-import io.prestosql.operator.scalar.timestamp.DateDiff;
-import io.prestosql.operator.scalar.timestamp.DateFormat;
-import io.prestosql.operator.scalar.timestamp.DateToTimestampCast;
-import io.prestosql.operator.scalar.timestamp.DateTrunc;
-import io.prestosql.operator.scalar.timestamp.ExtractDay;
-import io.prestosql.operator.scalar.timestamp.ExtractDayOfWeek;
-import io.prestosql.operator.scalar.timestamp.ExtractDayOfYear;
-import io.prestosql.operator.scalar.timestamp.ExtractHour;
-import io.prestosql.operator.scalar.timestamp.ExtractMillisecond;
-import io.prestosql.operator.scalar.timestamp.ExtractMinute;
-import io.prestosql.operator.scalar.timestamp.ExtractMonth;
-import io.prestosql.operator.scalar.timestamp.ExtractQuarter;
-import io.prestosql.operator.scalar.timestamp.ExtractSecond;
-import io.prestosql.operator.scalar.timestamp.ExtractWeekOfYear;
-import io.prestosql.operator.scalar.timestamp.ExtractYear;
-import io.prestosql.operator.scalar.timestamp.ExtractYearOfWeek;
-import io.prestosql.operator.scalar.timestamp.FormatDateTime;
-import io.prestosql.operator.scalar.timestamp.HumanReadableSeconds;
-import io.prestosql.operator.scalar.timestamp.LastDayOfMonth;
-import io.prestosql.operator.scalar.timestamp.LocalTimestamp;
-import io.prestosql.operator.scalar.timestamp.SequenceIntervalDayToSecond;
-import io.prestosql.operator.scalar.timestamp.SequenceIntervalYearToMonth;
-import io.prestosql.operator.scalar.timestamp.TimeWithTimeZoneToTimestampCast;
-import io.prestosql.operator.scalar.timestamp.TimestampOperators;
-import io.prestosql.operator.scalar.timestamp.TimestampToDateCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToJsonCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToTimeCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToTimeWithTimeZoneCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToTimestampCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToTimestampWithTimeZoneCast;
-import io.prestosql.operator.scalar.timestamp.TimestampToVarcharCast;
-import io.prestosql.operator.scalar.timestamp.ToIso8601;
-import io.prestosql.operator.scalar.timestamp.ToUnixTime;
-import io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast;
-import io.prestosql.operator.scalar.timestamp.WithTimeZone;
-import io.prestosql.operator.scalar.timestamptz.AtTimeZone;
-import io.prestosql.operator.scalar.timestamptz.AtTimeZoneWithOffset;
-import io.prestosql.operator.scalar.timestamptz.CurrentTimestamp;
-import io.prestosql.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimeZoneCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWithTimeZoneCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
-import io.prestosql.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
-import io.prestosql.operator.scalar.timetz.CurrentTime;
-import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneOperators;
-import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToTimeCast;
-import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToTimeWithTimeZoneCast;
-import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToTimestampWithTimeZoneCast;
-import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToVarcharCast;
-import io.prestosql.operator.scalar.timetz.VarcharToTimeWithTimeZoneCast;
-import io.prestosql.operator.window.CumulativeDistributionFunction;
-import io.prestosql.operator.window.DenseRankFunction;
-import io.prestosql.operator.window.FirstValueFunction;
-import io.prestosql.operator.window.LagFunction;
-import io.prestosql.operator.window.LastValueFunction;
-import io.prestosql.operator.window.LeadFunction;
-import io.prestosql.operator.window.NTileFunction;
-import io.prestosql.operator.window.NthValueFunction;
-import io.prestosql.operator.window.PercentRankFunction;
-import io.prestosql.operator.window.RankFunction;
-import io.prestosql.operator.window.RowNumberFunction;
-import io.prestosql.operator.window.SqlWindowFunction;
-import io.prestosql.operator.window.WindowFunctionSupplier;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.DynamicFilters;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.type.BigintOperators;
-import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.type.BooleanOperators;
-import io.prestosql.type.DateOperators;
-import io.prestosql.type.DateTimeOperators;
-import io.prestosql.type.DecimalOperators;
-import io.prestosql.type.DoubleOperators;
-import io.prestosql.type.HyperLogLogOperators;
-import io.prestosql.type.IntegerOperators;
-import io.prestosql.type.IntervalDayTimeOperators;
-import io.prestosql.type.IntervalYearMonthOperators;
-import io.prestosql.type.IpAddressOperators;
-import io.prestosql.type.LikeFunctions;
-import io.prestosql.type.QuantileDigestOperators;
-import io.prestosql.type.RealOperators;
-import io.prestosql.type.SmallintOperators;
-import io.prestosql.type.TDigestOperators;
-import io.prestosql.type.TinyintOperators;
-import io.prestosql.type.UuidOperators;
-import io.prestosql.type.VarcharOperators;
-import io.prestosql.type.setdigest.BuildSetDigestAggregation;
-import io.prestosql.type.setdigest.MergeSetDigestAggregation;
-import io.prestosql.type.setdigest.SetDigestFunctions;
-import io.prestosql.type.setdigest.SetDigestOperators;
+import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
+import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
+import io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
+import io.trino.operator.aggregation.ApproximateLongPercentileAggregations;
+import io.trino.operator.aggregation.ApproximateLongPercentileArrayAggregations;
+import io.trino.operator.aggregation.ApproximateRealPercentileAggregations;
+import io.trino.operator.aggregation.ApproximateRealPercentileArrayAggregations;
+import io.trino.operator.aggregation.ApproximateSetAggregation;
+import io.trino.operator.aggregation.AverageAggregations;
+import io.trino.operator.aggregation.BigintApproximateMostFrequent;
+import io.trino.operator.aggregation.BitwiseAndAggregation;
+import io.trino.operator.aggregation.BitwiseOrAggregation;
+import io.trino.operator.aggregation.BooleanAndAggregation;
+import io.trino.operator.aggregation.BooleanOrAggregation;
+import io.trino.operator.aggregation.CentralMomentsAggregation;
+import io.trino.operator.aggregation.ChecksumAggregationFunction;
+import io.trino.operator.aggregation.CountAggregation;
+import io.trino.operator.aggregation.CountIfAggregation;
+import io.trino.operator.aggregation.DefaultApproximateCountDistinctAggregation;
+import io.trino.operator.aggregation.DoubleCorrelationAggregation;
+import io.trino.operator.aggregation.DoubleCovarianceAggregation;
+import io.trino.operator.aggregation.DoubleHistogramAggregation;
+import io.trino.operator.aggregation.DoubleRegressionAggregation;
+import io.trino.operator.aggregation.DoubleSumAggregation;
+import io.trino.operator.aggregation.GeometricMeanAggregations;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.aggregation.IntervalDayToSecondAverageAggregation;
+import io.trino.operator.aggregation.IntervalDayToSecondSumAggregation;
+import io.trino.operator.aggregation.IntervalYearToMonthAverageAggregation;
+import io.trino.operator.aggregation.IntervalYearToMonthSumAggregation;
+import io.trino.operator.aggregation.LongSumAggregation;
+import io.trino.operator.aggregation.MapAggregationFunction;
+import io.trino.operator.aggregation.MapUnionAggregation;
+import io.trino.operator.aggregation.MaxDataSizeForStats;
+import io.trino.operator.aggregation.MaxNAggregationFunction;
+import io.trino.operator.aggregation.MergeHyperLogLogAggregation;
+import io.trino.operator.aggregation.MergeQuantileDigestFunction;
+import io.trino.operator.aggregation.MergeTDigestAggregation;
+import io.trino.operator.aggregation.MinNAggregationFunction;
+import io.trino.operator.aggregation.RealCorrelationAggregation;
+import io.trino.operator.aggregation.RealCovarianceAggregation;
+import io.trino.operator.aggregation.RealGeometricMeanAggregations;
+import io.trino.operator.aggregation.RealHistogramAggregation;
+import io.trino.operator.aggregation.RealRegressionAggregation;
+import io.trino.operator.aggregation.RealSumAggregation;
+import io.trino.operator.aggregation.SumDataSizeForStats;
+import io.trino.operator.aggregation.TDigestAggregationFunction;
+import io.trino.operator.aggregation.VarcharApproximateMostFrequent;
+import io.trino.operator.aggregation.VarianceAggregation;
+import io.trino.operator.aggregation.histogram.Histogram;
+import io.trino.operator.aggregation.minmaxby.MaxByNAggregationFunction;
+import io.trino.operator.aggregation.minmaxby.MinByNAggregationFunction;
+import io.trino.operator.aggregation.multimapagg.MultimapAggregationFunction;
+import io.trino.operator.scalar.ArrayAllMatchFunction;
+import io.trino.operator.scalar.ArrayAnyMatchFunction;
+import io.trino.operator.scalar.ArrayCardinalityFunction;
+import io.trino.operator.scalar.ArrayCombinationsFunction;
+import io.trino.operator.scalar.ArrayContains;
+import io.trino.operator.scalar.ArrayContainsSequence;
+import io.trino.operator.scalar.ArrayDistinctFunction;
+import io.trino.operator.scalar.ArrayElementAtFunction;
+import io.trino.operator.scalar.ArrayExceptFunction;
+import io.trino.operator.scalar.ArrayFilterFunction;
+import io.trino.operator.scalar.ArrayFunctions;
+import io.trino.operator.scalar.ArrayIntersectFunction;
+import io.trino.operator.scalar.ArrayMaxFunction;
+import io.trino.operator.scalar.ArrayMinFunction;
+import io.trino.operator.scalar.ArrayNgramsFunction;
+import io.trino.operator.scalar.ArrayNoneMatchFunction;
+import io.trino.operator.scalar.ArrayPositionFunction;
+import io.trino.operator.scalar.ArrayRemoveFunction;
+import io.trino.operator.scalar.ArrayReverseFunction;
+import io.trino.operator.scalar.ArrayShuffleFunction;
+import io.trino.operator.scalar.ArraySliceFunction;
+import io.trino.operator.scalar.ArraySortComparatorFunction;
+import io.trino.operator.scalar.ArraySortFunction;
+import io.trino.operator.scalar.ArrayUnionFunction;
+import io.trino.operator.scalar.ArraysOverlapFunction;
+import io.trino.operator.scalar.BitwiseFunctions;
+import io.trino.operator.scalar.CharacterStringCasts;
+import io.trino.operator.scalar.ColorFunctions;
+import io.trino.operator.scalar.CombineHashFunction;
+import io.trino.operator.scalar.ConcatWsFunction;
+import io.trino.operator.scalar.DataSizeFunctions;
+import io.trino.operator.scalar.DateTimeFunctions;
+import io.trino.operator.scalar.EmptyMapConstructor;
+import io.trino.operator.scalar.FailureFunction;
+import io.trino.operator.scalar.GenericComparisonOperator;
+import io.trino.operator.scalar.GenericDistinctFromOperator;
+import io.trino.operator.scalar.GenericEqualOperator;
+import io.trino.operator.scalar.GenericHashCodeOperator;
+import io.trino.operator.scalar.GenericIndeterminateOperator;
+import io.trino.operator.scalar.GenericLessThanOperator;
+import io.trino.operator.scalar.GenericLessThanOrEqualOperator;
+import io.trino.operator.scalar.GenericXxHash64Operator;
+import io.trino.operator.scalar.HmacFunctions;
+import io.trino.operator.scalar.HyperLogLogFunctions;
+import io.trino.operator.scalar.JoniRegexpCasts;
+import io.trino.operator.scalar.JoniRegexpFunctions;
+import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
+import io.trino.operator.scalar.JsonFunctions;
+import io.trino.operator.scalar.JsonOperators;
+import io.trino.operator.scalar.LuhnCheckFunction;
+import io.trino.operator.scalar.MapCardinalityFunction;
+import io.trino.operator.scalar.MapConcatFunction;
+import io.trino.operator.scalar.MapEntriesFunction;
+import io.trino.operator.scalar.MapFromEntriesFunction;
+import io.trino.operator.scalar.MapKeys;
+import io.trino.operator.scalar.MapSubscriptOperator;
+import io.trino.operator.scalar.MapToMapCast;
+import io.trino.operator.scalar.MapTransformKeysFunction;
+import io.trino.operator.scalar.MapValues;
+import io.trino.operator.scalar.MathFunctions;
+import io.trino.operator.scalar.MultimapFromEntriesFunction;
+import io.trino.operator.scalar.QuantileDigestFunctions;
+import io.trino.operator.scalar.Re2JRegexpFunctions;
+import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
+import io.trino.operator.scalar.RepeatFunction;
+import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.SequenceFunction;
+import io.trino.operator.scalar.SessionFunctions;
+import io.trino.operator.scalar.SplitToMapFunction;
+import io.trino.operator.scalar.SplitToMultimapFunction;
+import io.trino.operator.scalar.StringFunctions;
+import io.trino.operator.scalar.TDigestFunctions;
+import io.trino.operator.scalar.TryFunction;
+import io.trino.operator.scalar.TypeOfFunction;
+import io.trino.operator.scalar.UrlFunctions;
+import io.trino.operator.scalar.VarbinaryFunctions;
+import io.trino.operator.scalar.WilsonInterval;
+import io.trino.operator.scalar.WordStemFunction;
+import io.trino.operator.scalar.time.LocalTimeFunction;
+import io.trino.operator.scalar.time.TimeFunctions;
+import io.trino.operator.scalar.time.TimeOperators;
+import io.trino.operator.scalar.time.TimeToTimeWithTimeZoneCast;
+import io.trino.operator.scalar.time.TimeToTimestampCast;
+import io.trino.operator.scalar.time.TimeToTimestampWithTimeZoneCast;
+import io.trino.operator.scalar.timestamp.DateAdd;
+import io.trino.operator.scalar.timestamp.DateDiff;
+import io.trino.operator.scalar.timestamp.DateFormat;
+import io.trino.operator.scalar.timestamp.DateToTimestampCast;
+import io.trino.operator.scalar.timestamp.DateTrunc;
+import io.trino.operator.scalar.timestamp.ExtractDay;
+import io.trino.operator.scalar.timestamp.ExtractDayOfWeek;
+import io.trino.operator.scalar.timestamp.ExtractDayOfYear;
+import io.trino.operator.scalar.timestamp.ExtractHour;
+import io.trino.operator.scalar.timestamp.ExtractMillisecond;
+import io.trino.operator.scalar.timestamp.ExtractMinute;
+import io.trino.operator.scalar.timestamp.ExtractMonth;
+import io.trino.operator.scalar.timestamp.ExtractQuarter;
+import io.trino.operator.scalar.timestamp.ExtractSecond;
+import io.trino.operator.scalar.timestamp.ExtractWeekOfYear;
+import io.trino.operator.scalar.timestamp.ExtractYear;
+import io.trino.operator.scalar.timestamp.ExtractYearOfWeek;
+import io.trino.operator.scalar.timestamp.FormatDateTime;
+import io.trino.operator.scalar.timestamp.HumanReadableSeconds;
+import io.trino.operator.scalar.timestamp.LastDayOfMonth;
+import io.trino.operator.scalar.timestamp.LocalTimestamp;
+import io.trino.operator.scalar.timestamp.SequenceIntervalDayToSecond;
+import io.trino.operator.scalar.timestamp.SequenceIntervalYearToMonth;
+import io.trino.operator.scalar.timestamp.TimeWithTimeZoneToTimestampCast;
+import io.trino.operator.scalar.timestamp.TimestampOperators;
+import io.trino.operator.scalar.timestamp.TimestampToDateCast;
+import io.trino.operator.scalar.timestamp.TimestampToJsonCast;
+import io.trino.operator.scalar.timestamp.TimestampToTimeCast;
+import io.trino.operator.scalar.timestamp.TimestampToTimeWithTimeZoneCast;
+import io.trino.operator.scalar.timestamp.TimestampToTimestampCast;
+import io.trino.operator.scalar.timestamp.TimestampToTimestampWithTimeZoneCast;
+import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
+import io.trino.operator.scalar.timestamp.ToIso8601;
+import io.trino.operator.scalar.timestamp.ToUnixTime;
+import io.trino.operator.scalar.timestamp.VarcharToTimestampCast;
+import io.trino.operator.scalar.timestamp.WithTimeZone;
+import io.trino.operator.scalar.timestamptz.AtTimeZone;
+import io.trino.operator.scalar.timestamptz.AtTimeZoneWithOffset;
+import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
+import io.trino.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeCast;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimeZoneCast;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampCast;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampWithTimeZoneCast;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCast;
+import io.trino.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
+import io.trino.operator.scalar.timetz.CurrentTime;
+import io.trino.operator.scalar.timetz.TimeWithTimeZoneOperators;
+import io.trino.operator.scalar.timetz.TimeWithTimeZoneToTimeCast;
+import io.trino.operator.scalar.timetz.TimeWithTimeZoneToTimeWithTimeZoneCast;
+import io.trino.operator.scalar.timetz.TimeWithTimeZoneToTimestampWithTimeZoneCast;
+import io.trino.operator.scalar.timetz.TimeWithTimeZoneToVarcharCast;
+import io.trino.operator.scalar.timetz.VarcharToTimeWithTimeZoneCast;
+import io.trino.operator.window.CumulativeDistributionFunction;
+import io.trino.operator.window.DenseRankFunction;
+import io.trino.operator.window.FirstValueFunction;
+import io.trino.operator.window.LagFunction;
+import io.trino.operator.window.LastValueFunction;
+import io.trino.operator.window.LeadFunction;
+import io.trino.operator.window.NTileFunction;
+import io.trino.operator.window.NthValueFunction;
+import io.trino.operator.window.PercentRankFunction;
+import io.trino.operator.window.RankFunction;
+import io.trino.operator.window.RowNumberFunction;
+import io.trino.operator.window.SqlWindowFunction;
+import io.trino.operator.window.WindowFunctionSupplier;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.DynamicFilters;
+import io.trino.sql.analyzer.FeaturesConfig;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.type.BigintOperators;
+import io.trino.type.BlockTypeOperators;
+import io.trino.type.BooleanOperators;
+import io.trino.type.DateOperators;
+import io.trino.type.DateTimeOperators;
+import io.trino.type.DecimalOperators;
+import io.trino.type.DoubleOperators;
+import io.trino.type.HyperLogLogOperators;
+import io.trino.type.IntegerOperators;
+import io.trino.type.IntervalDayTimeOperators;
+import io.trino.type.IntervalYearMonthOperators;
+import io.trino.type.IpAddressOperators;
+import io.trino.type.LikeFunctions;
+import io.trino.type.QuantileDigestOperators;
+import io.trino.type.RealOperators;
+import io.trino.type.SmallintOperators;
+import io.trino.type.TDigestOperators;
+import io.trino.type.TinyintOperators;
+import io.trino.type.UuidOperators;
+import io.trino.type.VarcharOperators;
+import io.trino.type.setdigest.BuildSetDigestAggregation;
+import io.trino.type.setdigest.MergeSetDigestAggregation;
+import io.trino.type.setdigest.SetDigestFunctions;
+import io.trino.type.setdigest.SetDigestOperators;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -270,97 +270,97 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
-import static io.prestosql.metadata.Signature.isOperatorName;
-import static io.prestosql.metadata.Signature.unmangleOperator;
-import static io.prestosql.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
-import static io.prestosql.operator.aggregation.CountColumn.COUNT_COLUMN;
-import static io.prestosql.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
-import static io.prestosql.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
-import static io.prestosql.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
-import static io.prestosql.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
-import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG;
-import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT;
-import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT_AND_ERROR;
-import static io.prestosql.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
-import static io.prestosql.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
-import static io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
-import static io.prestosql.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
-import static io.prestosql.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
-import static io.prestosql.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
-import static io.prestosql.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
-import static io.prestosql.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
-import static io.prestosql.operator.scalar.ArrayJoin.ARRAY_JOIN;
-import static io.prestosql.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
-import static io.prestosql.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION;
-import static io.prestosql.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
-import static io.prestosql.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
-import static io.prestosql.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
-import static io.prestosql.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
-import static io.prestosql.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_FUNCTION;
-import static io.prestosql.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
-import static io.prestosql.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
-import static io.prestosql.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
-import static io.prestosql.operator.scalar.ConcatWsFunction.CONCAT_WS;
-import static io.prestosql.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
-import static io.prestosql.operator.scalar.FormatFunction.FORMAT_FUNCTION;
-import static io.prestosql.operator.scalar.Greatest.GREATEST;
-import static io.prestosql.operator.scalar.IdentityCast.IDENTITY_CAST;
-import static io.prestosql.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY;
-import static io.prestosql.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP;
-import static io.prestosql.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW;
-import static io.prestosql.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
-import static io.prestosql.operator.scalar.JsonToMapCast.JSON_TO_MAP;
-import static io.prestosql.operator.scalar.JsonToRowCast.JSON_TO_ROW;
-import static io.prestosql.operator.scalar.Least.LEAST;
-import static io.prestosql.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
-import static io.prestosql.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
-import static io.prestosql.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
-import static io.prestosql.operator.scalar.MapToJsonCast.MAP_TO_JSON;
-import static io.prestosql.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
-import static io.prestosql.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
-import static io.prestosql.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
-import static io.prestosql.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
-import static io.prestosql.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
-import static io.prestosql.operator.scalar.RowToJsonCast.ROW_TO_JSON;
-import static io.prestosql.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
-import static io.prestosql.operator.scalar.TryCastFunction.TRY_CAST;
-import static io.prestosql.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
-import static io.prestosql.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
-import static io.prestosql.operator.window.AggregateWindowFunction.supplier;
-import static io.prestosql.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
-import static io.prestosql.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
-import static io.prestosql.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
-import static io.prestosql.type.DecimalCasts.DECIMAL_TO_INTEGER_CAST;
-import static io.prestosql.type.DecimalCasts.DECIMAL_TO_JSON_CAST;
-import static io.prestosql.type.DecimalCasts.DECIMAL_TO_REAL_CAST;
-import static io.prestosql.type.DecimalCasts.DECIMAL_TO_SMALLINT_CAST;
-import static io.prestosql.type.DecimalCasts.DECIMAL_TO_TINYINT_CAST;
-import static io.prestosql.type.DecimalCasts.DECIMAL_TO_VARCHAR_CAST;
-import static io.prestosql.type.DecimalCasts.DOUBLE_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalCasts.INTEGER_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalCasts.JSON_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalCasts.REAL_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalCasts.SMALLINT_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalCasts.TINYINT_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalOperators.DECIMAL_ADD_OPERATOR;
-import static io.prestosql.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
-import static io.prestosql.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
-import static io.prestosql.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATOR;
-import static io.prestosql.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATOR;
-import static io.prestosql.type.DecimalSaturatedFloorCasts.BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
-import static io.prestosql.type.DecimalSaturatedFloorCasts.DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST;
-import static io.prestosql.type.DecimalSaturatedFloorCasts.DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST;
-import static io.prestosql.type.DecimalSaturatedFloorCasts.DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST;
-import static io.prestosql.type.DecimalSaturatedFloorCasts.DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST;
-import static io.prestosql.type.DecimalSaturatedFloorCasts.DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST;
-import static io.prestosql.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST;
-import static io.prestosql.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
-import static io.prestosql.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
-import static io.prestosql.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
+import static io.trino.metadata.FunctionKind.AGGREGATE;
+import static io.trino.metadata.Signature.isOperatorName;
+import static io.trino.metadata.Signature.unmangleOperator;
+import static io.trino.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
+import static io.trino.operator.aggregation.CountColumn.COUNT_COLUMN;
+import static io.trino.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
+import static io.trino.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
+import static io.trino.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
+import static io.trino.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
+import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG;
+import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT;
+import static io.trino.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT_AND_ERROR;
+import static io.trino.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
+import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
+import static io.trino.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
+import static io.trino.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
+import static io.trino.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
+import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
+import static io.trino.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
+import static io.trino.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
+import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN;
+import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
+import static io.trino.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION;
+import static io.trino.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
+import static io.trino.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
+import static io.trino.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
+import static io.trino.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
+import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_FUNCTION;
+import static io.trino.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
+import static io.trino.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
+import static io.trino.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
+import static io.trino.operator.scalar.ConcatWsFunction.CONCAT_WS;
+import static io.trino.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
+import static io.trino.operator.scalar.FormatFunction.FORMAT_FUNCTION;
+import static io.trino.operator.scalar.Greatest.GREATEST;
+import static io.trino.operator.scalar.IdentityCast.IDENTITY_CAST;
+import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY;
+import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP;
+import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW;
+import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
+import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
+import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
+import static io.trino.operator.scalar.Least.LEAST;
+import static io.trino.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
+import static io.trino.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
+import static io.trino.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
+import static io.trino.operator.scalar.MapToJsonCast.MAP_TO_JSON;
+import static io.trino.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
+import static io.trino.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
+import static io.trino.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
+import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
+import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
+import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
+import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
+import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
+import static io.trino.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
+import static io.trino.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
+import static io.trino.operator.window.AggregateWindowFunction.supplier;
+import static io.trino.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_BOOLEAN_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_DOUBLE_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_INTEGER_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_JSON_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_REAL_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_SMALLINT_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_TINYINT_CAST;
+import static io.trino.type.DecimalCasts.DECIMAL_TO_VARCHAR_CAST;
+import static io.trino.type.DecimalCasts.DOUBLE_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.INTEGER_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.JSON_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.REAL_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.SMALLINT_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.TINYINT_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
+import static io.trino.type.DecimalOperators.DECIMAL_ADD_OPERATOR;
+import static io.trino.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
+import static io.trino.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
+import static io.trino.type.DecimalOperators.DECIMAL_MULTIPLY_OPERATOR;
+import static io.trino.type.DecimalOperators.DECIMAL_SUBTRACT_OPERATOR;
+import static io.trino.type.DecimalSaturatedFloorCasts.BIGINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
+import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_BIGINT_SATURATED_FLOOR_CAST;
+import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST;
+import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST;
+import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST;
+import static io.trino.type.DecimalSaturatedFloorCasts.DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST;
+import static io.trino.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST;
+import static io.trino.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
+import static io.trino.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
+import static io.trino.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
@@ -663,28 +663,28 @@ public class FunctionRegistry
                 .scalar(TimestampWithTimeZoneOperators.TimestampMinusIntervalYearToMonth.class)
                 .scalar(TimestampWithTimeZoneOperators.TimestampMinusTimestamp.class)
                 .scalar(CurrentTimestamp.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractYear.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractQuarter.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMonth.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDay.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractHour.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMinute.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractSecond.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractMillisecond.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDayOfYear.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractDayOfWeek.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractWeekOfYear.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ExtractYearOfWeek.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ToIso8601.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.DateAdd.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.DateTrunc.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.TimeZoneHour.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.TimeZoneMinute.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.DateDiff.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.DateFormat.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.FormatDateTime.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.ToUnixTime.class)
-                .scalar(io.prestosql.operator.scalar.timestamptz.LastDayOfMonth.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractYear.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractQuarter.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractMonth.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractDay.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractHour.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractMinute.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractSecond.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractMillisecond.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractDayOfYear.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractDayOfWeek.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractWeekOfYear.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ExtractYearOfWeek.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ToIso8601.class)
+                .scalar(io.trino.operator.scalar.timestamptz.DateAdd.class)
+                .scalar(io.trino.operator.scalar.timestamptz.DateTrunc.class)
+                .scalar(io.trino.operator.scalar.timestamptz.TimeZoneHour.class)
+                .scalar(io.trino.operator.scalar.timestamptz.TimeZoneMinute.class)
+                .scalar(io.trino.operator.scalar.timestamptz.DateDiff.class)
+                .scalar(io.trino.operator.scalar.timestamptz.DateFormat.class)
+                .scalar(io.trino.operator.scalar.timestamptz.FormatDateTime.class)
+                .scalar(io.trino.operator.scalar.timestamptz.ToUnixTime.class)
+                .scalar(io.trino.operator.scalar.timestamptz.LastDayOfMonth.class)
                 .scalar(AtTimeZone.class)
                 .scalar(AtTimeZoneWithOffset.class)
                 .scalar(DateToTimestampWithTimeZoneCast.class)
@@ -713,17 +713,17 @@ public class FunctionRegistry
                 .scalar(TimeWithTimeZoneToTimeWithTimeZoneCast.class)
                 .scalar(TimeWithTimeZoneToVarcharCast.class)
                 .scalar(VarcharToTimeWithTimeZoneCast.class)
-                .scalar(io.prestosql.operator.scalar.timetz.DateDiff.class)
-                .scalar(io.prestosql.operator.scalar.timetz.DateAdd.class)
-                .scalar(io.prestosql.operator.scalar.timetz.ExtractHour.class)
-                .scalar(io.prestosql.operator.scalar.timetz.ExtractMinute.class)
-                .scalar(io.prestosql.operator.scalar.timetz.ExtractSecond.class)
-                .scalar(io.prestosql.operator.scalar.timetz.ExtractMillisecond.class)
-                .scalar(io.prestosql.operator.scalar.timetz.TimeZoneHour.class)
-                .scalar(io.prestosql.operator.scalar.timetz.TimeZoneMinute.class)
-                .scalar(io.prestosql.operator.scalar.timetz.DateTrunc.class)
-                .scalar(io.prestosql.operator.scalar.timetz.AtTimeZone.class)
-                .scalar(io.prestosql.operator.scalar.timetz.AtTimeZoneWithOffset.class)
+                .scalar(io.trino.operator.scalar.timetz.DateDiff.class)
+                .scalar(io.trino.operator.scalar.timetz.DateAdd.class)
+                .scalar(io.trino.operator.scalar.timetz.ExtractHour.class)
+                .scalar(io.trino.operator.scalar.timetz.ExtractMinute.class)
+                .scalar(io.trino.operator.scalar.timetz.ExtractSecond.class)
+                .scalar(io.trino.operator.scalar.timetz.ExtractMillisecond.class)
+                .scalar(io.trino.operator.scalar.timetz.TimeZoneHour.class)
+                .scalar(io.trino.operator.scalar.timetz.TimeZoneMinute.class)
+                .scalar(io.trino.operator.scalar.timetz.DateTrunc.class)
+                .scalar(io.trino.operator.scalar.timetz.AtTimeZone.class)
+                .scalar(io.trino.operator.scalar.timetz.AtTimeZoneWithOffset.class)
                 .scalar(CurrentTime.class);
 
         switch (featuresConfig.getRegexLibrary()) {

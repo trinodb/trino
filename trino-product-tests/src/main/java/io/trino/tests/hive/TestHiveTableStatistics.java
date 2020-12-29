@@ -36,10 +36,10 @@ import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTa
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
-import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.trino.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
+import static io.trino.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
+import static io.trino.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestHiveTableStatistics

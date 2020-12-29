@@ -13,16 +13,16 @@
  */
 package io.trino.elasticsearch.decoders;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static io.prestosql.elasticsearch.ScanQueryPageSource.getField;
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.elasticsearch.ScanQueryPageSource.getField;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

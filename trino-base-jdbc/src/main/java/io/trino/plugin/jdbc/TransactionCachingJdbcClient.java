@@ -16,10 +16,10 @@ package io.trino.plugin.jdbc;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.airlift.units.Duration;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.statistics.TableStatistics;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.TableStatistics;
 
 import java.util.Objects;
 import java.util.Set;

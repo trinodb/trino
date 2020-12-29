@@ -14,23 +14,23 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.FixedSplitSource;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedSplitSource;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 
 import javax.inject.Inject;
 
-import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getIcebergTable;
+import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTable;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager

@@ -18,26 +18,26 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.MapBinder;
-import io.prestosql.tests.product.launcher.env.common.Hadoop;
-import io.prestosql.tests.product.launcher.env.common.HadoopKerberos;
-import io.prestosql.tests.product.launcher.env.common.HadoopKerberosKms;
-import io.prestosql.tests.product.launcher.env.common.Kafka;
-import io.prestosql.tests.product.launcher.env.common.Standard;
-import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
+import io.trino.tests.product.launcher.env.common.Hadoop;
+import io.trino.tests.product.launcher.env.common.HadoopKerberos;
+import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
+import io.trino.tests.product.launcher.env.common.Kafka;
+import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
+import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
 public final class EnvironmentModule
         implements Module
 {
-    public static final String BASE_PACKAGE = "io.prestosql.tests.product.launcher.env.environment";
-    public static final String BASE_CONFIG_PACKAGE = "io.prestosql.tests.product.launcher.env.configs";
+    public static final String BASE_PACKAGE = "io.trino.tests.product.launcher.env.environment";
+    public static final String BASE_CONFIG_PACKAGE = "io.trino.tests.product.launcher.env.configs";
     private final EnvironmentOptions environmentOptions;
     private final Module additionalEnvironments;
 

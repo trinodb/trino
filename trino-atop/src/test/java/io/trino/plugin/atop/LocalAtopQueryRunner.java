@@ -14,15 +14,15 @@
 package io.trino.plugin.atop;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.Session;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.testing.LocalQueryRunner;
 
 import java.util.Map;
 import java.util.TimeZone;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class LocalAtopQueryRunner
 {

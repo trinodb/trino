@@ -14,23 +14,23 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.testing.AbstractTestQueries;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingSession.TESTING_CATALOG;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestLocalQueries
         extends AbstractTestQueries

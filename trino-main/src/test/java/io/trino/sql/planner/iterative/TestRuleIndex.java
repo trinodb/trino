@@ -15,19 +15,19 @@
 package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.BooleanLiteral;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.BooleanLiteral;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
+import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 

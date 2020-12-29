@@ -14,9 +14,9 @@
 package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
-import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static io.trino.operator.Operator.NOT_BLOCKED;
 
 public interface LocalExchanger
 {

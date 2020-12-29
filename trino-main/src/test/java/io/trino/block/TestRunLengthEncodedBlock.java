@@ -14,15 +14,15 @@
 package io.trino.block;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.ByteArrayBlockBuilder;
-import io.prestosql.spi.block.IntArrayBlockBuilder;
-import io.prestosql.spi.block.LongArrayBlockBuilder;
-import io.prestosql.spi.block.RunLengthBlockEncoding;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.block.ShortArrayBlockBuilder;
-import io.prestosql.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ByteArrayBlockBuilder;
+import io.trino.spi.block.IntArrayBlockBuilder;
+import io.trino.spi.block.LongArrayBlockBuilder;
+import io.trino.spi.block.RunLengthBlockEncoding;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ShortArrayBlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

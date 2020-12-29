@@ -13,23 +13,23 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 
 import java.time.Instant;
 import java.time.ZoneId;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.prestosql.type.DateTimes.rescale;
-import static io.prestosql.type.DateTimes.round;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.TimeType.MAX_PRECISION;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
+import static io.trino.type.DateTimes.rescale;
+import static io.trino.type.DateTimes.round;
 
 @ScalarOperator(CAST)
 public final class TimestampWithTimeZoneToTimeCast

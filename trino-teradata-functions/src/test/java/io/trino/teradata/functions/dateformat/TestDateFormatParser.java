@@ -13,8 +13,8 @@
  */
 package io.trino.teradata.functions.dateformat;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.teradata.functions.DateFormat;
+import io.trino.spi.PrestoException;
+import io.trino.teradata.functions.DateFormat;
 import org.antlr.v4.runtime.Token;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;

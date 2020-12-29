@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.base.security;
 
-import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.SystemAccessControl;
-import io.prestosql.spi.security.SystemAccessControlFactory;
-import io.prestosql.spi.security.SystemSecurityContext;
+import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.SystemAccessControl;
+import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.security.SystemSecurityContext;
 
 import java.security.Principal;
 import java.util.Map;

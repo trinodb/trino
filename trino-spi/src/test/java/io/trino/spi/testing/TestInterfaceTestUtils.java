@@ -26,8 +26,8 @@ public class TestInterfaceTestUtils
     {
         assertThatThrownBy(() -> InterfaceTestUtils.assertAllMethodsOverridden(Interface.class, Implementation.class))
                 .isInstanceOf(AssertionError.class)
-                .hasMessage("io.prestosql.spi.testing.TestInterfaceTestUtils$Implementation does not override " +
-                        "[public default void io.prestosql.spi.testing.TestInterfaceTestUtils$Interface.foo(java.lang.String)]");
+                .hasMessage("io.trino.spi.testing.TestInterfaceTestUtils$Implementation does not override " +
+                        "[public default void io.trino.spi.testing.TestInterfaceTestUtils$Interface.foo(java.lang.String)]");
     }
 
     private interface Interface

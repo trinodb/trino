@@ -18,7 +18,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.memory.context.LocalMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

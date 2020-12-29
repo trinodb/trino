@@ -14,13 +14,13 @@
 package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.project.InputChannels;
-import io.prestosql.operator.project.PageFilter;
-import io.prestosql.operator.project.SelectedPositions;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.trino.operator.project.InputChannels;
+import io.trino.operator.project.PageFilter;
+import io.trino.operator.project.SelectedPositions;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.util.List;
 

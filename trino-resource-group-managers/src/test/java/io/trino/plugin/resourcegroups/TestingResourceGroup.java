@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.resourcegroups;
 
-import io.prestosql.spi.resourcegroups.ResourceGroup;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.resourcegroups.SchedulingPolicy;
+import io.trino.spi.resourcegroups.ResourceGroup;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.SchedulingPolicy;
 
 import java.time.Duration;
 

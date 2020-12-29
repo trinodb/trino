@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.CREATE_TABLE;
+import static io.trino.tests.TestGroups.CREATE_TABLE;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)

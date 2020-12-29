@@ -14,21 +14,21 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.InMemoryRecordSet;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeUtils;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeUtils;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
@@ -53,11 +53,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
-import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
-import static io.prestosql.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
+import static io.trino.plugin.iceberg.TypeConverter.toPrestoType;
+import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -69,8 +69,8 @@ public class PartitionTable
     private final Optional<Long> snapshotId;
     private final Map<Integer, Type.PrimitiveType> idToTypeMapping;
     private final List<Types.NestedField> nonPartitionPrimitiveColumns;
-    private final List<io.prestosql.spi.type.Type> partitionColumnTypes;
-    private final List<io.prestosql.spi.type.Type> resultTypes;
+    private final List<io.trino.spi.type.Type> partitionColumnTypes;
+    private final List<io.trino.spi.type.Type> resultTypes;
     private final List<RowType> columnMetricTypes;
     private final ConnectorTableMetadata connectorTableMetadata;
 

@@ -15,15 +15,15 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
-import io.prestosql.Session;
-import io.prestosql.benchmark.BenchmarkSuite;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.testing.TestingHiveConnectorFactory;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.spi.security.PrincipalType;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.Session;
+import io.trino.benchmark.BenchmarkSuite;
+import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.testing.TestingHiveConnectorFactory;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.security.PrincipalType;
+import io.trino.testing.LocalQueryRunner;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,9 +31,9 @@ import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveBenchmarkQueryRunner

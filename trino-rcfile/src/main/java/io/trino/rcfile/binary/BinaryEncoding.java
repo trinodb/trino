@@ -15,15 +15,15 @@ package io.trino.rcfile.binary;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.rcfile.ColumnData;
-import io.prestosql.rcfile.EncodeOutput;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.rcfile.ColumnData;
+import io.trino.rcfile.EncodeOutput;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.rcfile.RcFileDecoderUtils.decodeVIntSize;
-import static io.prestosql.rcfile.RcFileDecoderUtils.readVInt;
-import static io.prestosql.rcfile.RcFileDecoderUtils.writeVInt;
+import static io.trino.rcfile.RcFileDecoderUtils.decodeVIntSize;
+import static io.trino.rcfile.RcFileDecoderUtils.readVInt;
+import static io.trino.rcfile.RcFileDecoderUtils.writeVInt;
 import static java.lang.Math.toIntExact;
 
 public class BinaryEncoding

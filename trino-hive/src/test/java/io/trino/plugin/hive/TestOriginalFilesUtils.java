@@ -14,8 +14,8 @@
 package io.trino.plugin.hive;
 
 import com.google.common.io.Resources;
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.plugin.hive.orc.OriginalFilesUtils;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.plugin.hive.orc.OriginalFilesUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
@@ -26,9 +26,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.prestosql.plugin.hive.AcidInfo.OriginalFileInfo;
-import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.plugin.hive.AcidInfo.OriginalFileInfo;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 
 public class TestOriginalFilesUtils

@@ -13,18 +13,18 @@
  */
 package io.trino.plugin.raptor.legacy;
 
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.plugin.raptor.legacy.storage.StorageManager;
-import io.prestosql.plugin.raptor.legacy.util.ConcatPageSource;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.Type;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.plugin.raptor.legacy.storage.StorageManager;
+import io.trino.plugin.raptor.legacy.util.ConcatPageSource;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
@@ -34,11 +34,11 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
-import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.getReaderMaxMergeDistance;
-import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.getReaderMaxReadSize;
-import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.getReaderStreamBufferSize;
-import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.getReaderTinyStripeThreshold;
-import static io.prestosql.plugin.raptor.legacy.RaptorSessionProperties.isReaderLazyReadSmallRanges;
+import static io.trino.plugin.raptor.legacy.RaptorSessionProperties.getReaderMaxMergeDistance;
+import static io.trino.plugin.raptor.legacy.RaptorSessionProperties.getReaderMaxReadSize;
+import static io.trino.plugin.raptor.legacy.RaptorSessionProperties.getReaderStreamBufferSize;
+import static io.trino.plugin.raptor.legacy.RaptorSessionProperties.getReaderTinyStripeThreshold;
+import static io.trino.plugin.raptor.legacy.RaptorSessionProperties.isReaderLazyReadSmallRanges;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

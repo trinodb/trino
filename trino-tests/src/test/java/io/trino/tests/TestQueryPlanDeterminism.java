@@ -14,16 +14,16 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.spi.type.Type;
-import io.prestosql.testing.AbstractTestQueries;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.PlanDeterminismChecker;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.TestingAccessControlManager.TestingPrivilege;
+import io.trino.Session;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.type.Type;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.PlanDeterminismChecker;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -32,9 +32,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingSession.TESTING_CATALOG;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestQueryPlanDeterminism
         extends AbstractTestQueries

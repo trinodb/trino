@@ -14,7 +14,7 @@
 
 package io.trino.testing.statistics;
 
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
 import java.util.ArrayList;
@@ -23,14 +23,14 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.testing.statistics.MetricComparator.getMetricComparisons;
-import static io.prestosql.testing.statistics.MetricComparison.Result.MATCH;
-import static io.prestosql.testing.statistics.MetricComparison.Result.NO_ESTIMATE;
-import static io.prestosql.testing.statistics.MetricComparisonStrategies.noError;
-import static io.prestosql.testing.statistics.Metrics.distinctValuesCount;
-import static io.prestosql.testing.statistics.Metrics.highValue;
-import static io.prestosql.testing.statistics.Metrics.lowValue;
-import static io.prestosql.testing.statistics.Metrics.nullsFraction;
+import static io.trino.testing.statistics.MetricComparator.getMetricComparisons;
+import static io.trino.testing.statistics.MetricComparison.Result.MATCH;
+import static io.trino.testing.statistics.MetricComparison.Result.NO_ESTIMATE;
+import static io.trino.testing.statistics.MetricComparisonStrategies.noError;
+import static io.trino.testing.statistics.Metrics.distinctValuesCount;
+import static io.trino.testing.statistics.Metrics.highValue;
+import static io.trino.testing.statistics.Metrics.lowValue;
+import static io.trino.testing.statistics.Metrics.nullsFraction;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertSame;
 

@@ -14,12 +14,12 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static io.prestosql.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.Signature.mangleOperatorName;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;

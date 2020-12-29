@@ -15,22 +15,22 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.prestosql.operator.aggregation.state.StateCompiler;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateFactory;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.RealType;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.operator.aggregation.state.StateCompiler;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
-import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.trino.util.Reflection.methodHandle;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAccumulatorCompiler

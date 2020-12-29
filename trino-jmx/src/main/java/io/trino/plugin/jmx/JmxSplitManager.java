@@ -15,18 +15,18 @@ package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.FixedSplitSource;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.NodeManager;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -35,9 +35,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.jmx.JmxMetadata.NODE_COLUMN_NAME;
-import static io.prestosql.spi.predicate.TupleDomain.fromFixedValues;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.plugin.jmx.JmxMetadata.NODE_COLUMN_NAME;
+import static io.trino.spi.predicate.TupleDomain.fromFixedValues;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

@@ -15,7 +15,7 @@ package io.trino.operator;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.spi.connector.UpdatablePageSource;
+import io.trino.spi.connector.UpdatablePageSource;
 
 import java.util.Optional;
 import java.util.function.Supplier;

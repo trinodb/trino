@@ -15,18 +15,18 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.metadata.AbstractMockMetadata;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.connector.SampleType;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.SampleNode.Type;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.Session;
+import io.trino.metadata.AbstractMockMetadata;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.SampleType;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.SampleNode.Type;
+import io.trino.sql.planner.plan.TableScanNode;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 
 public class TestPushSampleIntoTableScan
         extends BaseRuleTest

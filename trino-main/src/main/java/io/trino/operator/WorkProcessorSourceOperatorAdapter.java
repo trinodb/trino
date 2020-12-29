@@ -15,21 +15,21 @@ package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.Session;
-import io.prestosql.memory.context.MemoryTrackingContext;
-import io.prestosql.metadata.Split;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.UpdatablePageSource;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.Session;
+import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.metadata.Split;
+import io.trino.spi.Page;
+import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.prestosql.operator.WorkProcessor.ProcessState.blocked;
-import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
-import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
+import static io.trino.operator.WorkProcessor.ProcessState.blocked;
+import static io.trino.operator.WorkProcessor.ProcessState.finished;
+import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

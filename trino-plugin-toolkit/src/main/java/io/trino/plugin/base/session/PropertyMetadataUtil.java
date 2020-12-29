@@ -15,11 +15,11 @@ package io.trino.plugin.base.session;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.session.PropertyMetadata;
 
 import java.util.function.Consumer;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class PropertyMetadataUtil
 {

@@ -13,37 +13,37 @@
  */
 package io.trino.sql.rewrite;
 
-import io.prestosql.Session;
-import io.prestosql.cost.StatsCalculator;
-import io.prestosql.execution.QueryPreparer;
-import io.prestosql.execution.QueryPreparer.PreparedQuery;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.security.GroupProvider;
-import io.prestosql.sql.analyzer.QueryExplainer;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.AstVisitor;
-import io.prestosql.sql.tree.Explain;
-import io.prestosql.sql.tree.ExplainFormat;
-import io.prestosql.sql.tree.ExplainOption;
-import io.prestosql.sql.tree.ExplainType;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.Statement;
+import io.trino.Session;
+import io.trino.cost.StatsCalculator;
+import io.trino.execution.QueryPreparer;
+import io.trino.execution.QueryPreparer.PreparedQuery;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.spi.security.GroupProvider;
+import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.ExplainFormat;
+import io.trino.sql.tree.ExplainOption;
+import io.trino.sql.tree.ExplainType;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.sql.QueryUtil.singleValueQuery;
-import static io.prestosql.sql.tree.ExplainFormat.Type.JSON;
-import static io.prestosql.sql.tree.ExplainFormat.Type.TEXT;
-import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
-import static io.prestosql.sql.tree.ExplainType.Type.IO;
-import static io.prestosql.sql.tree.ExplainType.Type.VALIDATE;
+import static io.trino.sql.QueryUtil.singleValueQuery;
+import static io.trino.sql.tree.ExplainFormat.Type.JSON;
+import static io.trino.sql.tree.ExplainFormat.Type.TEXT;
+import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
+import static io.trino.sql.tree.ExplainType.Type.IO;
+import static io.trino.sql.tree.ExplainType.Type.VALIDATE;
 import static java.util.Objects.requireNonNull;
 
 final class ExplainRewrite

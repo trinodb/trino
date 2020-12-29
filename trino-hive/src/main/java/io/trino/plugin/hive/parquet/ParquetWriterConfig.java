@@ -17,7 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
-import io.prestosql.parquet.writer.ParquetWriterOptions;
+import io.trino.parquet.writer.ParquetWriterOptions;
 import org.apache.parquet.hadoop.ParquetWriter;
 
 public class ParquetWriterConfig

@@ -19,8 +19,8 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
-import io.prestosql.rcfile.binary.BinaryRcFileEncoding;
-import io.prestosql.spi.block.Block;
+import io.trino.rcfile.binary.BinaryRcFileEncoding;
+import io.trino.spi.block.Block;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
@@ -30,7 +30,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 

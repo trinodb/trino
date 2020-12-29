@@ -23,7 +23,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import io.prestosql.spi.NodeManager;
+import io.trino.spi.NodeManager;
 
 import java.util.Optional;
 

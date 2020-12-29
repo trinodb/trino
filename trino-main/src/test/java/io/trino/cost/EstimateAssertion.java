@@ -13,7 +13,7 @@
  */
 package io.trino.cost;
 
-import io.prestosql.util.MoreMath;
+import io.trino.util.MoreMath;
 
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;

@@ -13,10 +13,10 @@
  */
 package io.trino.tests;
 
-import io.prestosql.execution.DynamicFilterConfig;
-import io.prestosql.testing.AbstractTestJoinQueries;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.execution.DynamicFilterConfig;
+import io.trino.testing.AbstractTestJoinQueries;
+import io.trino.testing.QueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Verify.verify;

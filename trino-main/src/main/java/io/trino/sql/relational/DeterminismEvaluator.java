@@ -13,9 +13,9 @@
  */
 package io.trino.sql.relational;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.PrestoException;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.PrestoException;
 
 import static java.util.Objects.requireNonNull;
 

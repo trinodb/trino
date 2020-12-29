@@ -13,17 +13,17 @@
  */
 package io.trino.plugin.blackhole;
 
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.BucketFunction;
-import io.prestosql.spi.connector.ConnectorBucketNodeMap;
-import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
+import io.trino.spi.NodeManager;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.BucketFunction;
+import io.trino.spi.connector.ConnectorBucketNodeMap;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -31,11 +31,11 @@ import java.util.function.ToIntFunction;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.util.Objects.requireNonNull;
 
 public class BlackHoleNodePartitioningProvider

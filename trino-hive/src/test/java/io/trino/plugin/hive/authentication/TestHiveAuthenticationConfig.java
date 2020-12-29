@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.authentication;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
+import io.trino.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
 import org.testng.annotations.Test;
 
 import java.util.Map;

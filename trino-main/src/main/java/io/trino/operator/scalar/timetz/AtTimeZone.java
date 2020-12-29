@@ -14,25 +14,25 @@
 package io.trino.operator.scalar.timetz;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimeWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.TimeZoneNotSupportedException;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimeZoneNotSupportedException;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackOffsetMinutes;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.DateTimes.NANOSECONDS_PER_DAY;
-import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MINUTE;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MINUTE;
-import static io.prestosql.type.DateTimes.getOffsetMinutes;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.type.DateTimes.NANOSECONDS_PER_DAY;
+import static io.trino.type.DateTimes.NANOSECONDS_PER_MINUTE;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_MINUTE;
+import static io.trino.type.DateTimes.getOffsetMinutes;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 

@@ -13,9 +13,9 @@
  */
 package io.trino.server;
 
-import io.prestosql.execution.resourcegroups.ResourceGroupManager;
-import io.prestosql.server.security.ResourceSecurity;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.resourcegroups.ResourceGroupId;
 
 import javax.inject.Inject;
 import javax.ws.rs.Encoded;
@@ -32,7 +32,7 @@ import java.util.Arrays;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
+import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;

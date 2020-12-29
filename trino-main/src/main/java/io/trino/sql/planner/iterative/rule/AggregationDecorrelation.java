@@ -14,10 +14,10 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Map;
 import java.util.Optional;

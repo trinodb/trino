@@ -13,17 +13,17 @@
  */
 package io.trino.spi.block;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.security.ConnectorIdentity;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.TimeZoneKey;
 
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession

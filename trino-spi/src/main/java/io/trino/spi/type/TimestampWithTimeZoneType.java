@@ -13,9 +13,9 @@
  */
 package io.trino.spi.type;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
 
 public abstract class TimestampWithTimeZoneType

@@ -14,14 +14,14 @@
 package io.trino.rcfile;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
- * Copy of io.prestosql.execution.buffer.PageSplitterUtil
+ * Copy of io.trino.execution.buffer.PageSplitterUtil
  */
 public final class PageSplitterUtil
 {

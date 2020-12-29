@@ -14,23 +14,23 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.JoinNode;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
-import static io.prestosql.sql.planner.plan.TopNNode.Step.FINAL;
-import static io.prestosql.sql.planner.plan.TopNNode.Step.PARTIAL;
-import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
-import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
+import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
+import static io.trino.sql.planner.plan.TopNNode.Step.PARTIAL;
+import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 
 public class TestPushTopNThroughOuterJoin
         extends BaseRuleTest

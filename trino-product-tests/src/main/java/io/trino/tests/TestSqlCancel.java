@@ -45,7 +45,7 @@ import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.CANCEL_QUERY;
+import static io.trino.tests.TestGroups.CANCEL_QUERY;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;

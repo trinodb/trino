@@ -21,18 +21,18 @@ import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import io.prestosql.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.prestosql.tempto.query.QueryResult;
-import io.prestosql.testng.services.Flaky;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
-import static io.prestosql.tests.TestGroups.PRESTO_JDBC;
-import static io.prestosql.tests.TestGroups.SMOKE;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.TestGroups.HIVE_PARTITIONING;
+import static io.trino.tests.TestGroups.PRESTO_JDBC;
+import static io.trino.tests.TestGroups.SMOKE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -111,7 +111,7 @@ public class TestSyncPartitionMetadata
         String tableName = "test_sync_partition_mixed_case";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
         String tableLocation = tableLocation(tableName);
-        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/hive/data/single_int_column/data.orc");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=h/col_Y=11", dataSource);
         hdfsClient.createDirectory(tableLocation + "/COL_X=UPPER/COL_Y=12");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=UPPER/COL_Y=12", dataSource);
@@ -127,7 +127,7 @@ public class TestSyncPartitionMetadata
     {
         String tableName = "test_sync_partition_mixed_case";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
-        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/hive/data/single_int_column/data.orc");
         // this conflicts with a partition that already exits in the metastore
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation(tableName) + "/COL_X=a/cOl_y=1", dataSource);
 
@@ -153,7 +153,7 @@ public class TestSyncPartitionMetadata
         hdfsClient.delete(tableLocation + "/col_x=b/col_y=2");
         // add partition directory col_x=f/col_y=9 with single_int_column/data.orc file
         hdfsClient.createDirectory(tableLocation + "/col_x=f/col_y=9");
-        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/hive/data/single_int_column/data.orc");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=f/col_y=9", dataSource);
         // should only be picked up when not in case sensitive mode
         hdfsClient.createDirectory(tableLocation + "/COL_X=g/col_y=10");

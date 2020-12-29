@@ -13,10 +13,10 @@
  */
 package io.trino.operator;
 
-import io.prestosql.Session;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.execution.TaskId;
-import io.prestosql.memory.context.MemoryTrackingContext;
+import io.trino.Session;
+import io.trino.execution.Lifespan;
+import io.trino.execution.TaskId;
+import io.trino.memory.context.MemoryTrackingContext;
 
 import static java.util.Objects.requireNonNull;
 

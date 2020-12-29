@@ -13,8 +13,8 @@
  */
 package io.trino.testing.tpch;
 
-import io.prestosql.plugin.tpch.TpchHandleResolver;
-import io.prestosql.spi.connector.ConnectorIndexHandle;
+import io.trino.plugin.tpch.TpchHandleResolver;
+import io.trino.spi.connector.ConnectorIndexHandle;
 
 public class TpchIndexHandleResolver
         extends TpchHandleResolver

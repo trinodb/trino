@@ -16,8 +16,8 @@ package io.trino.tests.hive;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 
 public class TestHiveDeltaLakeTable
         extends HiveProductTest

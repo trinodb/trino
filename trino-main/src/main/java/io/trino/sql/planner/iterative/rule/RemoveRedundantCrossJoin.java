@@ -13,13 +13,13 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.JoinNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.JoinNode;
 
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static io.prestosql.sql.planner.plan.Patterns.join;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.trino.sql.planner.plan.Patterns.join;
 
 public class RemoveRedundantCrossJoin
         implements Rule<JoinNode>

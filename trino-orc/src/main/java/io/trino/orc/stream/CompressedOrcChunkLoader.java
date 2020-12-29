@@ -16,21 +16,21 @@ package io.trino.orc.stream;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcDataSourceId;
-import io.prestosql.orc.OrcDecompressor;
-import io.prestosql.orc.OrcDecompressor.OutputBuffer;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcDataSourceId;
+import io.trino.orc.OrcDecompressor;
+import io.trino.orc.OrcDecompressor.OutputBuffer;
 
 import java.io.IOException;
 import java.util.Arrays;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

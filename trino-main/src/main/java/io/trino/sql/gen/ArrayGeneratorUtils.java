@@ -16,14 +16,14 @@ package io.trino.sql.gen;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.Type;
 
 import java.util.function.Function;
 
-import static io.prestosql.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
+import static io.trino.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 
 public final class ArrayGeneratorUtils
 {

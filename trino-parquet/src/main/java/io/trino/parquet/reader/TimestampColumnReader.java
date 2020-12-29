@@ -13,21 +13,21 @@
  */
 package io.trino.parquet.reader;
 
-import io.prestosql.parquet.RichColumnDescriptor;
-import io.prestosql.plugin.base.type.DecodedTimestamp;
-import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
-import io.prestosql.spi.type.Type;
+import io.trino.parquet.RichColumnDescriptor;
+import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.plugin.base.type.PrestoTimestampEncoder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
-import static io.prestosql.parquet.ParquetTimestampUtils.decode;
-import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.parquet.ParquetTimestampUtils.decode;
+import static io.trino.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampColumnReader

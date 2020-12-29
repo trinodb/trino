@@ -14,21 +14,21 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.scalar.TryFunction;
-import io.prestosql.sql.planner.assertions.ExpressionVerifier;
-import io.prestosql.sql.planner.assertions.SymbolAliases;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.tree.ArithmeticBinaryExpression;
-import io.prestosql.sql.tree.DecimalLiteral;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.TryExpression;
-import io.prestosql.type.FunctionType;
+import io.trino.operator.scalar.TryFunction;
+import io.trino.sql.planner.assertions.ExpressionVerifier;
+import io.trino.sql.planner.assertions.SymbolAliases;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.DecimalLiteral;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.TryExpression;
+import io.trino.type.FunctionType;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static org.testng.Assert.assertTrue;
 
 public class TestDesugarTryExpressionRewriter

@@ -31,8 +31,8 @@ import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.UUID;
 
-import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
+import static io.trino.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.trino.tests.cassandra.TestConstants.KEY_SPACE;
 import static java.lang.Double.parseDouble;
 
 public final class DataTypesTableDefinition

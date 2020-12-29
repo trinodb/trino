@@ -16,8 +16,8 @@ package io.trino.plugin.password.ldap;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
-import io.prestosql.spi.security.PasswordAuthenticator;
-import io.prestosql.spi.security.PasswordAuthenticatorFactory;
+import io.trino.spi.security.PasswordAuthenticator;
+import io.trino.spi.security.PasswordAuthenticatorFactory;
 
 import java.util.Map;
 

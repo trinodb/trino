@@ -20,7 +20,7 @@ import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import io.prestosql.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.prestosql.tempto.query.QueryResult;
-import io.prestosql.testng.services.Flaky;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.net.URISyntaxException;
@@ -30,11 +30,11 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
-import static io.prestosql.tests.TestGroups.SMOKE;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
-import static io.prestosql.tests.hive.util.TableLocationUtils.getTablePath;
+import static io.trino.tests.TestGroups.HIVE_PARTITIONING;
+import static io.trino.tests.TestGroups.SMOKE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.hive.util.TableLocationUtils.getTablePath;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -273,7 +273,7 @@ public class TestHivePartitionProcedures
     private void createDanglingLocationWithData(String path, String tableName)
     {
         hdfsClient.createDirectory(path);
-        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.textfile");
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/hive/data/single_int_column/data.textfile");
         hdfsDataSourceWriter.ensureDataOnHdfs(path, dataSource);
     }
 

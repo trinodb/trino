@@ -14,7 +14,7 @@
 package io.trino.orc.stream;
 
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcDataSourceId;
+import io.trino.orc.OrcDataSourceId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

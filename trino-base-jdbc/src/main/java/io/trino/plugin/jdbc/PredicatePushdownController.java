@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.predicate.DiscreteValues;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.Ranges;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.predicate.DiscreteValues;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Ranges;
 
-import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static java.util.Objects.requireNonNull;
 
 public interface PredicatePushdownController

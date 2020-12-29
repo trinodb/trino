@@ -25,10 +25,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.tests.TestGroups.HDFS_IMPERSONATION;
-import static io.prestosql.tests.TestGroups.HDFS_NO_IMPERSONATION;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.TestGroups.HDFS_IMPERSONATION;
+import static io.trino.tests.TestGroups.HDFS_NO_IMPERSONATION;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.utils.QueryExecutors.connectToPresto;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

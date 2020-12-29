@@ -14,11 +14,11 @@
 package io.trino.plugin.thrift;
 
 import io.airlift.drift.client.DriftClient;
-import io.prestosql.plugin.thrift.api.PrestoThriftService;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorIndex;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.RecordSet;
+import io.trino.plugin.thrift.api.PrestoThriftService;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorIndex;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.RecordSet;
 
 import java.util.List;
 import java.util.Map;

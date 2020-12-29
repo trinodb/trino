@@ -16,9 +16,9 @@ package io.trino.plugin.raptor.legacy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;

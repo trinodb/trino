@@ -23,7 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
-import io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
+import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -37,8 +37,8 @@ import java.util.Optional;
 import java.util.TimeZone;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
+import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
+import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({

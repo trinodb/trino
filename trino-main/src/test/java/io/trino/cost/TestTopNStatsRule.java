@@ -15,9 +15,9 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.TopNNode;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.TopNNode;
 import org.testng.annotations.Test;
 
 public class TestTopNStatsRule

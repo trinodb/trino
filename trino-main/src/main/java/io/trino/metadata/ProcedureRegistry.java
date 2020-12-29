@@ -15,15 +15,15 @@ package io.trino.metadata;
 
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.procedure.Procedure;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.Type;
+import io.trino.connector.CatalogName;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.procedure.Procedure;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.Type;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -34,12 +34,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
-import static io.prestosql.spi.procedure.Procedure.Argument;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.StandardErrorCode.PROCEDURE_NOT_FOUND;
+import static io.trino.spi.procedure.Procedure.Argument;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

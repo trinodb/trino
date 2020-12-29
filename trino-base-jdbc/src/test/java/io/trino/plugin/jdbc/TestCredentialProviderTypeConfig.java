@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderTypeConfig;
+import io.trino.plugin.jdbc.credential.CredentialProviderTypeConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -22,8 +22,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.FILE;
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
+import static io.trino.plugin.jdbc.credential.CredentialProviderType.FILE;
+import static io.trino.plugin.jdbc.credential.CredentialProviderType.INLINE;
 
 public class TestCredentialProviderTypeConfig
 {

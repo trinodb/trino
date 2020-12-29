@@ -19,11 +19,11 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import io.prestosql.decoder.DecoderModule;
-import io.prestosql.plugin.kinesis.s3config.S3TableConfigClient;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeId;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.decoder.DecoderModule;
+import io.trino.plugin.kinesis.s3config.S3TableConfigClient;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 

@@ -15,24 +15,24 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.ExpressionInterpreter;
-import io.prestosql.sql.planner.LiteralEncoder;
-import io.prestosql.sql.planner.NoOpSymbolResolver;
-import io.prestosql.sql.planner.SymbolAllocator;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Set;
 
-import static io.prestosql.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
-import static io.prestosql.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
+import static io.trino.sql.planner.iterative.rule.ExtractCommonPredicatesExpressionRewriter.extractCommonPredicates;
+import static io.trino.sql.planner.iterative.rule.PushDownNegationsExpressionRewriter.pushDownNegations;
 import static java.util.Objects.requireNonNull;
 
 public class SimplifyExpressions

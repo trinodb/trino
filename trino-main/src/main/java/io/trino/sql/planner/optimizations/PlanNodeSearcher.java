@@ -14,8 +14,8 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,8 +25,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
-import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
+import static io.trino.sql.planner.iterative.Lookup.noLookup;
+import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeSearcher
@@ -37,7 +37,7 @@ public class PlanNodeSearcher
     }
 
     /**
-     * Use it in optimizer {@link io.prestosql.sql.planner.iterative.Rule} only if you truly do not have a better option
+     * Use it in optimizer {@link io.trino.sql.planner.iterative.Rule} only if you truly do not have a better option
      * <p>
      * TODO: replace it with a support for plan (physical) properties in rules pattern matching
      */

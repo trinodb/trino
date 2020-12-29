@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.thrift.api.datatypes;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 
 public interface PrestoThriftColumnData
 {

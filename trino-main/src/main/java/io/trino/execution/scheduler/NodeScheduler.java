@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.NodeTaskMap;
-import io.prestosql.execution.RemoteTask;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.Split;
-import io.prestosql.spi.HostAddress;
+import io.trino.connector.CatalogName;
+import io.trino.execution.NodeTaskMap;
+import io.trino.execution.RemoteTask;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.Split;
+import io.trino.spi.HostAddress;
 
 import javax.inject.Inject;
 

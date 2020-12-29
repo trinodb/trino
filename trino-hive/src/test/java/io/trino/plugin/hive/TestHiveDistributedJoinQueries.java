@@ -13,18 +13,18 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.Session;
-import io.prestosql.execution.DynamicFilterConfig;
-import io.prestosql.operator.OperatorStats;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.testing.AbstractTestJoinQueries;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.ResultWithQueryId;
+import io.trino.Session;
+import io.trino.execution.DynamicFilterConfig;
+import io.trino.operator.OperatorStats;
+import io.trino.sql.analyzer.FeaturesConfig;
+import io.trino.testing.AbstractTestJoinQueries;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.ResultWithQueryId;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 

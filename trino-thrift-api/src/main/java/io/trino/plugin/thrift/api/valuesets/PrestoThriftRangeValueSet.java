@@ -18,11 +18,11 @@ import io.airlift.drift.annotations.ThriftEnum;
 import io.airlift.drift.annotations.ThriftEnumValue;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
-import io.prestosql.spi.predicate.Marker;
-import io.prestosql.spi.predicate.Marker.Bound;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.predicate.SortedRangeSet;
+import io.trino.plugin.thrift.api.PrestoThriftBlock;
+import io.trino.spi.predicate.Marker;
+import io.trino.spi.predicate.Marker.Bound;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.SortedRangeSet;
 
 import javax.annotation.Nullable;
 
@@ -33,9 +33,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.fromBlock;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.fromBound;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftMarker.fromMarker;
+import static io.trino.plugin.thrift.api.PrestoThriftBlock.fromBlock;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.fromBound;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftMarker.fromMarker;
 import static java.util.Objects.requireNonNull;
 
 /**

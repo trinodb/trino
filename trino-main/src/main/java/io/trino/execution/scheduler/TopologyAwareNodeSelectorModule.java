@@ -19,9 +19,9 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.FILE;
-import static io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.FLAT;
-import static io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.SUBNET;
+import static io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.FILE;
+import static io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.FLAT;
+import static io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.SUBNET;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class TopologyAwareNodeSelectorModule

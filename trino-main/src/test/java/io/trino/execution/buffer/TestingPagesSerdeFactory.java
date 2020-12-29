@@ -17,13 +17,13 @@ import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spiller.SpillCipher;
+import io.trino.spi.Page;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spiller.SpillCipher;
 
 import java.util.Optional;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 
 public class TestingPagesSerdeFactory
         extends PagesSerdeFactory

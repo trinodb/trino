@@ -13,10 +13,10 @@
  */
 package io.trino.split;
 
-import io.prestosql.Session;
-import io.prestosql.metadata.InsertTableHandle;
-import io.prestosql.metadata.OutputTableHandle;
-import io.prestosql.spi.connector.ConnectorPageSink;
+import io.trino.Session;
+import io.trino.metadata.InsertTableHandle;
+import io.trino.metadata.OutputTableHandle;
+import io.trino.spi.connector.ConnectorPageSink;
 
 public interface PageSinkProvider
 {

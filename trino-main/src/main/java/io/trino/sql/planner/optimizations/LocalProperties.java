@@ -16,9 +16,9 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.PeekingIterator;
-import io.prestosql.spi.connector.ConstantProperty;
-import io.prestosql.spi.connector.GroupingProperty;
-import io.prestosql.spi.connector.LocalProperty;
+import io.trino.spi.connector.ConstantProperty;
+import io.trino.spi.connector.GroupingProperty;
+import io.trino.spi.connector.LocalProperty;
 
 import java.util.ArrayList;
 import java.util.Collection;

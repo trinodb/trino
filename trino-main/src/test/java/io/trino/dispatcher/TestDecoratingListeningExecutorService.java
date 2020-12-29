@@ -16,7 +16,7 @@ package io.trino.dispatcher;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestDecoratingListeningExecutorService
 {

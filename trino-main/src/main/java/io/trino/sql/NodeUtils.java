@@ -14,10 +14,10 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.OrderBy;
-import io.prestosql.sql.tree.Property;
-import io.prestosql.sql.tree.SortItem;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.Property;
+import io.trino.sql.tree.SortItem;
 
 import java.util.List;
 import java.util.Map;

@@ -19,8 +19,8 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler;
-import io.prestosql.spi.security.GroupProvider;
+import io.trino.plugin.base.util.LoggingInvocationHandler;
+import io.trino.spi.security.GroupProvider;
 
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.airlift.configuration.ConfigBinder.configBinder;

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.redis;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public enum RedisTransactionHandle
         implements ConnectorTransactionHandle

@@ -15,31 +15,31 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.planner.FunctionCallBuilder;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.TypeSignature;
+import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
+import static io.trino.SystemSessionProperties.getHashPartitionCount;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
 /**

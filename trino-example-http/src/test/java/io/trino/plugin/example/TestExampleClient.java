@@ -21,9 +21,9 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.net.URL;
 
-import static io.prestosql.plugin.example.MetadataUtil.CATALOG_CODEC;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.plugin.example.MetadataUtil.CATALOG_CODEC;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 

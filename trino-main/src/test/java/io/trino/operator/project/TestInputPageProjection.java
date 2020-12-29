@@ -13,15 +13,15 @@
  */
 package io.trino.operator.project;
 
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlock;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LazyBlock;
 import org.testng.annotations.Test;
 
-import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.block.BlockAssertions.createLongSequenceBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

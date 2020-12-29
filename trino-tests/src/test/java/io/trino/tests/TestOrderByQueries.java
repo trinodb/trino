@@ -13,9 +13,9 @@
  */
 package io.trino.tests;
 
-import io.prestosql.testing.AbstractTestOrderByQueries;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.testing.AbstractTestOrderByQueries;
+import io.trino.testing.QueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestOrderByQueries
         extends AbstractTestOrderByQueries

@@ -13,13 +13,13 @@
  */
 package io.trino.tests.product.launcher.suite;
 
-import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.configs.ConfigDefault;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.configs.ConfigDefault;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.tests.product.launcher.suite.Suites.nameForSuiteClass;
+import static io.trino.tests.product.launcher.suite.Suites.nameForSuiteClass;
 
 public abstract class Suite
 {

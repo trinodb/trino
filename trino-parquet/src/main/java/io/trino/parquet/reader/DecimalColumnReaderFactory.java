@@ -13,8 +13,8 @@
  */
 package io.trino.parquet.reader;
 
-import io.prestosql.parquet.RichColumnDescriptor;
-import io.prestosql.spi.type.DecimalType;
+import io.trino.parquet.RichColumnDescriptor;
+import io.trino.spi.type.DecimalType;
 
 public final class DecimalColumnReaderFactory
 {

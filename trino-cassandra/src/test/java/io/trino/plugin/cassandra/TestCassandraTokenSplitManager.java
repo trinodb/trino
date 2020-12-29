@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.cassandra;
 
-import io.prestosql.plugin.cassandra.CassandraTokenSplitManager.TokenSplit;
+import io.trino.plugin.cassandra.CassandraTokenSplitManager.TokenSplit;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createKeyspace;
+import static io.trino.plugin.cassandra.CassandraTestingUtils.createKeyspace;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;

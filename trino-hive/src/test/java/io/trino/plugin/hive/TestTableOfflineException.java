@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

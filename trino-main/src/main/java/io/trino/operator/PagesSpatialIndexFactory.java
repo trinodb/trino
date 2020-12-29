@@ -16,7 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;

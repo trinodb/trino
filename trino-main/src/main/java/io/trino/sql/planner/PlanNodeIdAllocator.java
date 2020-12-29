@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 public class PlanNodeIdAllocator
 {

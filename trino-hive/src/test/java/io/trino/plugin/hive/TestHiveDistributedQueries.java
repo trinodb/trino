@@ -13,17 +13,17 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
+import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.prestosql.tpch.TpchTable.getTables;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;

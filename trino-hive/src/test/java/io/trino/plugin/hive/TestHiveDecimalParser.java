@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.type.DecimalType;
+import io.trino.spi.type.DecimalType;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;

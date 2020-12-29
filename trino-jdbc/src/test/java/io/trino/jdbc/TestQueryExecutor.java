@@ -15,7 +15,7 @@ package io.trino.jdbc;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.prestosql.client.ServerInfo;
+import io.trino.client.ServerInfo;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -28,7 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.prestosql.client.NodeVersion.UNKNOWN;
+import static io.trino.client.NodeVersion.UNKNOWN;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

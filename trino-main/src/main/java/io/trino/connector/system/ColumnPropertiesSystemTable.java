@@ -13,8 +13,8 @@
  */
 package io.trino.connector.system;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.metadata.Metadata;
+import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 

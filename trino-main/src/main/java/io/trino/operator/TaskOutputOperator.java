@@ -15,19 +15,19 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.buffer.OutputBuffer;
-import io.prestosql.execution.buffer.PagesSerde;
-import io.prestosql.execution.buffer.PagesSerdeFactory;
-import io.prestosql.execution.buffer.SerializedPage;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.buffer.OutputBuffer;
+import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.execution.buffer.SerializedPage;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.function.Function;
 
-import static io.prestosql.execution.buffer.PageSplitterUtil.splitPage;
-import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class TaskOutputOperator

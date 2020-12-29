@@ -14,18 +14,18 @@
 
 package io.trino.plugin.hive.security;
 
-import io.prestosql.plugin.base.security.ForwardingConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorSecurityContext;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.AccessDeniedException;
+import io.trino.plugin.base.security.ForwardingConnectorAccessControl;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.AccessDeniedException;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.plugin.hive.HiveMetadata.getSourceTableNameFromSystemTable;
-import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
+import static io.trino.plugin.hive.HiveMetadata.getSourceTableNameFromSystemTable;
+import static io.trino.spi.security.AccessDeniedException.denySelectTable;
+import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static java.util.Objects.requireNonNull;
 
 public class SystemTableAwareAccessControl

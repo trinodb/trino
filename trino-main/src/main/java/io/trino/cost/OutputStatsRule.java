@@ -13,16 +13,16 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.cost.ComposableStatsCalculator.Rule;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.OutputNode;
+import io.trino.Session;
+import io.trino.cost.ComposableStatsCalculator.Rule;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.OutputNode;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.plan.Patterns.output;
+import static io.trino.sql.planner.plan.Patterns.output;
 
 public class OutputStatsRule
         implements Rule<OutputNode>

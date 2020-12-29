@@ -14,19 +14,19 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.CatalogManager;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.PathElement;
-import io.prestosql.sql.tree.PathSpecification;
-import io.prestosql.sql.tree.SetPath;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.CatalogManager;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.PrestoException;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.analyzer.FeaturesConfig;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.PathElement;
+import io.trino.sql.tree.PathSpecification;
+import io.trino.sql.tree.SetPath;
+import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -36,9 +36,9 @@ import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;

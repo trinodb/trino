@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.prestosql.geospatial.Rectangle;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.trino.geospatial.Rectangle;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
 import java.util.List;
 

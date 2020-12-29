@@ -15,20 +15,20 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.airlift.stats.QuantileDigest;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
-import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.sortableIntToFloat;
-import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.sortableIntToFloat;
+import static io.trino.operator.aggregation.FloatingPointBitsConverterUtil.sortableLongToDouble;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.util.Failures.checkCondition;
 import static java.lang.Float.floatToRawIntBits;
 
 public final class QuantileDigestFunctions

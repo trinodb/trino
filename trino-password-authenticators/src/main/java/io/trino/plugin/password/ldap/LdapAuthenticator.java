@@ -20,11 +20,11 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.password.Credential;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.BasicPrincipal;
-import io.prestosql.spi.security.PasswordAuthenticator;
+import io.trino.plugin.password.Credential;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.PasswordAuthenticator;
 
 import javax.inject.Inject;
 import javax.naming.NamingException;

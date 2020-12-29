@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.type.TestingTypeManager;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
+import io.trino.spi.HostAddress;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -30,10 +30,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 
-import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
-import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveSplit

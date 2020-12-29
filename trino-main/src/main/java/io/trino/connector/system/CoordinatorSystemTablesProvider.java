@@ -14,21 +14,21 @@
 
 package io.trino.connector.system;
 
-import io.prestosql.FullConnectorSession;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.FullConnectorSession;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
+import io.trino.transaction.TransactionManager;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.util.Objects.requireNonNull;
 
 public class CoordinatorSystemTablesProvider

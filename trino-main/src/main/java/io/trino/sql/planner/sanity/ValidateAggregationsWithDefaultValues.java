@@ -13,33 +13,33 @@
  */
 package io.trino.sql.planner.sanity;
 
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.optimizations.ActualProperties;
-import io.prestosql.sql.planner.optimizations.PropertyDerivations;
-import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations;
-import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
-import io.prestosql.sql.planner.sanity.PlanSanityChecker.Checker;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.optimizations.ActualProperties;
+import io.trino.sql.planner.optimizations.PropertyDerivations;
+import io.trino.sql.planner.optimizations.StreamPropertyDerivations;
+import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.sanity.PlanSanityChecker.Checker;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.FINAL;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static io.prestosql.util.Optionals.combine;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.INTERMEDIATE;
+import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.util.Optionals.combine;
 import static java.util.Objects.requireNonNull;
 
 /**

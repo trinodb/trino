@@ -15,16 +15,16 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.aggregation.groupby.AggregationTestInput;
-import io.prestosql.operator.aggregation.groupby.AggregationTestInputBuilder;
-import io.prestosql.operator.aggregation.groupby.AggregationTestOutput;
-import io.prestosql.operator.aggregation.groupby.GroupByAggregationTestUtils;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.operator.aggregation.groupby.AggregationTestInput;
+import io.trino.operator.aggregation.groupby.AggregationTestInputBuilder;
+import io.trino.operator.aggregation.groupby.AggregationTestOutput;
+import io.trino.operator.aggregation.groupby.GroupByAggregationTestUtils;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.SqlDate;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -33,18 +33,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
-import static io.prestosql.block.BlockAssertions.createBooleansBlock;
-import static io.prestosql.block.BlockAssertions.createLongsBlock;
-import static io.prestosql.block.BlockAssertions.createStringsBlock;
-import static io.prestosql.block.BlockAssertions.createTypedLongsBlock;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.block.BlockAssertions.createArrayBigintBlock;
+import static io.trino.block.BlockAssertions.createBooleansBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.block.BlockAssertions.createTypedLongsBlock;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertTrue;
 
 public class TestArrayAggregation

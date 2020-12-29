@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.hive.procedure;
 
-import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 
 final class Procedures
 {

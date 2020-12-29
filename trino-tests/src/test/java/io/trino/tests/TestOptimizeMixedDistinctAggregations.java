@@ -13,9 +13,9 @@
  */
 package io.trino.tests;
 
-import io.prestosql.testing.AbstractTestAggregations;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.testing.AbstractTestAggregations;
+import io.trino.testing.QueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestOptimizeMixedDistinctAggregations
         extends AbstractTestAggregations

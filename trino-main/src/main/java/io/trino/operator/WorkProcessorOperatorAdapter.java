@@ -14,10 +14,10 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.memory.context.MemoryTrackingContext;
-import io.prestosql.spi.Page;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.Lifespan;
+import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.spi.Page;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import static java.util.Objects.requireNonNull;
 

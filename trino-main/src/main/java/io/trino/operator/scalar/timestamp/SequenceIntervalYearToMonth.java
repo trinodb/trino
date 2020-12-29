@@ -15,21 +15,21 @@ package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.operator.scalar.timestamp.TimestampOperators.TimestampPlusIntervalYearToMonth;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.operator.scalar.timestamp.TimestampOperators.TimestampPlusIntervalYearToMonth;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
 
-import static io.prestosql.operator.scalar.SequenceFunction.checkMaxEntry;
-import static io.prestosql.operator.scalar.SequenceFunction.checkValidStep;
-import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.prestosql.spi.type.TimestampType.createTimestampType;
+import static io.trino.operator.scalar.SequenceFunction.checkMaxEntry;
+import static io.trino.operator.scalar.SequenceFunction.checkValidStep;
+import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static java.lang.Math.toIntExact;
 
 @ScalarFunction("sequence")

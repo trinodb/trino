@@ -16,12 +16,12 @@ package io.trino.pinot.query;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.pinot.PinotColumnHandle;
-import io.prestosql.pinot.PinotTableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.pinot.PinotColumnHandle;
+import io.trino.pinot.PinotTableHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.ArrayList;
 import java.util.List;

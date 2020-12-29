@@ -16,10 +16,10 @@ package io.trino.server;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.SessionRepresentation;
-import io.prestosql.execution.TaskSource;
-import io.prestosql.execution.buffer.OutputBuffers;
-import io.prestosql.sql.planner.PlanFragment;
+import io.trino.SessionRepresentation;
+import io.trino.execution.TaskSource;
+import io.trino.execution.buffer.OutputBuffers;
+import io.trino.sql.planner.PlanFragment;
 
 import java.util.List;
 import java.util.Map;

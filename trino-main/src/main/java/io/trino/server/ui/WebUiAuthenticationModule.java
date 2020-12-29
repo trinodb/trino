@@ -18,14 +18,14 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServer.ClientCertificate;
-import io.prestosql.server.security.Authenticator;
-import io.prestosql.server.security.CertificateAuthenticator;
-import io.prestosql.server.security.CertificateConfig;
-import io.prestosql.server.security.KerberosAuthenticator;
-import io.prestosql.server.security.KerberosConfig;
-import io.prestosql.server.security.SecurityConfig;
-import io.prestosql.server.security.jwt.JwtAuthenticator;
-import io.prestosql.server.security.jwt.JwtAuthenticatorSupportModule;
+import io.trino.server.security.Authenticator;
+import io.trino.server.security.CertificateAuthenticator;
+import io.trino.server.security.CertificateConfig;
+import io.trino.server.security.KerberosAuthenticator;
+import io.trino.server.security.KerberosConfig;
+import io.trino.server.security.SecurityConfig;
+import io.trino.server.security.jwt.JwtAuthenticator;
+import io.trino.server.security.jwt.JwtAuthenticatorSupportModule;
 
 import java.util.List;
 

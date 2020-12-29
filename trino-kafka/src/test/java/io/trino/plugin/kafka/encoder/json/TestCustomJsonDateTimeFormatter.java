@@ -13,25 +13,25 @@
  */
 package io.trino.plugin.kafka.encoder.json;
 
-import io.prestosql.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlTime;
-import io.prestosql.spi.type.SqlTimeWithTimeZone;
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.kafka.encoder.json.format.DateTimeFormat.CUSTOM_DATE_TIME;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlDateOf;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeWithTimeZoneOf;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampWithTimeZoneOf;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.CUSTOM_DATE_TIME;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.testing.DateTimeTestingUtils.sqlDateOf;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimeWithTimeZoneOf;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampWithTimeZoneOf;
+import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestCustomJsonDateTimeFormatter
 {

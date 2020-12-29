@@ -15,8 +15,8 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableMultimap;
 import com.linkedin.coral.hive.hive2rel.HiveMetastoreClient;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
+import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import org.apache.hadoop.hive.metastore.api.Database;
 
 import java.util.List;

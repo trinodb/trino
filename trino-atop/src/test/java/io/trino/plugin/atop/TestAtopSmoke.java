@@ -14,15 +14,15 @@
 package io.trino.plugin.atop;
 
 import com.google.common.collect.Iterables;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
+import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 
 public class TestAtopSmoke

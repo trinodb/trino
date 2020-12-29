@@ -19,8 +19,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Locale;

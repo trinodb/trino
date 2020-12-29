@@ -15,10 +15,10 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.connector.ConnectorNewTableLayout;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.sql.planner.PartitioningHandle;
+import io.trino.connector.CatalogName;
+import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.List;
 import java.util.Objects;

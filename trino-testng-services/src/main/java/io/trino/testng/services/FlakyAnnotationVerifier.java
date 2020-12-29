@@ -28,7 +28,7 @@ import java.util.regex.PatternSyntaxException;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.testng.services.Listeners.reportListenerFailure;
+import static io.trino.testng.services.Listeners.reportListenerFailure;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -64,7 +64,7 @@ public class FlakyAnnotationVerifier
             return;
         }
 
-        if (realClass.getName().startsWith("io.prestosql.testng.services.TestFlakyAnnotationVerifier")) {
+        if (realClass.getName().startsWith("io.trino.testng.services.TestFlakyAnnotationVerifier")) {
             // ignore test of FlakyAnnotationVerifier and internal classes
             return;
         }

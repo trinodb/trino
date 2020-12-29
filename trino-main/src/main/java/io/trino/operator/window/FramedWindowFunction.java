@@ -13,7 +13,7 @@
  */
 package io.trino.operator.window;
 
-import io.prestosql.spi.function.WindowFunction;
+import io.trino.spi.function.WindowFunction;
 
 import static java.util.Objects.requireNonNull;
 

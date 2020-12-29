@@ -16,12 +16,12 @@ package io.trino.server;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
-import io.prestosql.Session;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
-import io.prestosql.spi.session.SessionConfigurationContext;
-import io.prestosql.spi.session.SessionPropertyConfigurationManager;
-import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.Session;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
+import io.trino.spi.session.SessionConfigurationContext;
+import io.trino.spi.session.SessionPropertyConfigurationManager;
+import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 
 import javax.inject.Inject;
 

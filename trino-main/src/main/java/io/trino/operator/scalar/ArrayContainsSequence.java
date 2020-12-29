@@ -13,21 +13,21 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.Convention;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.OperatorDependency;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.block.Block;
+import io.trino.spi.function.Convention;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.OperatorDependency;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.StandardTypes;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 
 @Description("Determines whether an array contains a sequence, with the values in the exact order")
 @ScalarFunction("contains_sequence")

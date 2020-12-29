@@ -29,10 +29,10 @@ import java.util.function.Consumer;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.HIVE_VIEWS;
-import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.HIVE_VIEWS;
+import static io.trino.tests.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 
 @Requires({
         ImmutableNationTable.class,

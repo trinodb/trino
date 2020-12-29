@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kafka;
 
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import javax.inject.Inject;

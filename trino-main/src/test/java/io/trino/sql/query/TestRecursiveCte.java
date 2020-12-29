@@ -17,7 +17,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.getMaxRecursionDepth;
+import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

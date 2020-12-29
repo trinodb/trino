@@ -13,11 +13,11 @@
  */
 package io.trino.orc.metadata;
 
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcDataSourceId;
-import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
-import io.prestosql.orc.metadata.statistics.BloomFilter;
-import io.prestosql.spi.PrestoException;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcDataSourceId;
+import io.trino.orc.metadata.PostScript.HiveWriterVersion;
+import io.trino.orc.metadata.statistics.BloomFilter;
+import io.trino.spi.PrestoException;
 
 import java.io.IOException;
 import java.io.InputStream;

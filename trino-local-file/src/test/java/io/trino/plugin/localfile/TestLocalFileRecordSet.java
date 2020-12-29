@@ -13,17 +13,17 @@
  */
 package io.trino.plugin.localfile;
 
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.RecordSet;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.stream.Collectors;
 
-import static io.prestosql.plugin.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.plugin.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

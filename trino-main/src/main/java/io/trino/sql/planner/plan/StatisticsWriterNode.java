@@ -19,9 +19,9 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.prestosql.metadata.AnalyzeTableHandle;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.metadata.AnalyzeTableHandle;
+import io.trino.metadata.TableHandle;
+import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 

@@ -13,14 +13,14 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.SqlTimeWithTimeZone;
 
-import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackOffsetMinutes;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 
 public class TestTimeWithTimeZoneType
         extends AbstractTestType

@@ -13,14 +13,14 @@
  */
 package io.trino.testing.datatype;
 
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.TimeWithTimeZoneType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;

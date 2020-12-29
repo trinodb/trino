@@ -13,7 +13,7 @@
  */
 package io.trino.cost;
 
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 
 import java.util.function.BiFunction;
 

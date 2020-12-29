@@ -14,11 +14,11 @@
 package io.trino.orc.stream;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.orc.OrcOutputBuffer;
-import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
-import io.prestosql.orc.checkpoint.ByteStreamCheckpoint;
-import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.OrcColumnId;
+import io.trino.orc.OrcOutputBuffer;
+import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
+import io.trino.orc.checkpoint.ByteStreamCheckpoint;
+import io.trino.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.OrcColumnId;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;

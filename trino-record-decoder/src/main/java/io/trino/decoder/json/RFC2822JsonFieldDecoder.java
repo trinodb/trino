@@ -15,11 +15,11 @@ package io.trino.decoder.json;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.Type;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.Type;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -27,11 +27,11 @@ import org.joda.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 
-import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
-import static io.prestosql.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static io.trino.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

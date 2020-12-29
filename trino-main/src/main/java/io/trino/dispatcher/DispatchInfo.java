@@ -14,7 +14,7 @@
 package io.trino.dispatcher;
 
 import io.airlift.units.Duration;
-import io.prestosql.execution.ExecutionFailureInfo;
+import io.trino.execution.ExecutionFailureInfo;
 
 import java.util.Optional;
 

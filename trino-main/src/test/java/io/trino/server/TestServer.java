@@ -25,11 +25,11 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
-import io.prestosql.client.QueryError;
-import io.prestosql.client.QueryResults;
-import io.prestosql.server.testing.TestingPrestoServer;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.type.TimeZoneNotSupportedException;
+import io.trino.client.QueryError;
+import io.trino.client.QueryResults;
+import io.trino.server.testing.TestingPrestoServer;
+import io.trino.spi.QueryId;
+import io.trino.spi.type.TimeZoneNotSupportedException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -58,21 +58,21 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Closeables.closeAll;
-import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
-import static io.prestosql.client.PrestoHeaders.PRESTO_PATH;
-import static io.prestosql.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
-import static io.prestosql.client.PrestoHeaders.PRESTO_SCHEMA;
-import static io.prestosql.client.PrestoHeaders.PRESTO_SESSION;
-import static io.prestosql.client.PrestoHeaders.PRESTO_SOURCE;
-import static io.prestosql.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
-import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static io.prestosql.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
-import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
-import static io.prestosql.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
+import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.trino.client.PrestoHeaders.PRESTO_CATALOG;
+import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_INFO;
+import static io.trino.client.PrestoHeaders.PRESTO_PATH;
+import static io.trino.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static io.trino.client.PrestoHeaders.PRESTO_SCHEMA;
+import static io.trino.client.PrestoHeaders.PRESTO_SESSION;
+import static io.trino.client.PrestoHeaders.PRESTO_SOURCE;
+import static io.trino.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static io.trino.client.PrestoHeaders.PRESTO_TIME_ZONE;
+import static io.trino.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
+import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -254,7 +254,7 @@ public class TestServer
         QueryError queryError = queryResults.getError();
         List<String> stackTrace = Splitter.on("\n").splitToList(getStackTraceAsString(queryError.getFailureInfo().toException()));
         long versionLines = stackTrace.stream()
-                .filter(line -> line.contains("at io.prestosql.$gen.Presto_testversion____"))
+                .filter(line -> line.contains("at io.trino.$gen.Presto_testversion____"))
                 .count();
         assertEquals(versionLines, 1, "Number of times version is embedded in stacktrace");
     }

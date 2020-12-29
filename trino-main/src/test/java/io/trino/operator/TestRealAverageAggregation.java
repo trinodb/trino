@@ -14,22 +14,22 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.aggregation.AbstractTestAggregationFunction;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.operator.aggregation.AbstractTestAggregationFunction;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.block.BlockAssertions.createBlockOfReals;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.block.BlockAssertions.createBlockOfReals;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Float.floatToRawIntBits;
 
 @Test(singleThreaded = true)

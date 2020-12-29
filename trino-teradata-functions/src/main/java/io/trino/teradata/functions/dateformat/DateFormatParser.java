@@ -13,9 +13,9 @@
  */
 package io.trino.teradata.functions.dateformat;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
-import io.prestosql.teradata.functions.DateFormat;
+import io.trino.spi.PrestoException;
+import io.trino.spi.StandardErrorCode;
+import io.trino.teradata.functions.DateFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.Token;
 import org.joda.time.format.DateTimeFormatter;
@@ -23,7 +23,7 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 
 import java.util.List;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
 public final class DateFormatParser
@@ -80,7 +80,7 @@ public final class DateFormatParser
 
     public static List<? extends Token> tokenize(String format)
     {
-        DateFormat lexer = new io.prestosql.teradata.functions.DateFormat(new ANTLRInputStream(format));
+        DateFormat lexer = new io.trino.teradata.functions.DateFormat(new ANTLRInputStream(format));
         return lexer.getAllTokens();
     }
 }

@@ -15,9 +15,9 @@ package io.trino.operator.aggregation;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestApproximateCountDistinctAggregations

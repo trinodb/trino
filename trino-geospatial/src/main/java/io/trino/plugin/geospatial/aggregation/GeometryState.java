@@ -14,8 +14,8 @@
 package io.trino.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateSerializerClass = GeometryStateSerializer.class, stateFactoryClass = GeometryStateFactory.class)
 public interface GeometryState

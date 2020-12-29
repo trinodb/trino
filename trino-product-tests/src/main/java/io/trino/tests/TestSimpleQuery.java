@@ -28,8 +28,8 @@ import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.context.ThreadLocalTestContextHolder.testContextIfSet;
 import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.SIMPLE;
-import static io.prestosql.tests.TestGroups.SMOKE;
+import static io.trino.tests.TestGroups.SIMPLE;
+import static io.trino.tests.TestGroups.SMOKE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimpleQuery

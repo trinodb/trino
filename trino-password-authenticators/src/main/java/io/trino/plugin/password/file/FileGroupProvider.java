@@ -17,8 +17,8 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.security.GroupProvider;
+import io.trino.spi.PrestoException;
+import io.trino.spi.security.GroupProvider;
 
 import javax.inject.Inject;
 
@@ -34,8 +34,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

@@ -15,31 +15,31 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.optimizations.SymbolMapper;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.sql.planner.plan.TopNNode;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.SymbolMapper;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.iterative.rule.DereferencePushdown.exclusiveDereferences;
-import static io.prestosql.sql.planner.iterative.rule.DereferencePushdown.extractDereferences;
-import static io.prestosql.sql.planner.plan.Patterns.project;
-import static io.prestosql.sql.planner.plan.Patterns.source;
-import static io.prestosql.sql.planner.plan.Patterns.topN;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.iterative.rule.DereferencePushdown.exclusiveDereferences;
+import static io.trino.sql.planner.iterative.rule.DereferencePushdown.extractDereferences;
+import static io.trino.sql.planner.plan.Patterns.project;
+import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.Patterns.topN;
 
 /**
  * Transforms:

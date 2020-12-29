@@ -16,8 +16,8 @@ package io.trino.plugin.cassandra;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 

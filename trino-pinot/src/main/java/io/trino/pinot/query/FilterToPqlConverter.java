@@ -14,8 +14,8 @@
 package io.trino.pinot.query;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.pinot.PinotColumnHandle;
-import io.prestosql.spi.connector.ColumnHandle;
+import io.trino.pinot.PinotColumnHandle;
+import io.trino.spi.connector.ColumnHandle;
 import org.apache.pinot.common.request.FilterOperator;
 import org.apache.pinot.common.request.FilterQuery;
 import org.apache.pinot.common.request.FilterQueryMap;

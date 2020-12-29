@@ -23,7 +23,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.Optional;
 
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onHive;
 
 public class HiveVersionProvider
 {

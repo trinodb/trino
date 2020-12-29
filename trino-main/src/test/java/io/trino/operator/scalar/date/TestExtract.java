@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar.date;
 
-import io.prestosql.operator.scalar.AbstractTestExtract;
+import io.trino.operator.scalar.AbstractTestExtract;
 
 import java.util.List;
 

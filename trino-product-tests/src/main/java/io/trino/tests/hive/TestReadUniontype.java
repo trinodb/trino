@@ -13,7 +13,7 @@
  */
 package io.trino.tests.hive;
 
-import io.prestosql.jdbc.Row;
+import io.trino.jdbc.Row;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.query.QueryResult;
@@ -24,9 +24,9 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.prestosql.tests.TestGroups.SMOKE;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.SMOKE;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;

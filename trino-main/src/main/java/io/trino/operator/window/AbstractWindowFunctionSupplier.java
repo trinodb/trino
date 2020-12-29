@@ -13,10 +13,10 @@
  */
 package io.trino.operator.window;
 
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.aggregation.LambdaProvider;
-import io.prestosql.spi.function.WindowFunction;
-import io.prestosql.type.FunctionType;
+import io.trino.metadata.Signature;
+import io.trino.operator.aggregation.LambdaProvider;
+import io.trino.spi.function.WindowFunction;
+import io.trino.type.FunctionType;
 
 import java.util.List;
 

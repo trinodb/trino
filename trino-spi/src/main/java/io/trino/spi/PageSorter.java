@@ -13,8 +13,8 @@
  */
 package io.trino.spi;
 
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 

@@ -15,23 +15,23 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
 
 public class TestFullOuterJoinWithCoalesce
         extends BasePlanTest

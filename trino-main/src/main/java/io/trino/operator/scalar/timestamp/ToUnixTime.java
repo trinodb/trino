@@ -13,14 +13,14 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.StandardTypes;
 
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 
 @ScalarFunction("to_unixtime")
 public final class ToUnixTime

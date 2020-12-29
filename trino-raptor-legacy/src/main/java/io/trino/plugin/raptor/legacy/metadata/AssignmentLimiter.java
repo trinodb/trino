@@ -16,9 +16,9 @@ package io.trino.plugin.raptor.legacy.metadata;
 import com.google.common.base.Ticker;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.raptor.legacy.NodeSupplier;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.raptor.legacy.NodeSupplier;
+import io.trino.spi.Node;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -34,8 +34,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
-import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_THROTTLE;
+import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
+import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_THROTTLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;

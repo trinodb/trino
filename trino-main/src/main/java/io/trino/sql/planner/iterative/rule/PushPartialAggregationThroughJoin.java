@@ -16,17 +16,17 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import io.prestosql.Session;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.Session;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.HashSet;
 import java.util.List;
@@ -36,13 +36,13 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
-import static io.prestosql.SystemSessionProperties.isPushPartialAggregationThroughJoin;
-import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
-import static io.prestosql.sql.planner.plan.Patterns.join;
-import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.trino.SystemSessionProperties.isPushPartialAggregationThroughJoin;
+import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
+import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.planner.plan.Patterns.join;
+import static io.trino.sql.planner.plan.Patterns.source;
 
 public class PushPartialAggregationThroughJoin
         implements Rule<AggregationNode>

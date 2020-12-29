@@ -13,13 +13,13 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.SampleNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.SampleNode;
 
-import static io.prestosql.sql.planner.plan.Patterns.Sample.sampleRatio;
-import static io.prestosql.sql.planner.plan.Patterns.sample;
+import static io.trino.sql.planner.plan.Patterns.Sample.sampleRatio;
+import static io.trino.sql.planner.plan.Patterns.sample;
 
 /**
  * Removes 100% sample nodes.

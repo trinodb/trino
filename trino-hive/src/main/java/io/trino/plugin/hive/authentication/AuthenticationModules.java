@@ -17,15 +17,15 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import io.prestosql.plugin.base.authentication.KerberosAuthentication;
-import io.prestosql.plugin.hive.ForHdfs;
-import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
+import io.trino.plugin.base.authentication.KerberosAuthentication;
+import io.trino.plugin.hive.ForHdfs;
+import io.trino.plugin.hive.HdfsConfigurationInitializer;
 
 import javax.inject.Inject;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.plugin.hive.authentication.KerberosHadoopAuthentication.createKerberosHadoopAuthentication;
+import static io.trino.plugin.hive.authentication.KerberosHadoopAuthentication.createKerberosHadoopAuthentication;
 
 public final class AuthenticationModules
 {

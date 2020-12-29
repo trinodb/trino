@@ -18,9 +18,9 @@ import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SpecialForm;
+import io.trino.spi.type.Type;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 
 import java.util.ArrayList;
 import java.util.List;

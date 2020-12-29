@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.mysql;
 
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 
-import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;

@@ -13,18 +13,18 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.execution.scheduler.NodeSchedulerConfig;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.InternalNodeManager;
+import io.trino.Session;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
 
 import javax.inject.Inject;
 
 import java.util.Set;
 import java.util.function.IntSupplier;
 
-import static io.prestosql.SystemSessionProperties.getCostEstimationWorkerCount;
-import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
+import static io.trino.SystemSessionProperties.getCostEstimationWorkerCount;
+import static io.trino.SystemSessionProperties.getHashPartitionCount;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

@@ -14,14 +14,14 @@
 package io.trino.plugin.kinesis.util;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.kinesis.KinesisConnector;
-import io.prestosql.plugin.kinesis.KinesisConnectorFactory;
-import io.prestosql.plugin.kinesis.KinesisPlugin;
-import io.prestosql.plugin.kinesis.TestingKinesisConnectorFactory;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.TestingConnectorContext;
+import io.trino.plugin.kinesis.KinesisConnector;
+import io.trino.plugin.kinesis.KinesisConnectorFactory;
+import io.trino.plugin.kinesis.KinesisPlugin;
+import io.trino.plugin.kinesis.TestingKinesisConnectorFactory;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorContext;
 
 import java.util.Map;
 

@@ -13,15 +13,15 @@
  */
 package io.trino.elasticsearch;
 
-import io.prestosql.Session;
-import io.prestosql.client.Column;
-import io.prestosql.client.QueryData;
-import io.prestosql.client.QueryStatusInfo;
-import io.prestosql.server.testing.TestingPrestoServer;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
-import io.prestosql.testing.AbstractTestingPrestoClient;
-import io.prestosql.testing.ResultsSession;
+import io.trino.Session;
+import io.trino.client.Column;
+import io.trino.client.QueryData;
+import io.trino.client.QueryStatusInfo;
+import io.trino.server.testing.TestingPrestoServer;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
+import io.trino.testing.AbstractTestingPrestoClient;
+import io.trino.testing.ResultsSession;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.support.WriteRequest;
@@ -36,11 +36,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 

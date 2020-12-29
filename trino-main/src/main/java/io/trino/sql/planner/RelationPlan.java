@@ -14,9 +14,9 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.analyzer.RelationType;
-import io.prestosql.sql.analyzer.Scope;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.analyzer.RelationType;
+import io.trino.sql.analyzer.Scope;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
 import java.util.Optional;

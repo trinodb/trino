@@ -13,10 +13,10 @@
  */
 package io.trino;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.transaction.TransactionId;
+import io.trino.spi.PrestoException;
+import io.trino.transaction.TransactionId;
 
-import static io.prestosql.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
+import static io.trino.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
 import static java.lang.String.format;
 
 public class NotInTransactionException

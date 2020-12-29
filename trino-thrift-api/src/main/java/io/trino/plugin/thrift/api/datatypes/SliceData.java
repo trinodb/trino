@@ -15,10 +15,10 @@ package io.trino.plugin.thrift.api.datatypes;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.VariableWidthBlock;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.thrift.api.PrestoThriftBlock;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -29,9 +29,9 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.calculateOffsets;
-import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.sameSizeIfPresent;
-import static io.prestosql.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.totalSize;
+import static io.trino.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.calculateOffsets;
+import static io.trino.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.sameSizeIfPresent;
+import static io.trino.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.totalSize;
 
 final class SliceData
         implements PrestoThriftColumnData

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.redis.decoder.hash;
 
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
-import io.prestosql.plugin.redis.RedisFieldDecoder;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.plugin.redis.RedisFieldDecoder;
 
 public class HashRedisFieldDecoder
         implements RedisFieldDecoder<String>

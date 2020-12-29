@@ -13,8 +13,8 @@
  */
 package io.trino.testing.datatype;
 
-import io.prestosql.testing.sql.SqlExecutor;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 
 import java.util.List;
 

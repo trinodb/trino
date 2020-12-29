@@ -14,22 +14,22 @@
 package io.trino.spiller;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.execution.buffer.PagesSerde;
-import io.prestosql.execution.buffer.SerializedPage;
-import io.prestosql.execution.buffer.TestingPagesSerdeFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.SerializedPage;
+import io.trino.execution.buffer.TestingPagesSerdeFactory;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.operator.PageAssertions.assertPageEquals;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;

@@ -15,21 +15,21 @@ package io.trino.plugin.atop;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.atop.AtopTable.AtopColumn;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ColumnNotFoundException;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTableProperties;
-import io.prestosql.spi.connector.Constraint;
-import io.prestosql.spi.connector.ConstraintApplicationResult;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SchemaTablePrefix;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.plugin.atop.AtopTable.AtopColumn;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnNotFoundException;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -39,8 +39,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static io.prestosql.plugin.atop.AtopTable.AtopColumn.END_TIME;
-import static io.prestosql.plugin.atop.AtopTable.AtopColumn.START_TIME;
+import static io.trino.plugin.atop.AtopTable.AtopColumn.END_TIME;
+import static io.trino.plugin.atop.AtopTable.AtopColumn.START_TIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

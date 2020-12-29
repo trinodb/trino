@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Optional;

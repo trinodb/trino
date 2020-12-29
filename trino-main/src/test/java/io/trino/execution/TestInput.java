@@ -15,8 +15,8 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.sql.planner.plan.PlanFragmentId;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.PlanFragmentId;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

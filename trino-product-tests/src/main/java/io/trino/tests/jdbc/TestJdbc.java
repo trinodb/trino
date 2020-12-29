@@ -13,7 +13,7 @@
  */
 package io.trino.tests.jdbc;
 
-import io.prestosql.jdbc.PrestoConnection;
+import io.trino.jdbc.PrestoConnection;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
@@ -40,11 +40,11 @@ import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitio
 import static io.prestosql.tempto.internal.convention.SqlResultDescriptor.sqlResultDescriptorForResource;
 import static io.prestosql.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
-import static io.prestosql.tests.utils.JdbcDriverUtils.getSessionProperty;
-import static io.prestosql.tests.utils.JdbcDriverUtils.resetSessionProperty;
-import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
+import static io.trino.tests.TestGroups.JDBC;
+import static io.trino.tests.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.trino.tests.utils.JdbcDriverUtils.getSessionProperty;
+import static io.trino.tests.utils.JdbcDriverUtils.resetSessionProperty;
+import static io.trino.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -155,7 +155,7 @@ public class TestJdbc
             throws SQLException
     {
         QueryResult result = QueryResult.forResultSet(metaData().getColumns("hive", "default", "nation", null));
-        assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns.result"));
+        assertThat(result).matches(sqlResultDescriptorForResource("io/trino/tests/jdbc/get_nation_columns.result"));
     }
 
     @Test(groups = JDBC)
@@ -182,7 +182,7 @@ public class TestJdbc
     }
 
     /**
-     * Same as {@code io.prestosql.jdbc.TestJdbcPreparedStatement#testDeallocate()}. This one is run for EnterpriseJdbcDriver as well.
+     * Same as {@code io.trino.jdbc.TestJdbcPreparedStatement#testDeallocate()}. This one is run for EnterpriseJdbcDriver as well.
      */
     @Test(groups = JDBC)
     public void testDeallocate()

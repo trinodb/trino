@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import io.prestosql.operator.LookupJoinOperators.JoinType;
+import io.trino.operator.LookupJoinOperators.JoinType;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

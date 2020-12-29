@@ -15,21 +15,21 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.predicate.ValueSet;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import org.bson.Document;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.predicate.Range.equal;
-import static io.prestosql.spi.predicate.Range.greaterThan;
-import static io.prestosql.spi.predicate.Range.greaterThanOrEqual;
-import static io.prestosql.spi.predicate.Range.lessThan;
-import static io.prestosql.spi.predicate.Range.range;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.predicate.Range.equal;
+import static io.trino.spi.predicate.Range.greaterThan;
+import static io.trino.spi.predicate.Range.greaterThanOrEqual;
+import static io.trino.spi.predicate.Range.lessThan;
+import static io.trino.spi.predicate.Range.range;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 

@@ -14,17 +14,17 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.math.RoundingMode;
 import java.util.List;
 
-import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping;
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
 public class DecimalSessionSessionProperties
         implements SessionPropertiesProvider

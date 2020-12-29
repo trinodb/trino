@@ -14,21 +14,21 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.JdbcSqlExecutor;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.Session;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.JdbcSqlExecutor;
+import io.trino.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Properties;
 
-import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
-import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
-import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
 
 public class TestJdbcIntegrationSmokeTest

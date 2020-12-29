@@ -14,16 +14,16 @@
 package io.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
+import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 
 @Test
 public class TestSqlServerDistributedQueries

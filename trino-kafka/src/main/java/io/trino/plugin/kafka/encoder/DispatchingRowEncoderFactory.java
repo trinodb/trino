@@ -14,7 +14,7 @@
 package io.trino.plugin.kafka.encoder;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 

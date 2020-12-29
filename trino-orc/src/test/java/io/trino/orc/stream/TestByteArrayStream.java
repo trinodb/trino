@@ -16,9 +16,9 @@ package io.trino.orc.stream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcDecompressor;
-import io.prestosql.orc.checkpoint.ByteArrayStreamCheckpoint;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcDecompressor;
+import io.trino.orc.checkpoint.ByteArrayStreamCheckpoint;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -26,9 +26,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcDecompressor.createOrcDecompressor;
-import static io.prestosql.orc.metadata.CompressionKind.SNAPPY;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.orc.OrcDecompressor.createOrcDecompressor;
+import static io.trino.orc.metadata.CompressionKind.SNAPPY;
 
 public class TestByteArrayStream
         extends AbstractTestValueStream<Slice, ByteArrayStreamCheckpoint, ByteArrayOutputStream, ByteArrayInputStream>

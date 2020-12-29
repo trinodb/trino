@@ -15,8 +15,8 @@ package io.trino;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
-import io.prestosql.jdbc.TestJdbcResultSet;
-import io.prestosql.server.testing.TestingPrestoServer;
+import io.trino.jdbc.TestJdbcResultSet;
+import io.trino.server.testing.TestingPrestoServer;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -25,11 +25,11 @@ import org.testng.annotations.Test;
 import java.lang.reflect.Method;
 import java.util.Optional;
 
-import static io.prestosql.JdbcDriverCapabilities.hasBrokenParametricTimeSupport;
-import static io.prestosql.JdbcDriverCapabilities.hasBrokenParametricTimestampWithTimeZoneSupport;
-import static io.prestosql.JdbcDriverCapabilities.hasBrokenTimeWithTimeZoneSupport;
-import static io.prestosql.JdbcDriverCapabilities.testedVersion;
-import static io.prestosql.TestingServerUtils.setTestingServer;
+import static io.trino.JdbcDriverCapabilities.hasBrokenParametricTimeSupport;
+import static io.trino.JdbcDriverCapabilities.hasBrokenParametricTimestampWithTimeZoneSupport;
+import static io.trino.JdbcDriverCapabilities.hasBrokenTimeWithTimeZoneSupport;
+import static io.trino.JdbcDriverCapabilities.testedVersion;
+import static io.trino.TestingServerUtils.setTestingServer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // We need to keep @Test(singleThreaded = true) even though current version of superclass does not require it.

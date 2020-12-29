@@ -13,10 +13,10 @@
  */
 package io.trino.sql.parser;
 
-import io.prestosql.sql.SqlFormatter;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.Statement;
+import io.trino.sql.SqlFormatter;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.Statement;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
@@ -24,8 +24,8 @@ import org.assertj.core.presentation.StandardRepresentation;
 
 import java.util.function.Function;
 
-import static io.prestosql.sql.SqlFormatter.formatSql;
-import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 
 public class ParserAssert
         extends RecursiveComparisonAssert<ParserAssert>

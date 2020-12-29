@@ -14,15 +14,15 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.parquet.writer.ParquetWriter;
-import io.prestosql.parquet.writer.ParquetWriterOptions;
-import io.prestosql.plugin.hive.FileWriter;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.type.Type;
+import io.trino.parquet.writer.ParquetWriter;
+import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.hive.FileWriter;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.Type;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
 import org.openjdk.jol.info.ClassLayout;
@@ -35,8 +35,8 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetFileWriter

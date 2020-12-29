@@ -18,7 +18,7 @@ import picocli.CommandLine.Option;
 
 import java.util.concurrent.Callable;
 
-import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
+import static io.trino.tests.product.launcher.env.Environments.pruneEnvironment;
 import static picocli.CommandLine.Command;
 
 @Command(

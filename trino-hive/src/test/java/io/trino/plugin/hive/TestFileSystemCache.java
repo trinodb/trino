@@ -14,8 +14,8 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.authentication.ImpersonatingHdfsAuthentication;
-import io.prestosql.plugin.hive.authentication.SimpleHadoopAuthentication;
+import io.trino.plugin.hive.authentication.ImpersonatingHdfsAuthentication;
+import io.trino.plugin.hive.authentication.SimpleHadoopAuthentication;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;

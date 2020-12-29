@@ -13,16 +13,16 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.operator.aggregation.state.NullableLongState;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationState;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.operator.aggregation.state.NullableLongState;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.StandardTypes;
 
 @AggregationFunction("bitwise_or_agg")
 public final class BitwiseOrAggregation

@@ -14,32 +14,32 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.BoundSignature;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Literal;
-import io.prestosql.sql.tree.NullLiteral;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.BoundSignature;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
-import static io.prestosql.sql.planner.plan.Patterns.project;
-import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.planner.plan.Patterns.project;
+import static io.trino.sql.planner.plan.Patterns.source;
 
 public class SimplifyCountOverConstant
         implements Rule<AggregationNode>

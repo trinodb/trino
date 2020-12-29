@@ -15,9 +15,9 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.prestosql.operator.PartitionedOutputOperator.PartitionedOutputInfo;
-import io.prestosql.operator.TableWriterOperator.TableWriterInfo;
-import io.prestosql.operator.exchange.LocalExchangeBufferInfo;
+import io.trino.operator.PartitionedOutputOperator.PartitionedOutputInfo;
+import io.trino.operator.TableWriterOperator.TableWriterInfo;
+import io.trino.operator.exchange.LocalExchangeBufferInfo;
 
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,

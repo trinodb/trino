@@ -13,7 +13,7 @@
  */
 package io.trino.parquet;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

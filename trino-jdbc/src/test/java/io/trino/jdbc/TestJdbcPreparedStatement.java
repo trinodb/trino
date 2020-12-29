@@ -15,11 +15,11 @@ package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logging;
-import io.prestosql.client.ClientTypeSignature;
-import io.prestosql.client.ClientTypeSignatureParameter;
-import io.prestosql.plugin.blackhole.BlackHolePlugin;
-import io.prestosql.plugin.memory.MemoryPlugin;
-import io.prestosql.server.testing.TestingPrestoServer;
+import io.trino.client.ClientTypeSignature;
+import io.trino.client.ClientTypeSignatureParameter;
+import io.trino.plugin.blackhole.BlackHolePlugin;
+import io.trino.plugin.memory.MemoryPlugin;
+import io.trino.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -51,10 +51,10 @@ import java.util.TimeZone;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.primitives.Ints.asList;
-import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
-import static io.prestosql.jdbc.BaseTestJdbcResultSet.toSqlTime;
-import static io.prestosql.jdbc.TestingJdbcUtils.list;
-import static io.prestosql.jdbc.TestingJdbcUtils.readRows;
+import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
+import static io.trino.jdbc.BaseTestJdbcResultSet.toSqlTime;
+import static io.trino.jdbc.TestingJdbcUtils.list;
+import static io.trino.jdbc.TestingJdbcUtils.readRows;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
@@ -736,7 +736,7 @@ public class TestJdbcPreparedStatement
         assertThatThrownBy(() -> assertion.roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate)))
                 // TODO (https://github.com/prestosql/presto/issues/6242) this currently fails
                 .isInstanceOf(SQLException.class)
-                .hasStackTraceContaining("io.prestosql.jdbc.PrestoResultSet.getObject")
+                .hasStackTraceContaining("io.trino.jdbc.PrestoResultSet.getObject")
                 .hasMessage("Expected value to be a date but is: 1970-01-01");
 
         assertBind((ps, i) -> ps.setObject(i, jvmGapDate, Types.DATE))

@@ -17,14 +17,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.Session;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.Session;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.testing.DistributedQueryRunner;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class PinotQueryRunner
 {

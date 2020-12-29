@@ -14,10 +14,10 @@
 package io.trino.server;
 
 import io.airlift.node.NodeInfo;
-import io.prestosql.client.NodeVersion;
-import io.prestosql.client.ServerInfo;
-import io.prestosql.metadata.NodeState;
-import io.prestosql.server.security.ResourceSecurity;
+import io.trino.client.NodeVersion;
+import io.trino.client.ServerInfo;
+import io.trino.metadata.NodeState;
+import io.trino.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -34,10 +34,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.metadata.NodeState.ACTIVE;
-import static io.prestosql.metadata.NodeState.SHUTTING_DOWN;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_WRITE;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.SHUTTING_DOWN;
+import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_WRITE;
+import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;

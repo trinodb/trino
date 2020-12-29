@@ -13,7 +13,7 @@
  */
 package io.trino.testing.datatype;
 
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.sql.TestTable;
 
 import java.util.List;
 

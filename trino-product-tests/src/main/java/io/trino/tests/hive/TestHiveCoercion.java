@@ -16,7 +16,7 @@ package io.trino.tests.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.jdbc.PrestoArray;
+import io.trino.jdbc.PrestoArray;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.Requires;
@@ -54,11 +54,11 @@ import static io.prestosql.tempto.context.ThreadLocalTestContextHolder.testConte
 import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.prestosql.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.HIVE_COERCION;
-import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.hive.TestHiveCoercion.ColumnContext.columnContext;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.TestGroups.HIVE_COERCION;
+import static io.trino.tests.TestGroups.JDBC;
+import static io.trino.tests.hive.TestHiveCoercion.ColumnContext.columnContext;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
@@ -719,9 +719,9 @@ public class TestHiveCoercion
         return tableHandle;
     }
 
-    private io.prestosql.jdbc.Row.Builder rowBuilder()
+    private io.trino.jdbc.Row.Builder rowBuilder()
     {
-        return io.prestosql.jdbc.Row.builder();
+        return io.trino.jdbc.Row.builder();
     }
 
     private static Row project(Row row, int... columns)

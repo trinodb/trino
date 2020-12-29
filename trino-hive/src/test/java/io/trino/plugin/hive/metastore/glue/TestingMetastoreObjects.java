@@ -21,10 +21,10 @@ import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.metastore.Storage;
-import io.prestosql.plugin.hive.metastore.StorageFormat;
-import io.prestosql.spi.security.PrincipalType;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.spi.security.PrincipalType;
 import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;
@@ -98,9 +98,9 @@ public final class TestingMetastoreObjects
 
     // --------------- Presto Objects ---------------
 
-    public static io.prestosql.plugin.hive.metastore.Database getPrestoTestDatabase()
+    public static io.trino.plugin.hive.metastore.Database getPrestoTestDatabase()
     {
-        return io.prestosql.plugin.hive.metastore.Database.builder()
+        return io.trino.plugin.hive.metastore.Database.builder()
                 .setDatabaseName("test-db" + generateRandom())
                 .setComment(Optional.of("database desc"))
                 .setLocation(Optional.of("/db"))
@@ -109,9 +109,9 @@ public final class TestingMetastoreObjects
                 .setOwnerType(PrincipalType.ROLE).build();
     }
 
-    public static io.prestosql.plugin.hive.metastore.Table getPrestoTestTable(String dbName)
+    public static io.trino.plugin.hive.metastore.Table getPrestoTestTable(String dbName)
     {
-        return io.prestosql.plugin.hive.metastore.Table.builder()
+        return io.trino.plugin.hive.metastore.Table.builder()
                 .setDatabaseName(dbName)
                 .setTableName("test-tbl" + generateRandom())
                 .setOwner("owner")
@@ -124,9 +124,9 @@ public final class TestingMetastoreObjects
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static io.prestosql.plugin.hive.metastore.Partition getPrestoTestPartition(String dbName, String tblName, List<String> values)
+    public static io.trino.plugin.hive.metastore.Partition getPrestoTestPartition(String dbName, String tblName, List<String> values)
     {
-        return io.prestosql.plugin.hive.metastore.Partition.builder()
+        return io.trino.plugin.hive.metastore.Partition.builder()
                 .setDatabaseName(dbName)
                 .setTableName(tblName)
                 .setValues(values)
@@ -135,9 +135,9 @@ public final class TestingMetastoreObjects
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static io.prestosql.plugin.hive.metastore.Column getPrestoTestColumn()
+    public static io.trino.plugin.hive.metastore.Column getPrestoTestColumn()
     {
-        return new io.prestosql.plugin.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"));
+        return new io.trino.plugin.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"));
     }
 
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->

@@ -14,14 +14,14 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.base.CaseFormat;
-import io.prestosql.operator.aggregation.state.CentralMomentsState;
-import io.prestosql.operator.aggregation.state.CorrelationState;
-import io.prestosql.operator.aggregation.state.CovarianceState;
-import io.prestosql.operator.aggregation.state.RegressionState;
-import io.prestosql.operator.aggregation.state.VarianceState;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.operator.aggregation.state.CentralMomentsState;
+import io.trino.operator.aggregation.state.CorrelationState;
+import io.trino.operator.aggregation.state.CovarianceState;
+import io.trino.operator.aggregation.state.RegressionState;
+import io.trino.operator.aggregation.state.VarianceState;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.function.Function;

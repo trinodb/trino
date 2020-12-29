@@ -15,8 +15,8 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 
 import javax.inject.Inject;
 

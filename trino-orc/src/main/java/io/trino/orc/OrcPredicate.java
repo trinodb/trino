@@ -13,8 +13,8 @@
  */
 package io.trino.orc;
 
-import io.prestosql.orc.metadata.ColumnMetadata;
-import io.prestosql.orc.metadata.statistics.ColumnStatistics;
+import io.trino.orc.metadata.ColumnMetadata;
+import io.trino.orc.metadata.statistics.ColumnStatistics;
 
 public interface OrcPredicate
 {

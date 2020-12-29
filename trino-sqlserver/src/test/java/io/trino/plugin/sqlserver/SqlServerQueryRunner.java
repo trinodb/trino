@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.Session;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.security.Identity;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 
 import java.util.HashMap;
@@ -32,9 +32,9 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.QueryAssertions.copyTable;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.copyTable;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 
 public final class SqlServerQueryRunner

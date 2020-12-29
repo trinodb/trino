@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.redis;
 
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
 
 /**
  * Format specific field decoder description.

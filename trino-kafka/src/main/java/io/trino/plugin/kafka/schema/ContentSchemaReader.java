@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kafka.schema;
 
-import io.prestosql.plugin.kafka.KafkaTableHandle;
+import io.trino.plugin.kafka.KafkaTableHandle;
 
 import java.util.Optional;
 
