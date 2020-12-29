@@ -39,6 +39,8 @@ preceding section.
 WASB Storage
 ^^^^^^^^^^^^
 
+If your data is publicly available, you do not need to do anything here.
+
 .. list-table:: WASB properties
   :widths: 30, 70
   :header-rows: 1
