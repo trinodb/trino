@@ -51,6 +51,7 @@ public class BigQueryConnectorModule
         binder.bind(BigQueryMetadata.class).in(Scopes.SINGLETON);
         binder.bind(BigQuerySplitManager.class).in(Scopes.SINGLETON);
         binder.bind(BigQueryPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(BigQueryTableProperties.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BigQueryConfig.class);
     }
 
