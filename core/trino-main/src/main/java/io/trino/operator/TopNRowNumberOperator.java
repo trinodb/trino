@@ -33,7 +33,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class TopNRowNumberOperator
@@ -208,10 +207,9 @@ public class TopNRowNumberOperator
             groupByHash = new NoChannelGroupByHash();
         }
 
-        List<Type> types = toTypes(sourceTypes, outputChannels, generateRowNumber);
         this.groupedTopNBuilder = new GroupedTopNBuilder(
                 ImmutableList.copyOf(sourceTypes),
-                new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators),
+                new SimplePageWithPositionComparator(ImmutableList.copyOf(sourceTypes), sortChannels, sortOrders, typeOperators),
                 maxRowCountPerPartition,
                 generateRowNumber,
                 groupByHash);
@@ -299,17 +297,5 @@ public class TopNRowNumberOperator
         // TODO: may need to use trySetMemoryReservation with a compaction to free memory (but that may cause GC pressure)
         localUserMemoryContext.setBytes(groupedTopNBuilder.getEstimatedSizeInBytes());
         return operatorContext.isWaitingForMemory().isDone();
-    }
-
-    private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels, boolean generateRowNumber)
-    {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (int channel : outputChannels) {
-            types.add(sourceTypes.get(channel));
-        }
-        if (generateRowNumber) {
-            types.add(BIGINT);
-        }
-        return types.build();
     }
 }
