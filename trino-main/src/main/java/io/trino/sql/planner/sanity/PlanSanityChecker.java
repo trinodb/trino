@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.planner.sanity;
+package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.spi.block;
+package io.trino.spi.block;
 
 import io.prestosql.spi.type.MapType;
 

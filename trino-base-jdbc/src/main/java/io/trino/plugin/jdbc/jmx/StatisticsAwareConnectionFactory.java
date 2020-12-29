@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.jdbc.jmx;
+package io.trino.plugin.jdbc.jmx;
 
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.spi.connector.ConnectorSession;

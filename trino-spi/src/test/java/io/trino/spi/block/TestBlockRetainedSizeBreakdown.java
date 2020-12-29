@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.block;
+package io.trino.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.prestosql.spi.type.Type;

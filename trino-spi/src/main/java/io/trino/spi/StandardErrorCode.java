@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi;
+package io.trino.spi;
 
 import static io.prestosql.spi.ErrorType.INSUFFICIENT_RESOURCES;
 import static io.prestosql.spi.ErrorType.INTERNAL_ERROR;

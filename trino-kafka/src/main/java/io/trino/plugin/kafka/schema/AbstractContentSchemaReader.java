@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.kafka.schema;
+package io.trino.plugin.kafka.schema;
 
 import io.prestosql.plugin.kafka.KafkaTableHandle;
 

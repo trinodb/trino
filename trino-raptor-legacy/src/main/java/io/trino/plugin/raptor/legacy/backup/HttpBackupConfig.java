@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.raptor.legacy.backup;
+package io.trino.plugin.raptor.legacy.backup;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;

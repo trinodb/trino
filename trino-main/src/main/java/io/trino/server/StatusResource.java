@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server;
+package io.trino.server;
 
 import com.sun.management.OperatingSystemMXBean;
 import io.airlift.node.NodeInfo;

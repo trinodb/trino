@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.execution;
+package io.trino.execution;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;

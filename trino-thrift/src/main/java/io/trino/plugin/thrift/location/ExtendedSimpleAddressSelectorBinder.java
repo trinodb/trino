@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.thrift.location;
+package io.trino.plugin.thrift.location;
 
 import com.google.inject.Binder;
 import com.google.inject.Injector;

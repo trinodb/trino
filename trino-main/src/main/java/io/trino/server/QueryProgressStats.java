@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.server;
+package io.trino.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

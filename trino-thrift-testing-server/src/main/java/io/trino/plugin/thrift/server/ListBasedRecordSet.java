@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.thrift.server;
+package io.trino.plugin.thrift.server;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

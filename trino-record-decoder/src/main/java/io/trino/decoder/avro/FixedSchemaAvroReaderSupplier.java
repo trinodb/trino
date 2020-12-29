@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.decoder.avro;
+package io.trino.decoder.avro;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;

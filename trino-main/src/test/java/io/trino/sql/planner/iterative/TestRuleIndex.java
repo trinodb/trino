@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.planner.iterative;
+package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;

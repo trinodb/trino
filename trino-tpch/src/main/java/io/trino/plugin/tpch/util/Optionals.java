@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.tpch.util;
+package io.trino.plugin.tpch.util;
 
 import java.util.Optional;
 import java.util.function.BiFunction;

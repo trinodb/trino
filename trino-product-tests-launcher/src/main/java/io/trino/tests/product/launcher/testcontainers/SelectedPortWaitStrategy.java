@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.testcontainers;
+package io.trino.tests.product.launcher.testcontainers;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.google.common.collect.ImmutableSet;

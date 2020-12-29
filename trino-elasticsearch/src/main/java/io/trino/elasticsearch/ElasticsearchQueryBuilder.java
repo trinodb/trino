@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch;
+package io.trino.elasticsearch;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.predicate.Domain;

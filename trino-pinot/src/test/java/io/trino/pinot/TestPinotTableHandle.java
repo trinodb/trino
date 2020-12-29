@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.pinot;
+package io.trino.pinot;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.EquivalenceTester;

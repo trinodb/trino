@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.azure;
+package io.trino.plugin.hive.azure;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;

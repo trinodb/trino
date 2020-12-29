@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.connector;
+package io.trino.connector;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.InternalNodeManager;

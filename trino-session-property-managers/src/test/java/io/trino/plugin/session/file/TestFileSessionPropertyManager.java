@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.session.file;
+package io.trino.plugin.session.file;
 
 import io.airlift.testing.TempFile;
 import io.prestosql.plugin.session.AbstractTestSessionPropertyManager;

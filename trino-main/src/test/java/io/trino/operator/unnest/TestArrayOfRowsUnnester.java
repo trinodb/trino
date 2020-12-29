@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.unnest;
+package io.trino.operator.unnest;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;

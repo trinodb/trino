@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.util;
+package io.trino.util;
 
 import java.util.Optional;
 import java.util.function.BinaryOperator;

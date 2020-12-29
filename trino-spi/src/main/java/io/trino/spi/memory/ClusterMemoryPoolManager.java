@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.memory;
+package io.trino.spi.memory;
 
 import java.util.function.Consumer;
 

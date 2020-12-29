@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.redis;
+package io.trino.plugin.redis;
 
 import io.prestosql.plugin.redis.util.RedisServer;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;

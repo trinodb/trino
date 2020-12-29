@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.elasticsearch.decoders;
+package io.trino.elasticsearch.decoders;
 
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.orc;
+package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

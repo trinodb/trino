@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.transaction;
+package io.trino.transaction;
 
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;

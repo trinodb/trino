@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.tests.product.launcher.env.environment;
+package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;

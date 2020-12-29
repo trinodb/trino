@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.tpcds.statistics;
+package io.trino.plugin.tpcds.statistics;
 
 import io.prestosql.tpcds.column.ColumnType;
 

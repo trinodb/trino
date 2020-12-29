@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.tpcds.statistics;
+package io.trino.plugin.tpcds.statistics;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tpcds.Table;

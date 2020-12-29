@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server.security;
+package io.trino.server.security;
 
 import java.security.Principal;
 import java.util.Objects;

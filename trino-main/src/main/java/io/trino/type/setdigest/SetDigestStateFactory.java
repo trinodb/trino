@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.type.setdigest;
+package io.trino.type.setdigest;
 
 import io.prestosql.array.ObjectBigArray;
 import io.prestosql.spi.function.AccumulatorStateFactory;

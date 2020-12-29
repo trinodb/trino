@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.scalar.timestamp;
+package io.trino.operator.scalar.timestamp;
 
 import com.google.common.base.Strings;
 import io.airlift.slice.Slice;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.testing.datatype;
+package io.trino.testing.datatype;
 
 import io.airlift.log.Logger;
 import io.prestosql.Session;

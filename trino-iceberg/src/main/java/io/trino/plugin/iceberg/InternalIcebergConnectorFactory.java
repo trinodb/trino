@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.iceberg;
+package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;

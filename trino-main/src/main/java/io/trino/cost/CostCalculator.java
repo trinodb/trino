@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.cost;
+package io.trino.cost;
 
 import com.google.inject.BindingAnnotation;
 import io.prestosql.Session;

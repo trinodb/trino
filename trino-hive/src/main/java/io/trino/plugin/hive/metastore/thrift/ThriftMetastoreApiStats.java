@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.metastore.thrift;
+package io.trino.plugin.hive.metastore.thrift;
 
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;

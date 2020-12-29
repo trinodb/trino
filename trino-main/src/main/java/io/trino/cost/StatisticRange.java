@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cost;
+package io.trino.cost;
 
 import java.util.Objects;
 

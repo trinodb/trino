@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.parquet.dictionary;
+package io.trino.parquet.dictionary;
 
 import io.prestosql.parquet.DictionaryPage;
 import org.apache.parquet.column.values.plain.PlainValuesReader.IntegerPlainValuesReader;

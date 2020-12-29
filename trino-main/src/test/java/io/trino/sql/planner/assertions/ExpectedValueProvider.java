@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.planner.assertions;
+package io.trino.sql.planner.assertions;
 
 /**
  * An implementation of ExpectedValueProvider<T> should hold the values and

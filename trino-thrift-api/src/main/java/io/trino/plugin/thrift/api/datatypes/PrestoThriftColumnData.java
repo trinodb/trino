@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.thrift.api.datatypes;
+package io.trino.plugin.thrift.api.datatypes;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;

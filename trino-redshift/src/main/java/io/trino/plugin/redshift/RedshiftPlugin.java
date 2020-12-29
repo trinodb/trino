@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.redshift;
+package io.trino.plugin.redshift;
 
 import io.prestosql.plugin.jdbc.JdbcPlugin;
 

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.orc.writer;
+package io.trino.orc.writer;
 
 import io.prestosql.array.IntBigArray;
 import io.prestosql.spi.block.Block;

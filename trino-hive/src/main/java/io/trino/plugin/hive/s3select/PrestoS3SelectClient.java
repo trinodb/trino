@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.s3select;
+package io.trino.plugin.hive.s3select;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.SelectObjectContentEventVisitor;

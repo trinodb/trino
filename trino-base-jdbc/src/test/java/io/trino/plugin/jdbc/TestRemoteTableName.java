@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.jdbc;
+package io.trino.plugin.jdbc;
 
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;

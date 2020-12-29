@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.parquet.writer;
+package io.trino.parquet.writer;
 
 import com.google.common.collect.Lists;
 import org.apache.parquet.schema.GroupType;

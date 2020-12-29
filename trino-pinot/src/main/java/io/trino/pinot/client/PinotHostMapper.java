@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.pinot.client;
+package io.trino.pinot.client;
 
 import org.apache.pinot.core.transport.ServerInstance;
 

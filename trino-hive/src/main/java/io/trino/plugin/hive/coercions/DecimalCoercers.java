@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.hive.coercions;
+package io.trino.plugin.hive.coercions;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;

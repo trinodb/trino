@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.parquet.writer;
+package io.trino.parquet.writer;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;

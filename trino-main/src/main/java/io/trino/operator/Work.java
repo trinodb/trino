@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator;
+package io.trino.operator;
 
 /**
  * The interface is used when a function call needs to yield/pause during the process.

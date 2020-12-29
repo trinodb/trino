@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.testing;
+package io.trino.testing;
 
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.operator.DriverContext;

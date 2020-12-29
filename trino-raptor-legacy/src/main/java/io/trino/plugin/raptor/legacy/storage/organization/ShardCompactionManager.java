@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.raptor.legacy.storage.organization;
+package io.trino.plugin.raptor.legacy.storage.organization;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;

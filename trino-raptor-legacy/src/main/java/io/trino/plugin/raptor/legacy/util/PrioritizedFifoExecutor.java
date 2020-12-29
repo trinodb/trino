@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.raptor.legacy.util;
+package io.trino.plugin.raptor.legacy.util;
 
 import com.google.common.collect.ComparisonChain;
 import com.google.common.util.concurrent.ExecutionList;

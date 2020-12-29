@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.operator.aggregation.histogram;
+package io.trino.operator.aggregation.histogram;
 
 import io.prestosql.operator.aggregation.state.AbstractGroupedAccumulatorState;
 import io.prestosql.spi.block.Block;
