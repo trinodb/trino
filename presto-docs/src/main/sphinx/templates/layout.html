@@ -1,0 +1,9 @@
+{# Import the theme's layout. #}
+{% extends '!layout.html' %}
+
+{%- block header %}
+{{ super() }}
+<div style="background-color: #dd00a1; border: 1px; color: white; text-align: center; font-size: 1rem; position: fixed; top: 48px; width: 100%; padding: 0.3rem; ">
+Presto SQL is now Trino &nbsp;&nbsp;&nbsp;&nbsp;<a href="https://trino.io/blog/2020/12/27/announcing-trino.html" target="_blank" style="text-decoration: underline">Read why &gt;</a>
+</div>
+{% endblock %}
