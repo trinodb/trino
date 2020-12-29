@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.util;
 
+import com.google.common.io.Closer;
 import io.prestosql.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
@@ -21,7 +22,6 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 
-import java.io.Closeable;
 import java.io.IOException;
 
 import static org.apache.hadoop.hive.ql.exec.Utilities.createSequenceWriter;
@@ -64,7 +64,9 @@ public class SequenceFileRecordWriter
     public void close(boolean abort)
             throws IOException
     {
-        try (Closeable ignored = writer) {
+        try (Closer closer = Closer.create()) {
+            closer.register(writer);
+
             if (finalWrittenBytes == -1) {
                 writer.hflush();
                 finalWrittenBytes = writer.getLength();
