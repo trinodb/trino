@@ -14,8 +14,11 @@
 package io.prestosql.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
+
+import java.util.Set;
 
 public class CassandraPlugin
         implements Plugin
@@ -24,5 +27,11 @@ public class CassandraPlugin
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
         return ImmutableList.of(new CassandraConnectorFactory());
+    }
+
+    @Override
+    public Set<Class<?>> getFunctions()
+    {
+        return ImmutableSet.of(MinTimeUuid.class, MaxTimeUuid.class, TimeUuidFunctions.class);
     }
 }
