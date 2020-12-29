@@ -26,6 +26,7 @@ import io.trino.client.StatementStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryState;
 import io.trino.server.HttpRequestSessionContext;
+import io.trino.server.ProtocolConfig;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
@@ -106,13 +107,15 @@ public class QueuedStatementResource
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
     private final boolean compressionEnabled;
+    private final Optional<String> alternateHeaderName;
 
     @Inject
     public QueuedStatementResource(
             GroupProvider groupProvider,
             DispatchManager dispatchManager,
             DispatchExecutor executor,
-            ServerConfig serverConfig)
+            ServerConfig serverConfig,
+            ProtocolConfig protocolConfig)
     {
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
@@ -121,6 +124,7 @@ public class QueuedStatementResource
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
+        this.alternateHeaderName = requireNonNull(protocolConfig, "protocolConfig is null").getAlternateHeaderName();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -178,7 +182,7 @@ public class QueuedStatementResource
         Optional<Identity> identity = Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY));
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
 
-        SessionContext sessionContext = new HttpRequestSessionContext(headers, remoteAddress, identity, groupProvider);
+        SessionContext sessionContext = new HttpRequestSessionContext(headers, alternateHeaderName, remoteAddress, identity, groupProvider);
         Query query = new Query(statement, sessionContext, dispatchManager);
         queries.put(query.getQueryId(), query);
 

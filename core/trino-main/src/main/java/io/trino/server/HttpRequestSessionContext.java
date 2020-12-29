@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session.ResourceEstimateBuilder;
+import io.trino.client.ProtocolDetectionException;
+import io.trino.client.ProtocolHeaders;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
@@ -55,23 +57,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
-import static io.trino.client.PrestoHeaders.PRESTO_CATALOG;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_INFO;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
-import static io.trino.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
-import static io.trino.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static io.trino.client.PrestoHeaders.PRESTO_PATH;
-import static io.trino.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
-import static io.trino.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
-import static io.trino.client.PrestoHeaders.PRESTO_ROLE;
-import static io.trino.client.PrestoHeaders.PRESTO_SCHEMA;
-import static io.trino.client.PrestoHeaders.PRESTO_SESSION;
-import static io.trino.client.PrestoHeaders.PRESTO_SOURCE;
-import static io.trino.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static io.trino.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
-import static io.trino.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
-import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.client.ProtocolHeaders.detectProtocol;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -82,6 +68,8 @@ public final class HttpRequestSessionContext
 {
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     public static final String AUTHENTICATED_IDENTITY = "presto.authenticated-identity";
+
+    private final ProtocolHeaders protocolHeaders;
 
     private final String catalog;
     private final String schema;
@@ -109,39 +97,50 @@ public final class HttpRequestSessionContext
     private final boolean clientTransactionSupport;
     private final String clientInfo;
 
-    public HttpRequestSessionContext(MultivaluedMap<String, String> headers, String remoteAddress, Optional<Identity> authenticatedIdentity, GroupProvider groupProvider)
+    public HttpRequestSessionContext(
+            MultivaluedMap<String, String> headers,
+            Optional<String> alternateHeaderName,
+            String remoteAddress,
+            Optional<Identity> authenticatedIdentity,
+            GroupProvider groupProvider)
             throws WebApplicationException
     {
-        catalog = trimEmptyToNull(headers.getFirst(PRESTO_CATALOG));
-        schema = trimEmptyToNull(headers.getFirst(PRESTO_SCHEMA));
-        path = trimEmptyToNull(headers.getFirst(PRESTO_PATH));
+        try {
+            protocolHeaders = detectProtocol(alternateHeaderName, headers.keySet());
+        }
+        catch (ProtocolDetectionException e) {
+            throw badRequest(e.getMessage());
+        }
+        catalog = trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog()));
+        schema = trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema()));
+        path = trimEmptyToNull(headers.getFirst(protocolHeaders.requestPath()));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         this.authenticatedIdentity = requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
-        identity = buildSessionIdentity(authenticatedIdentity, headers, groupProvider);
+        identity = buildSessionIdentity(authenticatedIdentity, protocolHeaders, headers, groupProvider);
 
-        source = headers.getFirst(PRESTO_SOURCE);
-        traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(PRESTO_TRACE_TOKEN)));
+        source = headers.getFirst(protocolHeaders.requestSource());
+        traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestTraceToken())));
         userAgent = headers.getFirst(USER_AGENT);
         remoteUserAddress = remoteAddress;
-        timeZoneId = headers.getFirst(PRESTO_TIME_ZONE);
-        language = headers.getFirst(PRESTO_LANGUAGE);
-        clientInfo = headers.getFirst(PRESTO_CLIENT_INFO);
-        clientTags = parseClientTags(headers);
-        clientCapabilities = parseClientCapabilities(headers);
-        resourceEstimates = parseResourceEstimate(headers);
+        timeZoneId = headers.getFirst(protocolHeaders.requestTimeZone());
+        language = headers.getFirst(protocolHeaders.requestLanguage());
+        clientInfo = headers.getFirst(protocolHeaders.requestClientInfo());
+        clientTags = parseClientTags(protocolHeaders, headers);
+        clientCapabilities = parseClientCapabilities(protocolHeaders, headers);
+        resourceEstimates = parseResourceEstimate(protocolHeaders, headers);
 
         // parse session properties
         ImmutableMap.Builder<String, String> systemProperties = ImmutableMap.builder();
         Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
-        for (Entry<String, String> entry : parseSessionHeaders(headers).entrySet()) {
+        for (Entry<String, String> entry : parseSessionHeaders(protocolHeaders, headers).entrySet()) {
             String fullPropertyName = entry.getKey();
             String propertyValue = entry.getValue();
             List<String> nameParts = DOT_SPLITTER.splitToList(fullPropertyName);
             if (nameParts.size() == 1) {
                 String propertyName = nameParts.get(0);
 
-                assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+                assertRequest(!propertyName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
 
                 // catalog session properties cannot be validated until the transaction has stated, so we delay system property validation also
                 systemProperties.put(propertyName, propertyValue);
@@ -150,40 +149,59 @@ public final class HttpRequestSessionContext
                 String catalogName = nameParts.get(0);
                 String propertyName = nameParts.get(1);
 
-                assertRequest(!catalogName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
-                assertRequest(!propertyName.isEmpty(), "Invalid %s header", PRESTO_SESSION);
+                assertRequest(!catalogName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
+                assertRequest(!propertyName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
 
                 // catalog session properties cannot be validated until the transaction has stated
                 catalogSessionProperties.computeIfAbsent(catalogName, id -> new HashMap<>()).put(propertyName, propertyValue);
             }
             else {
-                throw badRequest(format("Invalid %s header", PRESTO_SESSION));
+                throw badRequest(format("Invalid %s header", protocolHeaders.requestSession()));
             }
         }
         this.systemProperties = systemProperties.build();
         this.catalogSessionProperties = catalogSessionProperties.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
 
-        preparedStatements = parsePreparedStatementsHeaders(headers);
+        preparedStatements = parsePreparedStatementsHeaders(protocolHeaders, headers);
 
-        String transactionIdHeader = headers.getFirst(PRESTO_TRANSACTION_ID);
+        String transactionIdHeader = headers.getFirst(protocolHeaders.requestTransactionId());
         clientTransactionSupport = transactionIdHeader != null;
         transactionId = parseTransactionId(transactionIdHeader);
     }
 
-    public static Identity extractAuthorizedIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders, AccessControl accessControl, GroupProvider groupProvider)
+    public static Identity extractAuthorizedIdentity(
+            HttpServletRequest servletRequest,
+            HttpHeaders httpHeaders,
+            Optional<String> alternateHeaderName,
+            AccessControl accessControl,
+            GroupProvider groupProvider)
     {
         return extractAuthorizedIdentity(
                 Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY)),
                 httpHeaders.getRequestHeaders(),
+                alternateHeaderName,
                 accessControl,
                 groupProvider);
     }
 
-    public static Identity extractAuthorizedIdentity(Optional<Identity> optionalAuthenticatedIdentity, MultivaluedMap<String, String> headers, AccessControl accessControl, GroupProvider groupProvider)
+    public static Identity extractAuthorizedIdentity(
+            Optional<Identity> optionalAuthenticatedIdentity,
+            MultivaluedMap<String, String> headers,
+            Optional<String> alternateHeaderName,
+            AccessControl accessControl,
+            GroupProvider groupProvider)
             throws AccessDeniedException
     {
-        Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, headers, groupProvider);
+        ProtocolHeaders protocolHeaders;
+        try {
+            protocolHeaders = detectProtocol(alternateHeaderName, headers.keySet());
+        }
+        catch (ProtocolDetectionException e) {
+            throw badRequest(e.getMessage());
+        }
+
+        Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, protocolHeaders, headers, groupProvider);
 
         accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
 
@@ -198,18 +216,24 @@ public final class HttpRequestSessionContext
         return identity;
     }
 
-    private static Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, MultivaluedMap<String, String> headers, GroupProvider groupProvider)
+    private static Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers, GroupProvider groupProvider)
     {
-        String prestoUser = trimEmptyToNull(headers.getFirst(PRESTO_USER));
+        String prestoUser = trimEmptyToNull(headers.getFirst(protocolHeaders.requestUser()));
         String user = prestoUser != null ? prestoUser : authenticatedIdentity.map(Identity::getUser).orElse(null);
         assertRequest(user != null, "User must be set");
         return authenticatedIdentity
                 .map(identity -> Identity.from(identity).withUser(user))
                 .orElseGet(() -> Identity.forUser(user))
-                .withAdditionalRoles(parseRoleHeaders(headers))
-                .withAdditionalExtraCredentials(parseExtraCredentials(headers))
+                .withAdditionalRoles(parseRoleHeaders(protocolHeaders, headers))
+                .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .build();
+    }
+
+    @Override
+    public ProtocolHeaders getProtocolHeaders()
+    {
+        return protocolHeaders;
     }
 
     @Override
@@ -342,30 +366,30 @@ public final class HttpRequestSessionContext
                 .collect(toImmutableList());
     }
 
-    private static Map<String, String> parseSessionHeaders(MultivaluedMap<String, String> headers)
+    private static Map<String, String> parseSessionHeaders(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
-        return parseProperty(headers, PRESTO_SESSION);
+        return parseProperty(headers, protocolHeaders.requestSession());
     }
 
-    private static Map<String, SelectedRole> parseRoleHeaders(MultivaluedMap<String, String> headers)
+    private static Map<String, SelectedRole> parseRoleHeaders(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
-        parseProperty(headers, PRESTO_ROLE).forEach((key, value) -> {
+        parseProperty(headers, protocolHeaders.requestRole()).forEach((key, value) -> {
             SelectedRole role;
             try {
                 role = SelectedRole.valueOf(value);
             }
             catch (IllegalArgumentException e) {
-                throw badRequest(format("Invalid %s header", PRESTO_ROLE));
+                throw badRequest(format("Invalid %s header", protocolHeaders.requestRole()));
             }
             roles.put(key, role);
         });
         return roles.build();
     }
 
-    private static Map<String, String> parseExtraCredentials(MultivaluedMap<String, String> headers)
+    private static Map<String, String> parseExtraCredentials(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
-        return parseProperty(headers, PRESTO_EXTRA_CREDENTIAL);
+        return parseProperty(headers, protocolHeaders.requestExtraCredential());
     }
 
     private static Map<String, String> parseProperty(MultivaluedMap<String, String> headers, String headerName)
@@ -384,22 +408,22 @@ public final class HttpRequestSessionContext
         return properties;
     }
 
-    private static Set<String> parseClientTags(MultivaluedMap<String, String> headers)
+    private static Set<String> parseClientTags(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
-        return ImmutableSet.copyOf(splitter.split(nullToEmpty(headers.getFirst(PRESTO_CLIENT_TAGS))));
+        return ImmutableSet.copyOf(splitter.split(nullToEmpty(headers.getFirst(protocolHeaders.requestClientTags()))));
     }
 
-    private static Set<String> parseClientCapabilities(MultivaluedMap<String, String> headers)
+    private static Set<String> parseClientCapabilities(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         Splitter splitter = Splitter.on(',').trimResults().omitEmptyStrings();
-        return ImmutableSet.copyOf(splitter.split(nullToEmpty(headers.getFirst(PRESTO_CLIENT_CAPABILITIES))));
+        return ImmutableSet.copyOf(splitter.split(nullToEmpty(headers.getFirst(protocolHeaders.requestClientCapabilities()))));
     }
 
-    private static ResourceEstimates parseResourceEstimate(MultivaluedMap<String, String> headers)
+    private static ResourceEstimates parseResourceEstimate(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         ResourceEstimateBuilder builder = new ResourceEstimateBuilder();
-        parseProperty(headers, PRESTO_RESOURCE_ESTIMATE).forEach((name, value) -> {
+        parseProperty(headers, protocolHeaders.requestResourceEstimate()).forEach((name, value) -> {
             try {
                 switch (name.toUpperCase(ENGLISH)) {
                     case ResourceEstimates.EXECUTION_TIME:
@@ -430,16 +454,16 @@ public final class HttpRequestSessionContext
         }
     }
 
-    private static Map<String, String> parsePreparedStatementsHeaders(MultivaluedMap<String, String> headers)
+    private static Map<String, String> parsePreparedStatementsHeaders(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         ImmutableMap.Builder<String, String> preparedStatements = ImmutableMap.builder();
-        parseProperty(headers, PRESTO_PREPARED_STATEMENT).forEach((key, sqlString) -> {
+        parseProperty(headers, protocolHeaders.requestPreparedStatement()).forEach((key, sqlString) -> {
             String statementName;
             try {
                 statementName = urlDecode(key);
             }
             catch (IllegalArgumentException e) {
-                throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
+                throw badRequest(format("Invalid %s header: %s", protocolHeaders.requestPreparedStatement(), e.getMessage()));
             }
 
             // Validate statement
@@ -448,7 +472,7 @@ public final class HttpRequestSessionContext
                 sqlParser.createStatement(sqlString, new ParsingOptions(AS_DOUBLE /* anything */));
             }
             catch (ParsingException e) {
-                throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
+                throw badRequest(format("Invalid %s header: %s", protocolHeaders.requestPreparedStatement(), e.getMessage()));
             }
 
             preparedStatements.put(statementName, sqlString);

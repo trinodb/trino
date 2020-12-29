@@ -61,13 +61,15 @@ public class QueryResource
     private final DispatchManager dispatchManager;
     private final AccessControl accessControl;
     private final GroupProvider groupProvider;
+    private final Optional<String> alternateHeaderName;
 
     @Inject
-    public QueryResource(DispatchManager dispatchManager, AccessControl accessControl, GroupProvider groupProvider)
+    public QueryResource(DispatchManager dispatchManager, AccessControl accessControl, GroupProvider groupProvider, ProtocolConfig protocolConfig)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
     @ResourceSecurity(AUTHENTICATED_USER)
@@ -77,7 +79,7 @@ public class QueryResource
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
 
         List<BasicQueryInfo> queries = dispatchManager.getQueries();
-        queries = filterQueries(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl, groupProvider), queries, accessControl);
+        queries = filterQueries(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queries, accessControl);
 
         ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
         for (BasicQueryInfo queryInfo : queries) {
@@ -100,7 +102,7 @@ public class QueryResource
             return Response.status(Status.GONE).build();
         }
         try {
-            checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl, groupProvider), queryInfo.get().getSession().getUser(), accessControl);
+            checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfo.get().getSession().getUser(), accessControl);
             return Response.ok(queryInfo.get()).build();
         }
         catch (AccessDeniedException e) {
@@ -117,7 +119,7 @@ public class QueryResource
 
         try {
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(queryId);
-            checkCanKillQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl, groupProvider), queryInfo.getSession().getUser(), accessControl);
+            checkCanKillQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfo.getSession().getUser(), accessControl);
             dispatchManager.cancelQuery(queryId);
         }
         catch (AccessDeniedException e) {
@@ -150,7 +152,7 @@ public class QueryResource
         try {
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(queryId);
 
-            checkCanKillQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl, groupProvider), queryInfo.getSession().getUser(), accessControl);
+            checkCanKillQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfo.getSession().getUser(), accessControl);
 
             // check before killing to provide the proper error code (this is racy)
             if (queryInfo.getState().isDone()) {

@@ -50,32 +50,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
-import static io.trino.client.PrestoHeaders.PRESTO_CATALOG;
-import static io.trino.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
-import static io.trino.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_INFO;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
-import static io.trino.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
-import static io.trino.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
-import static io.trino.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static io.trino.client.PrestoHeaders.PRESTO_PATH;
-import static io.trino.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
-import static io.trino.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
-import static io.trino.client.PrestoHeaders.PRESTO_SCHEMA;
-import static io.trino.client.PrestoHeaders.PRESTO_SESSION;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_CATALOG;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_PATH;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_ROLE;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_SCHEMA;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_SESSION;
-import static io.trino.client.PrestoHeaders.PRESTO_SOURCE;
-import static io.trino.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
-import static io.trino.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static io.trino.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
-import static io.trino.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
-import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
@@ -153,59 +128,59 @@ class StatementClientV1
                 .post(RequestBody.create(MEDIA_TYPE_TEXT, query));
 
         if (session.getSource() != null) {
-            builder.addHeader(PRESTO_SOURCE, session.getSource());
+            builder.addHeader(TRINO_HEADERS.requestSource(), session.getSource());
         }
 
-        session.getTraceToken().ifPresent(token -> builder.addHeader(PRESTO_TRACE_TOKEN, token));
+        session.getTraceToken().ifPresent(token -> builder.addHeader(TRINO_HEADERS.requestTraceToken(), token));
 
         if (session.getClientTags() != null && !session.getClientTags().isEmpty()) {
-            builder.addHeader(PRESTO_CLIENT_TAGS, Joiner.on(",").join(session.getClientTags()));
+            builder.addHeader(TRINO_HEADERS.requestClientTags(), Joiner.on(",").join(session.getClientTags()));
         }
         if (session.getClientInfo() != null) {
-            builder.addHeader(PRESTO_CLIENT_INFO, session.getClientInfo());
+            builder.addHeader(TRINO_HEADERS.requestClientInfo(), session.getClientInfo());
         }
         if (session.getCatalog() != null) {
-            builder.addHeader(PRESTO_CATALOG, session.getCatalog());
+            builder.addHeader(TRINO_HEADERS.requestCatalog(), session.getCatalog());
         }
         if (session.getSchema() != null) {
-            builder.addHeader(PRESTO_SCHEMA, session.getSchema());
+            builder.addHeader(TRINO_HEADERS.requestSchema(), session.getSchema());
         }
         if (session.getPath() != null) {
-            builder.addHeader(PRESTO_PATH, session.getPath());
+            builder.addHeader(TRINO_HEADERS.requestPath(), session.getPath());
         }
-        builder.addHeader(PRESTO_TIME_ZONE, session.getTimeZone().getId());
+        builder.addHeader(TRINO_HEADERS.requestTimeZone(), session.getTimeZone().getId());
         if (session.getLocale() != null) {
-            builder.addHeader(PRESTO_LANGUAGE, session.getLocale().toLanguageTag());
+            builder.addHeader(TRINO_HEADERS.requestLanguage(), session.getLocale().toLanguageTag());
         }
 
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
-            builder.addHeader(PRESTO_SESSION, entry.getKey() + "=" + urlEncode(entry.getValue()));
+            builder.addHeader(TRINO_HEADERS.requestSession(), entry.getKey() + "=" + urlEncode(entry.getValue()));
         }
 
         Map<String, String> resourceEstimates = session.getResourceEstimates();
         for (Entry<String, String> entry : resourceEstimates.entrySet()) {
-            builder.addHeader(PRESTO_RESOURCE_ESTIMATE, entry.getKey() + "=" + urlEncode(entry.getValue()));
+            builder.addHeader(TRINO_HEADERS.requestResourceEstimate(), entry.getKey() + "=" + urlEncode(entry.getValue()));
         }
 
         Map<String, ClientSelectedRole> roles = session.getRoles();
         for (Entry<String, ClientSelectedRole> entry : roles.entrySet()) {
-            builder.addHeader(PrestoHeaders.PRESTO_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString()));
+            builder.addHeader(TRINO_HEADERS.requestRole(), entry.getKey() + '=' + urlEncode(entry.getValue().toString()));
         }
 
         Map<String, String> extraCredentials = session.getExtraCredentials();
         for (Entry<String, String> entry : extraCredentials.entrySet()) {
-            builder.addHeader(PRESTO_EXTRA_CREDENTIAL, entry.getKey() + "=" + urlEncode(entry.getValue()));
+            builder.addHeader(TRINO_HEADERS.requestExtraCredential(), entry.getKey() + "=" + urlEncode(entry.getValue()));
         }
 
         Map<String, String> statements = session.getPreparedStatements();
         for (Entry<String, String> entry : statements.entrySet()) {
-            builder.addHeader(PRESTO_PREPARED_STATEMENT, urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
+            builder.addHeader(TRINO_HEADERS.requestPreparedStatement(), urlEncode(entry.getKey()) + "=" + urlEncode(entry.getValue()));
         }
 
-        builder.addHeader(PRESTO_TRANSACTION_ID, session.getTransactionId() == null ? "NONE" : session.getTransactionId());
+        builder.addHeader(TRINO_HEADERS.requestTransactionId(), session.getTransactionId() == null ? "NONE" : session.getTransactionId());
 
-        builder.addHeader(PRESTO_CLIENT_CAPABILITIES, clientCapabilities);
+        builder.addHeader(TRINO_HEADERS.requestClientCapabilities(), clientCapabilities);
 
         return builder.build();
     }
@@ -336,7 +311,7 @@ class StatementClientV1
     private Request.Builder prepareRequest(HttpUrl url)
     {
         Request.Builder builder = new Request.Builder()
-                .addHeader(PRESTO_USER, user)
+                .addHeader(TRINO_HEADERS.requestUser(), user)
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
                 .url(url);
         if (compressionDisabled) {
@@ -416,20 +391,20 @@ class StatementClientV1
 
     private void processResponse(Headers headers, QueryResults results)
     {
-        setCatalog.set(headers.get(PRESTO_SET_CATALOG));
-        setSchema.set(headers.get(PRESTO_SET_SCHEMA));
-        setPath.set(headers.get(PRESTO_SET_PATH));
+        setCatalog.set(headers.get(TRINO_HEADERS.responseSetCatalog()));
+        setSchema.set(headers.get(TRINO_HEADERS.responseSetSchema()));
+        setPath.set(headers.get(TRINO_HEADERS.responseSetPath()));
 
-        for (String setSession : headers.values(PRESTO_SET_SESSION)) {
+        for (String setSession : headers.values(TRINO_HEADERS.responseSetSession())) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {
                 continue;
             }
             setSessionProperties.put(keyValue.get(0), urlDecode(keyValue.get(1)));
         }
-        resetSessionProperties.addAll(headers.values(PRESTO_CLEAR_SESSION));
+        resetSessionProperties.addAll(headers.values(TRINO_HEADERS.responseClearSession()));
 
-        for (String setRole : headers.values(PRESTO_SET_ROLE)) {
+        for (String setRole : headers.values(TRINO_HEADERS.responseSetRole())) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setRole);
             if (keyValue.size() != 2) {
                 continue;
@@ -437,22 +412,22 @@ class StatementClientV1
             setRoles.put(keyValue.get(0), ClientSelectedRole.valueOf(urlDecode(keyValue.get(1))));
         }
 
-        for (String entry : headers.values(PRESTO_ADDED_PREPARE)) {
+        for (String entry : headers.values(TRINO_HEADERS.responseAddedPrepare())) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);
             if (keyValue.size() != 2) {
                 continue;
             }
             addedPreparedStatements.put(urlDecode(keyValue.get(0)), urlDecode(keyValue.get(1)));
         }
-        for (String entry : headers.values(PRESTO_DEALLOCATED_PREPARE)) {
+        for (String entry : headers.values(TRINO_HEADERS.responseDeallocatedPrepare())) {
             deallocatedPreparedStatements.add(urlDecode(entry));
         }
 
-        String startedTransactionId = headers.get(PRESTO_STARTED_TRANSACTION_ID);
+        String startedTransactionId = headers.get(TRINO_HEADERS.responseStartedTransactionId());
         if (startedTransactionId != null) {
             this.startedTransactionId.set(startedTransactionId);
         }
-        if (headers.get(PRESTO_CLEAR_TRANSACTION_ID) != null) {
+        if (headers.get(TRINO_HEADERS.responseClearTransactionId()) != null) {
             clearTransactionId.set(true);
         }
 

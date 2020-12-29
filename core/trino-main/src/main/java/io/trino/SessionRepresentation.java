@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
@@ -64,6 +65,7 @@ public final class SessionRepresentation
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
+    private final String protocolName;
 
     @JsonCreator
     public SessionRepresentation(
@@ -91,7 +93,8 @@ public final class SessionRepresentation
             @JsonProperty("catalogProperties") Map<CatalogName, Map<String, String>> catalogProperties,
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("roles") Map<String, SelectedRole> roles,
-            @JsonProperty("preparedStatements") Map<String, String> preparedStatements)
+            @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
+            @JsonProperty("protocolName") String protocolName)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -116,6 +119,7 @@ public final class SessionRepresentation
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.roles = ImmutableMap.copyOf(roles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
+        this.protocolName = requireNonNull(protocolName, "protocolName is null");
 
         ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         for (Entry<CatalogName, Map<String, String>> entry : catalogProperties.entrySet()) {
@@ -280,6 +284,12 @@ public final class SessionRepresentation
         return preparedStatements;
     }
 
+    @JsonProperty
+    public String getProtocolName()
+    {
+        return protocolName;
+    }
+
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return toSession(sessionPropertyManager, emptyMap());
@@ -315,6 +325,7 @@ public final class SessionRepresentation
                 catalogProperties,
                 unprocessedCatalogProperties,
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                createProtocolHeaders(protocolName));
     }
 }

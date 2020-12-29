@@ -40,18 +40,7 @@ import java.util.Optional;
 import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
-import static io.trino.client.PrestoHeaders.PRESTO_CATALOG;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_INFO;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
-import static io.trino.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static io.trino.client.PrestoHeaders.PRESTO_PATH;
-import static io.trino.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
-import static io.trino.client.PrestoHeaders.PRESTO_SCHEMA;
-import static io.trino.client.PrestoHeaders.PRESTO_SESSION;
-import static io.trino.client.PrestoHeaders.PRESTO_SOURCE;
-import static io.trino.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -61,24 +50,24 @@ import static org.testng.Assert.assertFalse;
 public class TestQuerySessionSupplier
 {
     private static final MultivaluedMap<String, String> TEST_HEADERS = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-            .put(PRESTO_USER, "testUser")
-            .put(PRESTO_SOURCE, "testSource")
-            .put(PRESTO_CATALOG, "testCatalog")
-            .put(PRESTO_SCHEMA, "testSchema")
-            .put(PRESTO_PATH, "testPath")
-            .put(PRESTO_LANGUAGE, "zh-TW")
-            .put(PRESTO_TIME_ZONE, "Asia/Taipei")
-            .put(PRESTO_CLIENT_INFO, "client-info")
-            .put(PRESTO_CLIENT_TAGS, "tag1,tag2 ,tag3, tag2")
-            .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
-            .put(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
-            .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
+            .put(TRINO_HEADERS.requestUser(), "testUser")
+            .put(TRINO_HEADERS.requestSource(), "testSource")
+            .put(TRINO_HEADERS.requestCatalog(), "testCatalog")
+            .put(TRINO_HEADERS.requestSchema(), "testSchema")
+            .put(TRINO_HEADERS.requestPath(), "testPath")
+            .put(TRINO_HEADERS.requestLanguage(), "zh-TW")
+            .put(TRINO_HEADERS.requestTimeZone(), "Asia/Taipei")
+            .put(TRINO_HEADERS.requestClientInfo(), "client-info")
+            .put(TRINO_HEADERS.requestClientTags(), "tag1,tag2 ,tag3, tag2")
+            .put(TRINO_HEADERS.requestSession(), QUERY_MAX_MEMORY + "=1GB")
+            .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+            .put(TRINO_HEADERS.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
             .build());
 
     @Test
     public void testCreateSession()
     {
-        SessionContext context = new HttpRequestSessionContext(TEST_HEADERS, "testRemote", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context = new HttpRequestSessionContext(TEST_HEADERS, Optional.empty(), "testRemote", Optional.empty(), user -> ImmutableSet.of());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
 
@@ -108,16 +97,16 @@ public class TestQuerySessionSupplier
     public void testEmptyClientTags()
     {
         MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-                .put(PRESTO_USER, "testUser")
+                .put(TRINO_HEADERS.requestUser(), "testUser")
                 .build());
-        SessionContext context1 = new HttpRequestSessionContext(headers1, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context1 = new HttpRequestSessionContext(headers1, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-                .put(PRESTO_USER, "testUser")
-                .put(PRESTO_CLIENT_TAGS, "")
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestClientTags(), "")
                 .build());
-        SessionContext context2 = new HttpRequestSessionContext(headers2, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context2 = new HttpRequestSessionContext(headers2, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
@@ -125,16 +114,16 @@ public class TestQuerySessionSupplier
     public void testClientCapabilities()
     {
         MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-                .put(PRESTO_USER, "testUser")
-                .put(PRESTO_CLIENT_CAPABILITIES, "foo, bar")
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestClientCapabilities(), "foo, bar")
                 .build());
-        SessionContext context1 = new HttpRequestSessionContext(headers1, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context1 = new HttpRequestSessionContext(headers1, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-                .put(PRESTO_USER, "testUser")
+                .put(TRINO_HEADERS.requestUser(), "testUser")
                 .build());
-        SessionContext context2 = new HttpRequestSessionContext(headers2, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context2 = new HttpRequestSessionContext(headers2, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
@@ -142,10 +131,10 @@ public class TestQuerySessionSupplier
     public void testInvalidTimeZone()
     {
         MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-                .put(PRESTO_USER, "testUser")
-                .put(PRESTO_TIME_ZONE, "unknown_timezone")
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestTimeZone(), "unknown_timezone")
                 .build());
-        SessionContext context = new HttpRequestSessionContext(headers, "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context = new HttpRequestSessionContext(headers, Optional.empty(), "remoteAddress", Optional.empty(), user -> ImmutableSet.of());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         sessionSupplier.createSession(new QueryId("test_query_id"), context);
     }
@@ -183,7 +172,7 @@ public class TestQuerySessionSupplier
         // none specified
         Session session = createSession(
                 ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
+                        .put(TRINO_HEADERS.requestUser(), "testUser")
                         .build(),
                 new SqlEnvironmentConfig());
         assertFalse(session.getCatalog().isPresent());
@@ -192,7 +181,7 @@ public class TestQuerySessionSupplier
         // catalog
         session = createSession(
                 ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
+                        .put(TRINO_HEADERS.requestUser(), "testUser")
                         .build(),
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("catalog"));
@@ -202,7 +191,7 @@ public class TestQuerySessionSupplier
         // catalog and schema
         session = createSession(
                 ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
+                        .put(TRINO_HEADERS.requestUser(), "testUser")
                         .build(),
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("catalog")
@@ -222,9 +211,9 @@ public class TestQuerySessionSupplier
         // none specified
         Session session = createSession(
                 ImmutableListMultimap.<String, String>builder()
-                        .put(PRESTO_USER, "testUser")
-                        .put(PRESTO_CATALOG, "catalog")
-                        .put(PRESTO_SCHEMA, "schema")
+                        .put(TRINO_HEADERS.requestUser(), "testUser")
+                        .put(TRINO_HEADERS.requestCatalog(), "catalog")
+                        .put(TRINO_HEADERS.requestSchema(), "schema")
                         .build(),
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog")
@@ -236,7 +225,7 @@ public class TestQuerySessionSupplier
     private static Session createSession(ListMultimap<String, String> headers, SqlEnvironmentConfig config)
     {
         MultivaluedMap<String, String> headerMap = new GuavaMultivaluedMap<>(headers);
-        SessionContext context = new HttpRequestSessionContext(headerMap, "testRemote", Optional.empty(), user -> ImmutableSet.of());
+        SessionContext context = new HttpRequestSessionContext(headerMap, Optional.empty(), "testRemote", Optional.empty(), user -> ImmutableSet.of());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(config);
         return sessionSupplier.createSession(new QueryId("test_query_id"), context);
     }

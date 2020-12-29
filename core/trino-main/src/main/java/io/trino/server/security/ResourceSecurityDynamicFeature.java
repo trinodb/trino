@@ -15,6 +15,7 @@ package io.trino.server.security;
 
 import io.trino.security.AccessControl;
 import io.trino.server.InternalAuthenticationManager;
+import io.trino.server.ProtocolConfig;
 import io.trino.server.security.ResourceSecurity.AccessType;
 import io.trino.server.ui.WebUiAuthenticationFilter;
 import io.trino.spi.TrinoException;
@@ -55,6 +56,7 @@ public class ResourceSecurityDynamicFeature
     private final GroupProvider groupProvider;
     private final Optional<String> fixedManagementUser;
     private final boolean fixedManagementUserForHttps;
+    private final Optional<String> alternateHeaderName;
 
     @Inject
     public ResourceSecurityDynamicFeature(
@@ -64,7 +66,8 @@ public class ResourceSecurityDynamicFeature
             InternalAuthenticationManager internalAuthenticationManager,
             AccessControl accessControl,
             GroupProvider groupProvider,
-            SecurityConfig securityConfig)
+            SecurityConfig securityConfig,
+            ProtocolConfig protocolConfig)
     {
         this.resourceAccessType = requireNonNull(resourceAccessType, "resourceAccessType is null");
         this.authenticationFilter = requireNonNull(authenticationFilter, "authenticationFilter is null");
@@ -75,6 +78,7 @@ public class ResourceSecurityDynamicFeature
         requireNonNull(securityConfig, "securityConfig is null");
         this.fixedManagementUser = securityConfig.getFixedManagementUser();
         this.fixedManagementUserForHttps = securityConfig.isFixedManagementUserForHttps();
+        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
     @Override
@@ -96,7 +100,7 @@ public class ResourceSecurityDynamicFeature
             case MANAGEMENT_READ:
             case MANAGEMENT_WRITE:
                 context.register(new ManagementAuthenticationFilter(fixedManagementUser, fixedManagementUserForHttps, authenticationFilter));
-                context.register(new ManagementAuthorizationFilter(accessControl, groupProvider, accessType == MANAGEMENT_READ));
+                context.register(new ManagementAuthorizationFilter(accessControl, groupProvider, accessType == MANAGEMENT_READ, alternateHeaderName));
                 context.register(new DisposeIdentityResponseFilter());
                 break;
             case INTERNAL_ONLY:
@@ -141,12 +145,14 @@ public class ResourceSecurityDynamicFeature
         private final AccessControl accessControl;
         private final GroupProvider groupProvider;
         private final boolean read;
+        private final Optional<String> alternateHeaderName;
 
-        public ManagementAuthorizationFilter(AccessControl accessControl, GroupProvider groupProvider, boolean read)
+        public ManagementAuthorizationFilter(AccessControl accessControl, GroupProvider groupProvider, boolean read, Optional<String> alternateHeaderName)
         {
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
             this.read = read;
+            this.alternateHeaderName = requireNonNull(alternateHeaderName, "alternateHeaderName is null");
         }
 
         @Override
@@ -160,6 +166,7 @@ public class ResourceSecurityDynamicFeature
                 Identity identity = extractAuthorizedIdentity(
                         Optional.ofNullable((Identity) request.getProperty(AUTHENTICATED_IDENTITY)),
                         request.getHeaders(),
+                        alternateHeaderName,
                         accessControl,
                         groupProvider);
                 if (read) {

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.client.ProtocolHeaders;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
@@ -49,6 +50,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -82,6 +84,7 @@ public final class Session
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
+    private final ProtocolHeaders protocolHeaders;
 
     public Session(
             QueryId queryId,
@@ -106,7 +109,8 @@ public final class Session
             Map<CatalogName, Map<String, String>> connectorProperties,
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
-            Map<String, String> preparedStatements)
+            Map<String, String> preparedStatements,
+            ProtocolHeaders protocolHeaders)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -129,6 +133,7 @@ public final class Session
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
+        this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
 
         ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         connectorProperties.entrySet().stream()
@@ -290,6 +295,11 @@ public final class Session
         return sql;
     }
 
+    public ProtocolHeaders getProtocolHeaders()
+    {
+        return protocolHeaders;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -375,7 +385,8 @@ public final class Session
                 connectorProperties.build(),
                 ImmutableMap.of(),
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                protocolHeaders);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
@@ -426,7 +437,8 @@ public final class Session
                 ImmutableMap.of(),
                 connectorProperties,
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                protocolHeaders);
     }
 
     public ConnectorSession toConnectorSession()
@@ -479,7 +491,8 @@ public final class Session
                 connectorProperties,
                 unprocessedCatalogProperties,
                 identity.getRoles(),
-                preparedStatements);
+                preparedStatements,
+                protocolHeaders.getProtocolName());
     }
 
     @Override
@@ -548,6 +561,7 @@ public final class Session
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
+        private ProtocolHeaders protocolHeaders = TRINO_HEADERS;
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -579,6 +593,7 @@ public final class Session
             session.unprocessedCatalogProperties
                     .forEach((catalog, properties) -> catalogSessionProperties.put(catalog, new HashMap<>(properties)));
             this.preparedStatements.putAll(session.preparedStatements);
+            this.protocolHeaders = session.protocolHeaders;
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -728,6 +743,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setProtocolHeaders(ProtocolHeaders protocolHeaders)
+        {
+            this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -753,7 +774,8 @@ public final class Session
                     ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
-                    preparedStatements);
+                    preparedStatements,
+                    protocolHeaders);
         }
     }
 
