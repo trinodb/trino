@@ -30,10 +30,10 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 public class PrestoConnectorModule
         extends AbstractConfigurationAwareModule
 {
-    // Limit was determined experimentally by running modified TestPrestoConnectorDistributedQueries#testLargeIn.
-    // We started observing parser problems at around 1000 values with cold Presto code
-    // and at around 2000 values after JIT triggered.
-    public static final int PRESTO_CONNECTOR_DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 500;
+    // Values below are set based on tests. Automated tests cover domains with up to 5_000 values.
+    // We also did manual test with domain with 50_000 values.
+    public static final int PRESTO_CONNECTOR_DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 5_000;
+    public static final int PRESTO_CONNECTOR_MAX_DOMAIN_COMPACTION_THRESHOLD = 50_000;
 
     @Override
     public void setup(Binder binder)
@@ -49,10 +49,7 @@ public class PrestoConnectorModule
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> {
             config.setDomainCompactionThreshold(PRESTO_CONNECTOR_DEFAULT_DOMAIN_COMPACTION_THRESHOLD);
         });
-        // TODO(https://github.com/prestosql/presto/issues/6075, https://starburstdata.atlassian.net/browse/PRESTO-4833)
-        //  Setting threshold to more than 500 may result in stack overflow errors when pushed down query is parsed on remote Presto end.
-        //  we should be able to drop this constraint after fixing linked issue, so `NOT IN` predicates are retained in this for in pushed-down predicate.
-        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(PRESTO_CONNECTOR_DEFAULT_DOMAIN_COMPACTION_THRESHOLD);
+        newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(PRESTO_CONNECTOR_MAX_DOMAIN_COMPACTION_THRESHOLD);
 
         install(new PrestoConnectorAuthenticationModule());
     }
