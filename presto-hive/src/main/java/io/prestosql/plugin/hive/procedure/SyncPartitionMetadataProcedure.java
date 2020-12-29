@@ -42,6 +42,8 @@ import javax.inject.Provider;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -76,6 +78,7 @@ public class SyncPartitionMetadataProcedure
             String.class,
             String.class,
             String.class,
+            boolean.class,
             boolean.class);
 
     private final TransactionalMetadataFactory hiveMetadataFactory;
@@ -100,18 +103,19 @@ public class SyncPartitionMetadataProcedure
                         new Argument("schema_name", VARCHAR),
                         new Argument("table_name", VARCHAR),
                         new Argument("mode", VARCHAR),
-                        new Argument("case_sensitive", BOOLEAN, false, TRUE)),
+                        new Argument("case_sensitive", BOOLEAN, false, TRUE),
+                        new Argument("column_in_folder", BOOLEAN, false, TRUE)),
                 SYNC_PARTITION_METADATA.bindTo(this));
     }
 
-    public void syncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
+    public void syncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive, boolean isColumnInFolder)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doSyncPartitionMetadata(session, accessControl, schemaName, tableName, mode, caseSensitive);
+            doSyncPartitionMetadata(session, accessControl, schemaName, tableName, mode, caseSensitive, isColumnInFolder);
         }
     }
 
-    private void doSyncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
+    private void doSyncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive, boolean isColumnInFolder)
     {
         SyncMode syncMode = toSyncMode(mode);
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
@@ -136,15 +140,39 @@ public class SyncPartitionMetadataProcedure
 
         Set<String> partitionsToAdd;
         Set<String> partitionsToDrop;
+        HashMap<String, String> partDict = new HashMap<String, String>();
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, tableLocation);
             List<String> partitionsInMetastore = metastore.getPartitionNames(identity, schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
-            List<String> partitionsInFileSystem = listDirectory(fileSystem, fileSystem.getFileStatus(tableLocation), table.getPartitionColumns(), table.getPartitionColumns().size(), caseSensitive).stream()
+            List<String> partitionsInFileSystem = listDirectory(fileSystem, fileSystem.getFileStatus(tableLocation), table.getPartitionColumns(), table.getPartitionColumns().size(), caseSensitive, isColumnInFolder).stream()
                     .map(fileStatus -> fileStatus.getPath().toUri())
                     .map(uri -> tableLocation.toUri().relativize(uri).getPath())
                     .collect(toImmutableList());
+
+            if (!isColumnInFolder) {
+                //gotta houdini this bit
+                List<String> tempFilePartitions = new ArrayList<String>();
+                for (int i = 0; i < partitionsInFileSystem.size(); i++) {
+                    String maybeJustPartVals = partitionsInFileSystem.get(i);
+                    String[] partitionParts = maybeJustPartVals.split("/");
+                    String polishedPartition = "";
+                    for (int x = 0; x < partitionParts.length; x++) {
+                        if (x > 0) {
+                            polishedPartition = polishedPartition + "/";
+                        }
+                        String partValOnly = partitionParts[x];
+                        if (partitionParts[x].split("=", 2).length > 1) {
+                            partValOnly = partitionParts[x].split("=", 2)[1];
+                        }
+                        polishedPartition = polishedPartition + table.getPartitionColumns().get(x).getName() + "=" + partValOnly;
+                    }
+                    tempFilePartitions.add(polishedPartition);
+                    partDict.put(polishedPartition, maybeJustPartVals);
+                }
+                partitionsInFileSystem = tempFilePartitions;
+            }
 
             // partitions in file system but not in metastore
             partitionsToAdd = difference(partitionsInFileSystem, partitionsInMetastore);
@@ -155,10 +183,10 @@ public class SyncPartitionMetadataProcedure
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
         }
 
-        syncPartitions(partitionsToAdd, partitionsToDrop, syncMode, metastore, session, table);
+        syncPartitions(partitionsToAdd, partitionsToDrop, syncMode, metastore, session, table, partDict);
     }
 
-    private static List<FileStatus> listDirectory(FileSystem fileSystem, FileStatus current, List<Column> partitionColumns, int depth, boolean caseSensitive)
+    private static List<FileStatus> listDirectory(FileSystem fileSystem, FileStatus current, List<Column> partitionColumns, int depth, boolean caseSensitive, boolean isColumnInFolder)
     {
         if (depth == 0) {
             return ImmutableList.of(current);
@@ -166,8 +194,8 @@ public class SyncPartitionMetadataProcedure
 
         try {
             return Stream.of(fileSystem.listStatus(current.getPath()))
-                    .filter(fileStatus -> isValidPartitionPath(fileStatus, partitionColumns.get(partitionColumns.size() - depth), caseSensitive))
-                    .flatMap(directory -> listDirectory(fileSystem, directory, partitionColumns, depth - 1, caseSensitive).stream())
+                    .filter(fileStatus -> isValidPartitionPath(fileStatus, partitionColumns.get(partitionColumns.size() - depth), caseSensitive, isColumnInFolder))
+                    .flatMap(directory -> listDirectory(fileSystem, directory, partitionColumns, depth - 1, caseSensitive, isColumnInFolder).stream())
                     .collect(toImmutableList());
         }
         catch (IOException e) {
@@ -175,8 +203,11 @@ public class SyncPartitionMetadataProcedure
         }
     }
 
-    private static boolean isValidPartitionPath(FileStatus file, Column column, boolean caseSensitive)
+    private static boolean isValidPartitionPath(FileStatus file, Column column, boolean caseSensitive, boolean isColumnInFolder)
     {
+        if (!isColumnInFolder) {
+            return file.isDirectory();
+        }
         String path = file.getPath().getName();
         if (!caseSensitive) {
             path = path.toLowerCase(ENGLISH);
@@ -197,10 +228,11 @@ public class SyncPartitionMetadataProcedure
             SyncMode syncMode,
             SemiTransactionalHiveMetastore metastore,
             ConnectorSession session,
-            Table table)
+            Table table,
+            HashMap<String, String> partDict)
     {
         if (syncMode == SyncMode.ADD || syncMode == SyncMode.FULL) {
-            addPartitions(metastore, session, table, partitionsToAdd);
+            addPartitions(metastore, session, table, partitionsToAdd, partDict);
         }
         if (syncMode == SyncMode.DROP || syncMode == SyncMode.FULL) {
             dropPartitions(metastore, session, table, partitionsToDrop);
@@ -212,15 +244,22 @@ public class SyncPartitionMetadataProcedure
             SemiTransactionalHiveMetastore metastore,
             ConnectorSession session,
             Table table,
-            Set<String> partitions)
+            Set<String> partitions,
+            HashMap<String, String> partDict)
     {
         for (String name : partitions) {
+            Path filePath = new Path(table.getStorage().getLocation(), name);
+            String partName = name;
+            if (partDict != null && !partDict.isEmpty()) {
+                filePath = new Path(table.getStorage().getLocation(), partDict.get(name));
+                partName = partDict.get(name);
+            }
             metastore.addPartition(
                     session,
                     table.getDatabaseName(),
                     table.getTableName(),
-                    buildPartitionObject(session, table, name),
-                    new Path(table.getStorage().getLocation(), name),
+                    buildPartitionObject(session, table, partName),
+                    filePath,
                     PartitionStatistics.empty());
         }
     }

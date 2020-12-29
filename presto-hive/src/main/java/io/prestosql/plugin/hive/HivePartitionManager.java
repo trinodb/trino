@@ -269,28 +269,14 @@ public class HivePartitionManager
     public static List<String> extractPartitionValues(String partitionName)
     {
         ImmutableList.Builder<String> values = ImmutableList.builder();
-
-        boolean inKey = true;
-        int valueStart = -1;
-        for (int i = 0; i < partitionName.length(); i++) {
-            char current = partitionName.charAt(i);
-            if (inKey) {
-                checkArgument(current != '/', "Invalid partition spec: %s", partitionName);
-                if (current == '=') {
-                    inKey = false;
-                    valueStart = i + 1;
-                }
+        String[] partitionParts = partitionName.split("/");
+        for (int x = 0; x < partitionParts.length; x++) {
+            String partValOnly = partitionParts[x];
+            if (partitionParts[x].split("=", 2).length > 1) {
+                partValOnly = partitionParts[x].split("=", 2)[1];
             }
-            else if (current == '/') {
-                checkArgument(valueStart != -1, "Invalid partition spec: %s", partitionName);
-                values.add(FileUtils.unescapePathName(partitionName.substring(valueStart, i)));
-                inKey = true;
-                valueStart = -1;
-            }
+            values.add(FileUtils.unescapePathName(partValOnly));
         }
-        checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
-        values.add(FileUtils.unescapePathName(partitionName.substring(valueStart)));
-
         return values.build();
     }
 }
