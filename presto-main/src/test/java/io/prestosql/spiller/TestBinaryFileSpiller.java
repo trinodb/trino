@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.metadata.Metadata;
@@ -137,13 +138,12 @@ public class TestBinaryFileSpiller
         long spilledBytes = 0;
 
         assertEquals(memoryContext.getBytes(), 0);
-        try (PagesSerde.PagesSerdeContext context = pagesSerde.newContext()) {
-            for (List<Page> spill : spills) {
-                spilledBytes += spill.stream()
-                        .mapToLong(page -> pagesSerde.serialize(context, page).getSizeInBytes())
-                        .sum();
-                spiller.spill(spill.iterator()).get();
-            }
+        PagesSerdeContext context = pagesSerde.newContext();
+        for (List<Page> spill : spills) {
+            spilledBytes += spill.stream()
+                    .mapToLong(page -> pagesSerde.serialize(context, page).getSizeInBytes())
+                    .sum();
+            spiller.spill(spill.iterator()).get();
         }
         assertEquals(spillerStats.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
         // At this point, the buffers should still be accounted for in the memory context, because

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.execution.buffer.OutputBuffer;
 import io.prestosql.execution.buffer.PagesSerde;
+import io.prestosql.execution.buffer.PagesSerde.PagesSerdeContext;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.spi.Page;
@@ -148,12 +149,11 @@ public class TaskOutputOperator
 
     private List<SerializedPage> splitAndSerializePage(Page page)
     {
-        List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
-        ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(split.size());
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
-            for (Page p : split) {
-                builder.add(serde.serialize(context, p));
-            }
+        List<Page> splits = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+        ImmutableList.Builder<SerializedPage> builder = ImmutableList.builderWithExpectedSize(splits.size());
+        PagesSerdeContext context = serde.newContext();
+        for (Page split : splits) {
+            builder.add(serde.serialize(context, split));
         }
         return builder.build();
     }

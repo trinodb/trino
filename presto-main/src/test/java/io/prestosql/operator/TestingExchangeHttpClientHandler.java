@@ -75,10 +75,7 @@ public class TestingExchangeHttpClientHandler
         if (page != null) {
             headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
             headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
-            SerializedPage serializedPage;
-            try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
-                serializedPage = PAGES_SERDE.serialize(context, page);
-            }
+            SerializedPage serializedPage = PAGES_SERDE.serialize(PAGES_SERDE.newContext(), page);
             DynamicSliceOutput output = new DynamicSliceOutput(256);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
             output.writeLong(calculateChecksum(ImmutableList.of(serializedPage)));
