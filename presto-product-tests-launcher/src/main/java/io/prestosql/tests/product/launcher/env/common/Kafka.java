@@ -21,6 +21,8 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
+import java.time.Duration;
+
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
@@ -69,7 +71,8 @@ public class Kafka
                 .withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1")
                 .withEnv("KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS", "0")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingForAll(forSelectedPorts(9092), forLogMessage(".*started \\(kafka.server.KafkaServer\\).*", 1));
+                .waitingForAll(forSelectedPorts(9092), forLogMessage(".*started \\(kafka.server.KafkaServer\\).*", 1))
+                .withStartupTimeout(Duration.ofMinutes(5));
 
         portBinder.exposePort(container, 9092);
 

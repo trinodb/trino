@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.prestosql.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
@@ -26,10 +25,11 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -67,9 +67,10 @@ public final class SinglenodeSqlserver
                 .withEnv("ACCEPT_EULA", "Y")
                 .withEnv("SA_PASSWORD", "SQLServerPass1")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(SQLSERVER_PORT));
+                .withHealthCheckCommand(format("/opt/mssql-tools/bin/sqlcmd -P %d -l 1 -H localhost -U sa -P ${SA_PASSWORD} -Q \"SELECT 1\" || exit 1", SQLSERVER_PORT))
+                .waitingFor(forHealthcheck());
 
-        portBinder.exposePort(container, 1433);
+        portBinder.exposePort(container, SQLSERVER_PORT);
 
         return container;
     }

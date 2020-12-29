@@ -27,10 +27,10 @@ import javax.inject.Inject;
 
 import java.time.Duration;
 
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -70,7 +70,8 @@ public final class SinglenodeCassandra
                         "-cxeu",
                         "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(CASSANDRA_PORT))
+                .withHealthCheck(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/health-check.sh"))
+                .waitingFor(forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5));
 
         portBinder.exposePort(container, CASSANDRA_PORT);

@@ -35,6 +35,7 @@ import org.testcontainers.images.builder.Transferable;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -158,6 +159,22 @@ public class DockerContainer
 
         return withCopyFileToContainer(forHostPath(healthCheckScript), "/usr/local/bin/health.sh")
                 .withCreateContainerCmdModifier(command -> command.withHealthcheck(cmd));
+    }
+
+    public DockerContainer withHealthCheckCommand(String command)
+    {
+        try {
+            File tempFile = File.createTempFile("health-check", ".sh");
+            tempFile.deleteOnExit();
+            tempFile.setExecutable(true);
+
+            Path scriptPath = Files.writeString(tempFile.toPath(), format("#!/usr/bin/env bash\n%s", command));
+            return withHealthCheck(scriptPath);
+        }
+        catch (IOException e) {
+            log.warn(e, "Could not create temporary health check script");
+            throw new UncheckedIOException(e);
+        }
     }
 
     public synchronized Duration getStartupTime()
