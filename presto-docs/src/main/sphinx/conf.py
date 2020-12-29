@@ -93,7 +93,7 @@ html_static_path = ['static']
 
 html_title = '%s %s Documentation' % (project, release)
 
-html_logo = 'images/presto.svg'
+html_logo = 'images/trino.svg'
 
 html_add_permalinks = '#'
 html_show_copyright = False
@@ -115,5 +115,5 @@ html_theme_options = {
 }
 
 html_css_files = [
-    'presto.css',
+    'trino.css',
 ]
