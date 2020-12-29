@@ -35,6 +35,7 @@ import io.prestosql.server.security.ResourceSecurity;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -110,9 +111,16 @@ public class TaskResource
     @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
+    public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo, @QueryParam("state") @Nullable TaskState stateFilter)
     {
-        List<TaskInfo> allTaskInfo = taskManager.getAllTaskInfo();
+        ImmutableList.Builder<TaskInfo> builder = new ImmutableList.Builder<>();
+        for (TaskInfo taskInfo : taskManager.getAllTaskInfo()) {
+            if (stateFilter != null && taskInfo.getTaskStatus().getState() == stateFilter) {
+                builder.add(taskInfo);
+            }
+        }
+
+        List<TaskInfo> allTaskInfo = builder.build();
         if (shouldSummarize(uriInfo)) {
             allTaskInfo = ImmutableList.copyOf(transform(allTaskInfo, TaskInfo::summarize));
         }
