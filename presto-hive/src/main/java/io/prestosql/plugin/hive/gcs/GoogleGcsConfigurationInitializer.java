@@ -29,12 +29,14 @@ public class GoogleGcsConfigurationInitializer
 {
     private final boolean useGcsAccessToken;
     private final String jsonKeyFilePath;
+    private final boolean allowNoCredentials;
 
     @Inject
     public GoogleGcsConfigurationInitializer(HiveGcsConfig config)
     {
         this.useGcsAccessToken = config.isUseGcsAccessToken();
         this.jsonKeyFilePath = config.getJsonKeyFilePath();
+        this.allowNoCredentials = config.isAllowNoCredentials();
     }
 
     @Override
@@ -46,6 +48,10 @@ public class GoogleGcsConfigurationInitializer
             // use oauth token to authenticate with Google Cloud Storage
             config.set(AUTH_SERVICE_ACCOUNT_ENABLE.getKey(), "false");
             config.set(AUTHENTICATION_PREFIX + ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX, GcsAccessTokenProvider.class.getName());
+        }
+        else if (allowNoCredentials) {
+            config.set(AUTH_SERVICE_ACCOUNT_ENABLE.getKey(), "false");
+            config.set("google.cloud.auth.null.enable", "true");
         }
         else if (jsonKeyFilePath != null) {
             // use service account key file

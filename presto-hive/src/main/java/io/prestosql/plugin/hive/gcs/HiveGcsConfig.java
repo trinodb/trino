@@ -21,6 +21,7 @@ public class HiveGcsConfig
 {
     private boolean useGcsAccessToken;
     private String jsonKeyFilePath;
+    private boolean allowNoCredentials;
 
     @FileExists
     public String getJsonKeyFilePath()
@@ -46,6 +47,19 @@ public class HiveGcsConfig
     public HiveGcsConfig setUseGcsAccessToken(boolean useGcsAccessToken)
     {
         this.useGcsAccessToken = useGcsAccessToken;
+        return this;
+    }
+
+    public boolean isAllowNoCredentials()
+    {
+        return allowNoCredentials;
+    }
+
+    @Config("hive.gcs.use-no-credentials")
+    @ConfigDescription("Allow sending no credentials to Google Cloud Storage")
+    public HiveGcsConfig setAllowNoCredentials(boolean allowNoCredentials)
+    {
+        this.allowNoCredentials = allowNoCredentials;
         return this;
     }
 }
