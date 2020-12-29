@@ -11,7 +11,6 @@
 # limitations under the License.
 
 FROM sphinxdoc/sphinx:3.3.0
-MAINTAINER Presto community <https://prestosql.io/community.html>
 
 # Required by pillow
 RUN apt update -y && apt install -y zlib1g-dev libjpeg-dev build-essential

@@ -103,8 +103,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'");
         assertEquals(result.getResult().getRowCount(), 0);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -128,8 +128,8 @@ public class TestHiveDynamicPartitionPruning
                         "AND supplier.name = 'Supplier#000000001'");
         assertGreaterThan(result.getResult().getRowCount(), 0);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -151,8 +151,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey");
         assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -176,8 +176,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey");
         assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -207,8 +207,8 @@ public class TestHiveDynamicPartitionPruning
                         ") t JOIN supplier ON t.suppkey = supplier.suppkey AND supplier.suppkey IN (2, 3)");
         assertGreaterThan(result.getResult().getRowCount(), 0);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 2L);
@@ -258,8 +258,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')");
         assertEquals(result.getResult().getRowCount(), 0);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -281,8 +281,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')");
         assertGreaterThan(result.getResult().getRowCount(), 0);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -304,8 +304,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)");
         assertGreaterThan(result.getResult().getRowCount(), 0);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -329,8 +329,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)");
         assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -356,8 +356,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'abc'");
         assertEquals(result.getResult().getRowCount(), 0);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -379,8 +379,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'Supplier#000000001'");
         assertGreaterThan(result.getResult().getRowCount(), 0);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
@@ -402,8 +402,8 @@ public class TestHiveDynamicPartitionPruning
                 "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey");
         assertGreaterThan(result.getResult().getRowCount(), 0);
 
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
+        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
+        // after https://github.com/trinodb/trino/issues/5120 is fixed
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);

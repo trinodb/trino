@@ -455,7 +455,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     }
 
     /**
-     * Regression test for https://github.com/prestosql/presto/issues/5543
+     * Regression test for https://github.com/trinodb/trino/issues/5543
      */
     @Test
     public void testTimestampColumnAndTimestampWithTimeZoneConstant()

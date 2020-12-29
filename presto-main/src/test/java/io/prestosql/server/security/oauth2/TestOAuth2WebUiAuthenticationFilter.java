@@ -199,7 +199,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/6223", match = "Presto-OAuth2-Token is missing")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "Presto-OAuth2-Token is missing")
     public void testExpiredAccessToken()
             throws Exception
     {

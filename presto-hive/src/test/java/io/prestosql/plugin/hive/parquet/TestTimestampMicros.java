@@ -100,7 +100,7 @@ public class TestTimestampMicros
 
     private ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, String columnName, HiveType columnHiveType, Type columnType)
     {
-        // TODO after https://github.com/prestosql/presto/pull/5283, replace the method with
+        // TODO after https://github.com/trinodb/trino/pull/5283, replace the method with
         //  return FileFormat.PRESTO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, parquetFile, columnNames, columnTypes);
 
         HivePageSourceFactory pageSourceFactory = FileFormat.PRESTO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();

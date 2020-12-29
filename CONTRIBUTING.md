@@ -2,7 +2,7 @@
 
 ## Contributor License Agreement ("CLA")
 
-In order to accept your pull request, we need you to [submit a CLA](https://github.com/prestosql/cla).
+In order to accept your pull request, we need you to [submit a CLA](https://github.com/trinodb/cla).
 
 ## License
 

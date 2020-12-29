@@ -47,7 +47,7 @@ import static java.util.stream.Collectors.toList;
 public class OrcMetadataWriter
         implements MetadataWriter
 {
-    // see https://github.com/prestosql/orc-protobuf/blob/master/src/main/protobuf/orc_proto.proto
+    // see https://github.com/trinodb/orc-protobuf/blob/master/src/main/protobuf/orc_proto.proto
     private static final int PRESTO_WRITER_ID = 2;
     // in order to change this value, the master Apache ORC proto file must be updated
     private static final int PRESTO_WRITER_VERSION = 6;

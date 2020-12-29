@@ -1474,7 +1474,7 @@ public class TestLogicalPlanner
                         filter("REGIONKEY > BIGINT '1'",
                                 tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey")))));
 
-        //TODO (https://github.com/prestosql/presto/issues/2480) Inline constants
+        //TODO (https://github.com/trinodb/trino/issues/2480) Inline constants
         assertPlan("SELECT * FROM nation, (SELECT 1 as a) temp WHERE regionkey = a",
                 output(
                         node(JoinNode.class,

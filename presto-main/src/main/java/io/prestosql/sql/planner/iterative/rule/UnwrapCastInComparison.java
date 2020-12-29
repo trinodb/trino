@@ -469,7 +469,7 @@ public class UnwrapCastInComparison
                 }
                 // CAST from TIMESTAMP WITH TIME ZONE to d and back to TIMESTAMP WITH TIME ZONE does not round trip for most types d
                 // TODO add test coverage
-                // TODO (https://github.com/prestosql/presto/issues/5798) handle DATE -> TIMESTAMP WITH TIME ZONE
+                // TODO (https://github.com/trinodb/trino/issues/5798) handle DATE -> TIMESTAMP WITH TIME ZONE
                 return false;
             }
 

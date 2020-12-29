@@ -40,7 +40,7 @@ public final class OracleQueryRunner
             TestingOracleServer server,
             Map<String, String> extraProperties,
             Iterable<TpchTable<?>> tables,
-            // TODO(https://github.com/prestosql/presto/issues/5721) use extraConnectorProperties instead individual parameters
+            // TODO(https://github.com/trinodb/trino/issues/5721) use extraConnectorProperties instead individual parameters
             boolean connectionPoolEnabled,
             boolean remarksReportingEnabled)
             throws Exception

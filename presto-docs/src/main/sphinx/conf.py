@@ -109,7 +109,7 @@ html_theme_options = {
     'theme_color': '2196f3',
     'color_primary': 'blue-grey',
     'color_accent': 'light-blue',
-    'repo_url': 'https://github.com/prestosql/presto',
+    'repo_url': 'https://github.com/trinodb/trino',
     'repo_name': 'Trino',
     'version_json': '../versions.json',
 }

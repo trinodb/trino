@@ -912,7 +912,7 @@ public class HiveMetadata
 
         // When metastore is configured with metastore.create.as.acid=true, it will also change Presto-created tables
         // behind the scenes. In particular, this won't work with CTAS.
-        // TODO (https://github.com/prestosql/presto/issues/1956) convert this into normal table property
+        // TODO (https://github.com/trinodb/trino/issues/1956) convert this into normal table property
 
         boolean transactional = HiveTableProperties.isTransactional(tableMetadata.getProperties()).orElse(false);
         tableProperties.put(TRANSACTIONAL, String.valueOf(transactional));
@@ -1951,7 +1951,7 @@ public class HiveMetadata
     {
         if ("information_schema".equals(schemaName)) {
             // For things like listing columns in information_schema.columns table, we need to explicitly filter out Hive's own information_schema.
-            // TODO https://github.com/prestosql/presto/issues/1559 this should be filtered out in engine.
+            // TODO https://github.com/trinodb/trino/issues/1559 this should be filtered out in engine.
             return false;
         }
         if ("sys".equals(schemaName)) {
@@ -2491,7 +2491,7 @@ public class HiveMetadata
             return TableStatisticsMetadata.empty();
         }
         if (isTransactional(tableMetadata.getProperties()).orElse(false)) {
-            // TODO(https://github.com/prestosql/presto/issues/1956) updating table statistics for trasactional not supported right now.
+            // TODO(https://github.com/trinodb/trino/issues/1956) updating table statistics for trasactional not supported right now.
             return TableStatisticsMetadata.empty();
         }
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
@@ -2724,7 +2724,7 @@ public class HiveMetadata
         }
     }
 
-    // TODO validate timestamps in structural types (https://github.com/prestosql/presto/issues/5195)
+    // TODO validate timestamps in structural types (https://github.com/trinodb/trino/issues/5195)
     private static void validateTimestampColumns(List<ColumnMetadata> columns, HiveTimestampPrecision timestampPrecision)
     {
         for (ColumnMetadata column : columns) {

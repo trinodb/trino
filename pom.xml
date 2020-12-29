@@ -15,7 +15,7 @@
     <name>presto-root</name>
     <description>Presto</description>
     <packaging>pom</packaging>
-    <url>https://prestosql.io</url>
+    <url>https://trino.io</url>
 
     <inceptionYear>2012</inceptionYear>
 
@@ -28,8 +28,8 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git://github.com/prestosql/presto.git</connection>
-        <url>https://github.com/prestosql/presto</url>
+        <connection>scm:git:git://github.com/trinodb/trino.git</connection>
+        <url>https://github.com/trinodb/trino</url>
         <tag>HEAD</tag>
     </scm>
 

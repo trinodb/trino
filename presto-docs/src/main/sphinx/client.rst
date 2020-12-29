@@ -18,7 +18,5 @@ The following clients are available:
     installation/jdbc
 
 In addition, the community provides `numerous other clients
-<https://prestosql.io/resources.html>`_ for platforms such as Python, and these
+<https://trino.io/resources.html>`_ for platforms such as Python, and these
 can in turn be used to connect applications using these platforms.
-
-

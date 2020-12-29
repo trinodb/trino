@@ -43,7 +43,7 @@ public class TestIcebergCreateTable
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4864", match = "Failed to read footer of file")
     public void testCreateTable()
     {
         String tableName = "iceberg.iceberg.test_create_table_" + randomTableSuffix();
@@ -65,7 +65,7 @@ public class TestIcebergCreateTable
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4864", match = "Failed to read footer of file")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4864", match = "Failed to read footer of file")
     public void testCreateTableAsSelect()
     {
         String tableName = "iceberg.iceberg.test_create_table_as_select_" + randomTableSuffix();

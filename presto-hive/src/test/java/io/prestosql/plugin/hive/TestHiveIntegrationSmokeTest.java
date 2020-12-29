@@ -841,7 +841,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "CREATE TABLE test_table_authorization.foo (col int)");
         assertUpdate(admin, "CREATE ROLE admin");
 
-        // TODO Change assertions once https://github.com/prestosql/presto/issues/5706 is done
+        // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
                 alice,
                 "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION ROLE admin",
@@ -968,7 +968,7 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "CREATE VIEW " + schema + ".test_view AS SELECT * FROM " + schema + ".test_table");
         assertUpdate(admin, "CREATE ROLE admin");
 
-        // TODO Change assertions once https://github.com/prestosql/presto/issues/5706 is done
+        // TODO Change assertions once https://github.com/trinodb/trino/issues/5706 is done
         assertAccessDenied(
                 alice,
                 "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
@@ -2013,7 +2013,7 @@ public class TestHiveIntegrationSmokeTest
     }
 
     /**
-     * Regression test for https://github.com/prestosql/presto/issues/5295
+     * Regression test for https://github.com/trinodb/trino/issues/5295
      */
     @Test
     public void testBucketedTableWithTimestampColumn()
@@ -4434,7 +4434,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
-        // (might be fixed by https://github.com/prestosql/presto/issues/5172)
+        // (might be fixed by https://github.com/trinodb/trino/issues/5172)
         ExponentialSleeper sleeper = new ExponentialSleeper();
         assertEventually(new Duration(30, SECONDS), () -> {
             ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
@@ -4470,7 +4470,7 @@ public class TestHiveIntegrationSmokeTest
         assertQuery(session, "SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < " + formatTimestamp(value.plusNanos(1)), format("VALUES (%s)", formatTimestamp(value)));
 
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
-        // (might be fixed by https://github.com/prestosql/presto/issues/5172)
+        // (might be fixed by https://github.com/trinodb/trino/issues/5172)
         ExponentialSleeper sleeper = new ExponentialSleeper();
         assertEventually(new Duration(30, SECONDS), () -> {
             ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(

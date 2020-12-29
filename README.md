@@ -2,12 +2,12 @@
     <img alt="Presto Logo" src="presto-docs/src/main/resources/logo/web/main/white/Presto_Logo_WhiteBG-01.png" width="25%" />
 </p>
 <p align="center">Presto is a distributed SQL query engine for big data.</p>
-<p align="center">See the <a href="https://prestosql.io/docs/current/">User Manual</a> for deployment instructions and end user documentation.</p>
+<p align="center">See the <a href="https://trino.io/docs/current/">User Manual</a> for deployment instructions and end user documentation.</p>
 <p align="center">
-   <a href="https://prestosql.io/download.html">
+   <a href="https://trino.io/download.html">
        <img src="https://img.shields.io/maven-central/v/io.prestosql/presto-server.svg?label=Download" alt="Maven Central" />
    </a>
-   <a href="https://prestosql.io/slack.html">
+   <a href="https://trino.io/slack.html">
        <img src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358" alt="Presto Slack" />
    </a>
    <a href="https://www.starburstdata.com/oreilly-presto-guide-download">

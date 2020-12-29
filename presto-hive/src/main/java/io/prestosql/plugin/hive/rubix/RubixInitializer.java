@@ -160,7 +160,7 @@ public class RubixInitializer
     {
         if (nodeManager.getCurrentNode().isCoordinator() && !startServerOnCoordinator) {
             // setup JMX metrics on master (instead of starting server) so that JMX connector can be used
-            // TODO: remove once https://github.com/prestosql/presto/issues/3821 is fixed
+            // TODO: remove once https://github.com/trinodb/trino/issues/3821 is fixed
             setupRubixMetrics();
 
             // enable caching on coordinator so that cached block locations can be obtained
