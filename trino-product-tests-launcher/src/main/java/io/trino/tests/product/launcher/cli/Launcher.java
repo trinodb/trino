@@ -162,11 +162,11 @@ public class Launcher
 
             return new Object[][] {
                     {"project.version", readProjectVersion()},
-                    {"product-tests.module", "presto-product-tests"},
-                    {"server.module", "presto-server"},
-                    {"server.name", "presto-server"},
-                    {"launcher.bin", "presto-product-tests-launcher/bin/run-launcher"},
-                    {"cli.bin", format("presto-cli/target/presto-cli-%s-executable.jar", projectVersion)}
+                    {"product-tests.module", "trino-product-tests"},
+                    {"server.module", "trino-server"},
+                    {"server.name", "trino-server"},
+                    {"launcher.bin", "trino-product-tests-launcher/bin/run-launcher"},
+                    {"cli.bin", format("trino-cli/target/trino-cli-%s-executable.jar", projectVersion)}
             };
         }
     }

@@ -33,6 +33,14 @@
         </dependency>
 
         <!-- used by tests but also needed transitively -->
+        <!-- Remove when Rubix is updated to use new SPI -->
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-spi</artifactId>
+            <version>350</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.prestosql.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>

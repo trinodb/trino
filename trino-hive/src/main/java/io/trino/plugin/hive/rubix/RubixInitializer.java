@@ -44,7 +44,10 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
@@ -261,7 +264,8 @@ public class RubixInitializer
         LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
 
         CachingFileSystem.setLocalBookKeeper(configuration, bookKeeper, "catalog=" + catalogName);
-        PrestoClusterManager.setNodeManager(nodeManager);
+        PrestoClusterManager.setNodeManager(adaptNodeManager(nodeManager));
+
         log.info("Rubix initialized successfully");
         cacheReady = true;
     }
@@ -271,7 +275,7 @@ public class RubixInitializer
         Configuration configuration = getRubixServerConfiguration();
         new BookKeeperServer().setupServer(configuration, new MetricRegistry());
         CachingFileSystem.setLocalBookKeeper(configuration, new DummyBookKeeper(), "catalog=" + catalogName);
-        PrestoClusterManager.setNodeManager(nodeManager);
+        PrestoClusterManager.setNodeManager(adaptNodeManager(nodeManager));
     }
 
     private Configuration getRubixServerConfiguration()
@@ -330,5 +334,89 @@ public class RubixInitializer
         }
 
         rubixHdfsInitializer.initializeConfiguration(config);
+    }
+
+    private io.prestosql.spi.NodeManager adaptNodeManager(NodeManager nodeManager)
+    {
+        return new io.prestosql.spi.NodeManager()
+        {
+            @Override
+            public Set<io.prestosql.spi.Node> getAllNodes()
+            {
+                return nodeManager.getAllNodes().stream()
+                        .map(RubixInitializer::adaptNode)
+                        .collect(Collectors.toSet());
+            }
+
+            @Override
+            public Set<io.prestosql.spi.Node> getWorkerNodes()
+            {
+                return nodeManager.getWorkerNodes().stream()
+                        .map(RubixInitializer::adaptNode)
+                        .collect(Collectors.toSet());
+            }
+
+            @Override
+            public io.prestosql.spi.Node getCurrentNode()
+            {
+                return adaptNode(nodeManager.getCurrentNode());
+            }
+
+            @Override
+            public String getEnvironment()
+            {
+                return nodeManager.getEnvironment();
+            }
+
+            @Override
+            public Set<io.prestosql.spi.Node> getRequiredWorkerNodes()
+            {
+                return nodeManager.getRequiredWorkerNodes().stream()
+                        .map(RubixInitializer::adaptNode)
+                        .collect(Collectors.toSet());
+            }
+        };
+    }
+
+    private static io.prestosql.spi.Node adaptNode(Node currentNode)
+    {
+        return new io.prestosql.spi.Node()
+        {
+            @Override
+            public String getHost()
+            {
+                return currentNode.getHost();
+            }
+
+            @Override
+            public io.prestosql.spi.HostAddress getHostAndPort()
+            {
+                return io.prestosql.spi.HostAddress.fromString(currentNode.getHostAndPort().toString());
+            }
+
+            @Override
+            public URI getHttpUri()
+            {
+                return currentNode.getHttpUri();
+            }
+
+            @Override
+            public String getNodeIdentifier()
+            {
+                return currentNode.getNodeIdentifier();
+            }
+
+            @Override
+            public String getVersion()
+            {
+                return currentNode.getVersion();
+            }
+
+            @Override
+            public boolean isCoordinator()
+            {
+                return currentNode.isCoordinator();
+            }
+        };
     }
 }

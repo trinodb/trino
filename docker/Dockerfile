@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 FROM centos:centos8
-LABEL maintainer="Presto community <https://prestosql.io/community.html>"
+LABEL maintainer="Trino community <https://trino.io/slack.html>"
 
 ENV JAVA_HOME /usr/lib/jvm/zulu11
 RUN \
@@ -29,9 +29,9 @@ RUN \
     mkdir -p /usr/lib/presto /data/presto && \
     chown -R "presto:presto" /usr/lib/presto /data/presto
 
-ARG PRESTO_VERSION
-COPY presto-cli-${PRESTO_VERSION}-executable.jar /usr/bin/presto
-COPY --chown=presto:presto presto-server-${PRESTO_VERSION} /usr/lib/presto
+ARG TRINO_VERSION
+COPY trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/presto
+COPY --chown=presto:presto trino-server-${TRINO_VERSION} /usr/lib/presto
 
 EXPOSE 8080
 USER presto:presto

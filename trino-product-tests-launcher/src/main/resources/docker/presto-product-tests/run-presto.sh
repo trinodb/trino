@@ -10,7 +10,7 @@ fi
 set -x
 
 tar xf /docker/presto-server.tar.gz -C /docker
-ln -s "$(echo /docker/presto-server-*/bin/launcher | sed 's@/bin/launcher$@@')" /docker/presto-server
+ln -s "$(echo /docker/trino-server-*/bin/launcher | sed 's@/bin/launcher$@@')" /docker/presto-server
 
 if test -d /docker/presto-init.d; then
     for init_script in /docker/presto-init.d/*; do

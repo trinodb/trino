@@ -69,11 +69,11 @@ public class ServerIT
                     .start();
             String uninstallPresto = "" +
                     "/etc/init.d/presto stop\n" +
-                    "rpm -e presto-server-rpm\n";
+                    "rpm -e trino-server-rpm\n";
             container.execInContainer("sh", "-xeuc", uninstallPresto);
 
-            ExecResult actual = container.execInContainer("rpm", "-q", "presto-server-rpm");
-            assertEquals(actual.getStdout(), "package presto-server-rpm is not installed\n");
+            ExecResult actual = container.execInContainer("rpm", "-q", "trino-server-rpm");
+            assertEquals(actual.getStdout(), "package trino-server-rpm is not installed\n");
 
             assertPathDeleted(container, "/var/lib/presto");
             assertPathDeleted(container, "/usr/lib/presto");

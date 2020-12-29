@@ -14,8 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-
-        <server.tar.package>presto-server-${project.version}</server.tar.package>
+        <server.tar.package>trino-server-${project.version}</server.tar.package>
     </properties>
 
     <dependencies>
@@ -145,12 +144,12 @@
                     <packages>
                         <package>
                             <name>trino-server-rpm</name>
-                            <nameOverride>presto-server-rpm-${project.version}.x86_64.rpm</nameOverride>
+                            <nameOverride>trino-server-rpm-${project.version}.x86_64.rpm</nameOverride>
                             <version>${project.version}</version>
                             <release>1</release>
 
                             <group>Applications/Databases</group>
-                            <description>Presto Server RPM Package.</description>
+                            <description>Trino Server RPM Package.</description>
                             <architecture>x86_64</architecture>
                             <preInstallScriptFile>src/main/rpm/preinstall</preInstallScriptFile>
                             <postInstallScriptFile>src/main/rpm/postinstall</postInstallScriptFile>

@@ -38,13 +38,13 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!presto-server-rpm'
+          ./bin/retry ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw verify -B -P ci -pl presto-server-rpm
+          ./bin/retry ./mvnw verify -B -P ci -pl trino-server-rpm
       - name: Clean Maven Output
-        run: ./mvnw clean -pl '!presto-server,!presto-cli'
+        run: ./mvnw clean -pl '!trino-server,!trino-cli'
       - name: Test Docker Image
         run: docker/build-local.sh
 
@@ -59,12 +59,12 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!trino-docs,!trino-server,!trino-server-rpm'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler-presto \
-            -pl '!presto-docs,!presto-server,!presto-server-rpm'
+            -pl '!trino-docs,!trino-server,!trino-server-rpm'
 
   web-ui-checks:
     runs-on: ubuntu-latest
@@ -72,7 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Web UI Checks
-        run: presto-main/bin/check_webui.sh
+        run: trino-main/bin/check_webui.sh
 
   test-jdbc-compatibility:
     runs-on: ubuntu-latest
@@ -87,12 +87,12 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-test-jdbc-compatibility-old-driver,!presto-docs,!presto-server,!presto-server-rpm'
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!trino-test-jdbc-compatibility-old-driver,!trino-docs,!trino-server,!trino-server-rpm'
       - name: Test old JDBC vs current server
-        run: presto-test-jdbc-compatibility-old-driver/bin/run_tests.sh
+        run: trino-test-jdbc-compatibility-old-driver/bin/run_tests.sh
       - name: Test current JDBC vs old server
         if: always()
-        run: ./mvnw test ${MAVEN_TEST} -pl presto-test-jdbc-compatibility-old-server
+        run: ./mvnw test ${MAVEN_TEST} -pl trino-test-jdbc-compatibility-old-server
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -112,21 +112,21 @@ jobs:
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-hive-hadoop2
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl trino-hive-hadoop2
       - name: Run Hive Tests
         run: |
-          source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-            presto-hive-hadoop2/bin/run_hive_tests.sh
+          source trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            trino-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
-          S3_BUCKET: "presto-ci-test"
+          S3_BUCKET: "trino-ci-test"
           S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-              presto-hive-hadoop2/bin/run_hive_s3_tests.sh
+            source trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              trino-hive-hadoop2/bin/run_hive_s3_tests.sh
           fi
       - name: Run Hive Glue Tests
         env:
@@ -135,7 +135,7 @@ jobs:
           AWS_REGION: us-east-2
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl presto-hive -P test-hive-glue
+            ./mvnw test ${MAVEN_TEST} -pl trino-hive -P test-hive-glue
           fi
       - name: Run Hive Azure ABFS Access Key Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -145,8 +145,8 @@ jobs:
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
         run: |
           if [ "${ABFS_CONTAINER}" != "" ]; then
-            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-              presto-hive-hadoop2/bin/run_hive_abfs_access_key_tests.sh
+            source trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              trino-hive-hadoop2/bin/run_hive_abfs_access_key_tests.sh
           fi
       - name: Run Hive Azure ABFS OAuth Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -158,8 +158,8 @@ jobs:
           ABFS_OAUTH_SECRET: ${{ secrets.AZURE_ABFS_OAUTH_SECRET }}
         run: |
           if [ -n "$ABFS_CONTAINER" ]; then
-            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-              presto-hive-hadoop2/bin/run_hive_abfs_oauth_tests.sh
+            source trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              trino-hive-hadoop2/bin/run_hive_abfs_oauth_tests.sh
           fi
       - name: Run Hive Azure WASB Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -169,8 +169,8 @@ jobs:
           WASB_ACCESS_KEY: ${{ secrets.AZURE_WASB_ACCESSKEY }}
         run: |
           if [ "${WASB_CONTAINER}" != "" ]; then
-            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-              presto-hive-hadoop2/bin/run_hive_wasb_tests.sh
+            source trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              trino-hive-hadoop2/bin/run_hive_wasb_tests.sh
           fi
       - name: Run Hive Azure ADL Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
@@ -181,13 +181,13 @@ jobs:
           ADL_REFRESH_URL: ${{ secrets.AZURE_ADL_REFRESHURL }}
         run: |
           if [ "${ADL_NAME}" != "" ]; then
-            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-              presto-hive-hadoop2/bin/run_hive_adl_tests.sh
+            source trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              trino-hive-hadoop2/bin/run_hive_adl_tests.sh
           fi
       - name: Run Hive Alluxio Tests
         run: |
-          source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-            presto-hive-hadoop2/bin/run_hive_alluxio_tests.sh
+          source trino-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+            trino-hive-hadoop2/bin/run_hive_alluxio_tests.sh
 
   test-other-modules:
     runs-on: ubuntu-latest
@@ -200,24 +200,24 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!trino-docs,!trino-server,!trino-server-rpm'
       - name: Maven Tests
         run: |
           ./mvnw test ${MAVEN_TEST} -pl '
-            !presto-main,
-            !presto-tests,
-            !presto-raptor-legacy,
-            !presto-accumulo,
-            !presto-cassandra,
-            !presto-hive,!presto-orc,!presto-parquet,
-            !presto-mongodb,!presto-kafka,!presto-elasticsearch,
-            !presto-redis,
-            !presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-memsql,
-            !presto-oracle,
-            !presto-kudu,
-            !presto-phoenix,!presto-iceberg,!presto-druid,
-            !presto-docs,!presto-server,!presto-server-rpm,
-            !presto-test-jdbc-compatibility-old-server'
+            !trino-main,
+            !trino-tests,
+            !trino-raptor-legacy,
+            !trino-accumulo,
+            !trino-cassandra,
+            !trino-hive,!trino-orc,!trino-parquet,
+            !trino-mongodb,!trino-kafka,!trino-elasticsearch,
+            !trino-redis,
+            !trino-sqlserver,!trino-postgresql,!trino-mysql,!trino-memsql,
+            !trino-oracle,
+            !trino-kudu,
+            !trino-phoenix,!trino-iceberg,!trino-druid,
+            !trino-docs,!trino-server,!trino-server-rpm,
+            !trino-test-jdbc-compatibility-old-server'
 
   test:
     runs-on: ubuntu-latest
@@ -225,20 +225,20 @@ jobs:
       fail-fast: false
       matrix:
         modules:
-          - "presto-main"
-          - "presto-tests"
-          - "presto-tests -P ci-only"
-          - "presto-raptor-legacy"
-          - "presto-accumulo"
-          - "presto-cassandra"
-          - "presto-hive,presto-orc"
-          - "presto-hive,presto-parquet -P test-parquet"
-          - "presto-mongodb,presto-kafka,presto-elasticsearch"
-          - "presto-redis"
-          - "presto-sqlserver,presto-postgresql,presto-mysql"
-          - "presto-oracle"
-          - "presto-kudu"
-          - "presto-phoenix,presto-iceberg,presto-druid"
+          - "trino-main"
+          - "trino-tests"
+          - "trino-tests -P ci-only"
+          - "trino-raptor-legacy"
+          - "trino-accumulo"
+          - "trino-cassandra"
+          - "trino-hive,trino-orc"
+          - "trino-hive,trino-parquet -P test-parquet"
+          - "trino-mongodb,trino-kafka,trino-elasticsearch"
+          - "trino-redis"
+          - "trino-sqlserver,trino-postgresql,trino-mysql"
+          - "trino-oracle"
+          - "trino-kudu"
+          - "trino-phoenix,trino-iceberg,trino-druid"
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -265,13 +265,13 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-memsql
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl trino-memsql
       - name: Memsql Tests
         env:
           MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
         run: |
           if [ "${MEMSQL_LICENSE}" != "" ]; then
-            ./mvnw test ${MAVEN_TEST} -pl presto-memsql -Dmemsql.license=${MEMSQL_LICENSE}
+            ./mvnw test ${MAVEN_TEST} -pl trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
           fi
 
   pt:
@@ -320,7 +320,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server-rpm'
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!trino-docs,!trino-server-rpm'
       - name: Free Disk Space
         run: |
           docker image prune -af
@@ -328,5 +328,5 @@ jobs:
           rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
-          presto-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --config ${{ matrix.config }} --no-bind --logs-dir logs/ --timeout 2h
+          trino-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --config ${{ matrix.config }} --no-bind --logs-dir logs/ --timeout 2h
 

@@ -140,7 +140,7 @@ public class TestUserMapping
             throws Exception
     {
         // TODO: figure out a better way to validate documentation
-        File docExample = new File("../presto-docs/src/main/sphinx/security/user-mapping.json");
+        File docExample = new File("../trino-docs/src/main/sphinx/security/user-mapping.json");
         UserMapping userMapping = createUserMapping(Optional.empty(), Optional.of(docExample));
 
         assertEquals(userMapping.mapUser("apple@example.com"), "apple");

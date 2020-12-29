@@ -42,6 +42,13 @@
             <artifactId>trino-rcfile</artifactId>
         </dependency>
 
+        <!-- Remove when Rubix is updated to use new SPI -->
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-spi</artifactId>
+            <version>350</version>
+        </dependency>
+
         <dependency>
             <groupId>io.prestosql.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
@@ -259,32 +266,31 @@
             <artifactId>trino-spi</artifactId>
             <scope>provided</scope>
         </dependency>
+    <dependency>
+        <groupId>io.airlift</groupId>
+        <artifactId>slice</artifactId>
+        <scope>provided</scope>
+    </dependency>
 
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
-            <scope>provided</scope>
-        </dependency>
+    <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-annotations</artifactId>
+        <scope>provided</scope>
+    </dependency>
 
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
+    <dependency>
+        <groupId>org.jetbrains</groupId>
+        <artifactId>annotations</artifactId>
+        <scope>provided</scope>
+    </dependency>
 
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
+    <dependency>
+        <groupId>org.openjdk.jol</groupId>
+        <artifactId>jol-core</artifactId>
+        <scope>provided</scope>
+    </dependency>
 
-        <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- for benchmark -->
+    <!-- for benchmark -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-benchmark</artifactId>

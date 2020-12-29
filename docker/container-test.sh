@@ -10,7 +10,7 @@ function cleanup {
     fi
 }
 
-function test_presto_starts {
+function test_trino_starts {
     local QUERY_PERIOD=5
     local QUERY_RETRIES=30
 
@@ -23,7 +23,7 @@ function test_presto_starts {
     I=0
     until RESULT=$(docker exec "${CONTAINER_ID}" presto --execute "SELECT 'success'"); do
         if [[ $((I++)) -ge ${QUERY_RETRIES} ]]; then
-            echo "Too many retries waiting for Presto to start."
+            echo "Too many retries waiting for Trino to start."
             break
         fi
         sleep ${QUERY_PERIOD}
@@ -44,5 +44,5 @@ function test_javahome {
 
 function test_container {
     local CONTAINER_NAME=$1
-    test_javahome ${CONTAINER_NAME} && test_presto_starts ${CONTAINER_NAME}
+    test_javahome ${CONTAINER_NAME} && test_trino_starts ${CONTAINER_NAME}
 }

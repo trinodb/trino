@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.orc.proto.OrcProto;
+import io.prestosql.orc.protobuf.ByteString;
 import io.trino.orc.metadata.PostScript.HiveWriterVersion;
 import io.trino.orc.metadata.statistics.StringStatistics;
-import io.trino.orc.proto.OrcProto;
-import io.trino.orc.protobuf.ByteString;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;

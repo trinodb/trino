@@ -197,7 +197,7 @@ public class TestFileResourceGroupConfigurationManager
                 },
                 new FileResourceGroupConfig()
                         // TODO: figure out a better way to validate documentation
-                        .setConfigFile("../presto-docs/src/main/sphinx/admin/resource-groups-example.json"));
+                        .setConfigFile("../trino-docs/src/main/sphinx/admin/resource-groups-example.json"));
 
         SelectionContext<ResourceGroupIdTemplate> selectionContext = match(manager, new SelectionCriteria(
                 true,

@@ -91,7 +91,7 @@ public class BenchmarkPlanner
             queries = IntStream.rangeClosed(1, 22)
                     .boxed()
                     .filter(i -> i != 15) // q15 has two queries in it
-                    .map(i -> readResource(format("/io/trino/tpch/queries/q%d.sql", i)))
+                    .map(i -> readResource(format("/io/prestosql/tpch/queries/q%d.sql", i)))
                     .collect(toImmutableList());
         }
 
