@@ -102,7 +102,6 @@ public class HiveSplitManager
     private final int maxInitialSplits;
     private final int splitLoaderConcurrency;
     private final int maxSplitsPerSecond;
-    private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
     private final TypeManager typeManager;
 
@@ -133,7 +132,6 @@ public class HiveSplitManager
                 hiveConfig.getMaxInitialSplits(),
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
-                hiveConfig.getRecursiveDirWalkerEnabled(),
                 typeManager);
     }
 
@@ -152,7 +150,6 @@ public class HiveSplitManager
             int maxInitialSplits,
             int splitLoaderConcurrency,
             @Nullable Integer maxSplitsPerSecond,
-            boolean recursiveDfsWalkerEnabled,
             TypeManager typeManager)
     {
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
@@ -170,7 +167,6 @@ public class HiveSplitManager
         this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
         this.maxSplitsPerSecond = firstNonNull(maxSplitsPerSecond, Integer.MAX_VALUE);
-        this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
@@ -220,26 +216,26 @@ public class HiveSplitManager
 
         // Only one thread per partition is usable when a table is not transactional
         int concurrency = isTransactionalTable(table.getParameters()) ? splitLoaderConcurrency : min(splitLoaderConcurrency, partitions.size());
-        HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
-                table,
-                hiveTable.getTransaction(),
-                hivePartitions,
-                hiveTable.getCompactEffectivePredicate(),
-                dynamicFilter,
-                getDynamicFilteringProbeBlockingTimeout(session),
-                typeManager,
-                createBucketSplitInfo(bucketHandle, bucketFilter),
-                session,
-                hdfsEnvironment,
-                namenodeStats,
-                directoryLister,
-                executor,
-                concurrency,
-                recursiveDfsWalkerEnabled,
-                !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
-                isOptimizeSymlinkListing(session),
-                metastore.getValidWriteIds(session, hiveTable)
-                        .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())));
+        HiveSplitLoader hiveSplitLoader = BackgroundHiveSplitLoader.builder()
+                .setTable(table)
+                .setAcidTransaction(hiveTable.getTransaction())
+                .setHivePartitionMetadatas(hivePartitions)
+                .setCompactEffectivePredicate(hiveTable.getCompactEffectivePredicate())
+                .setDynamicFilter(dynamicFilter)
+                .setDynamicFilteringProbeBlockingTimeout(getDynamicFilteringProbeBlockingTimeout(session))
+                .setTypeManager(typeManager)
+                .setBucketSplitInfo(createBucketSplitInfo(bucketHandle, bucketFilter))
+                .setConnectorSession(session)
+                .setHdfsEnvironment(hdfsEnvironment)
+                .setNamenodeStats(namenodeStats)
+                .setDirectoryLister(directoryLister)
+                .setExecutor(executor)
+                .setLoaderConcurrency(concurrency)
+                .setIgnoreAbsentPartitions(!hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session))
+                .setOptimizeSymlinkListing(isOptimizeSymlinkListing(session))
+                .setValidWriteIds(metastore.getValidWriteIds(session, hiveTable)
+                        .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())))
+                .build();
 
         HiveSplitSource splitSource;
         switch (splitSchedulingStrategy) {

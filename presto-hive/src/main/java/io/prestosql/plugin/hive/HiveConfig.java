@@ -286,7 +286,7 @@ public class HiveConfig
         return this;
     }
 
-    public boolean getRecursiveDirWalkerEnabled()
+    public boolean isRecursiveDirWalkerEnabled()
     {
         return recursiveDirWalkerEnabled;
     }
