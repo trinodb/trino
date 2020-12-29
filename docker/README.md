@@ -16,7 +16,7 @@ The Presto node will function both as a coordinator and a worker.
 To launch it, execute the following:
 
 ```bash
-docker run -p 8080:8080 --name presto prestosql/presto
+docker run --rm -p 8080:8080 --name presto prestosql/presto
 ```
 
 Wait for the following message log line:
@@ -43,9 +43,15 @@ docker exec -it presto presto --catalog tpch --schema sf1
 
 ## Configuration
 
-Configuration is expected to be mounted to either  to `/etc/presto` or
+Configuration is expected to be mounted to either to `/etc/presto` or
 `/usr/lib/presto/etc` (the latter takes precedence). If neither of these exists
 then the default single node configuration will be used.
+
+You can mount local config directory `config` executing following command:
+
+```bash
+docker run --mount source=config,target=/usr/lib/presto/etc --rm -p 8080:8080 --name presto prestosql/presto
+```
 
 ### Specific Config Options
 
