@@ -1074,7 +1074,7 @@ public abstract class AbstractTestDistributedQueries
 
         try {
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
-            assertUpdate("CREATE TABLE " + tableName + "(key varchar, " + nameInSql + " varchar)");
+            assertUpdate(createTableSqlForTestColumnName(tableName, nameInSql));
         }
         catch (RuntimeException e) {
             if (isColumnNameRejected(e, columnName, delimited)) {
@@ -1096,6 +1096,11 @@ public abstract class AbstractTestDistributedQueries
         assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    protected String createTableSqlForTestColumnName(String tableName, String columnName)
+    {
+        return "CREATE TABLE " + tableName + "(key varchar, " + columnName + " varchar)";
     }
 
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
