@@ -54,7 +54,7 @@ public class TestKerberosConfig
                 .put("http.authentication.krb5.config", krbConfigFile.toString())
                 .put("http-server.authentication.krb5.service-name", "airlift")
                 .put("http-server.authentication.krb5.keytab", keytabFile.toString())
-                .put("http-server.authentication.krb5.principal-hostname", "presto.prestosql.io")
+                .put("http-server.authentication.krb5.principal-hostname", "test.example.com")
                 .put("http-server.authentication.krb5.name-type", "USER_NAME")
                 .put("http-server.authentication.krb5.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.krb5.user-mapping.file", userMappingFile.toString())
@@ -64,7 +64,7 @@ public class TestKerberosConfig
                 .setKerberosConfig(krbConfigFile.toFile())
                 .setServiceName("airlift")
                 .setKeytab(keytabFile.toFile())
-                .setPrincipalHostname("presto.prestosql.io")
+                .setPrincipalHostname("test.example.com")
                 .setNameType(USER_NAME)
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile());
