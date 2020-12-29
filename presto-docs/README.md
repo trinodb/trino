@@ -125,18 +125,18 @@ The version displayed in the resulting HTML is read from the top level Maven
 `pom.xml` file `version` field, by default.
 
 To deploy a specific documentation set (e.g. a SNAPSHOT version) as release
-version you have to override the pom version with the `PRESTO_VERSION`
+version you have to override the pom version with the `TRINO_VERSION`
 environment variable.
 
 ```bash
-PRESTO_VERSION=327 presto-docs/build
+TRINO_VERSION=327 presto-docs/build
 ```
 
 If you work on the docs for more than one invocation, you can export the
 variable and use it with sphinx.
 
 ```bash
-export PRESTO_VERSION=327
+export TRINO_VERSION=327
 presto-docs/build
 ```
 
