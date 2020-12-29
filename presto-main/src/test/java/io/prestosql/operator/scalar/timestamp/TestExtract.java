@@ -393,6 +393,22 @@ public class TestExtract
         assertThat(assertions.expression("EXTRACT(DOW FROM TIMESTAMP '2020-05-10 12:34:56.123456789012')")).matches("BIGINT '7'");
     }
 
+    @Test
+    public void testDayOfWeekWithWeekStart()
+    {
+        assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56', 1)")).matches("BIGINT '7'");
+        assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.1234', 2)")).matches("BIGINT '6'");
+        assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.12345', 3)")).matches("BIGINT '5'");
+        assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.123456', 4)")).matches("BIGINT '4'");
+        assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.1234567', 5)")).matches("BIGINT '3'");
+        assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.12345678', 6)")).matches("BIGINT '2'");
+        assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.123456789', 7)")).matches("BIGINT '1'");
+        assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-11 12:34:56.1234567890', 2)")).matches("BIGINT '7'");
+        assertThat(assertions.expression("day_of_week(TIMESTAMP '2020-05-11 12:34:56.12345678901', 5)")).matches("BIGINT '4'");
+        assertThatThrownBy(() -> assertions.expression("day_of_week(TIMESTAMP '2020-05-10 12:34:56.123456789012', 8)"))
+                    .hasMessage("Invalid start day of the week : 8, valid values are [1-7]");
+    }
+
     @Override
     public void testDayOfYear()
     {

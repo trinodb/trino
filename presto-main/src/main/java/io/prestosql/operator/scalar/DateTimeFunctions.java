@@ -65,6 +65,7 @@ import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -92,6 +93,7 @@ public final class DateTimeFunctions
     private static final int MILLISECONDS_IN_HOUR = 60 * MILLISECONDS_IN_MINUTE;
     private static final int MILLISECONDS_IN_DAY = 24 * MILLISECONDS_IN_HOUR;
     private static final int PIVOT_YEAR = 2020; // yy = 70 will correspond to 1970 but 69 to 2069
+    private static final int DAYS_IN_WEEK = 7;
 
     private DateTimeFunctions() {}
 
@@ -439,6 +441,15 @@ public final class DateTimeFunctions
     public static long dayOfWeekFromDate(@SqlType(StandardTypes.DATE) long date)
     {
         return DAY_OF_WEEK.get(DAYS.toMillis(date));
+    }
+
+    @Description("Day of the week of the given date based on start day of the week")
+    @ScalarFunction(value = "day_of_week", alias = "dow")
+    @SqlType(StandardTypes.BIGINT)
+    public static long dayOfWeekFromDateWithWeekStart(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.BIGINT) long weekStart)
+    {
+        checkCondition(weekStart > 0 && weekStart <= 7, INVALID_FUNCTION_ARGUMENT, format("Invalid start day of the week : %s, valid values are [1-7]", weekStart));
+        return floorMod(dayOfWeekFromDate(date) - weekStart, DAYS_IN_WEEK) + 1;
     }
 
     @Description("Day of the month of the given date")
