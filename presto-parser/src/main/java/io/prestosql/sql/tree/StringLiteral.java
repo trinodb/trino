@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNull;
 public class StringLiteral
         extends Literal
 {
-    private final String value;
     private final Slice slice;
 
     public StringLiteral(String value)
@@ -41,13 +40,12 @@ public class StringLiteral
     {
         super(location);
         requireNonNull(value, "value is null");
-        this.value = value;
         this.slice = utf8Slice(value);
     }
 
     public String getValue()
     {
-        return value;
+        return slice.toStringUtf8();
     }
 
     public Slice getSlice()
@@ -62,23 +60,22 @@ public class StringLiteral
     }
 
     @Override
-    public boolean equals(Object o)
+    public boolean equals(Object that)
     {
-        if (this == o) {
+        if (this == that) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (that == null || getClass() != that.getClass()) {
             return false;
         }
 
-        StringLiteral that = (StringLiteral) o;
-        return Objects.equals(value, that.value);
+        return Objects.equals(slice, ((StringLiteral) that).slice);
     }
 
     @Override
     public int hashCode()
     {
-        return value.hashCode();
+        return slice.hashCode();
     }
 
     @Override
@@ -88,6 +85,6 @@ public class StringLiteral
             return false;
         }
 
-        return Objects.equals(value, ((StringLiteral) other).value);
+        return Objects.equals(slice, ((StringLiteral) other).slice);
     }
 }
