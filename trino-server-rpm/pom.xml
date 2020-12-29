@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-server-rpm</artifactId>
-    <name>presto-server-rpm</name>
+    <artifactId>trino-server-rpm</artifactId>
+    <name>trino-server-rpm</name>
     <packaging>rpm</packaging>
 
     <properties>
@@ -21,20 +21,20 @@
     <dependencies>
         <!-- for testing -->
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-jdbc</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-main</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-main</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-testing</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -144,7 +144,7 @@
 
                     <packages>
                         <package>
-                            <name>presto-server-rpm</name>
+                            <name>trino-server-rpm</name>
                             <nameOverride>presto-server-rpm-${project.version}.x86_64.rpm</nameOverride>
                             <version>${project.version}</version>
                             <release>1</release>

@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-main</artifactId>
-    <name>presto-main</name>
+    <artifactId>trino-main</artifactId>
+    <name>trino-main</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -17,43 +17,43 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-array</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-array</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-client</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-geospatial-toolkit</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-geospatial-toolkit</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-matching</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-matching</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-memory-context</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory-context</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-parser</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-plugin-toolkit</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
         </dependency>
 
         <dependency>
@@ -345,28 +345,28 @@
 
         <!-- for testing -->
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-parser</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-testng-services</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testng-services</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-tpch</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-tpch</artifactId>
             <scope>test</scope>
         </dependency>
 

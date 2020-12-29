@@ -2,12 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-google-sheets</artifactId>
+    <artifactId>trino-google-sheets</artifactId>
     <description>Presto - Google Sheets Connector</description>
     <packaging>presto-plugin</packaging>
 
@@ -111,8 +111,8 @@
 
         <!-- Presto SPI -->
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -130,14 +130,14 @@
 
         <!-- for testing -->
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-main</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-main</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-testing</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing</artifactId>
             <scope>test</scope>
         </dependency>
 

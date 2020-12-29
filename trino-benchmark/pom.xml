@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-benchmark</artifactId>
-    <name>presto-benchmark</name>
+    <artifactId>trino-benchmark</artifactId>
+    <name>trino-benchmark</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -17,28 +17,28 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-main</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-main</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-memory</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-memory</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-parser</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-tpch</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-tpch</artifactId>
         </dependency>
 
         <dependency>

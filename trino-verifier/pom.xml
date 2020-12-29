@@ -3,33 +3,33 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-verifier</artifactId>
-    <name>presto-verifier</name>
+    <artifactId>trino-verifier</artifactId>
+    <name>trino-verifier</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>io.prestosql.verifier.PrestoVerifier</main-class>
+        <main-class>io.trino.verifier.PrestoVerifier</main-class>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-jdbc</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-jdbc</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-parser</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
         </dependency>
 
         <dependency>

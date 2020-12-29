@@ -3,30 +3,30 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-cli</artifactId>
-    <name>presto-cli</name>
+    <artifactId>trino-cli</artifactId>
+    <name>trino-cli</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
-        <main-class>io.prestosql.cli.Presto</main-class>
+        <main-class>io.trino.cli.Presto</main-class>
         <dep.jline.version>3.17.1</dep.jline.version>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-client</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-parser</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
         </dependency>
 
         <dependency>

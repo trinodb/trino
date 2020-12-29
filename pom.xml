@@ -8,11 +8,11 @@
         <version>104</version>
     </parent>
 
-    <groupId>io.prestosql</groupId>
-    <artifactId>presto-root</artifactId>
+    <groupId>io.trino</groupId>
+    <artifactId>trino-root</artifactId>
     <version>351-SNAPSHOT</version>
 
-    <name>presto-root</name>
+    <name>trino-root</name>
     <description>Presto</description>
     <packaging>pom</packaging>
     <url>https://prestosql.io</url>
@@ -81,81 +81,81 @@
     </properties>
 
     <modules>
-        <module>presto-accumulo</module>
-        <module>presto-accumulo-iterators</module>
-        <module>presto-array</module>
-        <module>presto-atop</module>
-        <module>presto-base-jdbc</module>
-        <module>presto-benchmark</module>
-        <module>presto-benchmark-driver</module>
-        <module>presto-benchto-benchmarks</module>
-        <module>presto-bigquery</module>
-        <module>presto-blackhole</module>
-        <module>presto-cassandra</module>
-        <module>presto-cli</module>
-        <module>presto-client</module>
-        <module>presto-docs</module>
-        <module>presto-druid</module>
-        <module>presto-elasticsearch</module>
-        <module>presto-example-http</module>
-        <module>presto-geospatial</module>
-        <module>presto-geospatial-toolkit</module>
-        <module>presto-google-sheets</module>
-        <module>presto-hive</module>
-        <module>presto-hive-hadoop2</module>
-        <module>presto-iceberg</module>
-        <module>presto-jdbc</module>
-        <module>presto-jmx</module>
-        <module>presto-kafka</module>
-        <module>presto-kinesis</module>
-        <module>presto-kudu</module>
-        <module>presto-local-file</module>
-        <module>presto-main</module>
-        <module>presto-matching</module>
-        <module>presto-memory</module>
-        <module>presto-memory-context</module>
-        <module>presto-memsql</module>
-        <module>presto-ml</module>
-        <module>presto-mongodb</module>
-        <module>presto-mysql</module>
-        <module>presto-oracle</module>
-        <module>presto-orc</module>
-        <module>presto-parquet</module>
-        <module>presto-parser</module>
-        <module>presto-password-authenticators</module>
-        <module>presto-phoenix</module>
-        <module>presto-pinot</module>
-        <module>presto-plugin-toolkit</module>
-        <module>presto-postgresql</module>
-        <module>presto-product-tests</module>
-        <module>presto-product-tests-launcher</module>
-        <module>presto-prometheus</module>
-        <module>presto-proxy</module>
-        <module>presto-raptor-legacy</module>
-        <module>presto-rcfile</module>
-        <module>presto-record-decoder</module>
-        <module>presto-redis</module>
-        <module>presto-redshift</module>
-        <module>presto-resource-group-managers</module>
-        <module>presto-server</module>
-        <module>presto-server-main</module>
-        <module>presto-server-rpm</module>
-        <module>presto-session-property-managers</module>
-        <module>presto-spi</module>
-        <module>presto-sqlserver</module>
-        <module>presto-teradata-functions</module>
-        <module>presto-test-jdbc-compatibility-old-driver</module>
-        <module>presto-test-jdbc-compatibility-old-server</module>
-        <module>presto-testing</module>
-        <module>presto-testing-kafka</module>
-        <module>presto-testng-services</module>
-        <module>presto-tests</module>
-        <module>presto-thrift</module>
-        <module>presto-thrift-api</module>
-        <module>presto-thrift-testing-server</module>
-        <module>presto-tpcds</module>
-        <module>presto-tpch</module>
-        <module>presto-verifier</module>
+        <module>trino-accumulo</module>
+        <module>trino-accumulo-iterators</module>
+        <module>trino-array</module>
+        <module>trino-atop</module>
+        <module>trino-base-jdbc</module>
+        <module>trino-benchmark</module>
+        <module>trino-benchmark-driver</module>
+        <module>trino-benchto-benchmarks</module>
+        <module>trino-bigquery</module>
+        <module>trino-blackhole</module>
+        <module>trino-cassandra</module>
+        <module>trino-cli</module>
+        <module>trino-client</module>
+        <module>trino-docs</module>
+        <module>trino-druid</module>
+        <module>trino-elasticsearch</module>
+        <module>trino-example-http</module>
+        <module>trino-geospatial</module>
+        <module>trino-geospatial-toolkit</module>
+        <module>trino-google-sheets</module>
+        <module>trino-hive</module>
+        <module>trino-hive-hadoop2</module>
+        <module>trino-iceberg</module>
+        <module>trino-jdbc</module>
+        <module>trino-jmx</module>
+        <module>trino-kafka</module>
+        <module>trino-kinesis</module>
+        <module>trino-kudu</module>
+        <module>trino-local-file</module>
+        <module>trino-main</module>
+        <module>trino-matching</module>
+        <module>trino-memory</module>
+        <module>trino-memory-context</module>
+        <module>trino-memsql</module>
+        <module>trino-ml</module>
+        <module>trino-mongodb</module>
+        <module>trino-mysql</module>
+        <module>trino-oracle</module>
+        <module>trino-orc</module>
+        <module>trino-parquet</module>
+        <module>trino-parser</module>
+        <module>trino-password-authenticators</module>
+        <module>trino-phoenix</module>
+        <module>trino-pinot</module>
+        <module>trino-plugin-toolkit</module>
+        <module>trino-postgresql</module>
+        <module>trino-product-tests</module>
+        <module>trino-product-tests-launcher</module>
+        <module>trino-prometheus</module>
+        <module>trino-proxy</module>
+        <module>trino-raptor-legacy</module>
+        <module>trino-rcfile</module>
+        <module>trino-record-decoder</module>
+        <module>trino-redis</module>
+        <module>trino-redshift</module>
+        <module>trino-resource-group-managers</module>
+        <module>trino-server</module>
+        <module>trino-server-main</module>
+        <module>trino-server-rpm</module>
+        <module>trino-session-property-managers</module>
+        <module>trino-spi</module>
+        <module>trino-sqlserver</module>
+        <module>trino-teradata-functions</module>
+        <module>trino-test-jdbc-compatibility-old-driver</module>
+        <module>trino-test-jdbc-compatibility-old-server</module>
+        <module>trino-testing</module>
+        <module>trino-testing-kafka</module>
+        <module>trino-testng-services</module>
+        <module>trino-tests</module>
+        <module>trino-thrift</module>
+        <module>trino-thrift-api</module>
+        <module>trino-thrift-testing-server</module>
+        <module>trino-tpcds</module>
+        <module>trino-tpch</module>
+        <module>trino-verifier</module>
     </modules>
 
     <repositories>
@@ -169,349 +169,349 @@
         <dependencies>
             <!-- PrestoSQL -->
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-array</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-array</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-base-jdbc</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-base-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-base-jdbc</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-base-jdbc</artifactId>
                 <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-benchmark</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-benchmark</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-benchto-benchmarks</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-benchto-benchmarks</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-blackhole</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-blackhole</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-cli</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-cli</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-client</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-elasticsearch</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-elasticsearch</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-example-http</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-example-http</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-geospatial</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-geospatial</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-geospatial-toolkit</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-geospatial-toolkit</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-hive</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-hive</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-hive</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-hive-hadoop2</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-iceberg</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-jdbc</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-local-file</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-main</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-main</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-hive</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-matching</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-hive-hadoop2</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-memory</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-iceberg</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-memory</artifactId>
-                <type>test-jar</type>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-memory-context</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-local-file</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-mongodb</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-main</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-mysql</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-orc</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-parquet</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-parser</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-parser</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-main</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-password-authenticators</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-matching</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-pinot</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-memory</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-plugin-toolkit</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-memory</artifactId>
+                <type>test-jar</type>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-product-tests</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-memory-context</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-raptor-legacy</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-mongodb</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-rcfile</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-mysql</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-record-decoder</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-orc</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-resource-group-managers</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-parquet</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-resource-group-managers</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-parser</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-parser</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-server</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-password-authenticators</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-server-rpm</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-pinot</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-session-property-managers</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-plugin-toolkit</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-session-property-managers</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-product-tests</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-raptor-legacy</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-rcfile</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-record-decoder</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-resource-group-managers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-resource-group-managers</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-spi</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-server</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-spi</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-server-rpm</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-session-property-managers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-session-property-managers</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-sqlserver</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-testing</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-spi</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-sqlserver</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-testing-kafka</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-testing</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-testng-services</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-testing-kafka</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-tests</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-testng-services</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-thrift</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-tests</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-thrift</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-thrift-api</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-thrift-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-thrift-api</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-thrift-api</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-thrift-testing-server</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-thrift-testing-server</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-tpcds</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-tpcds</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-tpch</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-tpch</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1627,11 +1627,11 @@
                             <compound implementation="com.github.ferstl.maven.pomenforcers.CompoundPedanticEnforcer">
                                 <enforcers>POM_SECTION_ORDER,MODULE_ORDER,DEPENDENCY_MANAGEMENT_ORDER,DEPENDENCY_ORDER</enforcers>
                                 <pomSectionPriorities>modelVersion,parent,groupId,artifactId,version,name,description,packaging,url,inceptionYear,licenses,scm,properties,modules</pomSectionPriorities>
-                                <dependenciesGroupIdPriorities>io.prestosql,io.airlift</dependenciesGroupIdPriorities>
+                                <dependenciesGroupIdPriorities>io.trino,io.prestosql,io.airlift</dependenciesGroupIdPriorities>
                                 <dependenciesOrderBy>scope,groupId,artifactId</dependenciesOrderBy>
                                 <dependenciesScopePriorities>compile,runtime,provided,test</dependenciesScopePriorities>
                                 <dependencyManagementOrderBy>groupId,artifactId</dependencyManagementOrderBy>
-                                <dependencyManagementGroupIdPriorities>io.prestosql,io.airlift</dependencyManagementGroupIdPriorities>
+                                <dependencyManagementGroupIdPriorities>io.trino,io.prestosql,io.airlift</dependencyManagementGroupIdPriorities>
                             </compound>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
@@ -1671,8 +1671,8 @@
 
         <plugins>
             <plugin>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-maven-plugin</artifactId>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-maven-plugin</artifactId>
                 <version>9</version>
                 <extensions>true</extensions>
             </plugin>

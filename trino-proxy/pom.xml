@@ -3,17 +3,17 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-proxy</artifactId>
+    <artifactId>trino-proxy</artifactId>
     <description>Presto - Proxy Service</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>io.prestosql.proxy.PrestoProxy</main-class>
+        <main-class>io.trino.proxy.PrestoProxy</main-class>
     </properties>
 
     <dependencies>
@@ -144,26 +144,26 @@
 
         <!-- for testing -->
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-blackhole</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-blackhole</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-jdbc</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-main</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-main</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-tpch</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-tpch</artifactId>
             <scope>test</scope>
         </dependency>
 

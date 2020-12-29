@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-docs</artifactId>
-    <name>presto-docs</name>
+    <artifactId>trino-docs</artifactId>
+    <name>trino-docs</name>
     <packaging>pom</packaging>
 
     <properties>
@@ -46,7 +46,7 @@
                         <configuration>
                             <outputFile>${project.build.directory}/PrestoThriftService.thrift</outputFile>
                             <classes>
-                                <class>io.prestosql.plugin.thrift.api.PrestoThriftService</class>
+                                <class>io.trino.plugin.thrift.api.PrestoThriftService</class>
                             </classes>
                             <recursive>true</recursive>
                         </configuration>
@@ -54,8 +54,8 @@
                 </executions>
                 <dependencies>
                     <dependency>
-                        <groupId>io.prestosql</groupId>
-                        <artifactId>presto-thrift-api</artifactId>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-thrift-api</artifactId>
                         <version>${project.version}</version>
                     </dependency>
                 </dependencies>
@@ -72,7 +72,7 @@
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <mainClass>io.prestosql.sql.ReservedIdentifiers</mainClass>
+                            <mainClass>io.trino.sql.ReservedIdentifiers</mainClass>
                             <arguments>
                                 <argument>validateDocs</argument>
                                 <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>
@@ -112,8 +112,8 @@
                 </configuration>
                 <dependencies>
                     <dependency>
-                        <groupId>io.prestosql</groupId>
-                        <artifactId>presto-parser</artifactId>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-parser</artifactId>
                         <version>${project.version}</version>
                     </dependency>
                 </dependencies>

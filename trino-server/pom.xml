@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-server</artifactId>
-    <name>presto-server</name>
+    <artifactId>trino-server</artifactId>
+    <name>trino-server</name>
     <packaging>provisio</packaging>
 
     <properties>
@@ -21,7 +21,7 @@
         <air.check.skip-dependency>true</air.check.skip-dependency>
 
         <!-- Launcher properties -->
-        <main-class>io.prestosql.server.PrestoServer</main-class>
+        <main-class>io.trino.server.PrestoServer</main-class>
         <process-name>${project.artifactId}</process-name>
     </properties>
 

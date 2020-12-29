@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-spi</artifactId>
-    <name>presto-spi</name>
+    <artifactId>trino-spi</artifactId>
+    <name>trino-spi</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
