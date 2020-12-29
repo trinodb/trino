@@ -343,7 +343,7 @@ public class SpillableHashAggregationBuilder
                 blockTypeOperators,
                 () -> {
                     updateMemory();
-                    // TODO: Support GroupByHash yielding in spillable hash aggregation (https://github.com/prestosql/presto/issues/460)
+                    // TODO: Support GroupByHash yielding in spillable hash aggregation (https://github.com/trinodb/trino/issues/460)
                     return true;
                 });
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();

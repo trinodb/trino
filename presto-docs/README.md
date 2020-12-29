@@ -1,6 +1,6 @@
-# presto-docs - Presto documentation
+# presto-docs - Trino documentation
 
-The presto-docs module contains the reference documentation for Presto.
+The presto-docs module contains the reference documentation for Trino.
 
 - [Writing and contributing](#writing-and-contributing)
 - [Tools](#tools)
@@ -14,7 +14,7 @@ The presto-docs module contains the reference documentation for Presto.
 ## Writing and contributing
 
 We welcome any contributions to the documentation. Contributions need to [follow
-the same process as code contributions](https://prestosql.io/development/) and
+the same process as code contributions](https://trino.io/development/) and
 can be part of your code contributions or separate documentation improvements.
 
 The documentation follows the Google developer documentation style guide for any
@@ -51,7 +51,7 @@ The engine used to create the documentation in HTML format is the Python-based
 ## Default build
 
 The default build is using Apache Maven and Java like for the rest of the
-Presto build. You just need to have built the current version from the root.
+Trino build. You just need to have built the current version from the root.
 Subsequently, you can build the site using the Maven wrapper script.
 
 ```bash

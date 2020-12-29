@@ -172,7 +172,7 @@ public class SystemTablesMetadata
         }
 
         if (newDomain.isNone()) {
-            // TODO (https://github.com/prestosql/presto/issues/3647) indicate the table scan is empty
+            // TODO (https://github.com/trinodb/trino/issues/3647) indicate the table scan is empty
         }
         table = new SystemTableHandle(table.getSchemaName(), table.getTableName(), newDomain);
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));

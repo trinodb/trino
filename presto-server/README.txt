@@ -1,5 +1,5 @@
-Presto is a distributed SQL query engine.
+Trino is a distributed SQL query engine.
 
 Please see the website for installation instructions:
 
-https://prestosql.io/
+https://trino.io/

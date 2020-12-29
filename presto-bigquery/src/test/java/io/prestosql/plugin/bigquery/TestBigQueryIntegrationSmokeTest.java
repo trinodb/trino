@@ -87,7 +87,7 @@ public class TestBigQueryIntegrationSmokeTest
         assertEquals((long) actualValues.getOnlyValue(), 1L);
     }
 
-    @Test(description = "regression test for https://github.com/prestosql/presto/issues/5618")
+    @Test(description = "regression test for https://github.com/trinodb/trino/issues/5618")
     public void testPredicatePushdownPrunnedColumns()
     {
         BigQuery client = createBigQueryClient();
@@ -105,7 +105,7 @@ public class TestBigQueryIntegrationSmokeTest
                 "VALUES (1)");
     }
 
-    @Test(description = "regression test for https://github.com/prestosql/presto/issues/5635")
+    @Test(description = "regression test for https://github.com/trinodb/trino/issues/5635")
     public void testCountAggregationView()
     {
         BigQuery client = createBigQueryClient();

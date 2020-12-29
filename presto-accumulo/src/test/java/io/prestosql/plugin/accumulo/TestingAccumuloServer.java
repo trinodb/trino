@@ -56,7 +56,7 @@ public class TestingAccumuloServer
         // No need for an explicit stop since this server is a singleton
         // and the container will be stopped by TestContainers on shutdown
         // TODO Change this class to not be a singleton
-        //  https://github.com/prestosql/presto/issues/5842
+        //  https://github.com/trinodb/trino/issues/5842
         accumuloContainer.start();
     }
 

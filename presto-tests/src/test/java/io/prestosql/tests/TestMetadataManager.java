@@ -182,13 +182,13 @@ public class TestMetadataManager
     @Test
     public void testUpperCaseListTablesFilter()
     {
-        // TODO (https://github.com/prestosql/presto/issues/17) this should return no rows
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return no rows
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_SCHEM = 'upper_case_schema' AND TABLE_NAME = 'upper_case_table'"))
                 .hasSize(1);
-        // TODO (https://github.com/prestosql/presto/issues/17) this should return 1 row
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return 1 row
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_SCHEM = 'UPPER_CASE_SCHEMA'"))
                 .isEmpty();
-        // TODO (https://github.com/prestosql/presto/issues/17) this should return 1 row
+        // TODO (https://github.com/trinodb/trino/issues/17) this should return 1 row
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_NAME = 'UPPER_CASE_TABLE'"))
                 .isEmpty();
     }

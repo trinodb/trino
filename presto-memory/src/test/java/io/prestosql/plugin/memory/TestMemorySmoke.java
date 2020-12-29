@@ -265,7 +265,7 @@ public class TestMemorySmoke
     }
 
     @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "Lists differ at element")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "Lists differ at element")
     public void testCrossJoinDynamicFiltering()
     {
         assertUpdate("DROP TABLE IF EXISTS probe");
@@ -291,7 +291,7 @@ public class TestMemorySmoke
         assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin AND vmax", withBroadcastJoin(), 2, 2, 2);
         assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax", withBroadcastJoin(), 2, 2, 2);
 
-        // TODO: support complex inequality join clauses: https://github.com/prestosql/presto/issues/5755
+        // TODO: support complex inequality join clauses: https://github.com/trinodb/trino/issues/5755
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin AND vmax - 1", withBroadcastJoin(), 1, 3, 2);
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 2);
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 5, 2);
@@ -299,12 +299,12 @@ public class TestMemorySmoke
         assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax", withBroadcastJoin(), 1, 3, 2);
         assertDynamicFiltering("SELECT * FROM probe, build WHERE v BETWEEN vmin + 1 AND vmax - 1", withBroadcastJoin(), 0, 5, 2);
 
-        // TODO: make sure it works after https://github.com/prestosql/presto/issues/5777 is fixed
+        // TODO: make sure it works after https://github.com/trinodb/trino/issues/5777 is fixed
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 1, 2);
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 1, 2);
         assertDynamicFiltering("SELECT * FROM probe JOIN build ON v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 0, 2);
 
-        // TODO: support complex inequality join clauses: https://github.com/prestosql/presto/issues/5755
+        // TODO: support complex inequality join clauses: https://github.com/trinodb/trino/issues/5755
         assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin AND v <= vmax - 1", withBroadcastJoin(), 1, 3, 2);
         assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax", withBroadcastJoin(), 1, 3, 2);
         assertDynamicFiltering("SELECT * FROM probe, build WHERE v >= vmin + 1 AND v <= vmax - 1", withBroadcastJoin(), 0, 5, 2);

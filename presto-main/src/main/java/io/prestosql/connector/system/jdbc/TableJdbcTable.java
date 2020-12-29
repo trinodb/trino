@@ -95,7 +95,7 @@ public class TableJdbcTable
         }
 
         if (isNonLowercase(schemaFilter) || isNonLowercase(tableFilter)) {
-            // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/prestosql/presto/issues/17)
+            // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/trinodb/trino/issues/17)
             return table.build().cursor();
         }
 

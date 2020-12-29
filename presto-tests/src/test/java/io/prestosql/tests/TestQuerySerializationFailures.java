@@ -48,7 +48,7 @@ public class TestQuerySerializationFailures
     }
 
     @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4173", match = "\\QExpected query to fail: SELECT * FROM (VALUES BOGUS(true), BOGUS(false), BOGUS(true))")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4173", match = "\\QExpected query to fail: SELECT * FROM (VALUES BOGUS(true), BOGUS(false), BOGUS(true))")
     public void shouldFailOnFirstSerializationError()
     {
         // BOGUS(value) returns BogusType that fails to serialize when value is true

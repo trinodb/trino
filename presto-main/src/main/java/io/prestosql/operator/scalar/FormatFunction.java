@@ -215,7 +215,7 @@ public final class FormatFunction
         if (type instanceof TimeType) {
             return (session, block) -> toLocalTime(type.getLong(block, position));
         }
-        // TODO: support TIME WITH TIME ZONE by https://github.com/prestosql/presto/issues/191 + mapping to java.time.OffsetTime
+        // TODO: support TIME WITH TIME ZONE by https://github.com/trinodb/trino/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
             MethodHandle handle = functionDependencies.getFunctionInvoker(QualifiedName.of("json_format"), ImmutableList.of(JSON), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
