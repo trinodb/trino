@@ -45,6 +45,9 @@ type StageNodeInfo = {
 class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
     static getStages(queryInfo): Map<string, StageNodeInfo> {
         const stages: Map<string, StageNodeInfo> = new Map();
+        if (!queryInfo.outputStage) {
+            return stages;
+        }
         StageStatistics.flattenStage(queryInfo.outputStage, stages);
         return stages;
     }
@@ -276,6 +279,9 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
 
         const graph = this.state.graph;
         const stages = StageStatistics.getStages(this.state.query);
+        if (stages.size === 0) {
+            return;
+        } 
         stages.forEach(stage => {
             this.updateD3Stage(stage, graph, stages);
         });
@@ -340,6 +346,17 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                     </div>
                 </div>
             )
+        }
+
+        if (query && query.state === "FAILED") {
+            return (
+                <div>
+                    <QueryHeader query={query}/>
+                    <div className="row error-message">
+                        <div className="col-xs-12"><h4>Query does not have an output plan</h4></div>
+                    </div>
+                </div>
+            );
         }
 
         // TODO: Refactor components to move refreshLoop to parent rather than using this property
