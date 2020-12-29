@@ -21,6 +21,7 @@ import com.qubole.rubix.bookkeeper.BookKeeperServer;
 import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
 import com.qubole.rubix.core.CachingFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoAdlFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoAliyunOSSFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
@@ -90,7 +91,9 @@ public class RubixInitializer
     private static final String RUBIX_SECURE_ADL_CLASS_NAME = CachingPrestoAdlFileSystem.class.getName();
 
     private static final String RUBIX_GS_FS_CLASS_NAME = CachingPrestoGoogleHadoopFileSystem.class.getName();
+    private static final String RUBIX_ALIYUN_OSS_FS_CLASS_NAME = CachingPrestoAliyunOSSFileSystem.class.getName();
     private static final String FILESYSTEM_OWNED_BY_RUBIX_CONFIG_PROPETY = "presto.fs.owned.by.rubix";
+
 
     private static final RetryDriver DEFAULT_COORDINATOR_RETRY_DRIVER = retry()
             // unlimited attempts
@@ -324,6 +327,8 @@ public class RubixInitializer
         config.set("fs.adl.impl", RUBIX_SECURE_ADL_CLASS_NAME);
 
         config.set("fs.gs.impl", RUBIX_GS_FS_CLASS_NAME);
+
+        config.set("fs.oss.impl", RUBIX_ALIYUN_OSS_FS_CLASS_NAME);
 
         if (owner == RUBIX) {
             config.set(FILESYSTEM_OWNED_BY_RUBIX_CONFIG_PROPETY, "true");
