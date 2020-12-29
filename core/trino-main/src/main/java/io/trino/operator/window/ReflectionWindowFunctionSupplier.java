@@ -36,7 +36,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
     {
         NO_INPUTS,
         INPUTS,
-        INPUTS_IGNORE_NULLS;
+        INPUTS_IGNORE_NULLS
     }
 
     private final Constructor<T> constructor;
