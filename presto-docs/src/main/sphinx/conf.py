@@ -55,7 +55,7 @@ def maven_version(pom):
 
 
 def get_version():
-    version = os.environ.get('PRESTO_VERSION', '').strip()
+    version = os.environ.get('TRINO_VERSION', '').strip()
     return version or maven_version('../../../pom.xml')
 
 # -- General configuration -----------------------------------------------------
