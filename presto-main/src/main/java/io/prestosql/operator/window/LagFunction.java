@@ -33,6 +33,13 @@ public class LagFunction
     private final int offsetChannel;
     private final int defaultChannel;
     private final boolean ignoreNulls;
+    private long lastNonNull;
+
+    @Override
+    public void reset()
+    {
+        lastNonNull = 0;
+    }
 
     public LagFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
@@ -52,23 +59,15 @@ public class LagFunction
             long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
-            long valuePosition;
+            long valuePosition = currentPosition - offset;
 
-            if (ignoreNulls && (offset > 0)) {
-                long count = 0;
-                valuePosition = currentPosition - 1;
-                while (withinPartition(valuePosition, currentPosition)) {
-                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
-                        count++;
-                        if (count == offset) {
-                            break;
-                        }
-                    }
-                    valuePosition--;
+            if (ignoreNulls && withinPartition(valuePosition, currentPosition) && offset > 0) {
+                if (windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                    valuePosition = lastNonNull;
                 }
-            }
-            else {
-                valuePosition = currentPosition - offset;
+                else {
+                    lastNonNull = valuePosition;
+                }
             }
 
             if (withinPartition(valuePosition, currentPosition)) {
