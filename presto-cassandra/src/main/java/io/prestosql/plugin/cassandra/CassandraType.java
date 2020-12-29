@@ -302,7 +302,7 @@ public enum CassandraType
             case TIMESTAMP:
                 return Long.toString(row.getTimestamp(position).getTime());
             case DATE:
-                return row.getDate(position).toString();
+                return quoteStringLiteral(row.getDate(position).toString());
             case INET:
                 return quoteStringLiteral(toAddrString(row.getInet(position)));
             case VARINT:
@@ -334,6 +334,7 @@ public enum CassandraType
             case ASCII:
             case TEXT:
             case VARCHAR:
+            case DATE:
                 return quoteStringLiteral(value);
             case INET:
                 // remove '/' in the string. e.g. /127.0.0.1
@@ -441,9 +442,12 @@ public enum CassandraType
             case DOUBLE:
             case INET:
             case INT:
+            case SMALLINT:
+            case TINYINT:
             case FLOAT:
             case DECIMAL:
             case TIMESTAMP:
+            case DATE:
             case UUID:
             case TIMEUUID:
                 return true;
