@@ -43,7 +43,7 @@ final class ConnectionProperties
 {
     enum SslVerificationMode
     {
-        FULL, CA, NONE;
+        FULL, CA, NONE
     }
 
     public static final ConnectionProperty<String> USER = new User();
