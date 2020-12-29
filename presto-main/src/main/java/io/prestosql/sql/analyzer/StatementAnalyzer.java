@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
+import io.prestosql.Session.SessionBuilder;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
@@ -170,6 +171,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -3381,7 +3383,7 @@ class StatementAnalyzer
 
     private Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, SqlPath path)
     {
-        return Session.builder(metadata.getSessionPropertyManager())
+        SessionBuilder sessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                 .setQueryId(session.getQueryId())
                 .setTransactionId(session.getTransactionId().orElse(null))
                 .setIdentity(identity)
@@ -3394,8 +3396,13 @@ class StatementAnalyzer
                 .setRemoteUserAddress(session.getRemoteUserAddress().orElse(null))
                 .setUserAgent(session.getUserAgent().orElse(null))
                 .setClientInfo(session.getClientInfo().orElse(null))
-                .setStart(session.getStart())
-                .build();
+                .setStart(session.getStart());
+
+        for (Entry<String, String> entry : session.getSystemProperties().entrySet()) {
+            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+        }
+
+        return sessionBuilder.build();
     }
 
     private static boolean hasScopeAsLocalParent(Scope root, Scope parent)
