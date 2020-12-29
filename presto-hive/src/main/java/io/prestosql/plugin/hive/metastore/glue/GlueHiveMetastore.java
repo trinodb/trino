@@ -870,24 +870,39 @@ public class GlueHiveMetastore
     private List<Partition> batchGetPartition(Table table, List<String> partitionNames)
     {
         try {
-            List<Future<BatchGetPartitionResult>> batchGetPartitionFutures = new ArrayList<>();
-
-            for (List<String> partitionNamesBatch : Lists.partition(partitionNames, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
-                List<PartitionValueList> partitionValuesBatch = mappedCopy(partitionNamesBatch, partitionName -> new PartitionValueList().withValues(toPartitionValues(partitionName)));
-                batchGetPartitionFutures.add(glueClient.batchGetPartitionAsync(new BatchGetPartitionRequest()
-                        .withCatalogId(catalogId)
-                        .withDatabaseName(table.getDatabaseName())
-                        .withTableName(table.getTableName())
-                        .withPartitionsToGet(partitionValuesBatch)));
-            }
+            List<PartitionValueList> partitionValueLists = mappedCopy(partitionNames, partitionName -> new PartitionValueList().withValues(toPartitionValues(partitionName)));
+            ImmutableList.Builder<Partition> resultsBuilder = ImmutableList.builderWithExpectedSize(partitionNames.size());
 
             // Reuse immutable field instances opportunistically between partitions
             GluePartitionConverter converter = new GluePartitionConverter(table);
-            ImmutableList.Builder<Partition> resultsBuilder = ImmutableList.builderWithExpectedSize(partitionNames.size());
-            for (Future<BatchGetPartitionResult> future : batchGetPartitionFutures) {
-                future.get().getPartitions().stream()
-                        .map(converter)
-                        .forEach(resultsBuilder::add);
+
+            while (!partitionValueLists.isEmpty()) {
+                List<List<PartitionValueList>> batchedPartitionValueLists = Lists.partition(partitionValueLists, BATCH_GET_PARTITION_MAX_PAGE_SIZE);
+                List<Future<BatchGetPartitionResult>> batchGetPartitionFutures = new ArrayList<>();
+                for (List<PartitionValueList> partitions : batchedPartitionValueLists) {
+                    batchGetPartitionFutures.add(glueClient.batchGetPartitionAsync(new BatchGetPartitionRequest()
+                            .withCatalogId(catalogId)
+                            .withDatabaseName(table.getDatabaseName())
+                            .withTableName(table.getTableName())
+                            .withPartitionsToGet(partitions)));
+                }
+
+                List<PartitionValueList> unprocessedPartitions = new ArrayList<>();
+                for (Future<BatchGetPartitionResult> future : batchGetPartitionFutures) {
+                    BatchGetPartitionResult batchGetPartitionResult = future.get();
+
+                    // In the unlikely scenario where batchGetPartition call cannot make progress on retrieving partitions,
+                    // we throw exception on this metastore operation to avoid getting stuck in this loop.
+                    if (batchGetPartitionResult.getPartitions().isEmpty() && !batchGetPartitionResult.getUnprocessedKeys().isEmpty()) {
+                        throw new PrestoException(HIVE_METASTORE_ERROR, "Unable to retrieve partitions: " + batchGetPartitionResult.getUnprocessedKeys());
+                    }
+
+                    batchGetPartitionResult.getPartitions().stream()
+                            .map(converter)
+                            .forEach(resultsBuilder::add);
+                    unprocessedPartitions.addAll(batchGetPartitionResult.getUnprocessedKeys());
+                }
+                partitionValueLists = unprocessedPartitions;
             }
 
             return resultsBuilder.build();
