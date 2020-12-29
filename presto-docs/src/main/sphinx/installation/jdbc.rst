@@ -10,7 +10,7 @@ as those used for reporting and database development, use the JDBC driver.
 Requirements
 ------------
 
-The JDBC driver is compatible with Java versions 8 or higher, and can be used with 
+The JDBC driver is compatible with Java versions 8 or higher, and can be used with
 applications running on Java virtual machines version 8 or higher.
 
 Installing
@@ -34,12 +34,12 @@ available versions can be found in the `Maven Central Repository
 directory for the desired version, and select the ``presto-jdbc-xxx.jar`` file
 to download, where ``xxx`` is the version number.
 
-Once downloaded, you must add the JAR file to a directory in the classpath 
+Once downloaded, you must add the JAR file to a directory in the classpath
 of users on systems where they will access Presto.
 
-After you have downloaded the JDBC driver and added it to your 
-classpath, you'll typically need to restart your application in order to 
-recognize the new driver. Then, depending on your application, you 
+After you have downloaded the JDBC driver and added it to your
+classpath, you'll typically need to restart your application in order to
+recognize the new driver. Then, depending on your application, you
 may need to manually register and configure the driver.
 
 Registering and configuring the driver
@@ -49,10 +49,10 @@ Drivers are commonly loaded automatically by applications once they are added to
 its classpath. If your application does not, such as is the case for some
 GUI-based SQL editors, read this section. The steps to register the JDBC driver
 in a UI or on the command line depend upon the specific application you are
-using. Please check your application's documentation. 
+using. Please check your application's documentation.
 
 Once registered, you must also configure the connection information as described
-in the following section. 
+in the following section.
 
 Connecting
 ----------
@@ -73,7 +73,7 @@ The following is an example of a JDBC URL used to create a connection:
     jdbc:presto://example.net:8080/hive/sales
 
 This example JDBC URL locates a Presto instance running on port ``8080`` on
-``example.net``, with the catalog ``hive`` and the schema ``sales`` defined. 
+``example.net``, with the catalog ``hive`` and the schema ``sales`` defined.
 
 Connection parameters
 ---------------------

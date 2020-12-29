@@ -2,7 +2,7 @@
 TPCH Connector
 ==============
 
-The TPCH connector provides a set of schemas to support the 
+The TPCH connector provides a set of schemas to support the
 `TPC Benchmark™ H (TPC-H) <http://www.tpc.org/tpch/>`_. TPC-H is a database
 benchmark used to measure the performance of highly-complex decision support databases.
 

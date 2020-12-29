@@ -43,7 +43,7 @@
 * Add `SSLVerification` JDBC connection parameter that allows configuring SSL verification. ({issue}`5610`)
 * Remove legacy `useSessionTimeZone` JDBC connection parameter. ({issue}`4521`)
 * Implement `ResultSet.getRow()`. ({issue}`5769`)
-  
+
 ## BigQuery Connector Changes
 
 * Fix issue when query could return invalid results if some column references were pruned out during query optimization. ({issue}`5618`)
@@ -62,14 +62,14 @@
 * Add support for `ALTER TABLE ... SET AUTHORIZATION` SQL syntax to change the table owner. ({issue}`5717`)
 * Add support for writing timestamps with microsecond or nanosecond precision, in addition to milliseconds. ({issue}`5283`)
 * Export JMX statistics for Glue metastore client request metrics. ({issue}`5693`)
-* Collect column statistics during `ANALYZE` and when data is inserted to table for columns of `timestamp(p)` 
+* Collect column statistics during `ANALYZE` and when data is inserted to table for columns of `timestamp(p)`
   when precision is greater than 3. ({issue}`5392`)
 * Improve query performance by adding support for dynamic bucket pruning. ({issue}`5634`)
 * Remove deprecated `parquet.fail-on-corrupted-statistics` (previously known as `hive.parquet.fail-on-corrupted-statistics`).
   A new configuration property, `parquet.ignore-statistics`, can be used to deal with Parquet files with incorrect metadata.  ({issue}`3077`)
 * Do not write min/max statistics for `timestamp` columns. ({issue}`5858`)
-* If multiple metastore URIs are defined via `hive.metastore.uri`, prefer connecting to one which was seen operational most recently. 
-  This prevents query failures when one or more metastores are misbehaving. ({issue}`5795`)  
+* If multiple metastore URIs are defined via `hive.metastore.uri`, prefer connecting to one which was seen operational most recently.
+  This prevents query failures when one or more metastores are misbehaving. ({issue}`5795`)
 * Fix Hive view access when catalog name is other than `hive`. ({issue}`5785`)
 * Fix failure when the declared length of a `varchar(n)` column in the partition schema differs from the table schema. ({issue}`5484`)
 * Fix Glue metastore pushdown for complex expressions. ({issue}`5698`)
@@ -79,7 +79,7 @@
 * Add support for materialized views. ({issue}`4832`)
 * Remove deprecated `parquet.fail-on-corrupted-statistics` (previously known as `hive.parquet.fail-on-corrupted-statistics`).
   A new configuration property, `parquet.ignore-statistics`, can be used to deal with Parquet files with incorrect metadata.  ({issue}`3077`)
-    
+
 ## Kafka Connector Changes
 
 * Fix incorrect column comment. ({issue}`5751`)
@@ -99,13 +99,13 @@
 
 ## PostgreSQL Connector Changes
 
-* Improve performance of queries comparing a `timestamp` column with a `timestamp with time zone` constants 
+* Improve performance of queries comparing a `timestamp` column with a `timestamp with time zone` constants
   for `timestamp with time zone` precision higher than 3. ({issue}`5543`)
 
 ## Other Connector Changes
 
 * Improve performance of queries with `DISTINCT` or `LIMIT`, or with `GROUP BY` and no aggregate functions and `LIMIT`,
-  when the computation can be pushed down to the underlying database for the PostgreSQL, MySQL, Oracle, Redshift and 
+  when the computation can be pushed down to the underlying database for the PostgreSQL, MySQL, Oracle, Redshift and
   SQL Server connectors. ({issue}`5522`)
 
 ## SPI Changes

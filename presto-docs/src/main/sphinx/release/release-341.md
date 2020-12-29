@@ -17,14 +17,14 @@
 * Remove support for political time zones in `TIME WITH TIME ZONE` type. ({issue}`191`)
 * Remove deprecated `reorder_joins` session property. ({issue}`5027`)
 * Remove the `deprecated.legacy-timestamp` configuration property and the `legacy_timestamp` session property. ({issue}`4799`)
-* Change timestamp operations to match the SQL specification. The value of a `TIMESTAMP` 
+* Change timestamp operations to match the SQL specification. The value of a `TIMESTAMP`
   type is not affected by the session time zone. ({issue}`37`)
 * Preserve precision when applying `AT TIME ZONE` to values of type `TIMESTAMP`. ({issue}`4866`)
 * Fix serialization of `NULL` values in `ROW`, `MAP` and `ARRAY` types for old Presto clients. ({issue}`4778`)
 * Fix failure when aggregation query contains duplicate expressions. ({issue}`4872`)
 * Fix compiler failure when querying timestamps with a precision greater than 6. ({issue}`4824`)
 * Fix parsing failure of timestamps due to daylight saving changes. ({issue}`37`)
-* Fix failure when calling {func}`extract` with `TIMEZONE_HOUR` and `TIMEZONE_MINUTE` for 
+* Fix failure when calling {func}`extract` with `TIMEZONE_HOUR` and `TIMEZONE_MINUTE` for
   `TIMESTAMP WITH TIME ZONE` type. ({issue}`4867`)
 * Fix query deadlock for connectors that wait for dynamic filters. ({issue}`4946`)
 * Fix failure when `TIME` or `TIMESTAMP` subtraction returns a negative value. ({issue}`4847`)
@@ -68,13 +68,13 @@
 * Use a temporary staging directory for temporary files when writing to sorted bucketed tables.
   This allows using a more efficient file system for temporary files. ({issue}`3434`)
 * Fix metastore cache invalidation for `GRANT` and `REVOKE`. ({issue}`4768`)
-* Add Parquet and RCBinary [configuration properties](hive_configuration_properties) `hive.parquet.time-zone` 
-  and `hive.rcfile.time-zone` to adjust binary timestamp values to a specific time zone. For Hive 3.1+, this 
-  should be set to UTC. The default value is the JVM default time zone, for backwards compatibility with 
+* Add Parquet and RCBinary [configuration properties](hive_configuration_properties) `hive.parquet.time-zone`
+  and `hive.rcfile.time-zone` to adjust binary timestamp values to a specific time zone. For Hive 3.1+, this
+  should be set to UTC. The default value is the JVM default time zone, for backwards compatibility with
   earlier versions of Hive. ({issue}`4799`)
-* Add ORC [configuration property](hive_configuration_properties) `hive.orc.time-zone` to set the default 
+* Add ORC [configuration property](hive_configuration_properties) `hive.orc.time-zone` to set the default
   time zone for legacy ORC files that did not declare a time zone. ({issue}`4799`)
-* Replace the `hive.time-zone` configuration property with format specific properties: `hive.orc.time-zone`, 
+* Replace the `hive.time-zone` configuration property with format specific properties: `hive.orc.time-zone`,
   `hive.parquet.time-zone`, `hive.rcfile.time-zone`. ({issue}`4799`)
 * Allow using the cluster default role with S3 security mapping. ({issue}`4931`)
 * Remove support for bucketing on timestamp. The definition of the hash function for timestamp
@@ -83,9 +83,9 @@
   This helps avoid hitting rate limits and decreases service costs. ({issue}`4938`)
 * Match the existing user and group of the table or partition when creating new files on HDFS. ({issue}`4414`)
 * Fix invalid timestamp values for nested data in Text, Avro, SequenceFile, JSON and CSV formats. ({issue}`4799`)
-* Fix query failure when reading an ORC ACID table with a filter after the table 
+* Fix query failure when reading an ORC ACID table with a filter after the table
   underwent a minor table compaction. ({issue}`4622`)
-* Fix incorrect query results when reading an ORC ACID table that has deleted rows 
+* Fix incorrect query results when reading an ORC ACID table that has deleted rows
   and underwent a minor compaction. ({issue}`4623`)
 * Fix query failure when storage caching is enabled and cached data is evicted during query execution. ({issue}`3580`)
 
@@ -134,7 +134,7 @@
 
 * Add support for `REAL` and `INTEGER` types. ({issue}`4725`)
 * Add support for functions in pass-through queries. ({issue}`4801`)
-* Enforce a limit on the number of rows fetched from Pinot. This can be configured via the 
+* Enforce a limit on the number of rows fetched from Pinot. This can be configured via the
   `pinot.max-rows-per-split-for-segment-queries` configuration property. ({issue}`4723`)
 * Fix incorrect results for `count(*)` queries. ({issue}`4802`)
 * Fix incorrect results for queries involving {func}`avg` over columns of type `long`, `int`, or `float`. ({issue}`4802`)
@@ -152,7 +152,7 @@
 
 ## Raptor Connector Changes
 
-* Remove the `storage.shard-day-boundary-time-zone` configuration property, which was used to work 
+* Remove the `storage.shard-day-boundary-time-zone` configuration property, which was used to work
   around legacy timestamp semantics in Presto. ({issue}`4799`)
 
 ## Redis Connector Changes
@@ -161,8 +161,8 @@
 
 ## SPI Changes
 
-* The `TIMESTAMP` type is encoded as a number of fractional seconds from `1970-01-01 00:00:00` in the proleptic 
-  Gregorian calendar. This value is no longer adjusted to the session time zone. Timestamps with precision less 
+* The `TIMESTAMP` type is encoded as a number of fractional seconds from `1970-01-01 00:00:00` in the proleptic
+  Gregorian calendar. This value is no longer adjusted to the session time zone. Timestamps with precision less
   than or equal to 3 are now represented in microseconds. ({issue}`4799`)
 * Remove `isLegacyTimestamp()` from `ConnectorSession`. ({issue}`4799`)
 * Enable connectors to wait for dynamic filters before producing data on worker nodes. ({issue}`3414`)

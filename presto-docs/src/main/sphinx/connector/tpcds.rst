@@ -2,8 +2,8 @@
 TPCDS Connector
 ===============
 
-The TPCDS connector provides a set of schemas to support the 
-`TPC Benchmark™ DS (TPC-DS) <http://www.tpc.org/tpcds/>`_. TPC-DS is a database 
+The TPCDS connector provides a set of schemas to support the
+`TPC Benchmark™ DS (TPC-DS) <http://www.tpc.org/tpcds/>`_. TPC-DS is a database
 benchmark used to measure the performance of complex decision support databases.
 
 This connector can be used to test the capabilities and query

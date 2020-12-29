@@ -893,8 +893,8 @@ clause be present. The result set consists of the same set of leading rows
 and all of the rows in the same peer group as the last of them ('ties')
 as established by the ordering in the ``ORDER BY`` clause. The result set is sorted::
 
-    SELECT name, regionkey 
-    FROM nation 
+    SELECT name, regionkey
+    FROM nation
     ORDER BY regionkey FETCH FIRST ROW WITH TIES;
 
 .. code-block:: text
@@ -1129,8 +1129,8 @@ The ``EXISTS`` predicate determines if a subquery returns any rows::
     SELECT name
     FROM nation
     WHERE EXISTS (
-         SELECT * 
-         FROM region 
+         SELECT *
+         FROM region
          WHERE region.regionkey = nation.regionkey
     );
 
@@ -1144,7 +1144,7 @@ standard rules for nulls. The subquery must produce exactly one column::
     SELECT name
     FROM nation
     WHERE regionkey IN (
-         SELECT regionkey 
+         SELECT regionkey
          FROM region
          WHERE name = 'AMERICA' OR name = 'AFRICA'
     );
