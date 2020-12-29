@@ -16,6 +16,7 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.ArrayType;
+import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.iceberg.FileFormat;
 
 import javax.inject.Inject;
@@ -35,6 +36,7 @@ public class IcebergTableProperties
     public static final String FILE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String LOCATION_PROPERTY = "location";
+    public static final String TYPE_PROPERTY = "type";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -64,6 +66,12 @@ public class IcebergTableProperties
                         "File system location URI for the table",
                         null,
                         false))
+                .add(enumProperty(
+                        TYPE_PROPERTY,
+                        "Table type for the table",
+                        TableType.class,
+                        icebergConfig.getTableType(),
+                        false))
                 .build();
     }
 
@@ -87,5 +95,10 @@ public class IcebergTableProperties
     public static String getTableLocation(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(LOCATION_PROPERTY);
+    }
+
+    public static TableType getTableType(Map<String, Object> tableProperties)
+    {
+        return (TableType) tableProperties.get(TYPE_PROPERTY);
     }
 }

@@ -90,6 +90,7 @@ public class HiveTableOperations
     private final Optional<String> owner;
     private final Optional<String> location;
     private final FileIO fileIo;
+    private final TableType tableType;
 
     private TableMetadata currentMetadata;
     private String currentMetadataLocation;
@@ -98,10 +99,10 @@ public class HiveTableOperations
 
     public HiveTableOperations(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, HiveIdentity identity, String database, String table)
     {
-        this(new HdfsFileIo(hdfsEnvironment, hdfsContext), metastore, identity, database, table, Optional.empty(), Optional.empty());
+        this(new HdfsFileIo(hdfsEnvironment, hdfsContext), metastore, identity, database, table, Optional.empty(), Optional.empty(), TableType.EXTERNAL_TABLE);
     }
 
-    public HiveTableOperations(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, HiveIdentity identity, String database, String table, String owner, String location)
+    public HiveTableOperations(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, HiveIdentity identity, String database, String table, String owner, String location, TableType tableType)
     {
         this(new HdfsFileIo(hdfsEnvironment, hdfsContext),
                 metastore,
@@ -109,10 +110,11 @@ public class HiveTableOperations
                 database,
                 table,
                 Optional.of(requireNonNull(owner, "owner is null")),
-                Optional.of(requireNonNull(location, "location is null")));
+                Optional.of(requireNonNull(location, "location is null")),
+                tableType);
     }
 
-    private HiveTableOperations(FileIO fileIo, HiveMetastore metastore, HiveIdentity identity, String database, String table, Optional<String> owner, Optional<String> location)
+    private HiveTableOperations(FileIO fileIo, HiveMetastore metastore, HiveIdentity identity, String database, String table, Optional<String> owner, Optional<String> location, TableType tableType)
     {
         this.fileIo = requireNonNull(fileIo, "fileIo is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -121,6 +123,7 @@ public class HiveTableOperations
         this.tableName = requireNonNull(table, "table is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.location = requireNonNull(location, "location is null");
+        this.tableType = requireNonNull(tableType, "tableType is null");
     }
 
     @Override
@@ -182,11 +185,11 @@ public class HiveTableOperations
                         .setDatabaseName(database)
                         .setTableName(tableName)
                         .setOwner(owner.orElseThrow(() -> new IllegalStateException("Owner not set")))
-                        .setTableType(TableType.EXTERNAL_TABLE.name())
+                        .setTableType(tableType.name())
                         .setDataColumns(toHiveColumns(metadata.schema().columns()))
                         .withStorage(storage -> storage.setLocation(metadata.location()))
                         .withStorage(storage -> storage.setStorageFormat(STORAGE_FORMAT))
-                        .setParameter("EXTERNAL", "TRUE")
+                        .setParameter("EXTERNAL", TableType.EXTERNAL_TABLE == tableType ? "TRUE" : "FALSE")
                         .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE)
                         .setParameter(METADATA_LOCATION, newMetadataLocation);
                 String tableComment = metadata.properties().get(TABLE_COMMENT);
