@@ -24,6 +24,7 @@ import io.trino.operator.window.LagFunction;
 import io.trino.operator.window.LastValueFunction;
 import io.trino.operator.window.LeadFunction;
 import io.trino.operator.window.NthValueFunction;
+import io.trino.operator.window.RankFunction;
 import io.trino.operator.window.ReflectionWindowFunctionSupplier;
 import io.trino.operator.window.RowNumberFunction;
 import io.trino.spi.Page;
@@ -55,6 +56,7 @@ import static io.trino.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrde
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.operator.WindowFunctionDefinition.window;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -78,6 +80,9 @@ public class TestWindowOperator
 
     public static final List<WindowFunctionDefinition> ROW_NUMBER = ImmutableList.of(
             window(new ReflectionWindowFunctionSupplier<>("row_number", BIGINT, ImmutableList.of(), RowNumberFunction.class), BIGINT, UNBOUNDED_FRAME, false, ImmutableList.of()));
+
+    public static final List<WindowFunctionDefinition> RANK = ImmutableList.of(
+            window(new ReflectionWindowFunctionSupplier<>("rank", BIGINT, ImmutableList.of(), RankFunction.class), BIGINT, UNBOUNDED_FRAME, false, ImmutableList.of()));
 
     private static final List<WindowFunctionDefinition> FIRST_VALUE = ImmutableList.of(
             window(new ReflectionWindowFunctionSupplier<>("first_value", VARCHAR, ImmutableList.<Type>of(VARCHAR), FirstValueFunction.class), VARCHAR, UNBOUNDED_FRAME, false, ImmutableList.of(), 1));
@@ -298,6 +303,48 @@ public class TestWindowOperator
                 .row(6L, 6L)
                 .row(7L, 7L)
                 .row(8L, 8L)
+                .build();
+
+        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+    }
+
+    @Test
+    public void testRank()
+    {
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+                .row(1L, null)
+                .row(2L, 0.2)
+                .row(2L, Double.NaN)
+                .row(3L, 0.1)
+                .row(3L, 0.91)
+                .pageBreak()
+                .row(1L, 0.4)
+                .pageBreak()
+                .row(1L, null)
+                .row(2L, 0.7)
+                .row(2L, Double.NaN)
+                .build();
+
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                ImmutableList.of(BIGINT, DOUBLE),
+                Ints.asList(1, 0),
+                RANK,
+                Ints.asList(0),
+                Ints.asList(1),
+                ImmutableList.copyOf(new SortOrder[] {ASC_NULLS_FIRST}),
+                false);
+
+        DriverContext driverContext = createDriverContext();
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
+                .row(null, 1L, 1L)
+                .row(null, 1L, 1L)
+                .row(0.4, 1L, 3L)
+                .row(0.2, 2L, 1L)
+                .row(0.7, 2L, 2L)
+                .row(Double.NaN, 2L, 3L)
+                .row(Double.NaN, 2L, 4L)
+                .row(0.1, 3L, 1L)
+                .row(0.91, 3L, 2L)
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
