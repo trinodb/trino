@@ -79,12 +79,23 @@ public class ConnectorObjectNameGeneratorModule
         }
 
         @Override
+        public String generatedNameOf(Class<?> type, String name)
+        {
+            return new ObjectNameBuilder(toDomain(type))
+                    .withProperties(ImmutableMap.<String, String>builder()
+                            .put("type", type.getSimpleName())
+                            .put("name", name)
+                            .build())
+                    .build();
+        }
+
+        @Override
         public String generatedNameOf(Class<?> type, Map<String, String> properties)
         {
             return new ObjectNameBuilder(toDomain(type))
                     .withProperties(ImmutableMap.<String, String>builder()
                             .putAll(properties)
-                            .put("catalog", catalogName)
+                            .put("name", catalogName)
                             .build())
                     .build();
         }
