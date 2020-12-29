@@ -294,6 +294,28 @@ public class TestStringFunctions
         assertFunction("STARTS_WITH('信念 爱 希望', '信念')", BOOLEAN, true);
         assertFunction("STARTS_WITH('信念 爱 希望', '爱')", BOOLEAN, false);
 
+        assertFunction("ENDS_WITH('foo', 'foo')", BOOLEAN, true);
+        assertFunction("ENDS_WITH('foo', 'bar')", BOOLEAN, false);
+        assertFunction("ENDS_WITH('foo', '')", BOOLEAN, true);
+        assertFunction("ENDS_WITH('', 'foo')", BOOLEAN, false);
+        assertFunction("ENDS_WITH('', '')", BOOLEAN, true);
+        assertFunction("ENDS_WITH('foo_bar_baz', 'baz')", BOOLEAN, true);
+        assertFunction("ENDS_WITH('foo_bar_baz', 'bar')", BOOLEAN, false);
+        assertFunction("ENDS_WITH('foo', 'foo_bar_baz')", BOOLEAN, false);
+        assertFunction("ENDS_WITH('信念 爱 希望', '希望')", BOOLEAN, true);
+        assertFunction("ENDS_WITH('信念 爱 希望', '爱')", BOOLEAN, false);
+
+        assertFunction("CONTAINS('foo', 'foo')", BOOLEAN, true);
+        assertFunction("CONTAINS('foo', 'bar')", BOOLEAN, false);
+        assertFunction("CONTAINS('foo', '')", BOOLEAN, true);
+        assertFunction("CONTAINS('', 'foo')", BOOLEAN, false);
+        assertFunction("CONTAINS('', '')", BOOLEAN, true);
+        assertFunction("CONTAINS('foo_bar_baz', 'baz')", BOOLEAN, true);
+        assertFunction("CONTAINS('foo_bar_baz', 'bar')", BOOLEAN, true);
+        assertFunction("CONTAINS('foo', 'foo_bar_baz')", BOOLEAN, false);
+        assertFunction("CONTAINS('信念 爱 希望', '希望')", BOOLEAN, true);
+        assertFunction("CONTAINS('信念 爱 希望', '爱')", BOOLEAN, true);
+
         assertFunction("STRPOS(NULL, '')", BIGINT, null);
         assertFunction("STRPOS('', NULL)", BIGINT, null);
         assertFunction("STRPOS(NULL, NULL)", BIGINT, null);
