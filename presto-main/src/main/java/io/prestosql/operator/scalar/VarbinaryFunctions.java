@@ -34,6 +34,7 @@ import java.util.zip.CRC32;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.prestosql.operator.scalar.HmacFunctions.computeHash;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.prestosql.util.Failures.checkCondition;
 
 public final class VarbinaryFunctions
@@ -471,5 +472,29 @@ public final class VarbinaryFunctions
             reverse.setByte(i, inputSlice.getByte((length - 1) - i));
         }
         return reverse;
+    }
+
+    @Description("Repeats a varbinary given number of times")
+    @ScalarFunction("replicate")
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice replicate(@SqlType("varbinary") Slice inputSlice, @SqlType(StandardTypes.BIGINT) long times)
+    {
+        if (inputSlice.length() == 0) {
+            return EMPTY_SLICE;
+        }
+
+        int repeatTimes = Ints.saturatedCast(times);
+        checkCondition(repeatTimes > 0, INVALID_FUNCTION_ARGUMENT, "Invalid number of varbinary repetitions: " + times);
+
+        int length = inputSlice.length();
+        int size = length * repeatTimes;
+
+        checkCondition(size <= DEFAULT_MAX_PAGE_SIZE_IN_BYTES, INVALID_FUNCTION_ARGUMENT, "Repeated varbinary is too large");
+
+        Slice buffer = Slices.allocate(size);
+        for (int i = 0; i < times; i++) {
+            buffer.setBytes(i * length, inputSlice, 0, length);
+        }
+        return buffer;
     }
 }
