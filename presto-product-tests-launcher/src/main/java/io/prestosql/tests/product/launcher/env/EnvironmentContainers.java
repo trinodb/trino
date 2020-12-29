@@ -19,6 +19,7 @@ public final class EnvironmentContainers
     public static final String COORDINATOR = PRESTO + "-master";
     public static final String WORKER = PRESTO + "-worker";
     public static final String WORKER_NTH = WORKER + "-";
+    public static final String CLI = "presto-cli";
     public static final String HADOOP = "hadoop-master";
     public static final String TESTS = "tests";
     public static final String LDAP = "ldapserver";
