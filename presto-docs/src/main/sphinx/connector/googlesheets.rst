@@ -66,7 +66,7 @@ containing the following columns in this order:
 See this `example sheet <https://docs.google.com/spreadsheets/d/1Es4HhWALUQjoa-bQh4a8B5HROz7dpGMfq_HbfoaW5LM>`_
 as a reference.
 
-The metadata sheet must be shared with the service account user, 
+The metadata sheet must be shared with the service account user,
 the one for which the key credentials file was created. Click the *Share*
 button to share the sheet with the email address of the service account.
 

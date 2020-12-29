@@ -12,10 +12,10 @@
 * Improve performance for join queries where join keys are not of the same type. ({issue}`5461`)
 * Improve performance of encrypted spilling. ({issue}`5557`)
 * Improve performance of queries that use the `decimal` type. ({issue}`5181`)
- 
+
 ## Security Changes
 
-* Add support for JSON Web Key (JWK) to the existing JSON Web Token (JWT) authenticator.  This is enabled by 
+* Add support for JSON Web Key (JWK) to the existing JSON Web Token (JWT) authenticator.  This is enabled by
   setting the `jwt.key-file` configuration property to a `http` or `https` url. ({issue}`5419`)
 * Add column security, column mask and row filter to file-based access controls. ({issue}`5460`)
 * Enforce access control for column references in `USING` clause. ({issue}`5620`)
@@ -33,7 +33,7 @@
 * Improve storage caching by better distributing files across workers. ({issue}`5621`)
 * Fix disk space accounting for storage caching. ({issue}`5621`)
 * Fix failure when reading Parquet `timestamp` columns encoded as `int64`. ({issue}`5443`)
-  
+
 ## MongoDB Connector Changes
 
 * Add support for adding columns. ({issue}`5512`)

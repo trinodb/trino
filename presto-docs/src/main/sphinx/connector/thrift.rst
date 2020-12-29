@@ -3,7 +3,7 @@ Thrift Connector
 ================
 
 The Thrift connector makes it possible to integrate with external storage systems
-without a custom Presto connector implementation by using 
+without a custom Presto connector implementation by using
 `Apache Thrift <https://thrift.apache.org/>`_ on these servers. It is therefore generic and can provide access any backend, as long as it exposes the expected API by using Thrift.
 
 In order to use the Thrift connector with an external system, you need to implement

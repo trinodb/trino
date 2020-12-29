@@ -17,9 +17,9 @@
 ## JDBC Driver Changes
 
 * Accept `java.time.OffsetTime` in `PreparedStatement.setObject(int, Object)`. ({issue}`6352`)
-* Extend `PreparedStatement.setObject(int, Object, int)` to allow setting `time with time zone` and `timestamp with time zone` 
+* Extend `PreparedStatement.setObject(int, Object, int)` to allow setting `time with time zone` and `timestamp with time zone`
   values with precision higher than nanoseconds. This can be done via providing a `String` value representing a valid SQL literal. ({issue}`6352`)
-  
+
 ## BigQuery Connector Changes
 
 * Fix incorrect results for `count(*)` queries with views. ({issue}`5635`)
