@@ -14,12 +14,12 @@
 FROM centos:centos8
 LABEL maintainer="Presto community <https://prestosql.io/community.html>"
 
-ENV JAVA_HOME /usr/lib/jvm/zulu11
+ENV JAVA_HOME /usr/lib/jvm/zulu15
 RUN \
     set -xeu && \
     dnf -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \
     dnf -y -q update && \
-    dnf -y -q install zulu11 less python3 && \
+    dnf -y -q install zulu15 less python3 && \
     alternatives --set python /usr/bin/python3 && \
     dnf -q clean all && \
     rm -rf /var/cache/dnf && \

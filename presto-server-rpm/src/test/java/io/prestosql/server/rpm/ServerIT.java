@@ -43,12 +43,13 @@ import static org.testng.Assert.assertEquals;
 public class ServerIT
 {
     private static final String BASE_IMAGE = "prestodev/centos7-oj11";
+    private static final String DOCKER_IMAGES_VERSION = "536de3a";
 
     @Parameters("rpm")
     @Test
     public void testWithJava11(String rpm)
     {
-        testServer(rpm, "11");
+        testServer(rpm, "15");
     }
 
     @Parameters("rpm")
@@ -62,7 +63,7 @@ public class ServerIT
                 "/etc/init.d/presto start\n" +
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/presto/server.log\n";
-        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
+        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE + ":" + DOCKER_IMAGES_VERSION)) {
             container.withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sh", "-xeuc", installAndStartPresto)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))

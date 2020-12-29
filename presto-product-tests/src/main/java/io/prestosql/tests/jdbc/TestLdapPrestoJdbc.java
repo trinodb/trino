@@ -122,7 +122,7 @@ public class TestLdapPrestoJdbc
             fail();
         }
         catch (SQLException exception) {
-            assertEquals(exception.getMessage(), "Error setting up SSL: Keystore was tampered with, or password was incorrect");
+            assertEquals(exception.getMessage(), "Error setting up SSL: keystore password was incorrect");
         }
     }
 

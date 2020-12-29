@@ -14,6 +14,7 @@
 package io.prestosql.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.operator.WorkProcessor.ProcessState;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.prestosql.spi.Page;
 
@@ -24,7 +25,6 @@ import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static io.prestosql.operator.WorkProcessor.ProcessState.blocked;
 import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
 import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
-import static io.prestosql.operator.WorkProcessor.ProcessState.yield;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -67,7 +67,7 @@ public class PageBuffer
                 return ofResult(result);
             }
 
-            return yield();
+            return ProcessState.yield();
         });
     }
 

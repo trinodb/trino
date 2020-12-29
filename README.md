@@ -18,7 +18,7 @@
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 11.0.7+, 64-bit
+* Java 15.0.1+, 64-bit
 * Docker
 
 ## Building Presto
@@ -53,8 +53,7 @@ properly configured for the project:
 
 * Open the File menu and select Project Structure
 * In the SDKs section, ensure that JDK 11 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 8 (Presto
-  does not yet use Java 11 language features)
+* In the Project section, ensure the Project language level is set to 15
 
 Presto comes with sample configuration that should work out-of-the-box for
 development. Use the following options to create a run configuration:

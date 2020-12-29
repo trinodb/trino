@@ -266,7 +266,7 @@ public final class TestRun
                         .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-presto-cli.sh"), "/etc/profile.d/set-presto-cli.sh")
                         .withCommand(ImmutableList.<String>builder()
                                 .add(
-                                        "/usr/lib/jvm/zulu-11/bin/java",
+                                        "/usr/lib/jvm/zulu-15/bin/java",
                                         "-Xmx1g",
                                         // Force Parallel GC to ensure MaxHeapFreeRatio is respected
                                         "-XX:+UseParallelGC",

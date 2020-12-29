@@ -45,7 +45,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
 import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
-import static io.prestosql.operator.WorkProcessor.ProcessState.yield;
 import static io.prestosql.operator.project.SelectedPositions.positionsRange;
 import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
 import static java.util.Objects.requireNonNull;
@@ -209,7 +208,7 @@ public class PageProcessor
                     lastComputeYielded = true;
                     lastComputeBatchSize = batchSize;
                     updateRetainedSize();
-                    return yield();
+                    return ProcessState.yield();
                 }
 
                 if (result.isPageTooLarge()) {
