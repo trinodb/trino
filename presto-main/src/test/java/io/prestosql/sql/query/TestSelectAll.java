@@ -13,11 +13,14 @@
  */
 package io.prestosql.sql.query;
 
+import io.prestosql.Session;
+import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.prestosql.SystemSessionProperties.QUERY_MAX_FIELDS_OUTPUT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -243,5 +246,15 @@ public class TestSelectAll
         assertThat(assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT t2.b from (VALUES 2), LATERAL (SELECT t.*) t2(b))")).matches("VALUES (0, 0), (1, 1)");
         assertThatThrownBy(() -> assertions.query("SELECT * FROM (VALUES 0) t(a), LATERAL (SELECT t2.* from (VALUES 1, 2), LATERAL (SELECT t.*) t2(b))")).hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
         assertThatThrownBy(() -> assertions.query("SELECT * FROM (VALUES 0, 1) t(a), LATERAL (SELECT * from (VALUES 2), LATERAL (SELECT t.*))")).hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
+    }
+
+    @Test
+    public void testTooManyFieldsSelected() {
+        Session session  = assertions.sessionBuilder()
+                .setSystemProperty(QUERY_MAX_FIELDS_OUTPUT, "5")
+                .build();
+        assertThatThrownBy(() -> assertions.query(session,
+                "SELECT * FROM (VALUES (1, (2, 3, 4), ARRAY[(5, (6, 7))] ))"))
+                .hasMessageMatching("Maximum number of output fields of 5 has been exceeded with 7");
     }
 }

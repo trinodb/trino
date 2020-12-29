@@ -67,6 +67,8 @@ public class QueryManagerConfig
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
 
+    private int maxFieldsOutput = 100000;
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {
@@ -362,6 +364,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
     {
         this.requiredWorkersMaxWait = requiredWorkersMaxWait;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxFieldsOutput()
+    {
+        return maxFieldsOutput;
+    }
+
+    @Config("query.max-fields-output")
+    @ConfigDescription("Maximum number of output fields (including nested fields) in a query")
+    public QueryManagerConfig setMaxFieldsOutput(int maxFieldsOutput)
+    {
+        this.maxFieldsOutput = maxFieldsOutput;
         return this;
     }
 }
