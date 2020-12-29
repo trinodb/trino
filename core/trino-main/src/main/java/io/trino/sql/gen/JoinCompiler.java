@@ -222,11 +222,14 @@ public class JoinCompiler
         generateHashPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, hashChannelField);
         generateHashRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generateRowEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
+        generateRowNotDistinctFromRowMethod(classDefinition, callSiteBinder, joinChannelTypes);
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
+        generatePositionNotDistinctFromRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionNotDistinctFromRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
+        generatePositionNotDistinctFromPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generateIsPositionNull(classDefinition, joinChannelFields);
         generateCompareSortChannelPositionsMethod(classDefinition, callSiteBinder, types, channelFields, sortChannel);
         generateIsSortChannelPositionNull(classDefinition, channelFields, sortChannel);
@@ -542,6 +545,53 @@ public class JoinCompiler
                 .retInt();
     }
 
+    private void generateRowNotDistinctFromRowMethod(
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            List<Type> joinChannelTypes)
+    {
+        Parameter leftPosition = arg("leftPosition", int.class);
+        Parameter leftPage = arg("leftPage", Page.class);
+        Parameter rightPosition = arg("rightPosition", int.class);
+        Parameter rightPage = arg("rightPage", Page.class);
+        MethodDefinition rowNotDistinctFromRowMethod = classDefinition.declareMethod(
+                a(PUBLIC),
+                "rowNotDistinctFromRow",
+                type(boolean.class),
+                leftPosition,
+                leftPage,
+                rightPosition,
+                rightPage);
+
+        for (int index = 0; index < joinChannelTypes.size(); index++) {
+            Type type = joinChannelTypes.get(index);
+
+            BytecodeExpression leftBlock = leftPage.invoke("getBlock", Block.class, constantInt(index));
+
+            BytecodeExpression rightBlock = rightPage.invoke("getBlock", Block.class, constantInt(index));
+
+            LabelNode checkNextField = new LabelNode("checkNextField");
+            rowNotDistinctFromRowMethod
+                    .getBody()
+                    .append(typeDistinctFrom(
+                            callSiteBinder,
+                            type,
+                            leftBlock,
+                            leftPosition,
+                            rightBlock,
+                            rightPosition))
+                    .ifFalseGoto(checkNextField)
+                    .push(false)
+                    .retBoolean()
+                    .visitLabel(checkNextField);
+        }
+
+        rowNotDistinctFromRowMethod
+                .getBody()
+                .push(true)
+                .retInt();
+    }
+
     private void generatePositionEqualsRowMethod(
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
@@ -592,6 +642,53 @@ public class JoinCompiler
         }
 
         positionEqualsRowMethod
+                .getBody()
+                .push(true)
+                .retInt();
+    }
+
+    private void generatePositionNotDistinctFromRowMethod(
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            List<Type> joinChannelTypes,
+            List<FieldDefinition> joinChannelFields)
+    {
+        Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
+        Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
+        Parameter rightPosition = arg("rightPosition", int.class);
+        Parameter rightPage = arg("rightPage", Page.class);
+        MethodDefinition positionNotDistinctFromRowPosition = classDefinition.declareMethod(
+                a(PUBLIC),
+                "positionNotDistinctFromRow",
+                type(boolean.class),
+                leftBlockIndex,
+                leftBlockPosition,
+                rightPosition,
+                rightPage);
+
+        Variable thisVariable = positionNotDistinctFromRowPosition.getThis();
+
+        for (int index = 0; index < joinChannelTypes.size(); index++) {
+            Type type = joinChannelTypes.get(index);
+
+            BytecodeExpression leftBlock = thisVariable
+                    .getField(joinChannelFields.get(index))
+                    .invoke("get", Object.class, leftBlockIndex)
+                    .cast(Block.class);
+
+            BytecodeExpression rightBlock = rightPage.invoke("getBlock", Block.class, constantInt(index));
+
+            LabelNode checkNextField = new LabelNode("checkNextField");
+            positionNotDistinctFromRowPosition
+                    .getBody()
+                    .append(typeDistinctFrom(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightPosition))
+                    .ifFalseGoto(checkNextField)
+                    .push(false)
+                    .retBoolean()
+                    .visitLabel(checkNextField);
+        }
+
+        positionNotDistinctFromRowPosition
                 .getBody()
                 .push(true)
                 .retInt();
@@ -724,6 +821,55 @@ public class JoinCompiler
         }
 
         positionEqualsPositionMethod
+                .getBody()
+                .push(true)
+                .retInt();
+    }
+
+    private void generatePositionNotDistinctFromPositionMethod(
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            List<Type> joinChannelTypes,
+            List<FieldDefinition> joinChannelFields)
+    {
+        Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
+        Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
+        Parameter rightBlockIndex = arg("rightBlockIndex", int.class);
+        Parameter rightBlockPosition = arg("rightBlockPosition", int.class);
+        MethodDefinition positionNotDistinctFromPositionMethod = classDefinition.declareMethod(
+                a(PUBLIC),
+                "positionNotDistinctFromPosition",
+                type(boolean.class),
+                leftBlockIndex,
+                leftBlockPosition,
+                rightBlockIndex,
+                rightBlockPosition);
+
+        Variable thisVariable = positionNotDistinctFromPositionMethod.getThis();
+        for (int index = 0; index < joinChannelTypes.size(); index++) {
+            Type type = joinChannelTypes.get(index);
+
+            BytecodeExpression leftBlock = thisVariable
+                    .getField(joinChannelFields.get(index))
+                    .invoke("get", Object.class, leftBlockIndex)
+                    .cast(Block.class);
+
+            BytecodeExpression rightBlock = thisVariable
+                    .getField(joinChannelFields.get(index))
+                    .invoke("get", Object.class, rightBlockIndex)
+                    .cast(Block.class);
+
+            LabelNode checkNextField = new LabelNode("checkNextField");
+            positionNotDistinctFromPositionMethod
+                    .getBody()
+                    .append(typeDistinctFrom(callSiteBinder, type, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition))
+                    .ifFalseGoto(checkNextField)
+                    .push(false)
+                    .retBoolean()
+                    .visitLabel(checkNextField);
+        }
+
+        positionNotDistinctFromPositionMethod
                 .getBody()
                 .push(true)
                 .retInt();
