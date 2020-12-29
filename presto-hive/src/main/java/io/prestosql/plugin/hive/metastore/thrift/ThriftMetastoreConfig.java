@@ -42,6 +42,7 @@ public class ThriftMetastoreConfig
     private Duration delegationTokenCacheTtl = new Duration(1, TimeUnit.HOURS); // The default lifetime in Hive is 7 days (metastore.cluster.delegation.token.max-lifetime)
     private long delegationTokenCacheMaximumSize = 1000;
     private boolean deleteFilesOnDrop;
+    private boolean purgeTableOnDrop;
     private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
 
     private boolean tlsEnabled;
@@ -197,6 +198,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setDeleteFilesOnDrop(boolean deleteFilesOnDrop)
     {
         this.deleteFilesOnDrop = deleteFilesOnDrop;
+        return this;
+    }
+
+    public boolean isPurgeTableOnDrop()
+    {
+        return purgeTableOnDrop;
+    }
+
+    @Config("hive.metastore.thrift.purge-table-on-drop")
+    @ConfigDescription("Skips trash when dropping the table")
+    public ThriftMetastoreConfig setPurgeTableOnDrop(boolean purgeTableOnDrop)
+    {
+        this.purgeTableOnDrop = purgeTableOnDrop;
         return this;
     }
 

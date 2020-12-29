@@ -53,6 +53,7 @@ public class TestThriftMetastoreConfig
                 .setDelegationTokenCacheTtl(new Duration(1, HOURS))
                 .setDelegationTokenCacheMaximumSize(1000)
                 .setDeleteFilesOnDrop(false)
+                .setPurgeTableOnDrop(false)
                 .setMaxWaitForTransactionLock(new Duration(10, MINUTES))
                 .setAssumeCanonicalPartitionKeys(false));
     }
@@ -81,6 +82,7 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.delegation-token.cache-ttl", "1d")
                 .put("hive.metastore.thrift.delegation-token.cache-maximum-size", "9999")
                 .put("hive.metastore.thrift.delete-files-on-drop", "true")
+                .put("hive.metastore.thrift.purge-table-on-drop", "true")
                 .put("hive.metastore.thrift.txn-lock-max-wait", "5m")
                 .put("hive.metastore.thrift.assume-canonical-partition-keys", "true")
                 .build();
@@ -102,6 +104,7 @@ public class TestThriftMetastoreConfig
                 .setDelegationTokenCacheTtl(new Duration(1, DAYS))
                 .setDelegationTokenCacheMaximumSize(9999)
                 .setDeleteFilesOnDrop(true)
+                .setPurgeTableOnDrop(true)
                 .setMaxWaitForTransactionLock(new Duration(5, MINUTES))
                 .setAssumeCanonicalPartitionKeys(true);
 
