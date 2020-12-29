@@ -112,6 +112,7 @@ html_theme_options = {
     'repo_url': 'https://github.com/prestosql/presto',
     'repo_name': 'Presto',
     'version_json': '../versions.json',
+    'heroes': {'index': 'Presto SQL is now Trino &nbsp;&nbsp;&nbsp;<a href="https://trino.io/blog/2020/12/27/announcing-trino.html" target="_blank">Read why &gt;</a>'},
 }
 
 html_css_files = [
