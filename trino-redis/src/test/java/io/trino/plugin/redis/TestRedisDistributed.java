@@ -14,10 +14,10 @@
 package io.trino.plugin.redis;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.tpch.TpchTable;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

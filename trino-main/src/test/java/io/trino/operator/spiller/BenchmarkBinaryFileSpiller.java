@@ -15,6 +15,8 @@ package io.trino.operator.spiller;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.prestosql.tpch.LineItem;
+import io.prestosql.tpch.LineItemGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -24,8 +26,6 @@ import io.trino.spiller.GenericSpillerFactory;
 import io.trino.spiller.Spiller;
 import io.trino.spiller.SpillerFactory;
 import io.trino.spiller.SpillerStats;
-import io.prestosql.tpch.LineItem;
-import io.prestosql.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;

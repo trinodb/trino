@@ -14,9 +14,9 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.tpch.TpchTable;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 

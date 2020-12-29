@@ -126,7 +126,7 @@
                 <configuration>
                     <!-- To allow usage of java.util.Hashtable -->
                     <ignorePackages>
-                        <ignorePackage>io.prestosql.plugin.password.jndi</ignorePackage>
+                        <ignorePackage>io.trino.plugin.password.jndi</ignorePackage>
                     </ignorePackages>
                 </configuration>
             </plugin>

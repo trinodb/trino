@@ -16,11 +16,11 @@ package io.trino.plugin.kudu;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 
 import java.util.Map;
 import java.util.Optional;

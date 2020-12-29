@@ -14,11 +14,11 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.tpch.TpchTable;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.statistics.StatisticsAssertion;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

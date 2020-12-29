@@ -24,8 +24,8 @@ import io.trino.testing.ResultWithQueryId;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.tpch.TpchTable.getTables;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static org.testng.Assert.assertEquals;
 
 /**

@@ -16,6 +16,7 @@ package io.trino.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.QualifiedObjectName;
@@ -24,7 +25,6 @@ import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.io.File;

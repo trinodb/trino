@@ -52,9 +52,9 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.transform;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
-import static io.prestosql.tpch.TpchTable.NATION;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;

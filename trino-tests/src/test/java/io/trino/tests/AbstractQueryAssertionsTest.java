@@ -32,11 +32,11 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

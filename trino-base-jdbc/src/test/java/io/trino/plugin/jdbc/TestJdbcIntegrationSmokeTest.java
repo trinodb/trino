@@ -14,12 +14,12 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import java.util.Map;

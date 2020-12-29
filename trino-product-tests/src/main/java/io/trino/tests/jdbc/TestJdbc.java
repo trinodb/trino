@@ -13,7 +13,6 @@
  */
 package io.trino.tests.jdbc;
 
-import io.trino.jdbc.PrestoConnection;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
@@ -21,6 +20,7 @@ import io.prestosql.tempto.Requires;
 import io.prestosql.tempto.configuration.Configuration;
 import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestosql.tempto.query.QueryResult;
+import io.trino.jdbc.PrestoConnection;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;

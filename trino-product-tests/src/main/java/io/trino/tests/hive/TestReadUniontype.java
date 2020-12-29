@@ -13,10 +13,10 @@
  */
 package io.trino.tests.hive;
 
-import io.trino.jdbc.Row;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.query.QueryResult;
+import io.trino.jdbc.Row;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

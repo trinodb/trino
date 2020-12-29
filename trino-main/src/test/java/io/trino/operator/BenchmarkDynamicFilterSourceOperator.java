@@ -15,14 +15,14 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.tpch.LineItem;
+import io.prestosql.tpch.LineItemGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingTaskContext;
-import io.prestosql.tpch.LineItem;
-import io.prestosql.tpch.LineItemGenerator;
 import io.trino.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;

@@ -14,12 +14,12 @@
 package io.trino.plugin.tpch;
 
 import com.google.common.collect.AbstractIterator;
+import io.prestosql.tpch.TpchTable;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.prestosql.tpch.TpchTable;
 
 import java.util.Iterator;
 import java.util.List;

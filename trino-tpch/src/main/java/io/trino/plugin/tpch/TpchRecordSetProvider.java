@@ -14,6 +14,10 @@
 package io.trino.plugin.tpch;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.tpch.TpchColumn;
+import io.prestosql.tpch.TpchColumnType;
+import io.prestosql.tpch.TpchEntity;
+import io.prestosql.tpch.TpchTable;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -22,15 +26,11 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.predicate.TupleDomain;
-import io.prestosql.tpch.TpchColumn;
-import io.prestosql.tpch.TpchColumnType;
-import io.prestosql.tpch.TpchEntity;
-import io.prestosql.tpch.TpchTable;
 
 import java.util.List;
 
-import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.prestosql.tpch.TpchColumnTypes.IDENTIFIER;
+import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider

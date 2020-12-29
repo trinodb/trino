@@ -20,6 +20,7 @@ import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.tpch.TpchTable;
 import io.trino.decoder.DecoderModule;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.kafka.encoder.EncoderModule;
@@ -33,7 +34,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.kafka.BasicTestingKafka;
 import io.trino.testing.kafka.TestingKafka;
-import io.prestosql.tpch.TpchTable;
 
 import java.io.IOException;
 import java.util.ArrayList;

@@ -16,7 +16,6 @@ package io.trino.tests.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.jdbc.PrestoArray;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.Requires;
@@ -30,6 +29,7 @@ import io.prestosql.tempto.fulfillment.table.TableInstance;
 import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.prestosql.tempto.query.QueryExecutor;
 import io.prestosql.tempto.query.QueryResult;
+import io.trino.jdbc.PrestoArray;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;

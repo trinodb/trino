@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
@@ -24,7 +25,6 @@ import io.trino.plugin.accumulo.serializers.LexicoderRowSerializer;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 import org.apache.hadoop.io.Text;
 import org.intellij.lang.annotations.Language;
 

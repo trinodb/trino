@@ -14,10 +14,10 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
-import io.prestosql.tpch.TpchTable;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

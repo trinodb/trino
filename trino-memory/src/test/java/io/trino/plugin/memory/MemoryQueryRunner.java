@@ -16,10 +16,10 @@ package io.trino.plugin.memory;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
-import io.prestosql.tpch.TpchTable;
 
 import java.util.Map;
 

@@ -21,6 +21,7 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Multisets;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
@@ -28,7 +29,6 @@ import io.trino.spi.PrestoException;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.planner.Plan;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
-import io.prestosql.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;

@@ -15,11 +15,11 @@ package io.trino.plugin.memsql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;

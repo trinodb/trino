@@ -15,12 +15,12 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.prestosql.tpch.Customer;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
-import io.prestosql.tpch.Customer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

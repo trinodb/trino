@@ -15,11 +15,11 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.tpch.TpchTable;
 import io.trino.metadata.FunctionListBuilder;
 import io.trino.metadata.SqlFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.tests.QueryTemplate;
-import io.prestosql.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

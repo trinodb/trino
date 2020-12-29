@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.prestosql.tpch.TpchTable.getTables;
+import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 

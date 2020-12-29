@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.kafka;
 
+import io.prestosql.tpch.TpchTable;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.BasicTestingKafka;
-import io.prestosql.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 public class TestKafkaDistributed

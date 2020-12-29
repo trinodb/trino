@@ -14,12 +14,12 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.tpch.LineItem;
+import io.prestosql.tpch.LineItemGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.prestosql.tpch.LineItem;
-import io.prestosql.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;

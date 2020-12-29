@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -28,7 +29,6 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.TestingPrestoClient;
-import io.prestosql.tpch.TpchTable;
 
 import java.util.Map;
 

@@ -19,11 +19,11 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 
 @Test
 public class TestRedisIntegrationSmokeTest

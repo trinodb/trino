@@ -14,6 +14,9 @@
 
 package io.trino.plugin.tpcds;
 
+import io.prestosql.tpcds.Table;
+import io.prestosql.tpcds.column.CallCenterColumn;
+import io.prestosql.tpcds.column.WebSiteColumn;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -22,9 +25,6 @@ import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
-import io.prestosql.tpcds.Table;
-import io.prestosql.tpcds.column.CallCenterColumn;
-import io.prestosql.tpcds.column.WebSiteColumn;
 import org.testng.annotations.Test;
 
 import java.util.Map;

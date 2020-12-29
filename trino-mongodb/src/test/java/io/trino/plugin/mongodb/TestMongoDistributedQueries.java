@@ -14,8 +14,8 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
+import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 

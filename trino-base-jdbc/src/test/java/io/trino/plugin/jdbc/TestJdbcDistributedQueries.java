@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.prestosql.tpch.TpchTable;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 

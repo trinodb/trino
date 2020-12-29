@@ -15,6 +15,8 @@ package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.tpch.LineItem;
+import io.prestosql.tpch.LineItemGenerator;
 import io.trino.metadata.Metadata;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
@@ -25,8 +27,6 @@ import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.SpecialForm.Form;
-import io.prestosql.tpch.LineItem;
-import io.prestosql.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;

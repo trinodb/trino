@@ -14,11 +14,11 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.tpch.TpchTable;
 import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
 
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 

@@ -15,6 +15,7 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.execution.Lifespan;
 import io.trino.execution.QueryStats;
@@ -33,7 +34,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
-import io.prestosql.tpch.TpchTable;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;

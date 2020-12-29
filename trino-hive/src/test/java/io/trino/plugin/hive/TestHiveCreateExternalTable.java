@@ -27,9 +27,9 @@ import java.io.IOException;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 

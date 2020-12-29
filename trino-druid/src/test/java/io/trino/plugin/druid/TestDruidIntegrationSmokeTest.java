@@ -16,13 +16,13 @@ package io.trino.plugin.druid;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.LINE_ITEM;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.PART;
 import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 
 public class TestDruidIntegrationSmokeTest
         extends BaseDruidIntegrationSmokeTest

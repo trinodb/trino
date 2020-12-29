@@ -16,12 +16,12 @@ package io.trino.plugin.phoenix;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
@@ -31,11 +31,11 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.Properties;
 
-import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tpch.TpchTable.LINE_ITEM;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.PART_SUPPLIER;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 public final class PhoenixQueryRunner

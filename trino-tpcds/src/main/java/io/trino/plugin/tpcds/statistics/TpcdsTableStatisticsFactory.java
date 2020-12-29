@@ -15,6 +15,7 @@
 package io.trino.plugin.tpcds.statistics;
 
 import io.airlift.slice.Slice;
+import io.prestosql.tpcds.Table;
 import io.trino.plugin.tpcds.TpcdsColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -27,7 +28,6 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.prestosql.tpcds.Table;
 
 import java.time.LocalDate;
 import java.util.Map;

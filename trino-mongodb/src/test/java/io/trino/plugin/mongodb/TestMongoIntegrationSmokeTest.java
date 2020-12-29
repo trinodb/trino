@@ -30,12 +30,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
+import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;

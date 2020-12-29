@@ -16,11 +16,11 @@ package io.trino.plugin.mysql;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 

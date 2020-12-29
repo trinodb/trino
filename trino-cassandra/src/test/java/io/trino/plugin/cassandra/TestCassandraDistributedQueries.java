@@ -14,8 +14,8 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
+import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 

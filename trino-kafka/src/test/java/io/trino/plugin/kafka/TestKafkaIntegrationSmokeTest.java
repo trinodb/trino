@@ -15,12 +15,12 @@ package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.tpch.TpchTable;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.BasicTestingKafka;
-import io.prestosql.tpch.TpchTable;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;

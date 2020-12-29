@@ -462,7 +462,7 @@
                 <artifactId>modernizer-maven-plugin</artifactId>
                 <configuration>
                     <ignorePackages>
-                        <ignorePackage>io.prestosql.testing.assertions</ignorePackage>
+                        <ignorePackage>io.trino.testing.assertions</ignorePackage>
                     </ignorePackages>
                 </configuration>
             </plugin>

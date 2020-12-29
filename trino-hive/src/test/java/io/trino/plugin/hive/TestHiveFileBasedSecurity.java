@@ -25,8 +25,8 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tpch.TpchTable.NATION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestHiveFileBasedSecurity
 {

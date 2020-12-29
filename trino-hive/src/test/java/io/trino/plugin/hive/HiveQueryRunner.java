@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.prestosql.tpch.TpchTable;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.authentication.HiveIdentity;
@@ -33,7 +34,6 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 

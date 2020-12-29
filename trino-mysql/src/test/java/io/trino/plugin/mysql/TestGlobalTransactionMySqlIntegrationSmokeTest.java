@@ -15,11 +15,11 @@ package io.trino.plugin.mysql;
 
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 
 public class TestGlobalTransactionMySqlIntegrationSmokeTest
         extends BaseMySqlIntegrationSmokeTest
