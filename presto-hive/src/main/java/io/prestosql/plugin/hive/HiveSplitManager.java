@@ -47,6 +47,7 @@ import javax.inject.Inject;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -386,7 +387,7 @@ public class HiveSplitManager
         for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
             HiveType tableType = tableColumns.get(i).getType();
             HiveType partitionType = partitionColumns.get(i).getType();
-            if (!tableType.equals(partitionType)) {
+            if (!tableType.equals(partitionType) && !(tableType.equals(HiveType.HIVE_STRING) && partitionType.getHiveTypeName().toString().toLowerCase(Locale.ENGLISH).startsWith("varchar"))) {
                 if (!canCoerce(typeManager, partitionType, tableType)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumns.get(i).getName(), tableType, partitionColumns.get(i).getName(), partitionType);
                 }
@@ -416,7 +417,7 @@ public class HiveSplitManager
             tableToPartitionColumns.put(tableColumnIndex, partitionColumnIndex);
             Column partitionColumn = partitionColumns.get(partitionColumnIndex);
             HiveType partitionType = partitionColumn.getType();
-            if (!tableType.equals(partitionType)) {
+            if (!tableType.equals(partitionType) && !(tableType.equals(HiveType.HIVE_STRING) && partitionType.getHiveTypeName().toString().toLowerCase(Locale.ENGLISH).startsWith("varchar"))) {
                 if (!canCoerce(typeManager, partitionType, tableType)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumn.getName(), tableType, partitionColumn.getName(), partitionType);
                 }
