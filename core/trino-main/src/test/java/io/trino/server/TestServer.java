@@ -61,17 +61,7 @@ import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
-import static io.trino.client.PrestoHeaders.PRESTO_CATALOG;
-import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_INFO;
-import static io.trino.client.PrestoHeaders.PRESTO_PATH;
-import static io.trino.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
-import static io.trino.client.PrestoHeaders.PRESTO_SCHEMA;
-import static io.trino.client.PrestoHeaders.PRESTO_SESSION;
-import static io.trino.client.PrestoHeaders.PRESTO_SOURCE;
-import static io.trino.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
-import static io.trino.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static io.trino.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
-import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -113,10 +103,10 @@ public class TestServer
         String invalidTimeZone = "this_is_an_invalid_time_zone";
         QueryResults queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(PRESTO_CATALOG, "catalog")
-                .setHeader(PRESTO_SCHEMA, "schema")
-                .setHeader(PRESTO_PATH, "path")
-                .setHeader(PRESTO_TIME_ZONE, invalidTimeZone))
+                .setHeader(TRINO_HEADERS.requestCatalog(), "catalog")
+                .setHeader(TRINO_HEADERS.requestSchema(), "schema")
+                .setHeader(TRINO_HEADERS.requestPath(), "path")
+                .setHeader(TRINO_HEADERS.requestTimeZone(), invalidTimeZone))
                 .map(JsonResponse::getValue)
                 .peek(result -> checkState((result.getError() == null) != (result.getNextUri() == null)))
                 .collect(last());
@@ -135,9 +125,9 @@ public class TestServer
     {
         List<QueryResults> queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(PRESTO_CATALOG, "catalog")
-                .setHeader(PRESTO_SCHEMA, "schema")
-                .setHeader(PRESTO_PATH, "path"))
+                .setHeader(TRINO_HEADERS.requestCatalog(), "catalog")
+                .setHeader(TRINO_HEADERS.requestSchema(), "schema")
+                .setHeader(TRINO_HEADERS.requestPath(), "path"))
                 .map(JsonResponse::getValue)
                 .collect(toImmutableList());
 
@@ -177,13 +167,13 @@ public class TestServer
         ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
         QueryResults queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
-                .setHeader(PRESTO_CATALOG, "catalog")
-                .setHeader(PRESTO_SCHEMA, "schema")
-                .setHeader(PRESTO_PATH, "path")
-                .setHeader(PRESTO_CLIENT_INFO, "{\"clientVersion\":\"testVersion\"}")
-                .addHeader(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
-                .addHeader(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
-                .addHeader(PRESTO_PREPARED_STATEMENT, "foo=select * from bar"))
+                .setHeader(TRINO_HEADERS.requestCatalog(), "catalog")
+                .setHeader(TRINO_HEADERS.requestSchema(), "schema")
+                .setHeader(TRINO_HEADERS.requestPath(), "path")
+                .setHeader(TRINO_HEADERS.requestClientInfo(), "{\"clientVersion\":\"testVersion\"}")
+                .addHeader(TRINO_HEADERS.requestSession(), QUERY_MAX_MEMORY + "=1GB")
+                .addHeader(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+                .addHeader(TRINO_HEADERS.requestPreparedStatement(), "foo=select * from bar"))
                 .map(JsonResponse::getValue)
                 .peek(result -> assertNull(result.getError()))
                 .peek(results -> {
@@ -221,10 +211,10 @@ public class TestServer
     {
         JsonResponse<QueryResults> queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator("start transaction", UTF_8))
-                .setHeader(PRESTO_TRANSACTION_ID, "none"))
+                .setHeader(TRINO_HEADERS.requestTransactionId(), "none"))
                 .peek(result -> assertNull(result.getValue().getError()))
                 .collect(last());
-        assertNotNull(queryResults.getHeader(PRESTO_STARTED_TRANSACTION_ID));
+        assertNotNull(queryResults.getHeader(TRINO_HEADERS.responseStartedTransactionId()));
     }
 
     @Test
@@ -275,7 +265,7 @@ public class TestServer
     {
         Request request = prepareHead()
                 .setUri(uriFor("/v1/status"))
-                .setHeader(PRESTO_USER, "unknown")
+                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                 .setFollowRedirects(false)
                 .build();
         StatusResponse response = client.execute(request, createStatusResponseHandler());
@@ -311,8 +301,8 @@ public class TestServer
     {
         Request.Builder request = preparePost()
                 .setUri(uriFor("/v1/statement"))
-                .setHeader(PRESTO_USER, "user")
-                .setHeader(PRESTO_SOURCE, "source");
+                .setHeader(TRINO_HEADERS.requestUser(), "user")
+                .setHeader(TRINO_HEADERS.requestSource(), "source");
         request = requestConfigurer.apply(request);
         JsonResponse<QueryResults> queryResults = client.execute(request.build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
         return Streams.stream(new QueryResultsIterator(client, queryResults));

@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryResults;
 import io.trino.execution.QueryManager;
 import io.trino.memory.context.SimpleLocalMemoryContext;
@@ -62,16 +63,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
-import static io.trino.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
-import static io.trino.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
-import static io.trino.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_CATALOG;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_PATH;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_ROLE;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_SCHEMA;
-import static io.trino.client.PrestoHeaders.PRESTO_SET_SESSION;
-import static io.trino.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
@@ -228,41 +219,42 @@ public class ExecutingStatementResource
     {
         ResponseBuilder response = Response.ok(queryResults);
 
-        query.getSetCatalog().ifPresent(catalog -> response.header(PRESTO_SET_CATALOG, catalog));
-        query.getSetSchema().ifPresent(schema -> response.header(PRESTO_SET_SCHEMA, schema));
-        query.getSetPath().ifPresent(path -> response.header(PRESTO_SET_PATH, path));
+        ProtocolHeaders protocolHeaders = query.getProtocolHeaders();
+        query.getSetCatalog().ifPresent(catalog -> response.header(protocolHeaders.responseSetCatalog(), catalog));
+        query.getSetSchema().ifPresent(schema -> response.header(protocolHeaders.responseSetSchema(), schema));
+        query.getSetPath().ifPresent(path -> response.header(protocolHeaders.responseSetPath(), path));
 
         // add set session properties
         query.getSetSessionProperties()
-                .forEach((key, value) -> response.header(PRESTO_SET_SESSION, key + '=' + urlEncode(value)));
+                .forEach((key, value) -> response.header(protocolHeaders.responseSetSession(), key + '=' + urlEncode(value)));
 
         // add clear session properties
         query.getResetSessionProperties()
-                .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
+                .forEach(name -> response.header(protocolHeaders.responseClearSession(), name));
 
         // add set roles
         query.getSetRoles()
-                .forEach((key, value) -> response.header(PRESTO_SET_ROLE, key + '=' + urlEncode(value.toString())));
+                .forEach((key, value) -> response.header(protocolHeaders.responseSetRole(), key + '=' + urlEncode(value.toString())));
 
         // add added prepare statements
         for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
             String encodedKey = urlEncode(entry.getKey());
             String encodedValue = urlEncode(entry.getValue());
-            response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
+            response.header(protocolHeaders.responseAddedPrepare(), encodedKey + '=' + encodedValue);
         }
 
         // add deallocated prepare statements
         for (String name : query.getDeallocatedPreparedStatements()) {
-            response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
+            response.header(protocolHeaders.responseDeallocatedPrepare(), urlEncode(name));
         }
 
         // add new transaction ID
         query.getStartedTransactionId()
-                .ifPresent(transactionId -> response.header(PRESTO_STARTED_TRANSACTION_ID, transactionId));
+                .ifPresent(transactionId -> response.header(protocolHeaders.responseStartedTransactionId(), transactionId));
 
         // add clear transaction ID directive
         if (query.isClearTransactionId()) {
-            response.header(PRESTO_CLEAR_TRANSACTION_ID, true);
+            response.header(protocolHeaders.responseClearTransactionId(), true);
         }
 
         if (!compressionEnabled) {

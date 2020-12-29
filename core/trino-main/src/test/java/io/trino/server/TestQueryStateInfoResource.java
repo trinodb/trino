@@ -39,7 +39,7 @@ import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
@@ -73,7 +73,7 @@ public class TestQueryStateInfoResource
         Request request1 = preparePost()
                 .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
-                .setHeader(PRESTO_USER, "user1")
+                .setHeader(TRINO_HEADERS.requestUser(), "user1")
                 .build();
         queryResults = client.execute(request1, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
         client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
@@ -81,7 +81,7 @@ public class TestQueryStateInfoResource
         Request request2 = preparePost()
                 .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
                 .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
-                .setHeader(PRESTO_USER, "user2")
+                .setHeader(TRINO_HEADERS.requestUser(), "user2")
                 .build();
         QueryResults queryResults2 = client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         client.execute(prepareGet().setUri(queryResults2.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
@@ -92,7 +92,7 @@ public class TestQueryStateInfoResource
             List<BasicQueryInfo> queryInfos = client.execute(
                     prepareGet()
                             .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/query").build())
-                            .setHeader(PRESTO_USER, "unknown")
+                            .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                             .build(),
                     createJsonResponseHandler(listJsonCodec(BasicQueryInfo.class)));
             if (queryInfos.size() == 2) {
@@ -127,7 +127,7 @@ public class TestQueryStateInfoResource
         List<QueryStateInfo> infos = client.execute(
                 prepareGet()
                         .setUri(server.resolve("/v1/queryState"))
-                        .setHeader(PRESTO_USER, "unknown")
+                        .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
@@ -140,7 +140,7 @@ public class TestQueryStateInfoResource
         List<QueryStateInfo> infos = client.execute(
                 prepareGet()
                         .setUri(server.resolve("/v1/queryState?user=user2"))
-                        .setHeader(PRESTO_USER, "unknown")
+                        .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
@@ -153,7 +153,7 @@ public class TestQueryStateInfoResource
         List<QueryStateInfo> infos = client.execute(
                 prepareGet()
                         .setUri(server.resolve("/v1/queryState?user=user3"))
-                        .setHeader(PRESTO_USER, "unknown")
+                        .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
@@ -166,7 +166,7 @@ public class TestQueryStateInfoResource
         QueryStateInfo info = client.execute(
                 prepareGet()
                         .setUri(server.resolve("/v1/queryState/" + queryResults.getId()))
-                        .setHeader(PRESTO_USER, "unknown")
+                        .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                         .build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
 
@@ -179,7 +179,7 @@ public class TestQueryStateInfoResource
         List<QueryStateInfo> infos = client.execute(
                 prepareGet()
                         .setUri(server.resolve("/v1/queryState"))
-                        .setHeader(PRESTO_USER, "any-other-user")
+                        .setHeader(TRINO_HEADERS.requestUser(), "any-other-user")
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
         assertEquals(infos.size(), 2);
@@ -195,7 +195,7 @@ public class TestQueryStateInfoResource
             List<QueryStateInfo> infos = client.execute(
                     prepareGet()
                             .setUri(server.resolve("/v1/queryState"))
-                            .setHeader(PRESTO_USER, executionUser)
+                            .setHeader(TRINO_HEADERS.requestUser(), executionUser)
                             .build(),
                     createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
@@ -214,7 +214,7 @@ public class TestQueryStateInfoResource
             assertThatThrownBy(() -> client.execute(
                     prepareGet()
                             .setUri(server.resolve("/v1/queryState/" + queryResults.getId()))
-                            .setHeader(PRESTO_USER, "unknown")
+                            .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                             .build(),
                     createJsonResponseHandler(jsonCodec(QueryStateInfo.class))))
                     .isInstanceOf(UnexpectedResponseException.class)
@@ -231,7 +231,7 @@ public class TestQueryStateInfoResource
         client.execute(
                 prepareGet()
                         .setUri(server.resolve("/v1/queryState/123"))
-                        .setHeader(PRESTO_USER, "unknown")
+                        .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                         .build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
     }

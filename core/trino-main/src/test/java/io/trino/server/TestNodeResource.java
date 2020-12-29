@@ -26,7 +26,7 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.failuredetector.HeartbeatFailureDetector.Stats;
 import static org.testng.Assert.assertTrue;
 
@@ -55,7 +55,7 @@ public class TestNodeResource
         List<Stats> nodes = client.execute(
                 prepareGet()
                         .setUri(server.resolve("/v1/node"))
-                        .setHeader(PRESTO_USER, "unknown")
+                        .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                         .build(),
                 createJsonResponseHandler(listJsonCodec(Stats.class)));
 
@@ -69,7 +69,7 @@ public class TestNodeResource
         List<Stats> nodes = client.execute(
                 prepareGet()
                         .setUri(server.resolve("/v1/node/failed"))
-                        .setHeader(PRESTO_USER, "unknown")
+                        .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                         .build(),
                 createJsonResponseHandler(listJsonCodec(Stats.class)));
 

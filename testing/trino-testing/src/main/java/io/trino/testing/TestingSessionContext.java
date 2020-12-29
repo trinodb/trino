@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.client.ProtocolHeaders;
 import io.trino.connector.CatalogName;
 import io.trino.server.SessionContext;
 import io.trino.spi.security.Identity;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 
@@ -36,6 +38,12 @@ public class TestingSessionContext
     public TestingSessionContext(Session session)
     {
         this.session = requireNonNull(session, "session is null");
+    }
+
+    @Override
+    public ProtocolHeaders getProtocolHeaders()
+    {
+        return TRINO_HEADERS;
     }
 
     @Override

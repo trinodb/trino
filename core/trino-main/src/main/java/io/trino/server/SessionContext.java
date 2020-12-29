@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import io.trino.client.ProtocolHeaders;
 import io.trino.spi.security.Identity;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.transaction.TransactionId;
@@ -25,6 +26,8 @@ import java.util.Set;
 
 public interface SessionContext
 {
+    ProtocolHeaders getProtocolHeaders();
+
     Optional<Identity> getAuthenticatedIdentity();
 
     Identity getIdentity();

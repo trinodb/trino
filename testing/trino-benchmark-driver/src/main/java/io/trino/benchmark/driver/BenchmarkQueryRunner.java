@@ -24,7 +24,6 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
-import io.trino.client.PrestoHeaders;
 import io.trino.client.QueryData;
 import io.trino.client.QueryError;
 import io.trino.client.StatementClient;
@@ -50,6 +49,7 @@ import static io.trino.benchmark.driver.BenchmarkQueryResult.failResult;
 import static io.trino.benchmark.driver.BenchmarkQueryResult.passResult;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupSocksProxy;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
@@ -267,7 +267,7 @@ public class BenchmarkQueryRunner
         long totalCpuTime = 0;
         for (URI server : nodes) {
             Request request = prepareGet()
-                    .setHeader(PrestoHeaders.PRESTO_USER, user)
+                    .setHeader(TRINO_HEADERS.requestUser(), user)
                     .setUri(uriBuilderFrom(server)
                             .replacePath("/v1/jmx/mbean/java.lang:type=OperatingSystem/ProcessCpuTime")
                             .build())
@@ -280,7 +280,7 @@ public class BenchmarkQueryRunner
 
     private List<URI> getAllNodes(URI server, String user)
     {
-        Request request = prepareGet().setHeader(PrestoHeaders.PRESTO_USER, user).setUri(uriBuilderFrom(server).replacePath("/v1/service/presto").build()).build();
+        Request request = prepareGet().setHeader(TRINO_HEADERS.requestUser(), user).setUri(uriBuilderFrom(server).replacePath("/v1/service/presto").build()).build();
         JsonResponseHandler<ServiceDescriptorsRepresentation> responseHandler = createJsonResponseHandler(jsonCodec(ServiceDescriptorsRepresentation.class));
         ServiceDescriptorsRepresentation serviceDescriptors = httpClient.execute(request, responseHandler);
 

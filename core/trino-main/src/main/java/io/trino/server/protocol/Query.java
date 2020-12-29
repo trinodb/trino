@@ -29,6 +29,7 @@ import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
 import io.trino.client.FailureInfo;
 import io.trino.client.NamedClientTypeSignature;
+import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.RowFieldName;
@@ -269,6 +270,11 @@ class Query
     public QueryInfo getQueryInfo()
     {
         return queryManager.getFullQueryInfo(queryId);
+    }
+
+    public ProtocolHeaders getProtocolHeaders()
+    {
+        return session.getProtocolHeaders();
     }
 
     public synchronized Optional<String> getSetCatalog()

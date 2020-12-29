@@ -43,7 +43,7 @@ import static io.airlift.http.client.StatusResponseHandler.createStatusResponseH
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
@@ -209,14 +209,14 @@ public class TestQueryResource
     {
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
         Request request = preparePost()
-                .setHeader(PRESTO_USER, "user")
+                .setHeader(TRINO_HEADERS.requestUser(), "user")
                 .setUri(uri)
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
                 .build();
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         while (queryResults.getNextUri() != null) {
             request = prepareGet()
-                    .setHeader(PRESTO_USER, "user")
+                    .setHeader(TRINO_HEADERS.requestUser(), "user")
                     .setUri(queryResults.getNextUri())
                     .build();
             queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
@@ -230,12 +230,12 @@ public class TestQueryResource
         Request request = preparePost()
                 .setUri(uri)
                 .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
-                .setHeader(PRESTO_USER, "user")
+                .setHeader(TRINO_HEADERS.requestUser(), "user")
                 .build();
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         while (queryResults.getNextUri() != null && !queryResults.getStats().getState().equals(RUNNING.toString())) {
             request = prepareGet()
-                    .setHeader(PRESTO_USER, "user")
+                    .setHeader(TRINO_HEADERS.requestUser(), "user")
                     .setUri(queryResults.getNextUri())
                     .build();
             queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
@@ -247,7 +247,7 @@ public class TestQueryResource
     {
         Request request = prepareGet()
                 .setUri(server.resolve(path))
-                .setHeader(PRESTO_USER, "unknown")
+                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                 .build();
         return client.execute(request, createJsonResponseHandler(listJsonCodec(BasicQueryInfo.class)));
     }
@@ -286,7 +286,7 @@ public class TestQueryResource
                 .build();
         Request request = prepareGet()
                 .setUri(uri)
-                .setHeader(PRESTO_USER, "unknown")
+                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                 .build();
         JsonCodec<QueryInfo> codec = server.getInstance(Key.get(new TypeLiteral<JsonCodec<QueryInfo>>() {}));
         return client.execute(request, createJsonResponseHandler(codec));
@@ -300,7 +300,7 @@ public class TestQueryResource
                 .build();
         Request request = prepareDelete()
                 .setUri(uri)
-                .setHeader(PRESTO_USER, "unknown")
+                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                 .build();
         return client.execute(request, createStatusResponseHandler()).getStatusCode();
     }
@@ -314,7 +314,7 @@ public class TestQueryResource
                 .build();
         Request request = preparePut()
                 .setUri(uri)
-                .setHeader(PRESTO_USER, "unknown")
+                .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                 .build();
         return client.execute(request, createStatusResponseHandler()).getStatusCode();
     }

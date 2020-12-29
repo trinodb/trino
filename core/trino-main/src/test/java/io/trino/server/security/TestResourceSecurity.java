@@ -57,7 +57,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.trino.client.OkHttpUtil.setupSsl;
-import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -425,7 +425,7 @@ public class TestResourceSecurity
         assertResponseCode(authorizedClient, getAuthorizedUserLocation(baseUri), SC_OK);
         // management
         assertResponseCode(authorizedClient, getManagementLocation(baseUri), SC_FORBIDDEN);
-        assertResponseCode(authorizedClient, getManagementLocation(baseUri), SC_OK, Headers.of(PRESTO_USER, MANAGEMENT_USER));
+        assertResponseCode(authorizedClient, getManagementLocation(baseUri), SC_OK, Headers.of(TRINO_HEADERS.requestUser(), MANAGEMENT_USER));
         // internal
         assertResponseCode(authorizedClient, getInternalLocation(baseUri), SC_FORBIDDEN);
     }

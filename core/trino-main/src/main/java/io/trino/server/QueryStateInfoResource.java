@@ -59,18 +59,21 @@ public class QueryStateInfoResource
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControl accessControl;
     private final GroupProvider groupProvider;
+    private final Optional<String> alternateHeaderName;
 
     @Inject
     public QueryStateInfoResource(
             DispatchManager dispatchManager,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControl accessControl,
-            GroupProvider groupProvider)
+            GroupProvider groupProvider,
+            ProtocolConfig protocolConfig)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
+        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
     @ResourceSecurity(AUTHENTICATED_USER)
@@ -79,7 +82,7 @@ public class QueryStateInfoResource
     public List<QueryStateInfo> getQueryStateInfos(@QueryParam("user") String user, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         List<BasicQueryInfo> queryInfos = dispatchManager.getQueries();
-        queryInfos = filterQueries(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl, groupProvider), queryInfos, accessControl);
+        queryInfos = filterQueries(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfos, accessControl);
 
         if (!isNullOrEmpty(user)) {
             queryInfos = queryInfos.stream()
@@ -115,7 +118,7 @@ public class QueryStateInfoResource
     {
         try {
             BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(new QueryId(queryId));
-            checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, accessControl, groupProvider), queryInfo.getSession().getUser(), accessControl);
+            checkCanViewQueryOwnedBy(extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName, accessControl, groupProvider), queryInfo.getSession().getUser(), accessControl);
             return getQueryStateInfo(queryInfo);
         }
         catch (AccessDeniedException e) {
