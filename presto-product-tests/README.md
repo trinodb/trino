@@ -11,7 +11,7 @@ mode and Presto runs either in Docker container(s) (both pseudo-distributed
 and distributed setups are possible) or manually from IntelliJ (for
 debugging Presto). The tests run in a separate JVM and they can be started
 using the launcher found in `presto-product-tests-launcher/bin/run-launcher`. The product
-tests are run using the [Tempto](https://github.com/prestosql/tempto) harness.
+tests are run using the [Tempto](https://github.com/trinodb/tempto) harness.
 
 Developers should consider writing product tests in addition to any unit tests
 when making changes to user visible features. The product tests should also
@@ -119,8 +119,8 @@ All of `test run`, `env up` and `suite run` commands accept `--config <environme
 ### Running a single test
 
 The `run-launcher` script can also run individual product tests. Presto
-product tests are either [Java based](https://github.com/prestosql/tempto#java-based-tests)
-or [convention based](https://github.com/prestosql/tempto#convention-based-sql-query-tests)
+product tests are either [Java based](https://github.com/trinodb/tempto#java-based-tests)
+or [convention based](https://github.com/trinodb/tempto#convention-based-sql-query-tests)
 and each type can be run individually with the following commands:
 
 ```

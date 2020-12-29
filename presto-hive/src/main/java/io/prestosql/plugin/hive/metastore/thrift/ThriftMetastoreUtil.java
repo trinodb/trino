@@ -975,7 +975,7 @@ public final class ThriftMetastoreUtil
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
         if (type instanceof TimestampType) {
-            // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp MIN_VALUE, MAX_VALUE
+            // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp MIN_VALUE, MAX_VALUE
             return ImmutableSet.of(NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }
         if (type instanceof VarcharType || type instanceof CharType) {

@@ -50,7 +50,7 @@ public class HadoopKerberosKms
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        // TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
+        // TODO (https://github.com/trinodb/trino/issues/1652) create images with HDP and KMS
         String dockerImageName = "prestodev/cdh5.15-hive-kerberized-kms:" + hadoopImagesVersion;
 
         builder.configureContainer(HADOOP, container -> {

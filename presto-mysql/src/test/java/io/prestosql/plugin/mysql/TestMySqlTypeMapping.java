@@ -488,15 +488,15 @@ public class TestMySqlTypeMapping
     @Test
     public void testDatetime()
     {
-        // TODO (https://github.com/prestosql/presto/issues/5449) MySQL datetime is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
-        // testing this is hard because of https://github.com/prestosql/presto/issues/37
+        // TODO (https://github.com/trinodb/trino/issues/5449) MySQL datetime is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
+        // testing this is hard because of https://github.com/trinodb/trino/issues/37
     }
 
     @Test
     public void testTimestamp()
     {
         // TODO MySQL timestamp is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
-        // testing this is hard because of https://github.com/prestosql/presto/issues/37
+        // testing this is hard because of https://github.com/trinodb/trino/issues/37
     }
 
     @Test

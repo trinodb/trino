@@ -200,7 +200,7 @@ public class SqlServerClient
 
     private Optional<ColumnMapping> toColumnMapping(JdbcTypeHandle typeHandle)
     {
-        // TODO (https://github.com/prestosql/presto/issues/4593) implement proper type mapping
+        // TODO (https://github.com/trinodb/trino/issues/4593) implement proper type mapping
 
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));

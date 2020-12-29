@@ -422,7 +422,7 @@ public class PrestoPreparedStatement
     private String toTimestampWithTimeZoneLiteral(Object value)
             throws SQLException
     {
-        // TODO (https://github.com/prestosql/presto/issues/6299) support ZonedDateTime
+        // TODO (https://github.com/trinodb/trino/issues/6299) support ZonedDateTime
         if (value instanceof String) {
             // TODO validate proper format
             return (String) value;
@@ -596,7 +596,7 @@ public class PrestoPreparedStatement
         else if (x instanceof Time) {
             setTime(parameterIndex, (Time) x);
         }
-        // TODO (https://github.com/prestosql/presto/issues/6299) LocalTime -> setAsTime
+        // TODO (https://github.com/trinodb/trino/issues/6299) LocalTime -> setAsTime
         else if (x instanceof OffsetTime) {
             setAsTimeWithTimeZone(parameterIndex, x);
         }

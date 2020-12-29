@@ -28,7 +28,7 @@ The Presto server is now running on `localhost:8080` (the default port).
 
 ### Run the Presto CLI
 
-Run the [Presto CLI](https://prestosql.io/docs/current/installation/cli.html),
+Run the [Presto CLI](https://trino.io/docs/current/installation/cli.html),
 which connects to `localhost:8080` by default:
 
 ```bash
@@ -77,4 +77,4 @@ number of the Presto Maven build.
 
 ## Getting Help
 
-Join the Presto community [Slack](https://prestosql.io/slack.html).
+Join the Presto community [Slack](https://trino.io/slack.html).

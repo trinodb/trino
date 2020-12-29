@@ -20,12 +20,12 @@ from docutils import nodes, utils
 def issue_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
     if text[0] == 'x':
         issue = int(text[1:])
-        org = 'prestodb'
+        repo = 'prestodb/presto'
     else:
         issue = int(text)
-        org = 'prestosql'
+        repo = 'trinodb/trino'
     title = '#' + str(issue)
-    link = 'https://github.com/{}/presto/issues/{}'.format(org, issue)
+    link = 'https://github.com/{}/issues/{}'.format(repo, issue)
     node = nodes.reference(text=title, refuri=link, **options)
     return [node], []
 

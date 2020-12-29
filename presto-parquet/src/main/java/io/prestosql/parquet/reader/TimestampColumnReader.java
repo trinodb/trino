@@ -41,7 +41,7 @@ public class TimestampColumnReader
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
-    // TODO: refactor to provide type at construction time (https://github.com/prestosql/presto/issues/5198)
+    // TODO: refactor to provide type at construction time (https://github.com/trinodb/trino/issues/5198)
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {

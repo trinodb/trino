@@ -502,14 +502,14 @@ public class TestMemSqlTypeMapping
     @Test
     public void testDatetime()
     {
-        // TODO (https://github.com/prestosql/presto/issues/5450) MemSQL datetime is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
+        // TODO (https://github.com/trinodb/trino/issues/5450) MemSQL datetime is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
         throw new SkipException("TODO");
     }
 
     @Test
     public void testTimestamp()
     {
-        // TODO (https://github.com/prestosql/presto/issues/5450) MemSQL timestamp is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
+        // TODO (https://github.com/trinodb/trino/issues/5450) MemSQL timestamp is not correctly read (see comment in StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp)
         throw new SkipException("TODO");
     }
 

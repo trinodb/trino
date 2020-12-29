@@ -487,7 +487,7 @@ public abstract class AbstractPredicatePushdownTest
                                 ImmutableList.of(equiJoinClause("o_custkey", "c_custkey")),
                                 anyTree(
                                         join(
-                                                enableDynamicFiltering ? INNER : LEFT, // TODO (https://github.com/prestosql/presto/issues/2392) this should be INNER also when dynamic filtering is off
+                                                enableDynamicFiltering ? INNER : LEFT, // TODO (https://github.com/trinodb/trino/issues/2392) this should be INNER also when dynamic filtering is off
                                                 ImmutableList.of(equiJoinClause("l_orderkey", "o_orderkey")),
                                                 anyTree(tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))),
                                                 anyTree(tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey", "o_custkey", "custkey"))))),

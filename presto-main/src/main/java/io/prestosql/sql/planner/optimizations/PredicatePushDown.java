@@ -604,8 +604,8 @@ public class PredicatePushDown
             return output;
         }
 
-        // TODO: collect min/max ranges for inequality dynamic filters (https://github.com/prestosql/presto/issues/5754)
-        // TODO: support for complex inequalities, e.g. left < right + 10 (https://github.com/prestosql/presto/issues/5755)
+        // TODO: collect min/max ranges for inequality dynamic filters (https://github.com/trinodb/trino/issues/5754)
+        // TODO: support for complex inequalities, e.g. left < right + 10 (https://github.com/trinodb/trino/issues/5755)
         private DynamicFiltersResult createDynamicFilters(
                 JoinNode node,
                 List<JoinNode.EquiJoinClause> equiJoinClauses,

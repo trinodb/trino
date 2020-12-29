@@ -788,7 +788,7 @@ the outcome of the overall statement, is a nested query:
         ON some_table.key = u.key;
 
 More background information and details can be found in
-`a blog post about this optimization <https://prestosql.io/blog/2019/06/03/redundant-order-by.html>`_.
+`a blog post about this optimization <https://trino.io/blog/2019/06/03/redundant-order-by.html>`_.
 
 .. _offset-clause:
 

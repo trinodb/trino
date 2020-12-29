@@ -12,7 +12,7 @@
 # limitations under the License.
 #
 FROM centos:centos8
-LABEL maintainer="Presto community <https://prestosql.io/community.html>"
+LABEL maintainer="Presto community <https://trino.io/community.html>"
 
 ENV JAVA_HOME /usr/lib/jvm/zulu11
 RUN \
