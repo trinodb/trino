@@ -44,7 +44,7 @@ public class KinesisConfig
     private Duration checkpointInterval = new Duration(60000, TimeUnit.MILLISECONDS);
     private String logicalProcessName = "process1";
     private int iteratorNumber;
-    private int updateInterval;
+    private int updateInterval = 600;
 
     @NotNull
     public String getTableDescriptionLocation()
