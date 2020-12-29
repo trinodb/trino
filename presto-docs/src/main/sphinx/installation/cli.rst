@@ -172,12 +172,12 @@ To view debug information, including the stack trace for failures, use the
 
 .. code-block:: text
 
-    $ presto --debug 
+    $ presto --debug
     presto> select count(*) from tpch.tiny.nations;
     Query 20200804_201629_00002_f5f6c failed: line 1:22: Table 'tpch.tiny.nations' does not exist
     io.prestosql.spi.PrestoException: line 1:22: Table 'tpch.tiny.nations' does not exist
     at io.prestosql.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:48)
-    at io.prestosql.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:43)      
-    ... 
+    at io.prestosql.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:43)
+    ...
     at java.base/java.lang.Thread.run(Thread.java:834)
     select count(*) from tpch.tiny.nations
