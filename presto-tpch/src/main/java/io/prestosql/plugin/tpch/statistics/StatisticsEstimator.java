@@ -14,8 +14,8 @@
 package io.prestosql.plugin.tpch.statistics;
 
 import io.airlift.slice.Slice;
-import io.prestosql.tpch.TpchColumn;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchColumn;
+import io.trino.tpch.TpchTable;
 
 import java.util.List;
 import java.util.Map;

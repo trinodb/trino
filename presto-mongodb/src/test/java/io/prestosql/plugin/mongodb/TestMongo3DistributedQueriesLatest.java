@@ -15,7 +15,7 @@ package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 
 import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 

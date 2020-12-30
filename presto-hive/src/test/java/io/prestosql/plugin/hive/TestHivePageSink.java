@@ -37,12 +37,12 @@ import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingNodeManager;
-import io.prestosql.tpch.LineItem;
-import io.prestosql.tpch.LineItemColumn;
-import io.prestosql.tpch.LineItemGenerator;
-import io.prestosql.tpch.TpchColumnType;
-import io.prestosql.tpch.TpchColumnTypes;
 import io.prestosql.type.BlockTypeOperators;
+import io.trino.tpch.LineItem;
+import io.trino.tpch.LineItemColumn;
+import io.trino.tpch.LineItemGenerator;
+import io.trino.tpch.TpchColumnType;
+import io.trino.tpch.TpchColumnTypes;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 

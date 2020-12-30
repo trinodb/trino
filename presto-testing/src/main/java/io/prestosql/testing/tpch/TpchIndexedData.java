@@ -30,7 +30,7 @@ import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

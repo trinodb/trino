@@ -15,7 +15,7 @@ package io.prestosql.plugin.jdbc;
 
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 
 import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 

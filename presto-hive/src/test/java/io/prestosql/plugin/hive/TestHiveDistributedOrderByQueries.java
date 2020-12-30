@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive;
 import io.prestosql.testing.AbstractTestOrderByQueries;
 import io.prestosql.testing.QueryRunner;
 
-import static io.prestosql.tpch.TpchTable.getTables;
+import static io.trino.tpch.TpchTable.getTables;
 
 public class TestHiveDistributedOrderByQueries
         extends AbstractTestOrderByQueries

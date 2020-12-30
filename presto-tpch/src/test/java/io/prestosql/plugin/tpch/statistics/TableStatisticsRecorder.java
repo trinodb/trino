@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.tpch.statistics;
 
-import io.prestosql.tpch.TpchColumn;
-import io.prestosql.tpch.TpchColumnType;
-import io.prestosql.tpch.TpchEntity;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchColumn;
+import io.trino.tpch.TpchColumnType;
+import io.trino.tpch.TpchEntity;
+import io.trino.tpch.TpchTable;
 
 import java.util.List;
 import java.util.Map;

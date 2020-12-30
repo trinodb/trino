@@ -20,10 +20,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
-import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 
 @Test
 public class TestRedisIntegrationSmokeTest

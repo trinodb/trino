@@ -19,7 +19,7 @@ import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.NATION;
 
 public class TestShowStats
         extends AbstractTestQueryFramework
