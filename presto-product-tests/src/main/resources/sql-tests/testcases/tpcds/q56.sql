@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   ss AS (
    SELECT
@@ -22,7 +22,7 @@ WITH
       AND ("ss_addr_sk" = "ca_address_sk")
       AND ("ca_gmt_offset" = -5)
    GROUP BY "i_item_id"
-) 
+)
 , cs AS (
    SELECT
      "i_item_id"
@@ -45,7 +45,7 @@ WITH
       AND ("cs_bill_addr_sk" = "ca_address_sk")
       AND ("ca_gmt_offset" = -5)
    GROUP BY "i_item_id"
-) 
+)
 , ws AS (
    SELECT
      "i_item_id"
@@ -68,7 +68,7 @@ WITH
       AND ("ws_bill_addr_sk" = "ca_address_sk")
       AND ("ca_gmt_offset" = -5)
    GROUP BY "i_item_id"
-) 
+)
 SELECT
   "i_item_id"
 , "sum"("total_sales") "total_sales"

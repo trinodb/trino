@@ -13,17 +13,17 @@
  */
 package io.prestosql.tests.teradata;
 
-import io.prestosql.tempto.ProductTest;
+import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.FUNCTIONS;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
 
 public class TestTeradataFunctions
         extends ProductTest

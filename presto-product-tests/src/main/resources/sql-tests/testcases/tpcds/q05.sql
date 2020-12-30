@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   ssr AS (
    SELECT
@@ -34,7 +34,7 @@ UNION ALL       SELECT
       AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '14' DAY))
       AND ("store_sk" = "s_store_sk")
    GROUP BY "s_store_id"
-) 
+)
 , csr AS (
    SELECT
      "cp_catalog_page_id"
@@ -69,7 +69,7 @@ UNION ALL       SELECT
       AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '14' DAY))
       AND ("page_sk" = "cp_catalog_page_sk")
    GROUP BY "cp_catalog_page_id"
-) 
+)
 , wsr AS (
    SELECT
      "web_site_id"
@@ -106,7 +106,7 @@ UNION ALL       SELECT
       AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '14' DAY))
       AND ("wsr_web_site_sk" = "web_site_sk")
    GROUP BY "web_site_id"
-) 
+)
 SELECT
   "channel"
 , "id"

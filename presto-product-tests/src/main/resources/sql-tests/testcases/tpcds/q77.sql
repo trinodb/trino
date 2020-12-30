@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   ss AS (
    SELECT
@@ -13,7 +13,7 @@ WITH
       AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
       AND ("ss_store_sk" = "s_store_sk")
    GROUP BY "s_store_sk"
-) 
+)
 , sr AS (
    SELECT
      "s_store_sk"
@@ -27,7 +27,7 @@ WITH
       AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
       AND ("sr_store_sk" = "s_store_sk")
    GROUP BY "s_store_sk"
-) 
+)
 , cs AS (
    SELECT
      "cs_call_center_sk"
@@ -39,7 +39,7 @@ WITH
    WHERE ("cs_sold_date_sk" = "d_date_sk")
       AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
    GROUP BY "cs_call_center_sk"
-) 
+)
 , cr AS (
    SELECT
      "cr_call_center_sk"
@@ -51,7 +51,7 @@ WITH
    WHERE ("cr_returned_date_sk" = "d_date_sk")
       AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
    GROUP BY "cr_call_center_sk"
-) 
+)
 , ws AS (
    SELECT
      "wp_web_page_sk"
@@ -65,7 +65,7 @@ WITH
       AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
       AND ("ws_web_page_sk" = "wp_web_page_sk")
    GROUP BY "wp_web_page_sk"
-) 
+)
 , wr AS (
    SELECT
      "wp_web_page_sk"
@@ -79,7 +79,7 @@ WITH
       AND ("d_date" BETWEEN CAST('2000-08-23' AS DATE) AND (CAST('2000-08-23' AS DATE) + INTERVAL  '30' DAY))
       AND ("wr_web_page_sk" = "wp_web_page_sk")
    GROUP BY "wp_web_page_sk"
-) 
+)
 SELECT
   "channel"
 , "id"

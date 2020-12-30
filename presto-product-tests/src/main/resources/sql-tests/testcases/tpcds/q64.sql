@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   cs_ui AS (
    SELECT
@@ -12,7 +12,7 @@ WITH
       AND ("cs_order_number" = "cr_order_number")
    GROUP BY "cs_item_sk"
    HAVING ("sum"("cs_ext_list_price") > (2 * "sum"((("cr_refunded_cash" + "cr_reversed_charge") + "cr_store_credit"))))
-) 
+)
 , cross_sales AS (
    SELECT
      "i_product_name" "product_name"
@@ -76,7 +76,7 @@ WITH
       AND ("i_current_price" BETWEEN 64 AND (64 + 10))
       AND ("i_current_price" BETWEEN (64 + 1) AND (64 + 15))
    GROUP BY "i_product_name", "i_item_sk", "s_store_name", "s_zip", "ad1"."ca_street_number", "ad1"."ca_street_name", "ad1"."ca_city", "ad1"."ca_zip", "ad2"."ca_street_number", "ad2"."ca_street_name", "ad2"."ca_city", "ad2"."ca_zip", "d1"."d_year", "d2"."d_year", "d3"."d_year"
-) 
+)
 SELECT
   "cs1"."product_name"
 , "cs1"."store_name"

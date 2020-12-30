@@ -15,10 +15,10 @@ package io.prestosql.tests;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
-import io.prestosql.tempto.query.QueryExecutor;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
+import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import java.net.URI;

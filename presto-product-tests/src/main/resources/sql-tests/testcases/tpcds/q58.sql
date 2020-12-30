@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   ss_items AS (
    SELECT
@@ -22,7 +22,7 @@ WITH
    ))
       AND ("ss_sold_date_sk" = "d_date_sk")
    GROUP BY "i_item_id"
-) 
+)
 , cs_items AS (
    SELECT
      "i_item_id" "item_id"
@@ -45,7 +45,7 @@ WITH
    ))
       AND ("cs_sold_date_sk" = "d_date_sk")
    GROUP BY "i_item_id"
-) 
+)
 , ws_items AS (
    SELECT
      "i_item_id" "item_id"
@@ -68,7 +68,7 @@ WITH
    ))
       AND ("ws_sold_date_sk" = "d_date_sk")
    GROUP BY "i_item_id"
-) 
+)
 SELECT
   "ss_items"."item_id"
 , "ss_item_rev"

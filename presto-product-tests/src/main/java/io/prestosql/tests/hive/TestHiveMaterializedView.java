@@ -13,15 +13,15 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.BeforeTestWithContext;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
 
 public class TestHiveMaterializedView
         extends HiveProductTest

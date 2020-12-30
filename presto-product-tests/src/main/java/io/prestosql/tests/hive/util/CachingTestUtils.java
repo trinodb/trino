@@ -13,10 +13,10 @@
  */
 package io.prestosql.tests.hive.util;
 
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.query.QueryResult;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.tempto.query.QueryExecutor.query;
+import static io.trino.tempto.query.QueryExecutor.query;
 
 public final class CachingTestUtils
 {

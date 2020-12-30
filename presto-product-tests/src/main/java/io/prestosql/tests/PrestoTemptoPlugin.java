@@ -14,15 +14,15 @@
 package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tempto.TemptoPlugin;
-import io.prestosql.tempto.fulfillment.RequirementFulfiller;
-import io.prestosql.tempto.fulfillment.table.TableDefinition;
-import io.prestosql.tempto.fulfillment.table.TableManager;
-import io.prestosql.tempto.fulfillment.table.kafka.KafkaTableManager;
-import io.prestosql.tempto.initialization.SuiteModuleProvider;
-import io.prestosql.tempto.internal.fulfillment.ldap.LdapObjectFulfiller;
-import io.prestosql.tempto.internal.fulfillment.ldap.LdapObjectModuleProvider;
 import io.prestosql.tests.hive.HiveVersionProvider;
+import io.trino.tempto.TemptoPlugin;
+import io.trino.tempto.fulfillment.RequirementFulfiller;
+import io.trino.tempto.fulfillment.table.TableDefinition;
+import io.trino.tempto.fulfillment.table.TableManager;
+import io.trino.tempto.fulfillment.table.kafka.KafkaTableManager;
+import io.trino.tempto.initialization.SuiteModuleProvider;
+import io.trino.tempto.internal.fulfillment.ldap.LdapObjectFulfiller;
+import io.trino.tempto.internal.fulfillment.ldap.LdapObjectModuleProvider;
 
 import java.util.List;
 

@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.assertions.QueryAssert;
-import io.prestosql.tempto.query.QueryExecutor;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.query.QueryExecutor;
+import io.trino.tempto.query.QueryResult;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -30,14 +30,14 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.anyOf;
 import static io.prestosql.tests.TestGroups.AUTHORIZATION;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TestGroups.ROLES;
 import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.anyOf;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 

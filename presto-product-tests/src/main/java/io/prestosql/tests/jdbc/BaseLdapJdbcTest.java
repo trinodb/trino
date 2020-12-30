@@ -15,12 +15,12 @@ package io.prestosql.tests.jdbc;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.fulfillment.ldap.LdapObjectRequirement;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.fulfillment.ldap.LdapObjectRequirement;
+import io.trino.tempto.query.QueryResult;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

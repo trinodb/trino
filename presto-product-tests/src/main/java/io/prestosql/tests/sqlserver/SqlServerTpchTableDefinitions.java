@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests.sqlserver;
 
-import io.prestosql.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
-import io.prestosql.tempto.fulfillment.table.jdbc.tpch.JdbcTpchTableDefinitions;
+import io.trino.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
+import io.trino.tempto.fulfillment.table.jdbc.tpch.JdbcTpchTableDefinitions;
 
 import static io.prestosql.tests.sqlserver.TestConstants.CONNECTOR_NAME;
 

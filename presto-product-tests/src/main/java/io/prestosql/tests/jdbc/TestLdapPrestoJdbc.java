@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests.jdbc;
 
-import io.prestosql.tempto.Requires;
-import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.trino.tempto.Requires;
+import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -22,7 +22,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
@@ -30,6 +29,7 @@ import static io.prestosql.tests.TestGroups.LDAP;
 import static io.prestosql.tests.TestGroups.PRESTO_JDBC;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static java.lang.String.format;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;

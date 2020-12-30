@@ -14,9 +14,9 @@
 package io.prestosql.tests.hive;
 
 import io.prestosql.jdbc.Row;
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.query.QueryResult;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

@@ -54,7 +54,7 @@
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
         <dep.selenium.version>3.141.59</dep.selenium.version>
-        <dep.tempto.version>182</dep.tempto.version>
+        <dep.tempto.version>183</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
@@ -522,62 +522,6 @@
                 <version>3.1.4-2</version>
             </dependency>
 
-            <dependency>
-                <groupId>io.prestosql.tempto</groupId>
-                <artifactId>tempto-core</artifactId>
-                <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql.tempto</groupId>
-                <artifactId>tempto-kafka</artifactId>
-                <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql.tempto</groupId>
-                <artifactId>tempto-ldap</artifactId>
-                <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql.tempto</groupId>
-                <artifactId>tempto-runner</artifactId>
-                <version>${dep.tempto.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>com.datastax.cassandra</groupId>
-                        <artifactId>cassandra-driver-core</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
             <!-- Trino external -->
             <dependency>
                 <groupId>io.trino.hadoop</groupId>
@@ -601,6 +545,62 @@
                 <groupId>io.trino.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
                 <version>11</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino.tempto</groupId>
+                <artifactId>tempto-core</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.code.findbugs</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino.tempto</groupId>
+                <artifactId>tempto-kafka</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino.tempto</groupId>
+                <artifactId>tempto-ldap</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino.tempto</groupId>
+                <artifactId>tempto-runner</artifactId>
+                <version>${dep.tempto.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.datastax.cassandra</groupId>
+                        <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>

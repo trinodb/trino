@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests;
 
-import io.prestosql.tempto.runner.TemptoRunner;
-import io.prestosql.tempto.runner.TemptoRunnerCommandLineParser;
+import io.trino.tempto.runner.TemptoRunner;
+import io.trino.tempto.runner.TemptoRunnerCommandLineParser;
 
 public final class TemptoProductTestRunner
 {

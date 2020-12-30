@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   my_customers AS (
    SELECT DISTINCT
@@ -29,7 +29,7 @@ UNION ALL       SELECT
       AND ("c_customer_sk" = "cs_or_ws_sales"."customer_sk")
       AND ("d_moy" = 12)
       AND ("d_year" = 1998)
-) 
+)
 , my_revenue AS (
    SELECT
      "c_customer_sk"
@@ -59,12 +59,12 @@ UNION ALL       SELECT
          AND ("d_moy" = 12)
    ))
    GROUP BY "c_customer_sk"
-) 
+)
 , segments AS (
    SELECT CAST(("revenue" / 50) AS INTEGER) "segment"
    FROM
      my_revenue
-) 
+)
 SELECT
   "segment"
 , "count"(*) "num_customers"

@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   customer_total_return AS (
    SELECT
@@ -13,7 +13,7 @@ WITH
       AND ("d_year" = 2002)
       AND ("wr_returning_addr_sk" = "ca_address_sk")
    GROUP BY "wr_returning_customer_sk", "ca_state"
-) 
+)
 SELECT
   "c_customer_id"
 , "c_salutation"

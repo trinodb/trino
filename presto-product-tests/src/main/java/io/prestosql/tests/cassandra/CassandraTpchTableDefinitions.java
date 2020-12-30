@@ -14,9 +14,9 @@
 package io.prestosql.tests.cassandra;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTable;
-import io.prestosql.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
-import io.prestosql.tempto.internal.fulfillment.table.cassandra.tpch.CassandraTpchDataSource;
+import io.trino.tempto.fulfillment.table.hive.tpch.TpchTable;
+import io.trino.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
+import io.trino.tempto.internal.fulfillment.table.cassandra.tpch.CassandraTpchDataSource;
 
 import java.sql.JDBCType;
 

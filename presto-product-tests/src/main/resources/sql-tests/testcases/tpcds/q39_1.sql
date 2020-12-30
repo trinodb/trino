@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   inv AS (
    SELECT
@@ -30,7 +30,7 @@ WITH
       GROUP BY "w_warehouse_name", "w_warehouse_sk", "i_item_sk", "d_moy"
    )  foo
    WHERE ((CASE "mean" WHEN 0 THEN 0 ELSE ("stdev" / "mean") END) > 1)
-) 
+)
 SELECT
   "inv1"."w_warehouse_sk"
 , "inv1"."i_item_sk"

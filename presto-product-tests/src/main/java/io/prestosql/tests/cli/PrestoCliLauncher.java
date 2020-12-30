@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.airlift.log.Logger;
-import io.prestosql.tempto.ProductTest;
+import io.trino.tempto.ProductTest;
 
 import java.io.IOException;
 import java.util.List;

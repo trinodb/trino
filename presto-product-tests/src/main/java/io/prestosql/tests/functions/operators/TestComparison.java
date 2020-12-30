@@ -13,15 +13,15 @@
  */
 package io.prestosql.tests.functions.operators;
 
-import io.prestosql.tempto.ProductTest;
+import io.trino.tempto.ProductTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.COMPARISON;
 import static io.prestosql.tests.TestGroups.QUERY_ENGINE;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 public class TestComparison

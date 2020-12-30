@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.ProductTest;
+import io.trino.tempto.ProductTest;
 import org.intellij.lang.annotations.Language;
 
 import javax.inject.Inject;

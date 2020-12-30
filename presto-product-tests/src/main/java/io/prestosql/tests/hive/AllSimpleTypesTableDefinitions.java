@@ -13,14 +13,14 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
-import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.trino.tempto.fulfillment.table.hive.HiveDataSource;
+import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static java.lang.String.format;
 
 public final class AllSimpleTypesTableDefinitions
