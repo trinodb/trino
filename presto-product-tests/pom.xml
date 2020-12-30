@@ -23,10 +23,6 @@
             <artifactId>presto-hive</artifactId>
             <exclusions>
                 <exclusion>
-                    <groupId>io.prestosql.hive</groupId>
-                    <artifactId>hive-apache</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>org.apache.httpcomponents</groupId>
                     <artifactId>httpclient</artifactId>
                 </exclusion>
@@ -49,13 +45,14 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.hive</groupId>
-            <artifactId>hive-apache</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-core</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.prestosql.hive</groupId>
+                    <artifactId>hive-apache</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -71,6 +68,11 @@
         <dependency>
             <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.hive</groupId>
+            <artifactId>hive-apache</artifactId>
         </dependency>
 
         <dependency>

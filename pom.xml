@@ -530,12 +530,6 @@
 
             <dependency>
                 <groupId>io.prestosql.hive</groupId>
-                <artifactId>hive-apache</artifactId>
-                <version>3.1.2-5</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
                 <version>0.13.1-7</version>
             </dependency>
@@ -612,6 +606,13 @@
                 <groupId>io.prestosql.tpch</groupId>
                 <artifactId>tpch</artifactId>
                 <version>1.0</version>
+            </dependency>
+
+            <!-- Trino external -->
+            <dependency>
+                <groupId>io.trino.hive</groupId>
+                <artifactId>hive-apache</artifactId>
+                <version>3.1.2-6</version>
             </dependency>
 
             <!-- Airlift -->
@@ -1627,11 +1628,11 @@
                             <compound implementation="com.github.ferstl.maven.pomenforcers.CompoundPedanticEnforcer">
                                 <enforcers>POM_SECTION_ORDER,MODULE_ORDER,DEPENDENCY_MANAGEMENT_ORDER,DEPENDENCY_ORDER</enforcers>
                                 <pomSectionPriorities>modelVersion,parent,groupId,artifactId,version,name,description,packaging,url,inceptionYear,licenses,scm,properties,modules</pomSectionPriorities>
-                                <dependenciesGroupIdPriorities>io.prestosql,io.airlift</dependenciesGroupIdPriorities>
+                                <dependenciesGroupIdPriorities>io.prestosql,io.trino,io.airlift</dependenciesGroupIdPriorities>
                                 <dependenciesOrderBy>scope,groupId,artifactId</dependenciesOrderBy>
                                 <dependenciesScopePriorities>compile,runtime,provided,test</dependenciesScopePriorities>
                                 <dependencyManagementOrderBy>groupId,artifactId</dependencyManagementOrderBy>
-                                <dependencyManagementGroupIdPriorities>io.prestosql,io.airlift</dependencyManagementGroupIdPriorities>
+                                <dependencyManagementGroupIdPriorities>io.prestosql,io.trino,io.airlift</dependencyManagementGroupIdPriorities>
                             </compound>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
