@@ -22,9 +22,9 @@ import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
-import io.prestosql.tpcds.Table;
-import io.prestosql.tpcds.column.CallCenterColumn;
-import io.prestosql.tpcds.column.WebSiteColumn;
+import io.trino.tpcds.Table;
+import io.trino.tpcds.column.CallCenterColumn;
+import io.trino.tpcds.column.WebSiteColumn;
 import org.testng.annotations.Test;
 
 import java.util.Map;

@@ -21,15 +21,15 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.tpcds.Results;
-import io.prestosql.tpcds.Session;
-import io.prestosql.tpcds.Table;
-import io.prestosql.tpcds.column.Column;
+import io.trino.tpcds.Results;
+import io.trino.tpcds.Session;
+import io.trino.tpcds.Table;
+import io.trino.tpcds.column.Column;
 
 import java.util.List;
 
-import static io.prestosql.tpcds.Results.constructResults;
-import static io.prestosql.tpcds.Table.getTable;
+import static io.trino.tpcds.Results.constructResults;
+import static io.trino.tpcds.Table.getTable;
 
 public class TpcdsRecordSetProvider
         implements ConnectorRecordSetProvider

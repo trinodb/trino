@@ -36,9 +36,9 @@ import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.tpcds.Table;
-import io.prestosql.tpcds.column.Column;
-import io.prestosql.tpcds.column.ColumnType;
+import io.trino.tpcds.Table;
+import io.trino.tpcds.column.Column;
+import io.trino.tpcds.column.ColumnType;
 
 import java.util.List;
 import java.util.Map;

@@ -14,7 +14,7 @@
 
 package io.prestosql.plugin.tpcds.statistics;
 
-import io.prestosql.tpcds.column.ColumnType;
+import io.trino.tpcds.column.ColumnType;
 
 import java.util.Optional;
 import java.util.TreeSet;
