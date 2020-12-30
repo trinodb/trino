@@ -18,9 +18,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.prestosql.benchto</groupId>
+            <groupId>io.trino.benchto</groupId>
             <artifactId>benchto-driver</artifactId>
-            <version>0.12</version>
+            <version>0.13</version>
         </dependency>
 
         <dependency>
