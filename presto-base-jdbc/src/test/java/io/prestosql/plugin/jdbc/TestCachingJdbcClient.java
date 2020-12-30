@@ -30,6 +30,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -159,7 +160,12 @@ public class TestCachingJdbcClient
 
     private JdbcTableHandle createTable(SchemaTableName phantomTable)
     {
-        jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList()));
+        return createTable(phantomTable, Map.of());
+    }
+
+    private JdbcTableHandle createTable(SchemaTableName phantomTable, Map<String, Object> tableProperties)
+    {
+        jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList(), tableProperties));
         return jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
     }
 
@@ -306,6 +312,19 @@ public class TestCachingJdbcClient
         assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, firstTable)).isInstanceOf(TableNotFoundException.class);
         assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, secondTable)).isInstanceOf(TableNotFoundException.class);
         assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 2, expectedHit, expectedMiss += 2);
+    }
+
+    @Test
+    public void testTablePropertiesCached()
+    {
+        SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
+
+        JdbcTableHandle table = createTable(phantomTable, Map.of("propertyKey", "propertyValue"));
+        Map<String, Object> tableProperties = cachingJdbcClient.getTableProperties(SESSION, table);
+        dropTable(phantomTable);
+
+        assertThat(jdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
+        assertThat(cachingJdbcClient.getTableProperties(SESSION, table)).isEqualTo(tableProperties);
     }
 
     private void assertCacheLoadsHitsAndMisses(CacheStats stats, int expectedLoad, int expectedHit, int expectedMiss)
