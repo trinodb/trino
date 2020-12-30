@@ -428,8 +428,9 @@ public class SqlServerClient
         return handle.createQuery("" +
                 "SELECT data_compression_desc FROM sys.partitions p " +
                 "INNER JOIN sys.tables t ON p.object_id = t.object_id " +
+                "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " +
                 "INNER JOIN sys.indexes i ON t.object_id = i.object_id " +
-                "WHERE SCHEMA_NAME(t.schema_id) = :schema AND t.name = :table_name AND i.type IN (0,1) " +
+                "WHERE s.name = :schema AND t.name = :table_name AND i.type IN (0,1) " +
                 "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
                 .bind("schema", table.getSchemaName())
                 .bind("table_name", table.getTableName())
