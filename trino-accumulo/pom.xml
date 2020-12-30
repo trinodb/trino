@@ -21,13 +21,14 @@
     <dependencies>
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-accumulo-iterators</artifactId>
-            <version>${project.version}</version>
+            <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
+        <!-- Temporary till docker image is populated with current accumulo iterators -->
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-plugin-toolkit</artifactId>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-accumulo-iterators</artifactId>
+            <version>350</version>
         </dependency>
 
         <dependency>
