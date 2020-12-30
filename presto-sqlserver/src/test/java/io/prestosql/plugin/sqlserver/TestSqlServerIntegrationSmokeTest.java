@@ -38,7 +38,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -346,27 +345,6 @@ public class TestSqlServerIntegrationSmokeTest
         sqlServer.execute("SELECT count(*) FROM dbo.orders WHERE " + longInClauses);
     }
 
-    @Test
-    @Override
-    public void testShowCreateTable()
-    {
-        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(1),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(15),\n" +
-                        "   clerk varchar(15),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(79)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   data_compression = 'NONE'\n" +
-                        ")");
-    }
-
     @Test(dataProvider = "dataCompression")
     public void testCreateWithDataCompression(DataCompression dataCompression)
     {
@@ -382,7 +360,20 @@ public class TestSqlServerIntegrationSmokeTest
                 dataCompression);
         assertUpdate(createQuery);
 
-        assertEquals(getQueryRunner().execute("SHOW CREATE TABLE " + tableName).getOnlyValue(), createQuery);
+        assertThat((String) computeActual(format("SHOW CREATE TABLE %s", tableName)).getOnlyValue())
+                .matches("CREATE TABLE sqlserver\\.dbo\\.test_create_with_compression_\\w+ \\Q(\n" +
+                        "   a bigint,\n" +
+                        "   b bigint\n" +
+                        ")");
+
+        assertQuery(
+                format("SELECT data_compression_desc FROM sys.partitions p \n" +
+                                "INNER JOIN sys.tables t ON p.object_id = t.object_id \n" +
+                                "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id \n" +
+                                "INNER JOIN sys.indexes i ON t.object_id = i.object_id \n" +
+                                "WHERE s.name = 'dbo' AND t.name = '%s'",
+                        tableName),
+                format("VALUES ('%s')", dataCompression));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -395,26 +386,6 @@ public class TestSqlServerIntegrationSmokeTest
                 {ROW},
                 {PAGE}
         };
-    }
-
-    @Test
-    public void testShowCreateForPartitionedTablesWithDataCompression()
-    {
-        sqlServer.execute("CREATE PARTITION FUNCTION pfSales (DATE)\n" +
-                "AS RANGE LEFT FOR VALUES \n" +
-                "('2013-01-01', '2014-01-01', '2015-01-01')");
-        sqlServer.execute("CREATE PARTITION SCHEME psSales\n" +
-                "AS PARTITION pfSales \n" +
-                "ALL TO ([Primary])");
-        sqlServer.execute("CREATE TABLE partitionedSales (\n" +
-                "   SalesDate DATE,\n" +
-                "   Quantity INT\n" +
-                ") ON psSales(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
-        assertThat((String) computeActual("SHOW CREATE TABLE partitionedSales").getOnlyValue())
-                .matches("CREATE TABLE \\w+\\.\\w+\\.partitionedsales \\Q(\n" +
-                        "   salesdate date,\n" +
-                        "   quantity integer\n" +
-                        ")");
     }
 
     private String getLongInClause(int start, int length)
