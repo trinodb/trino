@@ -405,7 +405,7 @@ public class QueuedStatementResource
 
         public void destroy()
         {
-            sessionContext.getIdentity().destroy();
+            sessionContext.getOriginalIdentity().destroy();
         }
 
         private QueryResults createQueryResults(long token, UriInfo uriInfo, DispatchInfo dispatchInfo)

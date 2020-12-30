@@ -35,6 +35,7 @@ public class ClientSession
 {
     private final URI server;
     private final String user;
+    private final Optional<String> authorizationUser;
     private final String source;
     private final Optional<String> traceToken;
     private final Set<String> clientTags;
@@ -68,6 +69,7 @@ public class ClientSession
     public ClientSession(
             URI server,
             String user,
+            Optional<String> authorizationUser,
             String source,
             Optional<String> traceToken,
             Set<String> clientTags,
@@ -88,6 +90,7 @@ public class ClientSession
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
+        this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
         this.source = source;
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
@@ -143,6 +146,11 @@ public class ClientSession
     public String getUser()
     {
         return user;
+    }
+
+    public Optional<String> getAuthorizationUser()
+    {
+        return authorizationUser;
     }
 
     public String getSource()
@@ -244,6 +252,7 @@ public class ClientSession
         return toStringHelper(this)
                 .add("server", server)
                 .add("user", user)
+                .add("authorizationUser", authorizationUser.orElse(null))
                 .add("clientTags", clientTags)
                 .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
@@ -258,33 +267,42 @@ public class ClientSession
                 .toString();
     }
 
+    public static ClientSession.Builder builder()
+    {
+        return new Builder();
+    }
+
     public static final class Builder
     {
         private URI server;
         private String user;
+        private Optional<String> authorizationUser = Optional.empty();
         private String source;
-        private Optional<String> traceToken;
-        private Set<String> clientTags;
+        private Optional<String> traceToken = Optional.empty();
+        private Set<String> clientTags = ImmutableSet.of();
         private String clientInfo;
         private String catalog;
         private String schema;
         private String path;
         private ZoneId timeZone;
         private Locale locale;
-        private Map<String, String> resourceEstimates;
-        private Map<String, String> properties;
-        private Map<String, String> preparedStatements;
-        private Map<String, ClientSelectedRole> roles;
-        private Map<String, String> credentials;
+        private Map<String, String> resourceEstimates = ImmutableMap.of();
+        private Map<String, String> properties = ImmutableMap.of();
+        private Map<String, String> preparedStatements = ImmutableMap.of();
+        private Map<String, ClientSelectedRole> roles = ImmutableMap.of();
+        private Map<String, String> credentials = ImmutableMap.of();
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
+
+        private Builder() {}
 
         private Builder(ClientSession clientSession)
         {
             requireNonNull(clientSession, "clientSession is null");
             server = clientSession.getServer();
             user = clientSession.getUser();
+            authorizationUser = clientSession.getAuthorizationUser();
             source = clientSession.getSource();
             traceToken = clientSession.getTraceToken();
             clientTags = clientSession.getClientTags();
@@ -304,21 +322,87 @@ public class ClientSession
             compressionDisabled = clientSession.isCompressionDisabled();
         }
 
+        public Builder withServer(URI server)
+        {
+            this.server = requireNonNull(server, "server is null");
+            return this;
+        }
+
+        public Builder withUser(String user)
+        {
+            this.user = user;
+            return this;
+        }
+
+        public Builder withAuthorizationUser(Optional<String> authorizationUser)
+        {
+            this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
+            return this;
+        }
+
+        public Builder withoutAuthorizationUser()
+        {
+            this.authorizationUser = null;
+            return this;
+        }
+
+        public Builder withSource(String source)
+        {
+            this.source = source;
+            return this;
+        }
+
+        public Builder withTraceToken(Optional<String> traceToken)
+        {
+            this.traceToken = requireNonNull(traceToken, "traceToken is null");
+            return this;
+        }
+
+        public Builder withClientTags(Set<String> clientTags)
+        {
+            this.clientTags = requireNonNull(clientTags, "clientTags is null");
+            return this;
+        }
+
+        public Builder withClientInfo(String clientInfo)
+        {
+            this.clientInfo = clientInfo;
+            return this;
+        }
+
         public Builder withCatalog(String catalog)
         {
-            this.catalog = requireNonNull(catalog, "catalog is null");
+            this.catalog = catalog;
             return this;
         }
 
         public Builder withSchema(String schema)
         {
-            this.schema = requireNonNull(schema, "schema is null");
+            this.schema = schema;
             return this;
         }
 
         public Builder withPath(String path)
         {
-            this.path = requireNonNull(path, "path is null");
+            this.path = path;
+            return this;
+        }
+
+        public Builder withTimeZone(ZoneId timeZone)
+        {
+            this.timeZone = requireNonNull(timeZone, "timeZone is null");
+            return this;
+        }
+
+        public Builder withLocale(Locale locale)
+        {
+            this.locale = locale;
+            return this;
+        }
+
+        public Builder withResourceEstimates(Map<String, String> resourceEstimates)
+        {
+            this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
             return this;
         }
 
@@ -348,13 +432,19 @@ public class ClientSession
 
         public Builder withTransactionId(String transactionId)
         {
-            this.transactionId = requireNonNull(transactionId, "transactionId is null");
+            this.transactionId = transactionId;
             return this;
         }
 
         public Builder withoutTransactionId()
         {
             this.transactionId = null;
+            return this;
+        }
+
+        public Builder withClientRequestTimeout(Duration clientRequestTimeout)
+        {
+            this.clientRequestTimeout = clientRequestTimeout;
             return this;
         }
 
@@ -369,6 +459,7 @@ public class ClientSession
             return new ClientSession(
                     server,
                     user,
+                    authorizationUser,
                     source,
                     traceToken,
                     clientTags,

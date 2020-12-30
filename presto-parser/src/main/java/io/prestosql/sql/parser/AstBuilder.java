@@ -139,6 +139,7 @@ import io.prestosql.sql.tree.RenameSchema;
 import io.prestosql.sql.tree.RenameTable;
 import io.prestosql.sql.tree.RenameView;
 import io.prestosql.sql.tree.ResetSession;
+import io.prestosql.sql.tree.ResetSessionAuthorization;
 import io.prestosql.sql.tree.Revoke;
 import io.prestosql.sql.tree.RevokeRoles;
 import io.prestosql.sql.tree.Rollback;
@@ -153,6 +154,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetSessionAuthorization;
 import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
@@ -1120,6 +1122,23 @@ class AstBuilder
             type = SetRole.Type.NONE;
         }
         return new SetRole(getLocation(context), type, getIdentifierIfPresent(context.role));
+    }
+
+    @Override
+    public Node visitSetSessionAuthorization(SqlBaseParser.SetSessionAuthorizationContext context)
+    {
+        if (context.authorizationUser() instanceof SqlBaseParser.IdentifierUserContext || context.authorizationUser() instanceof SqlBaseParser.StringUserContext) {
+            return new SetSessionAuthorization(getLocation(context), (Expression) visit(context.authorizationUser()));
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported Session Authorization User: " + context.authorizationUser());
+        }
+    }
+
+    @Override
+    public Node visitResetSessionAuthorization(SqlBaseParser.ResetSessionAuthorizationContext context)
+    {
+        return new ResetSessionAuthorization(getLocation(context));
     }
 
     @Override

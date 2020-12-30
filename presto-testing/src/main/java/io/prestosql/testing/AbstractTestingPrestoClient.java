@@ -143,30 +143,31 @@ public abstract class AbstractTestingPrestoClient<T>
         estimates.getCpuTime().ifPresent(e -> resourceEstimates.put(CPU_TIME, e.toString()));
         estimates.getPeakMemoryBytes().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
 
-        return new ClientSession(
-                server,
-                session.getIdentity().getUser(),
-                session.getSource().orElse(null),
-                session.getTraceToken(),
-                session.getClientTags(),
-                session.getClientInfo().orElse(null),
-                session.getCatalog().orElse(null),
-                session.getSchema().orElse(null),
-                session.getPath().toString(),
-                ZoneId.of(session.getTimeZoneKey().getId()),
-                session.getLocale(),
-                resourceEstimates.build(),
-                properties.build(),
-                session.getPreparedStatements(),
-                session.getIdentity().getRoles().entrySet().stream()
+        return ClientSession.builder()
+                .withServer(server)
+                .withUser(session.getIdentity().getUser())
+                .withSource(session.getSource().orElse(null))
+                .withTraceToken(session.getTraceToken())
+                .withClientTags(session.getClientTags())
+                .withClientInfo(session.getClientInfo().orElse(null))
+                .withCatalog(session.getCatalog().orElse(null))
+                .withSchema(session.getSchema().orElse(null))
+                .withPath(session.getPath().toString())
+                .withTimeZone(ZoneId.of(session.getTimeZoneKey().getId()))
+                .withLocale(session.getLocale())
+                .withResourceEstimates(resourceEstimates.build())
+                .withProperties(properties.build())
+                .withPreparedStatements(session.getPreparedStatements())
+                .withRoles(session.getIdentity().getRoles().entrySet().stream()
                         .collect(toImmutableMap(Entry::getKey, entry ->
                                 new ClientSelectedRole(
                                         ClientSelectedRole.Type.valueOf(entry.getValue().getType().toString()),
-                                        entry.getValue().getRole()))),
-                session.getIdentity().getExtraCredentials(),
-                session.getTransactionId().map(Object::toString).orElse(null),
-                clientRequestTimeout,
-                true);
+                                        entry.getValue().getRole()))))
+                .withCredentials(session.getIdentity().getExtraCredentials())
+                .withTransactionId(session.getTransactionId().map(Object::toString).orElse(null))
+                .withClientRequestTimeout(clientRequestTimeout)
+                .withCompressionDisabled(true)
+                .build();
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)

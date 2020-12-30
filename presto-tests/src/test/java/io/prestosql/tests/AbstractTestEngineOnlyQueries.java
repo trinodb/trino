@@ -4285,6 +4285,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 Optional.empty(),
                 getSession().isClientTransactionSupport(),
                 getSession().getIdentity(),
+                getSession().getOriginalIdentity(),
                 getSession().getSource(),
                 getSession().getCatalog(),
                 getSession().getSchema(),

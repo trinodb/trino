@@ -175,7 +175,7 @@ public class AccessControlManager
     }
 
     @VisibleForTesting
-    protected void setSystemAccessControl(String name, Map<String, String> properties)
+    public void setSystemAccessControl(String name, Map<String, String> properties)
     {
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");

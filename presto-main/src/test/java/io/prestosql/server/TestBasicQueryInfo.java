@@ -124,6 +124,8 @@ public class TestBasicQueryInfo
                         ImmutableSet.of(),
                         Optional.empty(),
                         false,
+                        Optional.empty(),
+                        false,
                         "33",
                         Optional.empty(),
                         null,

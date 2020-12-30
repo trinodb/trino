@@ -48,6 +48,7 @@ import io.prestosql.sql.tree.RenameSchema;
 import io.prestosql.sql.tree.RenameTable;
 import io.prestosql.sql.tree.RenameView;
 import io.prestosql.sql.tree.ResetSession;
+import io.prestosql.sql.tree.ResetSessionAuthorization;
 import io.prestosql.sql.tree.Revoke;
 import io.prestosql.sql.tree.RevokeRoles;
 import io.prestosql.sql.tree.Rollback;
@@ -55,6 +56,7 @@ import io.prestosql.sql.tree.SetPath;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSchemaAuthorization;
 import io.prestosql.sql.tree.SetSession;
+import io.prestosql.sql.tree.SetSessionAuthorization;
 import io.prestosql.sql.tree.SetTableAuthorization;
 import io.prestosql.sql.tree.SetViewAuthorization;
 import io.prestosql.sql.tree.ShowCatalogs;
@@ -143,6 +145,8 @@ public final class StatementUtils
         builder.put(Prepare.class, QueryType.DATA_DEFINITION);
         builder.put(Deallocate.class, QueryType.DATA_DEFINITION);
         builder.put(SetPath.class, QueryType.DATA_DEFINITION);
+        builder.put(SetSessionAuthorization.class, QueryType.DATA_DEFINITION);
+        builder.put(ResetSessionAuthorization.class, QueryType.DATA_DEFINITION);
         STATEMENT_QUERY_TYPES = builder.build();
     }
 

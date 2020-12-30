@@ -27,6 +27,7 @@ import static java.util.Objects.requireNonNull;
 public class QueryContext
 {
     private final String user;
+    private final String originalUser;
     private final Optional<String> principal;
     private final Set<String> groups;
     private final Optional<String> traceToken;
@@ -53,6 +54,7 @@ public class QueryContext
 
     public QueryContext(
             String user,
+            String originalUser,
             Optional<String> principal,
             Set<String> groups,
             Optional<String> traceToken,
@@ -73,6 +75,7 @@ public class QueryContext
             Optional<QueryType> queryType)
     {
         this.user = requireNonNull(user, "user is null");
+        this.originalUser = requireNonNull(originalUser, "originalUser is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.groups = requireNonNull(groups, "groups is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
@@ -97,6 +100,12 @@ public class QueryContext
     public String getUser()
     {
         return user;
+    }
+
+    @JsonProperty
+    public String getOriginalUser()
+    {
+        return originalUser;
     }
 
     @JsonProperty

@@ -16,7 +16,6 @@ package io.prestosql.benchmark.driver;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.prestosql.client.ClientSession;
@@ -99,27 +98,21 @@ public class BenchmarkDriverOptions
 
     public ClientSession getClientSession()
     {
-        return new ClientSession(
-                parseServer(server),
-                user,
-                "presto-benchmark",
-                Optional.empty(),
-                ImmutableSet.of(),
-                null,
-                catalog,
-                schema,
-                null,
-                ZoneId.systemDefault(),
-                Locale.getDefault(),
-                ImmutableMap.of(),
-                toProperties(this.sessionProperties),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                extraCredentials.stream()
-                        .collect(toImmutableMap(ClientExtraCredential::getName, ClientExtraCredential::getValue)),
-                null,
-                clientRequestTimeout,
-                disableCompression);
+        return ClientSession.builder()
+                .withServer(parseServer(server))
+                .withUser(user)
+                .withSource("presto-benchmark")
+                .withCatalog(catalog)
+                .withSchema(schema)
+                .withTimeZone(ZoneId.systemDefault())
+                .withLocale(Locale.getDefault())
+                .withProperties(toProperties(this.sessionProperties))
+                .withCredentials(extraCredentials.stream()
+                        .collect(toImmutableMap(ClientExtraCredential::getName, ClientExtraCredential::getValue)))
+                .withoutTransactionId()
+                .withClientRequestTimeout(clientRequestTimeout)
+                .withCompressionDisabled(disableCompression)
+                .build();
     }
 
     private static URI parseServer(String server)

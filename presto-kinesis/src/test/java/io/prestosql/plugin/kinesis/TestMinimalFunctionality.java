@@ -64,6 +64,7 @@ public class TestMinimalFunctionality
 {
     public static final Session SESSION = Session.builder(new SessionPropertyManager())
             .setIdentity(Identity.ofUser("user"))
+            .setOriginalIdentity(Identity.ofUser("originalUser"))
             .setSource("source")
             .setCatalog("kinesis")
             .setSchema("default")

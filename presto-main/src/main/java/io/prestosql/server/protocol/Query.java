@@ -182,6 +182,12 @@ class Query
     @GuardedBy("this")
     private Long updateCount;
 
+    @GuardedBy("this")
+    private Optional<String> setAuthorizationUser = Optional.empty();
+
+    @GuardedBy("this")
+    private boolean resetAuthorizationUser;
+
     public static Query create(
             Session session,
             Slug slug,
@@ -319,6 +325,16 @@ class Query
     public synchronized boolean isClearTransactionId()
     {
         return clearTransactionId;
+    }
+
+    public synchronized Optional<String> getSetAuthorizationUser()
+    {
+        return setAuthorizationUser;
+    }
+
+    public synchronized boolean isResetAuthorizationUser()
+    {
+        return resetAuthorizationUser;
     }
 
     public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
@@ -461,6 +477,9 @@ class Query
         // update startedTransactionId
         startedTransactionId = queryInfo.getStartedTransactionId();
         clearTransactionId = queryInfo.isClearTransactionId();
+
+        setAuthorizationUser = queryInfo.getSetAuthorizationUser();
+        resetAuthorizationUser = queryInfo.isResetAuthorizationUser();
 
         // first time through, self is null
         QueryResults queryResults = new QueryResults(

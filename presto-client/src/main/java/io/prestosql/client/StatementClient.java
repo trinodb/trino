@@ -60,6 +60,10 @@ public interface StatementClient
 
     Set<String> getDeallocatedPreparedStatements();
 
+    Optional<String> getSetAuthorizationUser();
+
+    boolean isResetAuthorizationUser();
+
     @Nullable
     String getStartedTransactionId();
 

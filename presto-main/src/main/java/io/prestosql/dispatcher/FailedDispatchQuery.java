@@ -225,6 +225,8 @@ public class FailedDispatchQuery
                 ImmutableSet.of(),
                 Optional.empty(),
                 false,
+                Optional.empty(),
+                false,
                 null,
                 Optional.empty(),
                 failureCause,

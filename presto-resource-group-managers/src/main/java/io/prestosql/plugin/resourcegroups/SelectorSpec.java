@@ -27,7 +27,9 @@ import static java.util.Objects.requireNonNull;
 public class SelectorSpec
 {
     private final Optional<Pattern> userRegex;
+    private final Optional<Pattern> originalUserRegex;
     private final Optional<Pattern> userGroupRegex;
+    private final Optional<Pattern> originalUserGroupRegex;
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
@@ -37,7 +39,9 @@ public class SelectorSpec
     @JsonCreator
     public SelectorSpec(
             @JsonProperty("user") Optional<Pattern> userRegex,
+            @JsonProperty("originalUser") Optional<Pattern> originalUserRegex,
             @JsonProperty("userGroup") Optional<Pattern> userGroupRegex,
+            @JsonProperty("originalUserGroup") Optional<Pattern> originalUserGroupRegex,
             @JsonProperty("source") Optional<Pattern> sourceRegex,
             @JsonProperty("queryType") Optional<String> queryType,
             @JsonProperty("clientTags") Optional<List<String>> clientTags,
@@ -45,7 +49,9 @@ public class SelectorSpec
             @JsonProperty("group") ResourceGroupIdTemplate group)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.originalUserRegex = requireNonNull(originalUserRegex, "originalUserRegex is null");
         this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
+        this.originalUserGroupRegex = requireNonNull(originalUserGroupRegex, "originalUserGroupRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
@@ -58,9 +64,19 @@ public class SelectorSpec
         return userRegex;
     }
 
+    public Optional<Pattern> getOriginalUserRegex()
+    {
+        return originalUserRegex;
+    }
+
     public Optional<Pattern> getUserGroupRegex()
     {
         return userGroupRegex;
+    }
+
+    public Optional<Pattern> getOriginalUserGroupRegex()
+    {
+        return originalUserGroupRegex;
     }
 
     public Optional<Pattern> getSourceRegex()
@@ -101,8 +117,12 @@ public class SelectorSpec
         return (group.equals(that.group) &&
                 userRegex.map(Pattern::pattern).equals(that.userRegex.map(Pattern::pattern)) &&
                 userRegex.map(Pattern::flags).equals(that.userRegex.map(Pattern::flags)) &&
+                originalUserRegex.map(Pattern::pattern).equals(that.originalUserRegex.map(Pattern::pattern)) &&
+                originalUserRegex.map(Pattern::flags).equals(that.originalUserRegex.map(Pattern::flags)) &&
                 userGroupRegex.map(Pattern::pattern).equals(that.userGroupRegex.map(Pattern::pattern)) &&
                 userGroupRegex.map(Pattern::flags).equals(that.userGroupRegex.map(Pattern::flags)) &&
+                originalUserGroupRegex.map(Pattern::pattern).equals(that.originalUserGroupRegex.map(Pattern::pattern)) &&
+                originalUserGroupRegex.map(Pattern::flags).equals(that.originalUserGroupRegex.map(Pattern::flags)) &&
                 sourceRegex.map(Pattern::pattern).equals(that.sourceRegex.map(Pattern::pattern))) &&
                 sourceRegex.map(Pattern::flags).equals(that.sourceRegex.map(Pattern::flags)) &&
                 queryType.equals(that.queryType) &&
@@ -116,8 +136,12 @@ public class SelectorSpec
                 group,
                 userRegex.map(Pattern::pattern),
                 userRegex.map(Pattern::flags),
+                originalUserRegex.map(Pattern::pattern),
+                originalUserRegex.map(Pattern::flags),
                 userGroupRegex.map(Pattern::pattern),
                 userGroupRegex.map(Pattern::flags),
+                originalUserGroupRegex.map(Pattern::pattern),
+                originalUserGroupRegex.map(Pattern::flags),
                 sourceRegex.map(Pattern::pattern),
                 sourceRegex.map(Pattern::flags),
                 queryType,
@@ -131,8 +155,12 @@ public class SelectorSpec
                 .add("resourceGroup", group)
                 .add("userRegex", userRegex)
                 .add("userFlags", userRegex.map(Pattern::flags))
+                .add("originalUserRegex", originalUserRegex)
+                .add("originalUserFlags", originalUserRegex.map(Pattern::flags))
                 .add("userGroupRegex", userGroupRegex)
                 .add("userGroupFlags", userGroupRegex.map(Pattern::flags))
+                .add("originalUserGroupRegex", originalUserGroupRegex)
+                .add("originalUserGroupFlags", originalUserGroupRegex.map(Pattern::flags))
                 .add("sourceRegex", sourceRegex)
                 .add("sourceFlags", sourceRegex.map(Pattern::flags))
                 .add("queryType", queryType)

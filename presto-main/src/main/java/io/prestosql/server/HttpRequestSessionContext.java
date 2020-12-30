@@ -55,6 +55,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static io.prestosql.client.PrestoHeaders.PRESTO_AUTHORIZATION_USER;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
@@ -88,6 +89,7 @@ public final class HttpRequestSessionContext
     private final String path;
 
     private final Optional<Identity> authenticatedIdentity;
+    private final Identity originalIdentity;
     private final Identity identity;
 
     private final String source;
@@ -118,7 +120,14 @@ public final class HttpRequestSessionContext
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
         this.authenticatedIdentity = requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
-        identity = buildSessionIdentity(authenticatedIdentity, headers, groupProvider);
+        originalIdentity = buildSessionOriginalIdentity(authenticatedIdentity, headers, groupProvider);
+        Optional<String> optionalAuthorizationUser = Optional.ofNullable(trimEmptyToNull(headers.getFirst(PRESTO_AUTHORIZATION_USER)));
+        this.identity = optionalAuthorizationUser
+                .map(authorizationUser -> Identity.from(originalIdentity)
+                        .withUser(authorizationUser)
+                        .withGroups(groupProvider.getGroups(authorizationUser))
+                        .build())
+                .orElse(originalIdentity);
 
         source = headers.getFirst(PRESTO_SOURCE);
         traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(PRESTO_TRACE_TOKEN)));
@@ -183,22 +192,35 @@ public final class HttpRequestSessionContext
     public static Identity extractAuthorizedIdentity(Optional<Identity> optionalAuthenticatedIdentity, MultivaluedMap<String, String> headers, AccessControl accessControl, GroupProvider groupProvider)
             throws AccessDeniedException
     {
-        Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, headers, groupProvider);
+        Identity originalIdentity = buildSessionOriginalIdentity(optionalAuthenticatedIdentity, headers, groupProvider);
 
-        accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
+        accessControl.checkCanSetUser(originalIdentity.getPrincipal(), originalIdentity.getUser());
 
         // authenticated may not present for HTTP or if authentication is not setup
         optionalAuthenticatedIdentity.ifPresent(authenticatedIdentity -> {
             // only check impersonation if authenticated user is not the same as the explicitly set user
-            if (!authenticatedIdentity.getUser().equals(identity.getUser())) {
-                accessControl.checkCanImpersonateUser(authenticatedIdentity, identity.getUser());
+            if (!authenticatedIdentity.getUser().equals(originalIdentity.getUser())) {
+                accessControl.checkCanImpersonateUser(authenticatedIdentity, originalIdentity.getUser());
             }
         });
 
-        return identity;
+        Optional<String> optionalAuthorizationUser = Optional.ofNullable(trimEmptyToNull(headers.getFirst(PRESTO_AUTHORIZATION_USER)));
+
+        Identity authorizationIdentity = optionalAuthorizationUser
+                .map(authorizationUser -> Identity.from(originalIdentity)
+                        .withUser(authorizationUser)
+                        .withGroups(groupProvider.getGroups(authorizationUser))
+                        .build())
+                .orElse(originalIdentity);
+
+        if (!originalIdentity.getUser().equals(authorizationIdentity.getUser())) {
+            accessControl.checkCanSetUser(originalIdentity.getPrincipal(), authorizationIdentity.getUser());
+            accessControl.checkCanImpersonateUser(originalIdentity, authorizationIdentity.getUser());
+        }
+        return authorizationIdentity;
     }
 
-    private static Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, MultivaluedMap<String, String> headers, GroupProvider groupProvider)
+    private static Identity buildSessionOriginalIdentity(Optional<Identity> authenticatedIdentity, MultivaluedMap<String, String> headers, GroupProvider groupProvider)
     {
         String prestoUser = trimEmptyToNull(headers.getFirst(PRESTO_USER));
         String user = prestoUser != null ? prestoUser : authenticatedIdentity.map(Identity::getUser).orElse(null);
@@ -216,6 +238,12 @@ public final class HttpRequestSessionContext
     public Optional<Identity> getAuthenticatedIdentity()
     {
         return authenticatedIdentity;
+    }
+
+    @Override
+    public Identity getOriginalIdentity()
+    {
+        return originalIdentity;
     }
 
     @Override

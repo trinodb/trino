@@ -320,6 +320,8 @@ public class DbResourceGroupConfigurationManager
                         new SelectorSpec(
                                 selectorRecord.getUserRegex(),
                                 Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
                                 selectorRecord.getSourceRegex(),
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),
