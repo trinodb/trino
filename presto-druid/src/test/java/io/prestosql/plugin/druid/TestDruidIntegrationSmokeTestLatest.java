@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
 
 import static io.prestosql.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.LINE_ITEM;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
-import static io.prestosql.tpch.TpchTable.PART;
-import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
+import static io.trino.tpch.TpchTable.REGION;
 
 public class TestDruidIntegrationSmokeTestLatest
         extends BaseDruidIntegrationSmokeTest

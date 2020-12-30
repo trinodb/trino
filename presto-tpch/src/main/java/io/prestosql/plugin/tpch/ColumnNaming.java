@@ -13,8 +13,8 @@
  */
 package io.prestosql.plugin.tpch;
 
-import io.prestosql.tpch.TpchColumn;
-import io.prestosql.tpch.TpchEntity;
+import io.trino.tpch.TpchColumn;
+import io.trino.tpch.TpchEntity;
 
 import java.util.function.Function;
 

@@ -19,7 +19,7 @@ import io.prestosql.metadata.FunctionListBuilder;
 import io.prestosql.metadata.SqlFunction;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.tests.QueryTemplate;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;

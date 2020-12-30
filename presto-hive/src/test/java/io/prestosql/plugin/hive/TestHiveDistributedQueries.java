@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
-import static io.prestosql.tpch.TpchTable.getTables;
+import static io.trino.tpch.TpchTable.getTables;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 

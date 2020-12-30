@@ -33,7 +33,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.kafka.BasicTestingKafka;
 import io.prestosql.testing.kafka.TestingKafka;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 
 import java.io.IOException;
 import java.util.ArrayList;

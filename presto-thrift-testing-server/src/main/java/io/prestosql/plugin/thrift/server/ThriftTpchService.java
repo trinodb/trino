@@ -38,9 +38,9 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
-import io.prestosql.tpch.TpchColumn;
-import io.prestosql.tpch.TpchEntity;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchColumn;
+import io.trino.tpch.TpchEntity;
+import io.trino.tpch.TpchTable;
 
 import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;

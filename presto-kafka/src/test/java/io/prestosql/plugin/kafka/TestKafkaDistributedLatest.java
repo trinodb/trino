@@ -16,7 +16,7 @@ package io.prestosql.plugin.kafka;
 import io.prestosql.testing.AbstractTestQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.kafka.BasicTestingKafka;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 public class TestKafkaDistributedLatest

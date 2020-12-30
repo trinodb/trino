@@ -23,10 +23,10 @@ import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
-import io.prestosql.tpch.TpchColumn;
-import io.prestosql.tpch.TpchColumnType;
-import io.prestosql.tpch.TpchEntity;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchColumn;
+import io.trino.tpch.TpchColumnType;
+import io.trino.tpch.TpchEntity;
+import io.trino.tpch.TpchTable;
 
 import java.util.Iterator;
 import java.util.List;

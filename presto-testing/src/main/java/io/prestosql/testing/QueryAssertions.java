@@ -28,7 +28,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.testing.QueryRunner.MaterializedResultWithPlan;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;

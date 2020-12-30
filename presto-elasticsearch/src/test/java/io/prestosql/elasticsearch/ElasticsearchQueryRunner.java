@@ -23,7 +23,7 @@ import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingPrestoClient;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;

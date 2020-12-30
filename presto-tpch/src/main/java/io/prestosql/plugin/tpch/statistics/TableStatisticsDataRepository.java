@@ -14,8 +14,8 @@
 package io.prestosql.plugin.tpch.statistics;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.prestosql.tpch.TpchColumn;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchColumn;
+import io.trino.tpch.TpchTable;
 
 import java.io.File;
 import java.io.FileWriter;

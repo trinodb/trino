@@ -16,7 +16,7 @@ package io.prestosql.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.SqlExecutor;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 public class TestRemarksReportingOracleDistributedQueries
