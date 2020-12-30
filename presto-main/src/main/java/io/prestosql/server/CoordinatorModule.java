@@ -207,6 +207,8 @@ public class CoordinatorModule
         // dynamic filtering service
         binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
 
+        jaxrsBinder(binder).bind(VClusterStatsResource.class);
+
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
