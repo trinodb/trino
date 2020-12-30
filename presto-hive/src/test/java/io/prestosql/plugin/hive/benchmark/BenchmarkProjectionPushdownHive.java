@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.hadoop.HadoopNative;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
@@ -29,6 +28,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import io.trino.hadoop.HadoopNative;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;

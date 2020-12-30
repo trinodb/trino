@@ -14,11 +14,11 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.primitives.Shorts;
-import io.prestosql.hadoop.HadoopNative;
 import io.prestosql.plugin.hive.authentication.GenericExceptionAction;
 import io.prestosql.plugin.hive.authentication.HdfsAuthentication;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.security.ConnectorIdentity;
+import io.trino.hadoop.HadoopNative;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;

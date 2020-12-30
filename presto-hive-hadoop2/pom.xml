@@ -34,7 +34,7 @@
 
         <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>io.prestosql.hadoop</groupId>
+            <groupId>io.trino.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
             <scope>runtime</scope>
         </dependency>
