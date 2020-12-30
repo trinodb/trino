@@ -33,6 +33,7 @@ import java.sql.JDBCType;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -206,46 +207,41 @@ public class TestHiveStorageFormats
                     "2021-01-01 00:00:00.000000",
                     "2021-01-01 00:00:00.000000000"));
 
-    @DataProvider(name = "storage_formats")
-    public static Object[][] storageFormats()
+    @DataProvider
+    public static StorageFormat[] storageFormats()
     {
-        return new StorageFormat[][] {
-                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true"))},
-                {storageFormat("PARQUET")},
-                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
-                {storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
-                {storageFormat("SEQUENCEFILE")},
-                {storageFormat("TEXTFILE")},
-                {storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"))},
-                {storageFormat("AVRO")}
-        };
-    }
-
-    @DataProvider(name = "storage_formats_with_null_format")
-    public static Object[][] storageFormatsWithNullFormat()
-    {
-        return new StorageFormat[][] {
-                {storageFormat("TEXTFILE")},
-                {storageFormat("RCTEXT")},
-                {storageFormat("SEQUENCEFILE")},
+        return new StorageFormat[] {
+                storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")),
+                storageFormat("PARQUET"),
+                storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
+                storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
+                storageFormat("SEQUENCEFILE"),
+                storageFormat("TEXTFILE"),
+                storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E")),
+                storageFormat("AVRO"),
         };
     }
 
     @DataProvider
-    public static Object[][] storageFormatsWithNanosecondPrecision()
+    public static StorageFormat[] storageFormatsWithNullFormat()
     {
-        return new StorageFormat[][] {
-                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true"))},
-                {storageFormat("PARQUET")},
-                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
-                {storageFormat("RCTEXT")},
-                {storageFormat("SEQUENCEFILE")},
-                {storageFormat("TEXTFILE")},
-                {storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"))}
+        return new StorageFormat[] {
+                storageFormat("TEXTFILE"),
+                storageFormat("RCTEXT"),
+                storageFormat("SEQUENCEFILE")
         };
     }
 
-    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @DataProvider
+    public static Iterator<StorageFormat> storageFormatsWithNanosecondPrecision()
+    {
+        return Stream.of(storageFormats())
+                // everything but Avro supports nanoseconds
+                .filter(format -> !"AVRO".equals(format.getName()))
+                .iterator();
+    }
+
+    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
@@ -290,7 +286,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
     public void testCreateTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
@@ -317,7 +313,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
@@ -362,7 +358,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats_with_null_format", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
     {
@@ -394,7 +390,7 @@ public class TestHiveStorageFormats
         onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats_with_null_format", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS)
     public void testSelectWithNullFormat(StorageFormat storageFormat)
     {
         String nullFormat = "null_value";
@@ -418,7 +414,7 @@ public class TestHiveStorageFormats
         onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
