@@ -529,12 +529,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql.orc</groupId>
-                <artifactId>orc-protobuf</artifactId>
-                <version>10</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.prestosql.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
@@ -613,6 +607,12 @@
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
                 <version>3.1.2-6</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino.orc</groupId>
+                <artifactId>orc-protobuf</artifactId>
+                <version>11</version>
             </dependency>
 
             <!-- Airlift -->
