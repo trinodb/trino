@@ -523,12 +523,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestosql.hadoop</groupId>
-                <artifactId>hadoop-apache</artifactId>
-                <version>3.2.0-9</version>
-            </dependency>
-
-            <dependency>
                 <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
                 <version>0.13.1-7</version>
@@ -609,6 +603,12 @@
             </dependency>
 
             <!-- Trino external -->
+            <dependency>
+                <groupId>io.trino.hadoop</groupId>
+                <artifactId>hadoop-apache</artifactId>
+                <version>3.2.0-10</version>
+            </dependency>
+
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
@@ -1203,7 +1203,6 @@
                 <artifactId>jjwt</artifactId>
                 <version>0.9.0</version>
             </dependency>
-
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
             <dependency>

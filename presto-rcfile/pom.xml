@@ -66,7 +66,7 @@
 
         <!-- for hadoop compression -->
         <dependency>
-            <groupId>io.prestosql.hadoop</groupId>
+            <groupId>io.trino.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
             <scope>provided</scope>
         </dependency>
