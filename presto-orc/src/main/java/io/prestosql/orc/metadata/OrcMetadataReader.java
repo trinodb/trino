@@ -35,10 +35,10 @@ import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.metadata.statistics.StripeStatistics;
 import io.prestosql.orc.metadata.statistics.TimestampStatistics;
-import io.prestosql.orc.proto.OrcProto;
-import io.prestosql.orc.proto.OrcProto.RowIndexEntry;
-import io.prestosql.orc.protobuf.ByteString;
-import io.prestosql.orc.protobuf.CodedInputStream;
+import io.trino.orc.proto.OrcProto;
+import io.trino.orc.proto.OrcProto.RowIndexEntry;
+import io.trino.orc.protobuf.ByteString;
+import io.trino.orc.protobuf.CodedInputStream;
 
 import java.io.IOException;
 import java.io.InputStream;

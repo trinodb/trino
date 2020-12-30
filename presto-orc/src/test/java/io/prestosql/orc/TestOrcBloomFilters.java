@@ -26,11 +26,11 @@ import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.Utf8BloomFilterBuilder;
-import io.prestosql.orc.proto.OrcProto;
-import io.prestosql.orc.protobuf.CodedInputStream;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
+import io.trino.orc.proto.OrcProto;
+import io.trino.orc.protobuf.CodedInputStream;
 import org.apache.orc.util.Murmur3;
 import org.testng.annotations.Test;
 
