@@ -158,23 +158,6 @@ public class TestCachingJdbcClient
         dropTable(phantomTable);
     }
 
-    private JdbcTableHandle createTable(SchemaTableName phantomTable)
-    {
-        return createTable(phantomTable, Map.of());
-    }
-
-    private JdbcTableHandle createTable(SchemaTableName phantomTable, Map<String, Object> tableProperties)
-    {
-        jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList(), tableProperties));
-        return jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
-    }
-
-    private void dropTable(SchemaTableName phantomTable)
-    {
-        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
-        jdbcClient.dropTable(SESSION, tableHandle);
-    }
-
     @Test
     public void testColumnsCached()
     {
@@ -325,6 +308,23 @@ public class TestCachingJdbcClient
 
         assertThat(jdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
         assertThat(cachingJdbcClient.getTableProperties(SESSION, table)).isEqualTo(tableProperties);
+    }
+
+    private JdbcTableHandle createTable(SchemaTableName phantomTable)
+    {
+        return createTable(phantomTable, Map.of());
+    }
+
+    private JdbcTableHandle createTable(SchemaTableName phantomTable, Map<String, Object> tableProperties)
+    {
+        jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList(), tableProperties));
+        return jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
+    }
+
+    private void dropTable(SchemaTableName phantomTable)
+    {
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
+        jdbcClient.dropTable(SESSION, tableHandle);
     }
 
     private void assertCacheLoadsHitsAndMisses(CacheStats stats, int expectedLoad, int expectedHit, int expectedMiss)
