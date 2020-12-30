@@ -30,6 +30,8 @@ import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +50,7 @@ import static io.trino.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -55,6 +58,8 @@ import static java.util.Objects.requireNonNull;
 public class MultiChannelGroupByHash
         implements GroupByHash
 {
+    private static final int BATCH_SIZE = 128;
+
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
     private final List<Type> types;
@@ -270,6 +275,77 @@ public class MultiChannelGroupByHash
     public int getCapacity()
     {
         return hashCapacity;
+    }
+
+    private int putIfAbsent(int firstPosition, int positions, Page page, @Nullable BlockBuilder groupIdsBuilder)
+    {
+        /*
+         * Instead of looking for a match on a per-position basis, we execute steps in a "vectorized" way,
+         * so that all cpu mechanisms (caching, out-of-order execution, etc.) are fully utilized.
+         */
+        long[] rawHashes = new long[positions];
+        int[] hashPositions = new int[positions];
+        long[] groupAddresses = new long[positions];
+
+        for (int i = 0; i < positions; i++) {
+            rawHashes[i] = hashGenerator.hashPosition(firstPosition + i, page);
+        }
+
+        for (int i = 0; i < positions; i++) {
+            hashPositions[i] = (int) getHashPosition(rawHashes[i], mask);
+        }
+
+        for (int i = 0; i < positions; i++) {
+            groupAddresses[i] = groupAddressByHash[hashPositions[i]];
+        }
+
+        for (int i = 0; i < positions; i++) {
+            long rawHash = rawHashes[i];
+            int hashPosition = hashPositions[i];
+            long groupAddress = groupAddresses[i];
+
+            // look for an empty slot or a slot containing this key
+            int groupId = -1;
+            // groupAddress is precalculated and (when groupAddress==-1) it might no
+            // longer be valid after addNewGroup method call. In such case groupAddressByHash
+            // must be checked if given hash position is still empty.
+            while (groupAddress != -1 || groupAddressByHash[hashPosition] != -1) {
+                if (groupAddress == -1) {
+                    groupAddress = groupAddressByHash[hashPosition];
+                }
+
+                if (positionNotDistinctFromCurrentRow(groupAddress, hashPosition, firstPosition + i, page, (byte) rawHash, channels)) {
+                    // found an existing slot for this key
+                    groupId = groupIdsByHash[hashPosition];
+
+                    break;
+                }
+                // increment position and mask to handle wrap around
+                hashPosition = (hashPosition + 1) & mask;
+                groupAddress = groupAddressByHash[hashPosition];
+                hashCollisions++;
+            }
+
+            // did we find an existing group?
+            if (groupId < 0) {
+                if (nextGroupId + 1 >= maxFill) {
+                    // terminate loop earlier in case of a rehash, so that operator can wait for memory
+                    groupId = addNewGroup(hashPosition, firstPosition + i, page, rawHash);
+                    if (groupIdsBuilder != null) {
+                        BIGINT.writeLong(groupIdsBuilder, groupId);
+                    }
+                    return i + 1;
+                }
+
+                groupId = addNewGroup(hashPosition, firstPosition + i, page, rawHash);
+            }
+
+            if (groupIdsBuilder != null) {
+                BIGINT.writeLong(groupIdsBuilder, groupId);
+            }
+        }
+
+        return positions;
     }
 
     private int putIfAbsent(int position, Page page)
@@ -590,9 +666,8 @@ public class MultiChannelGroupByHash
             // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
             // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
             while (lastPosition < positionCount && !needRehash()) {
-                // get the group for the current row
-                putIfAbsent(lastPosition, page);
-                lastPosition++;
+                // get the group for batch of rows
+                lastPosition += putIfAbsent(lastPosition, min(positionCount - lastPosition, BATCH_SIZE), page, null);
             }
             return lastPosition == positionCount;
         }
@@ -724,9 +799,8 @@ public class MultiChannelGroupByHash
             // putIfAbsent will rehash automatically if rehash is needed, unless there isn't enough memory to do so.
             // Therefore needRehash will not generally return true even if we have just crossed the capacity boundary.
             while (lastPosition < positionCount && !needRehash()) {
-                // output the group id for this row
-                BIGINT.writeLong(blockBuilder, putIfAbsent(lastPosition, page));
-                lastPosition++;
+                // output the group id for batch of rows
+                lastPosition += putIfAbsent(lastPosition, min(positionCount - lastPosition, BATCH_SIZE), page, blockBuilder);
             }
             return lastPosition == positionCount;
         }
