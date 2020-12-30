@@ -117,7 +117,7 @@ public final class WindowPartition
 
         seekGroupStart = position -> {
             requireNonNull(position, "position is null");
-            while (position > 0 && pagesIndex.positionEqualsPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position - 1)) {
+            while (position > 0 && pagesIndex.positionNotDistinctFromPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position - 1)) {
                 position--;
             }
             return position;
@@ -125,7 +125,7 @@ public final class WindowPartition
 
         seekGroupEnd = position -> {
             requireNonNull(position, "position is null");
-            while (position < partitionEnd - 1 - partitionStart && pagesIndex.positionEqualsPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position + 1)) {
+            while (position < partitionEnd - 1 - partitionStart && pagesIndex.positionNotDistinctFromPosition(peerGroupHashStrategy, partitionStart + position, partitionStart + position + 1)) {
                 position++;
             }
             return position;
@@ -241,7 +241,7 @@ public final class WindowPartition
         peerGroupStart = currentPosition;
         // find end of peer group
         peerGroupEnd = peerGroupStart + 1;
-        while ((peerGroupEnd < partitionEnd) && pagesIndex.positionEqualsPosition(peerGroupHashStrategy, peerGroupStart, peerGroupEnd)) {
+        while ((peerGroupEnd < partitionEnd) && pagesIndex.positionNotDistinctFromPosition(peerGroupHashStrategy, peerGroupStart, peerGroupEnd)) {
             peerGroupEnd++;
         }
     }
@@ -334,7 +334,7 @@ public final class WindowPartition
                 frameInfo.getStartType() == CURRENT_ROW && frameInfo.getEndType() == UNBOUNDED_FOLLOWING ||
                 frameInfo.getStartType() == UNBOUNDED_PRECEDING && frameInfo.getEndType() == CURRENT_ROW) {
             // same peer group as recent row
-            if (currentPosition == partitionStart || pagesIndex.positionEqualsPosition(peerGroupHashStrategy, currentPosition - 1, currentPosition)) {
+            if (currentPosition == partitionStart || pagesIndex.positionNotDistinctFromPosition(peerGroupHashStrategy, currentPosition - 1, currentPosition)) {
                 return recentRange;
             }
             // next peer group
