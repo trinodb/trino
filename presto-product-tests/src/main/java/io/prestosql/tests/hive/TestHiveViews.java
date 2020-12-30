@@ -13,12 +13,12 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.Requires;
-import io.prestosql.tempto.assertions.QueryAssert;
-import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
-import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
-import io.prestosql.tempto.query.QueryExecutor;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.Requires;
+import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
+import io.trino.tempto.query.QueryExecutor;
+import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -26,13 +26,13 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.util.function.Consumer;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_VIEWS;
 import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

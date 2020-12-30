@@ -17,21 +17,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.fulfillment.ldap.LdapObjectRequirement;
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.fulfillment.ldap.LdapObjectRequirement;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 
-import static io.prestosql.tempto.Requirements.compose;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static io.prestosql.tempto.process.CliProcess.trimLines;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.AMERICA_ORG;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.ASIA_ORG;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.CHILD_GROUP;
@@ -46,6 +42,10 @@ import static io.prestosql.tests.ImmutableLdapObjectDefinitions.USER_IN_MULTIPLE
 import static io.prestosql.tests.TestGroups.LDAP;
 import static io.prestosql.tests.TestGroups.LDAP_CLI;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tempto.Requirements.compose;
+import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.trino.tempto.process.CliProcess.trimLines;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;

@@ -14,11 +14,11 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.Inject;
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
-import io.prestosql.tempto.query.QueryExecutionException;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
+import io.trino.tempto.query.QueryExecutionException;
+import io.trino.tempto.query.QueryResult;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -28,12 +28,12 @@ import java.io.InputStream;
 import java.nio.file.Paths;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.AVRO;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 

@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   ss AS (
    SELECT
@@ -13,7 +13,7 @@ WITH
    WHERE ("ss_sold_date_sk" = "d_date_sk")
       AND ("ss_addr_sk" = "ca_address_sk")
    GROUP BY "ca_county", "d_qoy", "d_year"
-) 
+)
 , ws AS (
    SELECT
      "ca_county"
@@ -27,7 +27,7 @@ WITH
    WHERE ("ws_sold_date_sk" = "d_date_sk")
       AND ("ws_bill_addr_sk" = "ca_address_sk")
    GROUP BY "ca_county", "d_qoy", "d_year"
-) 
+)
 SELECT
   "ss1"."ca_county"
 , "ss1"."d_year"

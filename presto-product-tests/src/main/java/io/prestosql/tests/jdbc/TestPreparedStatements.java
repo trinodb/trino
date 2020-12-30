@@ -13,12 +13,12 @@
  */
 package io.prestosql.tests.jdbc;
 
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.Requires;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.Requires;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -29,17 +29,17 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestosql.tempto.query.QueryExecutor.defaultQueryExecutor;
-import static io.prestosql.tempto.query.QueryExecutor.param;
-import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.JDBC;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
+import static io.trino.tempto.query.QueryExecutor.param;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;

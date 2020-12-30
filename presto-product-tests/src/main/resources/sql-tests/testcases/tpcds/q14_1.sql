@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   cross_items AS (
    SELECT "i_item_sk" "ss_item_sk"
@@ -38,11 +38,11 @@ INTERSECT       SELECT
       WHERE ("ws_item_sk" = "iws"."i_item_sk")
          AND ("ws_sold_date_sk" = "d3"."d_date_sk")
          AND ("d3"."d_year" BETWEEN 1999 AND (1999 + 2))
-   ) 
+   )
    WHERE ("i_brand_id" = "brand_id")
       AND ("i_class_id" = "class_id")
       AND ("i_category_id" = "category_id")
-) 
+)
 , avg_sales AS (
    SELECT "avg"(("quantity" * "list_price")) "average_sales"
    FROM
@@ -72,7 +72,7 @@ UNION ALL       SELECT
       WHERE ("ws_sold_date_sk" = "d_date_sk")
          AND ("d_year" BETWEEN 1999 AND (1999 + 2))
    )  x
-) 
+)
 SELECT
   "channel"
 , "i_brand_id"

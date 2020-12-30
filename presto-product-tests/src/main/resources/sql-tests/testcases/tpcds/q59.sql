@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   wss AS (
    SELECT
@@ -16,7 +16,7 @@ WITH
    , date_dim
    WHERE ("d_date_sk" = "ss_sold_date_sk")
    GROUP BY "d_week_seq", "ss_store_sk"
-) 
+)
 SELECT
   "s_store_name1"
 , "s_store_id1"

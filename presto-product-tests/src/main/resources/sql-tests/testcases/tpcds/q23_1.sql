@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   frequent_ss_items AS (
    SELECT
@@ -15,7 +15,7 @@ WITH
       AND ("d_year" IN (2000   , (2000 + 1)   , (2000 + 2)   , (2000 + 3)))
    GROUP BY "substr"("i_item_desc", 1, 30), "i_item_sk", "d_date"
    HAVING ("count"(*) > 4)
-) 
+)
 , max_store_sales AS (
    SELECT "max"("csales") "tpcds_cmax"
    FROM
@@ -31,8 +31,8 @@ WITH
          AND ("ss_sold_date_sk" = "d_date_sk")
          AND ("d_year" IN (2000      , (2000 + 1)      , (2000 + 2)      , (2000 + 3)))
       GROUP BY "c_customer_sk"
-   ) 
-) 
+   )
+)
 , best_ss_customer AS (
    SELECT
      "c_customer_sk"
@@ -47,7 +47,7 @@ WITH
             FROM
               max_store_sales
          )))
-) 
+)
 SELECT "sum"("sales")
 FROM
   (
@@ -85,5 +85,5 @@ UNION ALL    SELECT ("ws_quantity" * "ws_list_price") "sales"
       FROM
         best_ss_customer
    ))
-) 
+)
 LIMIT 100

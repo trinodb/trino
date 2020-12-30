@@ -14,27 +14,27 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.Inject;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.fulfillment.table.TableInstance;
-import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.fulfillment.table.TableInstance;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tempto.Requirements.compose;
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_WITH_EXTERNAL_WRITES;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.Requirements.compose;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 public class TestExternalHiveTable

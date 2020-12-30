@@ -15,10 +15,10 @@ package io.prestosql.tests.hive;
 
 import com.google.inject.name.Named;
 import io.airlift.log.Logger;
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.assertions.QueryAssert;
-import io.prestosql.tempto.query.QueryExecutionException;
 import io.prestosql.tests.hive.util.TemporaryHiveTable;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.query.QueryExecutionException;
 import org.testng.annotations.Test;
 
 import javax.inject.Inject;
@@ -26,13 +26,13 @@ import javax.inject.Inject;
 import java.sql.SQLException;
 import java.util.function.Supplier;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.prestosql.tests.hive.util.TemporaryHiveTable.temporaryHiveTable;
 import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static java.lang.String.format;
 
 public class TestHivePartitionSchemaEvolution

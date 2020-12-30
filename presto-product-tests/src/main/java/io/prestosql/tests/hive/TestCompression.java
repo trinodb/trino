@@ -13,20 +13,20 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.configuration.Configuration;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.ORDERS;
 import static io.prestosql.tests.TestGroups.HIVE_COMPRESSION;
 import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.ORDERS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCompression

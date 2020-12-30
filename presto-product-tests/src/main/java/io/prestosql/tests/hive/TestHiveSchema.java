@@ -14,12 +14,12 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.assertions.QueryAssert;
-import io.prestosql.tempto.query.QueryExecutionException;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.query.QueryExecutionException;
+import io.trino.tempto.query.QueryResult;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.testng.annotations.Test;
@@ -29,10 +29,10 @@ import java.util.List;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static java.util.Objects.requireNonNull;
 
 public class TestHiveSchema

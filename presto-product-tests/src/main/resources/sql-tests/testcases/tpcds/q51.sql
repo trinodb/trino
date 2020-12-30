@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   web_v1 AS (
    SELECT
@@ -12,7 +12,7 @@ WITH
       AND ("d_month_seq" BETWEEN 1200 AND (1200 + 11))
       AND ("ws_item_sk" IS NOT NULL)
    GROUP BY "ws_item_sk", "d_date"
-) 
+)
 , store_v1 AS (
    SELECT
      "ss_item_sk" "item_sk"
@@ -25,7 +25,7 @@ WITH
       AND ("d_month_seq" BETWEEN 1200 AND (1200 + 11))
       AND ("ss_item_sk" IS NOT NULL)
    GROUP BY "ss_item_sk", "d_date"
-) 
+)
 SELECT *
 FROM
   (

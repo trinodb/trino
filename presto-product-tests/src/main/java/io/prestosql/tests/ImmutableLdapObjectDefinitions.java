@@ -14,7 +14,7 @@
 package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.tempto.fulfillment.ldap.LdapObjectDefinition;
+import io.trino.tempto.fulfillment.ldap.LdapObjectDefinition;
 
 import java.util.Arrays;
 import java.util.List;

@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   wscs AS (
    SELECT
@@ -11,14 +11,14 @@ WITH
       , "ws_ext_sales_price" "sales_price"
       FROM
         web_sales
-   )  
+   )
 UNION ALL (
       SELECT
         "cs_sold_date_sk" "sold_date_sk"
       , "cs_ext_sales_price" "sales_price"
       FROM
         catalog_sales
-   ) ) 
+   ) )
 , wswscs AS (
    SELECT
      "d_week_seq"
@@ -34,7 +34,7 @@ UNION ALL (
    , date_dim
    WHERE ("d_date_sk" = "sold_date_sk")
    GROUP BY "d_week_seq"
-) 
+)
 SELECT
   "d_week_seq1"
 , "round"(("sun_sales1" / "sun_sales2"), 2)

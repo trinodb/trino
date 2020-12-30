@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   ws AS (
    SELECT
@@ -15,7 +15,7 @@ WITH
    INNER JOIN date_dim ON ("ws_sold_date_sk" = "d_date_sk"))
    WHERE ("wr_order_number" IS NULL)
    GROUP BY "d_year", "ws_item_sk", "ws_bill_customer_sk"
-) 
+)
 , cs AS (
    SELECT
      "d_year" "cs_sold_year"
@@ -31,7 +31,7 @@ WITH
    INNER JOIN date_dim ON ("cs_sold_date_sk" = "d_date_sk"))
    WHERE ("cr_order_number" IS NULL)
    GROUP BY "d_year", "cs_item_sk", "cs_bill_customer_sk"
-) 
+)
 , ss AS (
    SELECT
      "d_year" "ss_sold_year"
@@ -47,7 +47,7 @@ WITH
    INNER JOIN date_dim ON ("ss_sold_date_sk" = "d_date_sk"))
    WHERE ("sr_ticket_number" IS NULL)
    GROUP BY "d_year", "ss_item_sk", "ss_customer_sk"
-) 
+)
 SELECT
   "ss_sold_year"
 , "ss_item_sk"

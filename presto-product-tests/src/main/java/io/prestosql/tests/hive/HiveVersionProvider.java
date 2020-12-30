@@ -14,8 +14,8 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.Module;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.initialization.SuiteModuleProvider;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.initialization.SuiteModuleProvider;
 
 import javax.inject.Singleton;
 

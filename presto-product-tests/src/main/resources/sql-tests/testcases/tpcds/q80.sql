@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   ssr AS (
    SELECT
@@ -22,7 +22,7 @@ WITH
       AND ("ss_promo_sk" = "p_promo_sk")
       AND ("p_channel_tv" = 'N')
    GROUP BY "s_store_id"
-) 
+)
 , csr AS (
    SELECT
      "cp_catalog_page_id" "catalog_page_id"
@@ -45,7 +45,7 @@ WITH
       AND ("cs_promo_sk" = "p_promo_sk")
       AND ("p_channel_tv" = 'N')
    GROUP BY "cp_catalog_page_id"
-) 
+)
 , wsr AS (
    SELECT
      "web_site_id"
@@ -68,7 +68,7 @@ WITH
       AND ("ws_promo_sk" = "p_promo_sk")
       AND ("p_channel_tv" = 'N')
    GROUP BY "web_site_id"
-) 
+)
 SELECT
   "channel"
 , "id"

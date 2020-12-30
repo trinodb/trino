@@ -13,16 +13,16 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.query.QueryExecutor;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.AUTHORIZATION;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static java.lang.String.format;
 
 public class TestSqlStandardAccessControlChecks
