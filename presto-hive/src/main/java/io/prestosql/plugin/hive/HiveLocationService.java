@@ -45,11 +45,13 @@ public class HiveLocationService
         implements LocationService
 {
     private final HdfsEnvironment hdfsEnvironment;
+    private final String viewFsTemporaryStagingDirectoryPath;
 
     @Inject
-    public HiveLocationService(HdfsEnvironment hdfsEnvironment)
+    public HiveLocationService(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.viewFsTemporaryStagingDirectoryPath = requireNonNull(hiveConfig, "hiveConfig is null").getViewFsTemporaryStagingDirectoryPath();
     }
 
     @Override
@@ -65,7 +67,7 @@ public class HiveLocationService
 
         // TODO detect when existing table's location is a on a different file system than the temporary directory
         if (shouldUseTemporaryDirectory(session, context, targetPath, externalLocation)) {
-            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath, viewFsTemporaryStagingDirectoryPath);
             return new LocationHandle(targetPath, writePath, false, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {
@@ -80,7 +82,7 @@ public class HiveLocationService
         Path targetPath = new Path(table.getStorage().getLocation());
 
         if (shouldUseTemporaryDirectory(session, context, targetPath, Optional.empty()) && !isTransactionalTable(table.getParameters())) {
-            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath);
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath, viewFsTemporaryStagingDirectoryPath);
             return new LocationHandle(targetPath, writePath, true, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {

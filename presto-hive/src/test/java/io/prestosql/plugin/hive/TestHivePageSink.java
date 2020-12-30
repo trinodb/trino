@@ -284,7 +284,7 @@ public class TestHivePageSink
                 new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
                 TYPE_MANAGER,
                 config,
-                new HiveLocationService(HDFS_ENVIRONMENT),
+                new HiveLocationService(HDFS_ENVIRONMENT, config),
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
