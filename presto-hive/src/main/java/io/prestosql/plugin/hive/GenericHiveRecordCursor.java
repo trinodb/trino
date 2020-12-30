@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.hadoop.TextLineLengthLimitExceededException;
 import io.prestosql.plugin.base.type.DecodedTimestamp;
 import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
 import io.prestosql.spi.PrestoException;
@@ -28,6 +27,7 @@ import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import io.trino.hadoop.TextLineLengthLimitExceededException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.Date;
