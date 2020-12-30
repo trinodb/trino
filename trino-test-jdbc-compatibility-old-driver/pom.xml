@@ -13,21 +13,23 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.presto-jdbc-under-test>351-SNAPSHOT</dep.presto-jdbc-under-test>
+        <dep.jdbc.groupId>io.trino</dep.jdbc.groupId>
+        <dep.jdbc.artifactId>trino-jdbc</dep.jdbc.artifactId>
+        <dep.jdbc.version>351-SNAPSHOT</dep.jdbc.version>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-jdbc</artifactId>
-            <version>${dep.presto-jdbc-under-test}</version>
+            <groupId>${dep.jdbc.groupId}</groupId>
+            <artifactId>${dep.jdbc.artifactId}</artifactId>
+            <version>${dep.jdbc.version}</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-jdbc</artifactId>
-            <version>${dep.presto-jdbc-under-test}</version>
+            <groupId>${dep.jdbc.groupId}</groupId>
+            <artifactId>${dep.jdbc.artifactId}</artifactId>
+            <version>${dep.jdbc.version}</version>
             <scope>test</scope>
             <type>test-jar</type>
         </dependency>

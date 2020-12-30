@@ -13,8 +13,9 @@
  */
 package io.trino;
 
-import io.trino.jdbc.PrestoDriver;
-
+import java.sql.Driver;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Optional;
 
 public final class JdbcDriverCapabilities
@@ -25,14 +26,22 @@ public final class JdbcDriverCapabilities
 
     public static Optional<Integer> testedVersion()
     {
-        return Optional.ofNullable(System.getenv("PRESTO_JDBC_VERSION_UNDER_TEST")).map(Integer::valueOf);
+        return Optional.ofNullable(System.getenv("TRINO_JDBC_VERSION_UNDER_TEST")).map(Integer::valueOf);
     }
 
     public static int driverVersion()
     {
-        try (PrestoDriver driver = new PrestoDriver()) {
-            return driver.getMajorVersion();
-        }
+        return DriverManager.drivers().filter(driver -> {
+            try {
+                return driver.acceptsURL("jdbc:presto://localhost:8080/catalog/schema?user=presto");
+            }
+            catch (SQLException ignored) {
+                return false;
+            }
+        })
+        .map(Driver::getMajorVersion)
+        .findFirst()
+        .orElseThrow();
     }
 
     public static boolean supportsSessionPropertiesViaConnectionUri()
@@ -76,5 +85,14 @@ public final class JdbcDriverCapabilities
     public static boolean hasBrokenTimeWithTimeZoneSupport()
     {
         return driverVersion() <= 340;
+    }
+
+    public static String basePackage()
+    {
+        if (driverVersion() == VERSION_HEAD || driverVersion() > 351) {
+            return "io.trino.jdbc";
+        }
+
+        return "io.prestosql.jdbc";
     }
 }

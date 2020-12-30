@@ -11,6 +11,8 @@ maven_run_tests="${maven} clean test -Dair.check.skip-all=true -Dmaven.javadoc.s
 current_version=$(${maven} help:evaluate -Dexpression=project.version -q -DforceStdout)
 previous_released_version=$((${current_version%-SNAPSHOT}-1))
 first_tested_version=312
+groupId="io.trino"
+artifactId="trino-jdbc"
 # test n-th version only
 version_step=3
 
@@ -27,7 +29,13 @@ exit_code=0
 failed_versions=()
 
 for version in ${tested_versions[*]}; do
-    if ! time env PRESTO_JDBC_VERSION_UNDER_TEST="${version}" ${maven_run_tests} -Ddep.presto-jdbc-under-test="${version}"; then
+
+    if [ "${version}" -le "350" ]; then
+        groupId="io.prestosql"
+        artifactId="presto-jdbc"
+    fi
+
+    if ! time env TRINO_JDBC_VERSION_UNDER_TEST="${version}" ${maven_run_tests} -Ddep.jdbc.version="${version}" -Ddep.jdbc.groupId="${groupId}" -Ddep.jdbc.artifactId="${artifactId}"; then
         exit_code=1
         failed_versions+=("${version}")
     fi

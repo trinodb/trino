@@ -41,6 +41,7 @@ import java.util.Properties;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Strings.repeat;
+import static io.trino.JdbcDriverCapabilities.basePackage;
 import static io.trino.JdbcDriverCapabilities.correctlyReportsTimestampWithTimeZone;
 import static io.trino.JdbcDriverCapabilities.driverVersion;
 import static io.trino.JdbcDriverCapabilities.hasBrokenParametricTimestampWithTimeZoneSupport;
@@ -112,7 +113,7 @@ public class TestJdbcCompatibility
             throw new SkipException("Information about JDBC version under test is missing");
         }
 
-        assertThat(Class.forName("io.trino.jdbc.$internal.client.StatementClientFactory").getPackage().getImplementationVersion())
+        assertThat(Class.forName(format("%s.$internal.client.StatementClientFactory", basePackage())).getPackage().getImplementationVersion())
                 .isEqualTo(VERSION_UNDER_TEST.get().toString());
     }
 
