@@ -30,6 +30,70 @@ public abstract class AbstractTestWindowQueries
         extends AbstractTestQueryFramework
 {
     @Test
+    public void testDistinctWindowPartitionAndPeerGroups()
+    {
+        MaterializedResult actual = computeActual("" +
+                "SELECT x, y, z, rank() OVER (PARTITION BY x ORDER BY y) rnk\n" +
+                "FROM (\n" +
+                "  VALUES " +
+                "    (1.0, 0.1, 'a'), " +
+                "    (2.0, 0.1, 'a'), " +
+                "    (nan(), 0.1, 'a'), " +
+                "    (NULL, 0.1, 'a'), " +
+                "    (1.0, 0.1, 'b'), " +
+                "    (2.0, 0.1, 'b'), " +
+                "    (nan(), 0.1, 'b'), " +
+                "    (NULL, 0.1, 'b'), " +
+                "    (1.0, nan(), 'a'), " +
+                "    (2.0, nan(), 'a'), " +
+                "    (nan(), nan(), 'a'), " +
+                "    (NULL, nan(), 'a'), " +
+                "    (1.0, nan(), 'b'), " +
+                "    (2.0, nan(), 'b'), " +
+                "    (nan(), nan(), 'b'), " +
+                "    (NULL, nan(), 'b'), " +
+                "    (1.0, NULL, 'a'), " +
+                "    (2.0, NULL, 'a'), " +
+                "    (nan(), NULL, 'a'), " +
+                "    (NULL, NULL, 'a'), " +
+                "    (1.0, NULL, 'b'), " +
+                "    (2.0, NULL, 'b'), " +
+                "    (nan(), NULL, 'b'), " +
+                "    (NULL, NULL, 'b') " +
+                ") a(x, y, z)" +
+                "ORDER BY x, y, z");
+
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, DOUBLE, BIGINT)
+                .row(1.0, 0.1, "a", 1L)
+                .row(1.0, 0.1, "b", 1L)
+                .row(1.0, Double.NaN, "a", 3L)
+                .row(1.0, Double.NaN, "b", 3L)
+                .row(1.0, null, "a", 5L)
+                .row(1.0, null, "b", 5L)
+                .row(2.0, 0.1, "a", 1L)
+                .row(2.0, 0.1, "b", 1L)
+                .row(2.0, Double.NaN, "a", 3L)
+                .row(2.0, Double.NaN, "b", 3L)
+                .row(2.0, null, "a", 5L)
+                .row(2.0, null, "b", 5L)
+                .row(Double.NaN, 0.1, "a", 1L)
+                .row(Double.NaN, 0.1, "b", 1L)
+                .row(Double.NaN, Double.NaN, "a", 3L)
+                .row(Double.NaN, Double.NaN, "b", 3L)
+                .row(Double.NaN, null, "a", 5L)
+                .row(Double.NaN, null, "b", 5L)
+                .row(null, 0.1, "a", 1L)
+                .row(null, 0.1, "b", 1L)
+                .row(null, Double.NaN, "a", 3L)
+                .row(null, Double.NaN, "b", 3L)
+                .row(null, null, "a", 5L)
+                .row(null, null, "b", 5L)
+                .build();
+
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testRowFieldAccessorInWindowFunction()
     {
         assertQuery("SELECT a.col0, " +
