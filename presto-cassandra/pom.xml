@@ -22,7 +22,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.cassandra</groupId>
+            <groupId>io.trino.cassandra</groupId>
             <artifactId>cassandra-driver</artifactId>
         </dependency>
 
