@@ -13,14 +13,7 @@
  */
 package io.trino.tests.kafka;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.Requirement;
-import io.trino.tempto.RequirementsProvider;
-import io.trino.tempto.Requires;
-import io.trino.tempto.configuration.Configuration;
-import io.trino.tempto.fulfillment.table.kafka.KafkaTableDefinition;
-import io.trino.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
@@ -32,7 +25,6 @@ import java.time.LocalTime;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.KAFKA;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -45,29 +37,8 @@ public class TestKafkaWritesSmokeTest
     private static final String SCHEMA_NAME = "product_tests";
 
     private static final String SIMPLE_KEY_AND_VALUE_TABLE_NAME = "write_simple_key_and_value";
-    private static final String SIMPLE_KEY_AND_VALUE_TOPIC_NAME = "write_simple_key_and_value";
-
-    // Kafka connector requires tables to be predefined in Presto configuration
-    // the requirements here will be used to verify that table actually exists and to
-    // create topics
-
-    private static class SimpleKeyAndValueTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return immutableTable(new KafkaTableDefinition(
-                    SCHEMA_NAME + "." + SIMPLE_KEY_AND_VALUE_TABLE_NAME,
-                    SIMPLE_KEY_AND_VALUE_TOPIC_NAME,
-                    new ListKafkaDataSource(ImmutableList.of()),
-                    1,
-                    1));
-        }
-    }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(SimpleKeyAndValueTable.class)
     public void testInsertSimpleKeyAndValue()
     {
         assertThat(query(format(
@@ -90,25 +61,8 @@ public class TestKafkaWritesSmokeTest
     }
 
     private static final String ALL_DATATYPES_RAW_TABLE_NAME = "write_all_datatypes_raw";
-    private static final String ALL_DATATYPES_RAW_TOPIC_NAME = "write_all_datatypes_raw";
-
-    private static class AllDataTypesRawTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return immutableTable(new KafkaTableDefinition(
-                    SCHEMA_NAME + "." + ALL_DATATYPES_RAW_TABLE_NAME,
-                    ALL_DATATYPES_RAW_TOPIC_NAME,
-                    new ListKafkaDataSource(ImmutableList.of()),
-                    1,
-                    1));
-        }
-    }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(AllDataTypesRawTable.class)
     public void testInsertRawTable()
     {
         // TODO RawRowEncoder doesn't take mapping length into considertion while writing so a
@@ -139,25 +93,8 @@ public class TestKafkaWritesSmokeTest
     }
 
     private static final String ALL_DATATYPES_CSV_TABLE_NAME = "write_all_datatypes_csv";
-    private static final String ALL_DATATYPES_CSV_TOPIC_NAME = "write_all_datatypes_csv";
-
-    private static class AllDataTypesCsvTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return immutableTable(new KafkaTableDefinition(
-                    SCHEMA_NAME + "." + ALL_DATATYPES_CSV_TABLE_NAME,
-                    ALL_DATATYPES_CSV_TOPIC_NAME,
-                    new ListKafkaDataSource(ImmutableList.of()),
-                    1,
-                    1));
-        }
-    }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(AllDataTypesCsvTable.class)
     public void testInsertCsvTable()
     {
         assertThat(query(format(
@@ -186,25 +123,8 @@ public class TestKafkaWritesSmokeTest
     }
 
     private static final String ALL_DATATYPES_JSON_TABLE_NAME = "write_all_datatypes_json";
-    private static final String ALL_DATATYPES_JSON_TOPIC_NAME = "write_all_datatypes_json";
-
-    private static class AllDataTypesJsonTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return immutableTable(new KafkaTableDefinition(
-                    SCHEMA_NAME + "." + ALL_DATATYPES_JSON_TABLE_NAME,
-                    ALL_DATATYPES_JSON_TOPIC_NAME,
-                    new ListKafkaDataSource(ImmutableList.of()),
-                    1,
-                    1));
-        }
-    }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(AllDataTypesJsonTable.class)
     public void testInsertJsonTable()
     {
         assertThat(query(format(
