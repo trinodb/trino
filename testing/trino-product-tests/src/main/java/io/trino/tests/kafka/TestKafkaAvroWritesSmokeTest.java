@@ -13,19 +13,11 @@
  */
 package io.trino.tests.kafka;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.Requirement;
-import io.trino.tempto.RequirementsProvider;
-import io.trino.tempto.Requires;
-import io.trino.tempto.configuration.Configuration;
-import io.trino.tempto.fulfillment.table.kafka.KafkaTableDefinition;
-import io.trino.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.KAFKA;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -37,31 +29,10 @@ public class TestKafkaAvroWritesSmokeTest
     private static final String KAFKA_CATALOG = "kafka";
 
     private static final String ALL_DATATYPES_AVRO_TABLE_NAME = "product_tests.write_all_datatypes_avro";
-    private static final String ALL_DATATYPES_AVRO_TOPIC_NAME = "write_all_datatypes_avro";
 
     private static final String STRUCTURAL_AVRO_TABLE_NAME = "product_tests.write_structural_datatype_avro";
-    private static final String STRUCTURAL_AVRO_TOPIC_NAME = "write_structural_datatype_avro";
-
-    // Kafka connector requires tables to be predefined in Presto configuration
-    // the requirements here will be used to verify that table actually exists and to
-    // create topics
-    private static class AllDataTypesAvroTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return immutableTable(new KafkaTableDefinition(
-                    ALL_DATATYPES_AVRO_TABLE_NAME,
-                    ALL_DATATYPES_AVRO_TOPIC_NAME,
-                    new ListKafkaDataSource(ImmutableList.of()),
-                    1,
-                    1));
-        }
-    }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(AllDataTypesAvroTable.class)
     public void testInsertPrimitiveDataType()
     {
         assertThat(query(format(
@@ -87,23 +58,7 @@ public class TestKafkaAvroWritesSmokeTest
                         row("kasia", 9223372036854775807L, null, null));
     }
 
-    private static class StructuralDataTypeTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return immutableTable(new KafkaTableDefinition(
-                    STRUCTURAL_AVRO_TABLE_NAME,
-                    STRUCTURAL_AVRO_TOPIC_NAME,
-                    new ListKafkaDataSource(ImmutableList.of()),
-                    1,
-                    1));
-        }
-    }
-
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(StructuralDataTypeTable.class)
     public void testInsertStructuralDataType()
     {
         assertThat(() -> query(format(

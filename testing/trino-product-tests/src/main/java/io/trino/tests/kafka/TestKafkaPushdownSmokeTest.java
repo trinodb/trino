@@ -13,7 +13,6 @@
  */
 package io.trino.tests.kafka;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
@@ -53,7 +52,6 @@ public class TestKafkaPushdownSmokeTest
     private static final String PUSHDOWN_OFFSET_TOPIC_NAME = "pushdown_offset";
 
     private static final String PUSHDOWN_CREATE_TIME_TABLE_NAME = "pushdown_create_time";
-    private static final String PUSHDOWN_CREATE_TIME_TOPIC_NAME = "pushdown_create_time";
 
     // Kafka connector requires tables to be predefined in Presto configuration
     // the code here will be used to verify that table actually exists and to
@@ -164,23 +162,7 @@ public class TestKafkaPushdownSmokeTest
                 .containsExactly(row(2));
     }
 
-    private static class PushdownCreateTimeTable
-            implements RequirementsProvider
-    {
-        @Override
-        public Requirement getRequirements(Configuration configuration)
-        {
-            return immutableTable(new KafkaTableDefinition(
-                    SCHEMA_NAME + "." + PUSHDOWN_CREATE_TIME_TABLE_NAME,
-                    PUSHDOWN_CREATE_TIME_TOPIC_NAME,
-                    new ListKafkaDataSource(ImmutableList.of()),
-                    1,
-                    1));
-        }
-    }
-
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
-    @Requires(PushdownCreateTimeTable.class)
     public void testCreateTimePushdown()
             throws InterruptedException
     {
