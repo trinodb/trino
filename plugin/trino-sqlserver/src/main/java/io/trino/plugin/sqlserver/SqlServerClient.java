@@ -430,7 +430,9 @@ public class SqlServerClient
                 "INNER JOIN sys.tables t ON p.object_id = t.object_id " +
                 "INNER JOIN sys.schemas s ON t.schema_id = s.schema_id " +
                 "INNER JOIN sys.indexes i ON t.object_id = i.object_id " +
-                "WHERE s.name = :schema AND t.name = :table_name AND i.type IN (0,1) " +
+                "WHERE s.name = :schema AND t.name = :table_name " +
+                "AND p.index_id = 0 " + // Heap
+                "AND i.type = 0 " + // Heap index type
                 "AND i.data_space_id NOT IN (SELECT data_space_id FROM sys.partition_schemes)")
                 .bind("schema", table.getSchemaName())
                 .bind("table_name", table.getTableName())
