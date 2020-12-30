@@ -25,17 +25,17 @@ public final class SyntheticAddress
 
     public static long encodeSyntheticAddress(int sliceIndex, int sliceOffset)
     {
-        return (((long) sliceIndex) << 32) | sliceOffset;
+        return (((long) sliceIndex) << 16) | sliceOffset;
     }
 
     public static int decodeSliceIndex(long sliceAddress)
     {
-        return ((int) (sliceAddress >> 32));
+        return ((int) (sliceAddress >> 16));
     }
 
     public static int decodePosition(long sliceAddress)
     {
         // low order bits contain the raw offset, so a simple cast here will suffice
-        return (int) sliceAddress;
+        return (int) (sliceAddress & 0xFFFF);
     }
 }
