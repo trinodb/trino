@@ -15,7 +15,7 @@
 package io.prestosql.plugin.tpcds.statistics;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tpcds.Table;
+import io.trino.tpcds.Table;
 
 import static io.prestosql.plugin.tpcds.TpcdsMetadata.schemaNameToScaleFactor;
 import static java.lang.String.format;
