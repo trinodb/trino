@@ -30,7 +30,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -79,7 +78,7 @@ public class TestCachingJdbcClient
 
     private CachingJdbcClient createCachingJdbcClient(Duration cacheTtl, boolean cacheMissing)
     {
-        return new CachingJdbcClient(database.getJdbcClient(), Set.of(getTestSessionPropertiesProvider()), cacheTtl, cacheMissing);
+        return new CachingJdbcClient(database.getJdbcClient(), Set.of(() -> PROPERTY_METADATA), cacheTtl, cacheMissing);
     }
 
     private CachingJdbcClient createCachingJdbcClient(boolean cacheMissing)
@@ -343,18 +342,6 @@ public class TestCachingJdbcClient
                 .filter(jdbcColumnHandle -> jdbcColumnHandle.getColumnMetadata().equals(columnMetadata))
                 .findAny()
                 .orElseThrow();
-    }
-
-    private static SessionPropertiesProvider getTestSessionPropertiesProvider()
-    {
-        return new SessionPropertiesProvider()
-        {
-            @Override
-            public List<PropertyMetadata<?>> getSessionProperties()
-            {
-                return PROPERTY_METADATA;
-            }
-        };
     }
 
     private static ConnectorSession createSession(String sessionName)
