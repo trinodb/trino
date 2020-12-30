@@ -515,14 +515,13 @@
                 <version>${project.version}</version>
             </dependency>
 
-            <!-- PrestoSQL external -->
+            <!-- Trino external -->
             <dependency>
-                <groupId>io.prestosql.cassandra</groupId>
+                <groupId>io.trino.cassandra</groupId>
                 <artifactId>cassandra-driver</artifactId>
-                <version>3.1.4-2</version>
+                <version>3.1.4-3</version>
             </dependency>
 
-            <!-- Trino external -->
             <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
