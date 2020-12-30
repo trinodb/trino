@@ -316,6 +316,8 @@ public class HiveMetadata
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final AccessControlMetadata accessControlMetadata;
+    private final List<String> visibleSchemas;
+    private final List<String> hiddenSchemas;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -331,7 +333,9 @@ public class HiveMetadata
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             String prestoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
-            AccessControlMetadata accessControlMetadata)
+            AccessControlMetadata accessControlMetadata,
+            List<String> visibleSchemas,
+            List<String> hiddenSchemas)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -347,6 +351,8 @@ public class HiveMetadata
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
+        this.visibleSchemas = visibleSchemas;
+        this.hiddenSchemas = hiddenSchemas;
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -358,7 +364,7 @@ public class HiveMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return metastore.getAllDatabases().stream()
-                .filter(HiveMetadata::filterSchema)
+                .filter(schemaName -> filterSchema(schemaName))
                 .collect(toImmutableList());
     }
 
@@ -1947,7 +1953,7 @@ public class HiveMetadata
                 });
     }
 
-    private static boolean filterSchema(String schemaName)
+    private boolean filterSchema(String schemaName)
     {
         if ("information_schema".equals(schemaName)) {
             // For things like listing columns in information_schema.columns table, we need to explicitly filter out Hive's own information_schema.
@@ -1957,6 +1963,12 @@ public class HiveMetadata
         if ("sys".equals(schemaName)) {
             // Hive 3's `sys` schema contains no objects we can handle, so there is no point in exposing it.
             // Also, exposing it may require proper handling in access control.
+            return false;
+        }
+        if (visibleSchemas != null && visibleSchemas.size() > 0 && !visibleSchemas.contains(schemaName)) {
+            return false;
+        }
+        if (hiddenSchemas != null && hiddenSchemas.size() > 0 && hiddenSchemas.contains(schemaName)) {
             return false;
         }
         return true;
