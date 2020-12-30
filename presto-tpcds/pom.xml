@@ -17,7 +17,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.prestosql.tpcds</groupId>
+            <groupId>io.trino.tpcds</groupId>
             <artifactId>tpcds</artifactId>
         </dependency>
 

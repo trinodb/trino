@@ -27,7 +27,7 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
-import io.prestosql.tpcds.Table;
+import io.trino.tpcds.Table;
 
 import java.time.LocalDate;
 import java.util.Map;
