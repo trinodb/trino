@@ -1426,7 +1426,7 @@ public class TestHiveTableStatistics
         query("DROP TABLE IF EXISTS " + tableName);
         try {
             query(format("CREATE TABLE %1$s(c_basic %2$s, c_minmax %2$s, c_inf %2$s, c_ninf %2$s, c_nan %2$s, c_nzero %2$s)", tableName, dataType));
-            query("ANALYZE " + tableName); // TODO remove after https://github.com/prestosql/presto/issues/2469
+            query("ANALYZE " + tableName); // TODO remove after https://github.com/trinodb/trino/issues/2469
 
             query(format(
                     "INSERT INTO %1$s(c_basic, c_minmax, c_inf, c_ninf, c_nan, c_nzero) VALUES " +

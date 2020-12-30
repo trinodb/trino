@@ -168,7 +168,7 @@ public abstract class AbstractTestDistributedQueries
         assertQueryFails("CREATE TABLE " + tableName + " (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
-        // TODO (https://github.com/prestosql/presto/issues/5901) revert to longer name when Oracle version is updated
+        // TODO (https://github.com/trinodb/trino/issues/5901) revert to longer name when Oracle version is updated
         tableName = "test_cr_tab_not_exists_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar, c double)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
@@ -1005,7 +1005,7 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "AssertionError: expected \\[.*\\] but found \\[.*\\]")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "AssertionError: expected \\[.*\\] but found \\[.*\\]")
     public void testWrittenStats()
     {
         String tableName = "test_written_stats_" + randomTableSuffix();

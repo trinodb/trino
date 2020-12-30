@@ -734,14 +734,14 @@ public class TestJdbcPreparedStatement
         BindAssertion assertion = assertBind((ps, i) -> ps.setObject(i, jvmGapDate))
                 .resultsIn("date", "DATE '1970-01-01'");
         assertThatThrownBy(() -> assertion.roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate)))
-                // TODO (https://github.com/prestosql/presto/issues/6242) this currently fails
+                // TODO (https://github.com/trinodb/trino/issues/6242) this currently fails
                 .isInstanceOf(SQLException.class)
                 .hasStackTraceContaining("io.trino.jdbc.PrestoResultSet.getObject")
                 .hasMessage("Expected value to be a date but is: 1970-01-01");
 
         assertBind((ps, i) -> ps.setObject(i, jvmGapDate, Types.DATE))
                 .resultsIn("date", "DATE '1970-01-01'");
-//                .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate)); // TODO (https://github.com/prestosql/presto/issues/6242) this currently fails
+//                .roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate)); // TODO (https://github.com/trinodb/trino/issues/6242) this currently fails
     }
 
     @Test
@@ -841,7 +841,7 @@ public class TestJdbcPreparedStatement
         // positive offset
         assertBind((ps, i) -> ps.setObject(i, OffsetTime.of(12, 34, 56, 123_456_789, ZoneOffset.ofHoursMinutes(7, 35)), Types.TIME_WITH_TIMEZONE))
                 .resultsIn("time(9) with time zone", "TIME '12:34:56.123456789+07:35'");
-        // TODO (https://github.com/prestosql/presto/issues/6351) the result is not as expected here:
+        // TODO (https://github.com/trinodb/trino/issues/6351) the result is not as expected here:
         //      .roundTripsAs(Types.TIME_WITH_TIMEZONE, toSqlTime(LocalTime.of(20, 59, 56, 123_000_000)));
 
         // negative offset
@@ -947,7 +947,7 @@ public class TestJdbcPreparedStatement
     public void testConvertTimestampWithTimeZone()
             throws SQLException
     {
-        // TODO (https://github.com/prestosql/presto/issues/6299) support ZonedDateTime
+        // TODO (https://github.com/trinodb/trino/issues/6299) support ZonedDateTime
 
         // String as TIMESTAMP WITH TIME ZONE
         assertBind((ps, i) -> ps.setObject(i, "1970-01-01 12:34:56.123 +05:45", Types.TIMESTAMP_WITH_TIMEZONE))
@@ -1060,7 +1060,7 @@ public class TestJdbcPreparedStatement
                             .isEqualTo(type);
                     assertThat(rs.getString("bound_as_varchar")).as("bound should cast to VARCHAR the same way as literal " + expectedValueLiteral)
                             .isEqualTo(rs.getString("literal_as_varchar"));
-                    // TODO (https://github.com/prestosql/presto/issues/6242) ResultSet.getObject sometimes fails
+                    // TODO (https://github.com/trinodb/trino/issues/6242) ResultSet.getObject sometimes fails
                     //  assertThat(rs.getObject("bound")).as("bound value should round trip the same way as literal " + expectedValueLiteral)
                     //        .isEqualTo(rs.getObject("literal"));
                     assertThat(rs.getObject("are_equal")).as("Expected bound value to be equal to " + expectedValueLiteral)

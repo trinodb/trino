@@ -124,7 +124,7 @@ public class ServerIT
                     .start();
             QueryRunner queryRunner = new QueryRunner(container.getContainerIpAddress(), container.getMappedPort(8080));
             assertEquals(queryRunner.execute("SHOW CATALOGS"), ImmutableSet.of(asList("system"), asList("hive"), asList("jmx")));
-            // TODO remove usage of assertEventually once https://github.com/prestosql/presto/issues/2214 is fixed
+            // TODO remove usage of assertEventually once https://github.com/trinodb/trino/issues/2214 is fixed
             assertEventually(
                     new io.airlift.units.Duration(1, MINUTES),
                     () -> assertEquals(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\""), ImmutableSet.of(asList(expectedJavaVersion))));

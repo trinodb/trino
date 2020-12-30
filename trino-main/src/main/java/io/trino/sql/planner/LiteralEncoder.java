@@ -243,7 +243,7 @@ public final class LiteralEncoder
                 // Certain (point in time, time zone) pairs cannot be represented as a TIMESTAMP literal, as the literal uses local date/time in given time zone.
                 // Thus, during DST backwards change by e.g. 1 hour, the local time is "repeated" twice and thus one local date/time logically corresponds to two
                 // points in time, leaving one of them non-referencable.
-                // TODO (https://github.com/prestosql/presto/issues/5781) consider treating such values as illegal
+                // TODO (https://github.com/trinodb/trino/issues/5781) consider treating such values as illegal
             }
             else {
                 return new TimestampLiteral(representation);

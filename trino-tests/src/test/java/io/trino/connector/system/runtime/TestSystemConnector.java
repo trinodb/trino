@@ -105,7 +105,7 @@ public class TestSystemConnector
         executor.shutdownNow();
     }
 
-    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/prestosql/presto/issues/5608
+    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
     @Test(invocationCount = 10, successPercentage = 80)
     public void testRuntimeQueriesTimestamps()
     {
@@ -129,7 +129,7 @@ public class TestSystemConnector
         }
     }
 
-    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/prestosql/presto/issues/5608
+    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
     @Test(invocationCount = 10, successPercentage = 80)
     public void testRuntimeTasksTimestamps()
     {
@@ -153,7 +153,7 @@ public class TestSystemConnector
         }
     }
 
-    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/prestosql/presto/issues/5608
+    // Test is run multiple times because it is vulnerable to OS clock adjustment. See https://github.com/trinodb/trino/issues/5608
     @Test(invocationCount = 10, successPercentage = 80)
     public void testRuntimeTransactionsTimestamps()
     {

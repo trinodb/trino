@@ -258,7 +258,7 @@ public class TestKafkaWritesSmokeTest
                         "c_time_seconds_since_epoch, " +
                         "c_time_iso8601, " +
                         "c_time_custom, " +
-                        // TODO Until https://github.com/prestosql/presto/pull/307 is done, comparing string representation is more resilient against JVM timezone differences
+                        // TODO Until https://github.com/trinodb/trino/pull/307 is done, comparing string representation is more resilient against JVM timezone differences
                         "CAST(c_timestamptz_iso8601 AS VARCHAR), " +
                         "CAST(c_timestamptz_rfc2822 AS VARCHAR), " +
                         "CAST(c_timestamptz_custom AS VARCHAR), " +

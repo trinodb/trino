@@ -54,7 +54,7 @@ public class TestExpressions
     @Test
     public void testInlineNullBind()
     {
-        // https://github.com/prestosql/presto/issues/3411
+        // https://github.com/trinodb/trino/issues/3411
         assertThat(assertions.query("SELECT try(k) FROM (SELECT null) t(k)")).matches("VALUES null");
     }
 }

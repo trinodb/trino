@@ -114,7 +114,7 @@ public class TestRoles
     public void testListGrants()
     {
         if (getHiveVersionMajor() >= 3) {
-            throw new SkipException(""); // TODO (https://github.com/prestosql/presto/issues/1218) this currently fails on HDP 3
+            throw new SkipException(""); // TODO (https://github.com/trinodb/trino/issues/1218) this currently fails on HDP 3
         }
 
         onPresto().executeQuery("SHOW GRANTS"); // must not fail

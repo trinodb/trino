@@ -107,7 +107,7 @@ public final class HiveType
     public Type getType(TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
     {
         Type tentativeType = typeManager.getType(getTypeSignature());
-        // TODO: handle timestamps in structural types (https://github.com/prestosql/presto/issues/5195)
+        // TODO: handle timestamps in structural types (https://github.com/trinodb/trino/issues/5195)
         if (tentativeType instanceof TimestampType) {
             return TimestampType.createTimestampType(timestampPrecision.getPrecision());
         }

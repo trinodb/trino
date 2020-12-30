@@ -578,7 +578,7 @@ public class PlanOptimizers
                         .build());
         builder.add(pushIntoTableScanOptimizer);
         builder.add(new UnaliasSymbolReferences(metadata));
-        builder.add(pushIntoTableScanOptimizer); // TODO (https://github.com/prestosql/presto/issues/811) merge with the above after migrating UnaliasSymbolReferences to rules
+        builder.add(pushIntoTableScanOptimizer); // TODO (https://github.com/trinodb/trino/issues/811) merge with the above after migrating UnaliasSymbolReferences to rules
 
         builder.add(
                 new IterativeOptimizer(

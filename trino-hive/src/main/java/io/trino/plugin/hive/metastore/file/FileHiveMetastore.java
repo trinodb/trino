@@ -347,7 +347,7 @@ public class FileHiveMetastore
     @Override
     public synchronized void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
     {
-        // TODO Add role support https://github.com/prestosql/presto/issues/5706
+        // TODO Add role support https://github.com/trinodb/trino/issues/5706
         if (principal.getType() != USER) {
             throw new PrestoException(NOT_SUPPORTED, "Setting table owner type as a role is not supported");
         }

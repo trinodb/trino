@@ -129,7 +129,7 @@ public class TestPhoenixDistributedQueries
     @Override
     public void testCreateSchema()
     {
-        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/prestosql/presto/issues/2348
+        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/trinodb/trino/issues/2348
     }
 
     @Override

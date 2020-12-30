@@ -70,13 +70,13 @@ public class TestHiveDistributedQueries
     public void testColumnName(String columnName)
     {
         if (columnName.equals("atrailingspace ") || columnName.equals(" aleadingspace")) {
-            // TODO (https://github.com/prestosql/presto/issues/3461)
+            // TODO (https://github.com/trinodb/trino/issues/3461)
             assertThatThrownBy(() -> super.testColumnName(columnName))
                     .hasMessageMatching("Table '.*' does not have columns \\[" + columnName + "]");
             throw new SkipException("works incorrectly, column name is trimmed");
         }
         if (columnName.equals("a,comma")) {
-            // TODO (https://github.com/prestosql/presto/issues/3537)
+            // TODO (https://github.com/trinodb/trino/issues/3537)
             assertThatThrownBy(() -> super.testColumnName(columnName))
                     .hasMessageMatching("Table '.*' does not have columns \\[a,comma]");
             throw new SkipException("works incorrectly");

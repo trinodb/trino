@@ -54,7 +54,7 @@ public class TestIcebergDistributed
     @Override
     public void testDelete()
     {
-        // TODO (https://github.com/prestosql/presto/pull/4639#issuecomment-700737583)
+        // TODO (https://github.com/trinodb/trino/pull/4639#issuecomment-700737583)
     }
 
     @Override

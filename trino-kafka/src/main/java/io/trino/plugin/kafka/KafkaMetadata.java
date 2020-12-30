@@ -276,7 +276,7 @@ public class KafkaMetadata
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
-        // TODO: support transactional inserts https://github.com/prestosql/presto/issues/4303
+        // TODO: support transactional inserts https://github.com/trinodb/trino/issues/4303
         KafkaTableHandle table = (KafkaTableHandle) tableHandle;
         List<KafkaColumnHandle> actualColumns = table.getColumns().stream()
                 .filter(columnHandle -> !columnHandle.isInternal() && !columnHandle.isHidden())
@@ -301,7 +301,7 @@ public class KafkaMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        // TODO: support transactional inserts https://github.com/prestosql/presto/issues/4303
+        // TODO: support transactional inserts https://github.com/trinodb/trino/issues/4303
         return Optional.empty();
     }
 }

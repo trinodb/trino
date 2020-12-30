@@ -2694,7 +2694,7 @@ public abstract class AbstractTestHive
             try (Transaction transaction = newTransaction()) {
                 ConnectorMetadata metadata = transaction.getMetadata();
 
-                // TODO (https://github.com/prestosql/presto/issues/5426) these assertions should use information_schema instead of metadata directly,
+                // TODO (https://github.com/trinodb/trino/issues/5426) these assertions should use information_schema instead of metadata directly,
                 //  as information_schema or MetadataManager may apply additional logic
 
                 // list all tables

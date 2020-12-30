@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 // HDP 3.1 images (code) + HDP 3.1-like configuration.
-// See https://github.com/prestosql/presto/issues/1841 for more information.
+// See https://github.com/trinodb/trino/issues/1841 for more information.
 @TestsEnvironment
 public class SinglenodeHdp3
         extends EnvironmentProvider

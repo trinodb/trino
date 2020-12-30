@@ -152,7 +152,7 @@ abstract class AbstractPrestoResultSet
                         try {
                             return parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId()));
                         }
-                        // TODO (https://github.com/prestosql/presto/issues/6242) this should never fail
+                        // TODO (https://github.com/trinodb/trino/issues/6242) this should never fail
                         catch (IllegalArgumentException e) {
                             throw new SQLException("Expected value to be a date but is: " + string, e);
                         }
@@ -613,7 +613,7 @@ abstract class AbstractPrestoResultSet
 
         if (columnInfo.getColumnType() == Types.ARRAY) {
             // Array requires special treatment due to element metadata provided by the Array object
-            // TODO (https://github.com/prestosql/presto/issues/6049) consider returning List instead
+            // TODO (https://github.com/trinodb/trino/issues/6049) consider returning List instead
             return getArray(columnIndex);
         }
 
@@ -2068,7 +2068,7 @@ abstract class AbstractPrestoResultSet
         }
 
         long picosOfSecond = rescale(fractionValue, precision, 12); // maximum precision
-        // We eventually truncate to millis, so truncate picos to nanos for consistency TODO (https://github.com/prestosql/presto/issues/6205) reconsider
+        // We eventually truncate to millis, so truncate picos to nanos for consistency TODO (https://github.com/trinodb/trino/issues/6205) reconsider
         int nanosOfSecond = toIntExact(picosOfSecond / PICOSECONDS_PER_NANOSECOND);
         long epochMilli = ZonedDateTime.of(1970, 1, 1, hour, minute, second, nanosOfSecond, localTimeZone)
                 .toInstant()

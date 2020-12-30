@@ -108,7 +108,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEquals(computeScalar("SELECT TIME '3:04:05.123'"), LocalTime.of(3, 4, 5, 123_000_000));
         assertQuery("SELECT TIME '3:04:05'");
         assertQuery("SELECT TIME '0:04:05'");
-        // TODO https://github.com/prestosql/presto/issues/37
+        // TODO https://github.com/trinodb/trino/issues/37
         // TODO assertQuery(chicago, "SELECT TIME '3:04:05'");
         // TODO assertQuery(kathmandu, "SELECT TIME '3:04:05'");
     }
@@ -129,7 +129,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEquals(computeScalar("SELECT TIMESTAMP '1960-01-22 3:04:05.123'"), LocalDateTime.of(1960, 1, 22, 3, 4, 5, 123_000_000));
         assertQuery("SELECT TIMESTAMP '1960-01-22 3:04:05'");
         assertQuery("SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
-        // TODO https://github.com/prestosql/presto/issues/37
+        // TODO https://github.com/trinodb/trino/issues/37
         // TODO assertQuery(chicago, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
         // TODO assertQuery(kathmandu, "SELECT TIMESTAMP '1960-01-22 3:04:05.123'");
     }
@@ -354,7 +354,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testAtTimeZone()
     {
-        // TODO the expected values here are non-sensical due to https://github.com/prestosql/presto/issues/37
+        // TODO the expected values here are non-sensical due to https://github.com/trinodb/trino/issues/37
         assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE INTERVAL '07:09' hour to minute"), zonedDateTime("2012-10-30 18:09:00.000 +07:09"));
         assertEquals(computeScalar("SELECT TIMESTAMP '2012-10-31 01:00' AT TIME ZONE 'Asia/Oral'"), zonedDateTime("2012-10-30 16:00:00.000 Asia/Oral"));
         assertEquals(computeScalar("SELECT MIN(x) AT TIME ZONE 'America/Chicago' FROM (VALUES TIMESTAMP '1970-01-01 00:01:00+00:00') t(x)"), zonedDateTime("1969-12-31 18:01:00.000 America/Chicago"));

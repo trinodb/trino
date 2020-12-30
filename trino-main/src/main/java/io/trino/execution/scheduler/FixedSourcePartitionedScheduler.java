@@ -110,7 +110,7 @@ public class FixedSourcePartitionedScheduler
             SplitSource splitSource = splitSources.get(planNodeId);
             boolean groupedExecutionForScanNode = stageExecutionDescriptor.isScanGroupedExecution(planNodeId);
             // TODO : change anySourceTaskBlocked to accommodate the correct blocked status of source tasks
-            //  (ref : https://github.com/prestosql/presto/issues/4713)
+            //  (ref : https://github.com/trinodb/trino/issues/4713)
             SourceScheduler sourceScheduler = newSourcePartitionedSchedulerAsSourceScheduler(
                     stage,
                     planNodeId,

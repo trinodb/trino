@@ -306,7 +306,7 @@ public final class Statistics
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()));
         }
-        // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp
+        // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
@@ -420,7 +420,7 @@ public final class Statistics
         else if (type instanceof DecimalType) {
             result.setDecimalStatistics(new DecimalStatistics(getDecimalValue(type, min), getDecimalValue(type, max)));
         }
-        // TODO (https://github.com/prestosql/presto/issues/5859) Add support for timestamp
+        // TODO (https://github.com/trinodb/trino/issues/5859) Add support for timestamp
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }

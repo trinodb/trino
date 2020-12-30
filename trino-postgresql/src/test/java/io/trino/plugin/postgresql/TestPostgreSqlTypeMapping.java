@@ -1171,7 +1171,7 @@ public class TestPostgreSqlTypeMapping
                     .isNotFullyPushedDown(FilterNode.class);
 
             // aggregation should not be pushed down, as it would incorrectly treat values
-            // TODO https://github.com/prestosql/presto/issues/5339
+            // TODO https://github.com/trinodb/trino/issues/5339
 //            assertThat(query("SELECT count(*) FROM " + testTable.getName() + " GROUP BY a"))
 //                    .matches("VALUES BIGINT '1', BIGINT '2'")
 //                    .isNotFullyPushedDown(AggregationNode.class);

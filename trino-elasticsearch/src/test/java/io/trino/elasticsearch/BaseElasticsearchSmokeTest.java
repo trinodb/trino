@@ -829,7 +829,7 @@ public abstract class BaseElasticsearchSmokeTest
                 "SELECT count(*) FROM orders");
     }
 
-    @Test(enabled = false) // TODO (https://github.com/prestosql/presto/issues/2428)
+    @Test(enabled = false) // TODO (https://github.com/trinodb/trino/issues/2428)
     public void testMultiIndexAlias()
             throws IOException
     {

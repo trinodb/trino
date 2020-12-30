@@ -29,7 +29,7 @@ public class MySqlConfig
 
     // Using `useInformationSchema=true` prevents race condition inside MySQL driver's java.sql.DatabaseMetaData.getColumns
     // implementation, which throw SQL exception when a table disappears during listing.
-    // Using `useInformationSchema=false` may provide more diagnostic information (see https://github.com/prestosql/presto/issues/1597)
+    // Using `useInformationSchema=false` may provide more diagnostic information (see https://github.com/trinodb/trino/issues/1597)
     private boolean driverUseInformationSchema = true;
 
     public boolean isAutoReconnect()

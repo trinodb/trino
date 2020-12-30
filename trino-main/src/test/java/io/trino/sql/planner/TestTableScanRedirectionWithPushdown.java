@@ -205,7 +205,7 @@ public class TestTableScanRedirectionWithPushdown
                             tableScan(
                                     equalTo(new MockConnectorTableHandle(destinationTable)),
                                     // PushProjectionIntoTableScan does not preserve enforced constraint
-                                    // (issue: https://github.com/prestosql/presto/issues/6029)
+                                    // (issue: https://github.com/trinodb/trino/issues/6029)
                                     TupleDomain.all(),
                                     ImmutableMap.of("DEST_COL_B", equalTo(destinationColumnHandleB)))));
         }

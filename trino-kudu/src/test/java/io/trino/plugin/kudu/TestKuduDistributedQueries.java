@@ -152,7 +152,7 @@ public class TestKuduDistributedQueries
     @Override
     public void testColumnName(String columnName)
     {
-        // TODO (https://github.com/prestosql/presto/issues/3477) enable the test
+        // TODO (https://github.com/trinodb/trino/issues/3477) enable the test
         throw new SkipException("TODO");
     }
 
@@ -166,8 +166,8 @@ public class TestKuduDistributedQueries
         }
 
         if (typeName.equals("date") // date gets stored as varchar
-                || typeName.equals("varbinary") // TODO (https://github.com/prestosql/presto/issues/3416)
-                || (typeName.startsWith("char") && dataMappingTestSetup.getSampleValueLiteral().contains(" "))) { // TODO: https://github.com/prestosql/presto/issues/3597
+                || typeName.equals("varbinary") // TODO (https://github.com/trinodb/trino/issues/3416)
+                || (typeName.startsWith("char") && dataMappingTestSetup.getSampleValueLiteral().contains(" "))) { // TODO: https://github.com/trinodb/trino/issues/3597
             // TODO this should either work or fail cleanly
             return Optional.empty();
         }

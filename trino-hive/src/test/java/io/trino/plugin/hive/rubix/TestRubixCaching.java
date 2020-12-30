@@ -495,7 +495,7 @@ public class TestRubixCaching
 
         // TODO: add check for "wasb" Azure FS.
         // Testing "wasb" Azure FS requires valid Azure credentials as NativeAzureFileSystem tries to connect during initialization
-        // Fix after: https://github.com/prestosql/presto/issues/2380
+        // Fix after: https://github.com/trinodb/trino/issues/2380
 
         try (FileSystem fileSystem = getCachingFileSystem(context, new Path("abfss://fileanalysis@foo-bar.dfs.core.windows.net/tutorials"))) {
             assertRawFileSystemInstanceOf(fileSystem, CachingPrestoSecureAzureBlobFileSystem.class);

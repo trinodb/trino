@@ -129,7 +129,7 @@ public class TestDistributedEngineOnlyQueries
     @Test
     public void testRowTypeWithReservedKeyword()
     {
-        // This test is here because it only reproduces the issue (https://github.com/prestosql/presto/issues/1962)
+        // This test is here because it only reproduces the issue (https://github.com/trinodb/trino/issues/1962)
         // when running in distributed mode
         assertQuery(
                 "SELECT cast(row(1) AS row(\"cross\" bigint)).\"cross\"",

@@ -74,7 +74,7 @@ public class TestHiveViewsLegacy
     }
 
     @Test(groups = HIVE_VIEWS)
-    // TODO (https://github.com/prestosql/presto/issues/5911) the test does not test view coercion
+    // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
     public void testViewWithUnsupportedCoercion()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_unsupported_coercion");
@@ -85,7 +85,7 @@ public class TestHiveViewsLegacy
     }
 
     @Test(groups = HIVE_VIEWS)
-    // TODO (https://github.com/prestosql/presto/issues/5911) the test does not test view coercion
+    // TODO (https://github.com/trinodb/trino/issues/5911) the test does not test view coercion
     public void testWithUnsupportedFunction()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS view_with_repeat_function");
@@ -203,7 +203,7 @@ public class TestHiveViewsLegacy
                 "   IF(`n`.`n_name` IN ('ALGERIA', 'ARGENTINA'), 1, 0) AS `starts_with_a`, \n" +
                 "   IF(`n`.`n_name` != 'PERU', 1, 0) `not_peru`, \n" + // no "AS" here
                 "   IF(`n`.`n_name` LIKE '%N%', 1, 0) `CONTAINS_N`, \n" + // LIKE, uppercase column name
-                // TODO (https://github.com/prestosql/presto/issues/5837) "   CASE n_regionkey WHEN 0 THEN 'Africa' WHEN 1 THEN 'America' END region_name, \n" + // simple CASE
+                // TODO (https://github.com/trinodb/trino/issues/5837) "   CASE n_regionkey WHEN 0 THEN 'Africa' WHEN 1 THEN 'America' END region_name, \n" + // simple CASE
                 "   CASE WHEN n_name = \"BRAZIL\" THEN 'is BRAZIL' WHEN n_name = \"ALGERIA\" THEN 'is ALGERIA' ELSE \"\" END is_something,\n" + // searched CASE, double quote string literals
                 "   COALESCE(IF(n_name LIKE 'A%', NULL, n_name), 'A%') AS coalesced_name, \n" + // coalesce
                 "   round(tan(n_nationkey), 3) AS rounded_tan, \n" + // functions

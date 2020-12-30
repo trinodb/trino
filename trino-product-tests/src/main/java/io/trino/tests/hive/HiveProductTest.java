@@ -21,7 +21,7 @@ import javax.inject.Inject;
 public class HiveProductTest
         extends ProductTest
 {
-    static final String ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE = "https://github.com/prestosql/presto/issues/4936";
+    static final String ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE = "https://github.com/trinodb/trino/issues/4936";
     @Language("RegExp")
     static final String ERROR_COMMITTING_WRITE_TO_HIVE_MATCH = "Error committing write to Hive(?s:.*)" +
             // "could only be written to 0 of the 1 minReplication" is the error wording used by e.g. HDP 3

@@ -323,7 +323,7 @@ public class TestShowStats
     @Test
     public void testShowStatsWithGroupBy()
     {
-        // TODO calculate row count - https://github.com/prestosql/presto/issues/6323
+        // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT avg(totalprice) AS x FROM orders GROUP BY orderkey)",
                 "VALUES " +
@@ -344,7 +344,7 @@ public class TestShowStats
     @Test
     public void testShowStatsWithSelectDistinct()
     {
-        // TODO calculate row count - https://github.com/prestosql/presto/issues/6323
+        // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT DISTINCT * FROM orders)",
                 "VALUES " +
@@ -358,7 +358,7 @@ public class TestShowStats
                         "   ('shippriority', null, null, null, null, null, null), " +
                         "   ('comment', null, null, null, null, null, null), " +
                         "   (null, null, null, null, null, null, null)");
-        // TODO calculate row count - https://github.com/prestosql/presto/issues/6323
+        // TODO calculate row count - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT DISTINCT regionkey FROM region)",
                 "VALUES " +
@@ -374,7 +374,7 @@ public class TestShowStats
                 "VALUES " +
                         "   ('x', null, null, null, null, null, null), " +
                         "   (null, null, null, null, 15000, null, null)");
-        // TODO - row count should be 1 - https://github.com/prestosql/presto/issues/6323
+        // TODO - row count should be 1 - https://github.com/trinodb/trino/issues/6323
         assertQuery(
                 "SHOW STATS FOR (SELECT count(*) AS x FROM orders)",
                 "VALUES " +
