@@ -415,10 +415,64 @@ public class TestSqlServerIntegrationSmokeTest
                         "   salesdate date,\n" +
                         "   quantity integer\n" +
                         ")");
-
         assertUpdate("DROP TABLE partitionedSales");
         sqlServer.execute("DROP PARTITION SCHEME psSales");
         sqlServer.execute("DROP PARTITION FUNCTION pfSales");
+    }
+
+    @Test
+    public void testShowCreateForIndexedAndCompressedTable()
+    {
+        // SHOW CREATE doesn't expose data compression for Indexed tables
+        sqlServer.execute("CREATE TABLE test_show_indexed_table (\n" +
+                "   key1 BIGINT NOT NULL,\n" +
+                "   key2 BIGINT NOT NULL,\n" +
+                "   key3 BIGINT NOT NULL,\n" +
+                "   key4 BIGINT NOT NULL,\n" +
+                "   key5 BIGINT NOT NULL,\n" +
+                "   CONSTRAINT PK_IndexedTable PRIMARY KEY CLUSTERED (key1),\n" +
+                "   CONSTRAINT IX_IndexedTable UNIQUE (key2, key3),\n" +
+                "   INDEX IX_MyTable4 NONCLUSTERED (key4, key5))\n" +
+                "   WITH (DATA_COMPRESSION = PAGE)");
+
+        assertThat((String) computeActual("SHOW CREATE TABLE test_show_indexed_table").getOnlyValue())
+                .isEqualTo("CREATE TABLE sqlserver.dbo.test_show_indexed_table (\n" +
+                        "   key1 bigint NOT NULL,\n" +
+                        "   key2 bigint NOT NULL,\n" +
+                        "   key3 bigint NOT NULL,\n" +
+                        "   key4 bigint NOT NULL,\n" +
+                        "   key5 bigint NOT NULL\n" +
+                        ")");
+
+        assertUpdate("DROP TABLE test_show_indexed_table");
+    }
+
+    @Test
+    public void testShowCreateForUniqueConstraintCompressedTable()
+    {
+        sqlServer.execute("CREATE TABLE test_show_unique_constraint_table (\n" +
+                "   key1 BIGINT NOT NULL,\n" +
+                "   key2 BIGINT NOT NULL,\n" +
+                "   key3 BIGINT NOT NULL,\n" +
+                "   key4 BIGINT NOT NULL,\n" +
+                "   key5 BIGINT NOT NULL,\n" +
+                "   UNIQUE (key1, key4),\n" +
+                "   UNIQUE (key2, key3))\n" +
+                "   WITH (DATA_COMPRESSION = PAGE)");
+
+        assertThat((String) computeActual("SHOW CREATE TABLE test_show_unique_constraint_table").getOnlyValue())
+                .isEqualTo("CREATE TABLE sqlserver.dbo.test_show_unique_constraint_table (\n" +
+                        "   key1 bigint NOT NULL,\n" +
+                        "   key2 bigint NOT NULL,\n" +
+                        "   key3 bigint NOT NULL,\n" +
+                        "   key4 bigint NOT NULL,\n" +
+                        "   key5 bigint NOT NULL\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   data_compression = 'PAGE'\n" +
+                        ")");
+
+        assertUpdate("DROP TABLE test_show_unique_constraint_table");
     }
 
     private String getLongInClause(int start, int length)
