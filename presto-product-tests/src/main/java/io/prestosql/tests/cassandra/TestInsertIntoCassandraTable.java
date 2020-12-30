@@ -14,13 +14,13 @@
 package io.prestosql.tests.cassandra;
 
 import io.airlift.units.Duration;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.internal.fulfillment.table.TableName;
-import io.prestosql.tempto.internal.query.CassandraQueryExecutor;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.internal.fulfillment.table.TableName;
+import io.trino.tempto.internal.query.CassandraQueryExecutor;
+import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
@@ -28,18 +28,18 @@ import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
 import static io.prestosql.tests.utils.QueryAssertions.assertContainsEventually;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 

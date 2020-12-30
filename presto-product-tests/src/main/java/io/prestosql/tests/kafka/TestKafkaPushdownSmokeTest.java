@@ -14,27 +14,27 @@
 package io.prestosql.tests.kafka;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.Requires;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.fulfillment.table.kafka.KafkaMessage;
-import io.prestosql.tempto.fulfillment.table.kafka.KafkaTableDefinition;
-import io.prestosql.tempto.fulfillment.table.kafka.ListKafkaDataSource;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.Requires;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.fulfillment.table.kafka.KafkaMessage;
+import io.trino.tempto.fulfillment.table.kafka.KafkaTableDefinition;
+import io.trino.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.prestosql.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
-import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.KAFKA;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.trino.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 public class TestKafkaPushdownSmokeTest

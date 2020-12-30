@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   v1 AS (
    SELECT
@@ -24,7 +24,7 @@ WITH
          OR (("d_year" = (1999 + 1))
             AND ("d_moy" = 1)))
    GROUP BY "i_category", "i_brand", "cc_name", "d_year", "d_moy"
-) 
+)
 , v2 AS (
    SELECT
      "v1"."i_category"
@@ -48,7 +48,7 @@ WITH
       AND ("v1"."cc_name" = "v1_lead"."cc_name")
       AND ("v1"."rn" = ("v1_lag"."rn" + 1))
       AND ("v1"."rn" = ("v1_lead"."rn" - 1))
-) 
+)
 SELECT *
 FROM
   v2

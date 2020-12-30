@@ -13,14 +13,14 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.COMMENT;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

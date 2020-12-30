@@ -14,12 +14,12 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.primitives.Longs;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requires;
-import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
-import io.prestosql.tempto.query.QueryExecutor;
-import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.testng.services.Flaky;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requires;
+import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.trino.tempto.query.QueryExecutor;
+import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.util.List;

@@ -14,28 +14,28 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.Inject;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.fulfillment.table.MutableTablesState;
-import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
-import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
-import io.prestosql.tempto.query.QueryExecutionException;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.fulfillment.table.MutableTablesState;
+import io.trino.tempto.fulfillment.table.hive.HiveDataSource;
+import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.trino.tempto.query.QueryExecutionException;
+import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.prestosql.tempto.Requirements.allOf;
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
-import static io.prestosql.tempto.query.QueryExecutor.query;
+import static io.trino.tempto.Requirements.allOf;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
+import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
+import static io.trino.tempto.query.QueryExecutor.query;
 
 public class TestTablePartitioningSelect
         extends ProductTest

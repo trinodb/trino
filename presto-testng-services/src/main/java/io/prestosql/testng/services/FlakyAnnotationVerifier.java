@@ -59,7 +59,7 @@ public class FlakyAnnotationVerifier
         Class<?> realClass = testClass.getRealClass();
 
         if (realClass.getSuperclass() != null &&
-                "io.prestosql.tempto.internal.convention.ConventionBasedTestProxyGenerator$ConventionBasedTestProxy".equals(realClass.getSuperclass().getName())) {
+                "io.trino.tempto.internal.convention.ConventionBasedTestProxyGenerator$ConventionBasedTestProxy".equals(realClass.getSuperclass().getName())) {
             // Ignore tempto generated convention tests.
             return;
         }

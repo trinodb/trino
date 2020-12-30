@@ -13,11 +13,11 @@
  */
 package io.prestosql.testng.services;
 
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.Requirements;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.testmarkers.WithName;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.Requirements;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.testmarkers.WithName;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;

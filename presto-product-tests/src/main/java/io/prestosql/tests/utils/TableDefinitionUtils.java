@@ -13,13 +13,13 @@
  */
 package io.prestosql.tests.utils;
 
-import io.prestosql.tempto.fulfillment.table.MutableTablesState;
-import io.prestosql.tempto.fulfillment.table.TableDefinition;
-import io.prestosql.tempto.fulfillment.table.TableHandle;
-import io.prestosql.tempto.fulfillment.table.TableInstance;
+import io.trino.tempto.fulfillment.table.MutableTablesState;
+import io.trino.tempto.fulfillment.table.TableDefinition;
+import io.trino.tempto.fulfillment.table.TableHandle;
+import io.trino.tempto.fulfillment.table.TableInstance;
 
-import static io.prestosql.tempto.context.ThreadLocalTestContextHolder.testContext;
-import static io.prestosql.tempto.fulfillment.table.TableHandle.tableHandle;
+import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
+import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
 
 public final class TableDefinitionUtils
 {

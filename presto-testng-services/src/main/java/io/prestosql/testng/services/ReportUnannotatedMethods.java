@@ -56,7 +56,7 @@ public class ReportUnannotatedMethods
         Class<?> realClass = testClass.getRealClass();
 
         if (realClass.getSuperclass() != null &&
-                "io.prestosql.tempto.internal.convention.ConventionBasedTestProxyGenerator$ConventionBasedTestProxy".equals(realClass.getSuperclass().getName())) {
+                "io.trino.tempto.internal.convention.ConventionBasedTestProxyGenerator$ConventionBasedTestProxy".equals(realClass.getSuperclass().getName())) {
             // Ignore tempto generated convention tests.
             return;
         }
@@ -156,7 +156,7 @@ public class ReportUnannotatedMethods
     @VisibleForTesting
     static boolean isTemptoClass(Class<?> aClass)
     {
-        String temptoPackage = "io.prestosql.tempto";
+        String temptoPackage = "io.trino.tempto";
         String aPackage = aClass.getPackage().getName();
         return aPackage.equals(temptoPackage) || aPackage.startsWith(temptoPackage + ".");
     }

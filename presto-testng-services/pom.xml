@@ -54,7 +54,7 @@
 
         <!-- testing -->
         <dependency>
-            <groupId>io.prestosql.tempto</groupId>
+            <groupId>io.trino.tempto</groupId>
             <artifactId>tempto-core</artifactId>
             <scope>test</scope>
         </dependency>

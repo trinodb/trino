@@ -13,23 +13,23 @@
  */
 package io.prestosql.tests;
 
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.Requires;
-import io.prestosql.tempto.assertions.QueryAssert;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.fulfillment.table.ImmutableTableRequirement;
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.Requires;
+import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.fulfillment.table.ImmutableTableRequirement;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.context.ThreadLocalTestContextHolder.testContextIfSet;
-import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.SIMPLE;
 import static io.prestosql.tests.TestGroups.SMOKE;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContextIfSet;
+import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimpleQuery

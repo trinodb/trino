@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   year_total AS (
    SELECT
@@ -31,7 +31,7 @@ UNION ALL    SELECT
       AND ("ws_sold_date_sk" = "d_date_sk")
       AND ("d_year" IN (2001   , (2001 + 1)))
    GROUP BY "c_customer_id", "c_first_name", "c_last_name", "d_year"
-) 
+)
 SELECT
   "t_s_secyear"."customer_id"
 , "t_s_secyear"."customer_first_name"

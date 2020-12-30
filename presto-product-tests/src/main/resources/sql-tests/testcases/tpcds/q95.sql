@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   ws_wh AS (
    SELECT
@@ -10,7 +10,7 @@ WITH
    , web_sales ws2
    WHERE ("ws1"."ws_order_number" = "ws2"."ws_order_number")
       AND ("ws1"."ws_warehouse_sk" <> "ws2"."ws_warehouse_sk")
-) 
+)
 SELECT
   "count"(DISTINCT "ws_order_number") "order count"
 , "sum"("ws_ext_ship_cost") "total shipping cost"

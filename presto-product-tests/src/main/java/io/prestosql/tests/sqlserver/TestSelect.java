@@ -14,22 +14,18 @@
 package io.prestosql.tests.sqlserver;
 
 import io.airlift.log.Logger;
-import io.prestosql.tempto.AfterTestWithContext;
-import io.prestosql.tempto.BeforeTestWithContext;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requirement;
-import io.prestosql.tempto.RequirementsProvider;
-import io.prestosql.tempto.configuration.Configuration;
-import io.prestosql.tempto.query.QueryResult;
+import io.trino.tempto.AfterTestWithContext;
+import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.Requirement;
+import io.trino.tempto.RequirementsProvider;
+import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 
-import static io.prestosql.tempto.Requirements.compose;
-import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TestGroups.SQL_SERVER;
 import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
@@ -39,6 +35,10 @@ import static io.prestosql.tests.sqlserver.TestConstants.CONNECTOR_NAME;
 import static io.prestosql.tests.sqlserver.TestConstants.KEY_SPACE;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static io.prestosql.tests.utils.QueryExecutors.onSqlServer;
+import static io.trino.tempto.Requirements.compose;
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.CHAR;

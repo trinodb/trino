@@ -15,14 +15,14 @@ package io.prestosql.tests.hive;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
+import io.trino.tempto.ProductTest;
+import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
-import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tempto.query.QueryExecutor.query;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

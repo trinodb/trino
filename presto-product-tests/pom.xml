@@ -45,34 +45,28 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.tempto</groupId>
-            <artifactId>tempto-core</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.prestosql.hive</groupId>
-                    <artifactId>hive-apache</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>io.trino.hive</groupId>
+            <artifactId>hive-apache</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.tempto</groupId>
+            <groupId>io.trino.tempto</groupId>
+            <artifactId>tempto-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.tempto</groupId>
             <artifactId>tempto-kafka</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.tempto</groupId>
+            <groupId>io.trino.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.tempto</groupId>
+            <groupId>io.trino.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hive</groupId>
-            <artifactId>hive-apache</artifactId>
         </dependency>
 
         <dependency>

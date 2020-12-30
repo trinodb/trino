@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   all_sales AS (
    SELECT
@@ -58,7 +58,7 @@ UNION       SELECT
       WHERE ("i_category" = 'Books')
    )  sales_detail
    GROUP BY "d_year", "i_brand_id", "i_class_id", "i_category_id", "i_manufact_id"
-) 
+)
 SELECT
   "prev_yr"."d_year" "prev_year"
 , "curr_yr"."d_year" "year"

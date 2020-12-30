@@ -1,4 +1,4 @@
--- database: presto_tpcds; groups: tpcds; requires: io.prestosql.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
+-- database: presto_tpcds; groups: tpcds; requires: io.trino.tempto.fulfillment.table.hive.tpcds.ImmutableTpcdsTablesRequirements
 WITH
   customer_total_return AS (
    SELECT
@@ -11,7 +11,7 @@ WITH
    WHERE ("sr_returned_date_sk" = "d_date_sk")
       AND ("d_year" = 2000)
    GROUP BY "sr_customer_sk", "sr_store_sk"
-) 
+)
 SELECT "c_customer_id"
 FROM
   customer_total_return ctr1
