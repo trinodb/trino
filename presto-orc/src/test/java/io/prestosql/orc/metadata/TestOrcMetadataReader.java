@@ -19,8 +19,8 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.metadata.statistics.StringStatistics;
-import io.prestosql.orc.proto.OrcProto;
-import io.prestosql.orc.protobuf.ByteString;
+import io.trino.orc.proto.OrcProto;
+import io.trino.orc.protobuf.ByteString;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
