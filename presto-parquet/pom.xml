@@ -27,7 +27,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.hive</groupId>
+            <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache</artifactId>
         </dependency>
 
