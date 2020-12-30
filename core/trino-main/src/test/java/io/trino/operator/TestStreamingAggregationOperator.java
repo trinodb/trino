@@ -39,6 +39,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -92,37 +93,54 @@ public class TestStreamingAggregationOperator
     @Test
     public void test()
     {
-        RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(BOOLEAN, VARCHAR, BIGINT);
+        OperatorFactory operatorFactory = StreamingAggregationOperator.createOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                ImmutableList.of(BOOLEAN, DOUBLE, BIGINT),
+                ImmutableList.of(DOUBLE),
+                ImmutableList.of(1),
+                AggregationNode.Step.SINGLE,
+                ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
+                        LONG_SUM.bind(ImmutableList.of(2), Optional.empty())),
+                new JoinCompiler(new TypeOperators()));
+
+        RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(BOOLEAN, DOUBLE, BIGINT);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(3, 0, 0, 1)
-                .row(true, "3", 4)
-                .row(false, "3", 5)
+                .row(true, 3.0, 4)
+                .row(false, 3.0, 5)
                 .pageBreak()
-                .row(true, "3", 6)
-                .row(false, "4", 7)
-                .row(true, "4", 8)
-                .row(false, "4", 9)
-                .row(true, "4", 10)
+                .row(true, 3.0, 6)
+                .row(false, 4.0, 7)
+                .row(true, 4.0, 8)
+                .row(false, 4.0, 9)
+                .row(true, 4.0, 10)
                 .pageBreak()
-                .row(false, "5", 11)
-                .row(true, "5", 12)
-                .row(false, "5", 13)
-                .row(true, "5", 14)
-                .row(false, "5", 15)
+                .row(false, 5.0, 11)
+                .row(true, 5.0, 12)
+                .row(false, 5.0, 13)
+                .row(true, 5.0, 14)
+                .row(false, 5.0, 15)
                 .pageBreak()
                 .addSequencePage(3, 0, 6, 16)
+                .row(false, Double.NaN, 1)
+                .row(false, Double.NaN, 10)
+                .row(false, null, 2)
+                .row(false, null, 20)
                 .build();
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT)
-                .row("0", 1L, 1L)
-                .row("1", 1L, 2L)
-                .row("2", 1L, 3L)
-                .row("3", 3L, 15L)
-                .row("4", 4L, 34L)
-                .row("5", 5L, 65L)
-                .row("6", 1L, 16L)
-                .row("7", 1L, 17L)
-                .row("8", 1L, 18L)
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
+                .row(0.0, 1L, 1L)
+                .row(1.0, 1L, 2L)
+                .row(2.0, 1L, 3L)
+                .row(3.0, 3L, 15L)
+                .row(4.0, 4L, 34L)
+                .row(5.0, 5L, 65L)
+                .row(6.0, 1L, 16L)
+                .row(7.0, 1L, 17L)
+                .row(8.0, 1L, 18L)
+                .row(Double.NaN, 2L, 11L)
+                .row(null, 2L, 22L)
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
