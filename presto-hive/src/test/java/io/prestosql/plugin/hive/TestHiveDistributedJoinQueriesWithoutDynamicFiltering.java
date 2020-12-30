@@ -18,7 +18,7 @@ import io.prestosql.testing.AbstractTestJoinQueries;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tpch.TpchTable.getTables;
+import static io.trino.tpch.TpchTable.getTables;
 
 /**
  * @see TestHiveDistributedJoinQueries for tests with dynamic filtering enabled

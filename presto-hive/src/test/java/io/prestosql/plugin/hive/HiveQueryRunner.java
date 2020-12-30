@@ -33,7 +33,7 @@ import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 

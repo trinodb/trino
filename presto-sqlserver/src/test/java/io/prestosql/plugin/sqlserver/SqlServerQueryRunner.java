@@ -24,7 +24,7 @@ import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;

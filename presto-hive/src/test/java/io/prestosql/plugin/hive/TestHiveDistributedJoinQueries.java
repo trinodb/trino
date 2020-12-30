@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.tpch.TpchTable.getTables;
+import static io.trino.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
 /**

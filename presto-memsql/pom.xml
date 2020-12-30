@@ -115,7 +115,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.tpch</groupId>
+            <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
             <scope>test</scope>
         </dependency>

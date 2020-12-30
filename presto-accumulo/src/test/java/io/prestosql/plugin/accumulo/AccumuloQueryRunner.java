@@ -24,7 +24,7 @@ import io.prestosql.plugin.accumulo.serializers.LexicoderRowSerializer;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 import org.apache.hadoop.io.Text;
 import org.intellij.lang.annotations.Language;
 

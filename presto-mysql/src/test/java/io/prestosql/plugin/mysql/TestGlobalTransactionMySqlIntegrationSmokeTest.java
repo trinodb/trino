@@ -16,10 +16,10 @@ package io.prestosql.plugin.mysql;
 import io.prestosql.testing.QueryRunner;
 
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
-import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 
 public class TestGlobalTransactionMySqlIntegrationSmokeTest
         extends BaseMySqlIntegrationSmokeTest

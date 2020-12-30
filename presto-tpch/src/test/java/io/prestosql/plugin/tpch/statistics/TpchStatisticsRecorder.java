@@ -16,17 +16,17 @@ package io.prestosql.plugin.tpch.statistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tpch.TpchColumn;
-import io.prestosql.tpch.TpchEntity;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchColumn;
+import io.trino.tpch.TpchEntity;
+import io.trino.tpch.TpchTable;
 
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.schemaNameToScaleFactor;
-import static io.prestosql.tpch.OrderColumn.ORDER_STATUS;
-import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.OrderColumn.ORDER_STATUS;
+import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
 /**

@@ -18,7 +18,7 @@ import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 import java.util.Optional;

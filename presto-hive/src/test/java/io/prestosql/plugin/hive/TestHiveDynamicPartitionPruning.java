@@ -45,7 +45,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
-import static io.prestosql.tpch.TpchTable.getTables;
+import static io.trino.tpch.TpchTable.getTables;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

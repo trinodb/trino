@@ -28,8 +28,8 @@ import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 

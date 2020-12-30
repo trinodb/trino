@@ -22,15 +22,15 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.tpch.TpchColumn;
-import io.prestosql.tpch.TpchColumnType;
-import io.prestosql.tpch.TpchEntity;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchColumn;
+import io.trino.tpch.TpchColumnType;
+import io.trino.tpch.TpchEntity;
+import io.trino.tpch.TpchTable;
 
 import java.util.List;
 
 import static io.prestosql.plugin.tpch.TpchRecordSet.createTpchRecordSet;
-import static io.prestosql.tpch.TpchColumnTypes.IDENTIFIER;
+import static io.trino.tpch.TpchColumnTypes.IDENTIFIER;
 
 public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider

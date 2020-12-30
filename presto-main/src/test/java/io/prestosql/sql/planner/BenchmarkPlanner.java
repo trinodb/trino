@@ -20,7 +20,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.plugin.tpch.ColumnNaming;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.tpch.Customer;
+import io.trino.tpch.Customer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -91,7 +91,7 @@ public class BenchmarkPlanner
             queries = IntStream.rangeClosed(1, 22)
                     .boxed()
                     .filter(i -> i != 15) // q15 has two queries in it
-                    .map(i -> readResource(format("/io/prestosql/tpch/queries/q%d.sql", i)))
+                    .map(i -> readResource(format("/io/trino/tpch/queries/q%d.sql", i)))
                     .collect(toImmutableList());
         }
 

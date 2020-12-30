@@ -20,7 +20,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.kafka.BasicTestingKafka;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;

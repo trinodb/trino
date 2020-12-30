@@ -18,7 +18,7 @@ import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
+import io.trino.tpch.TpchTable;
 
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 

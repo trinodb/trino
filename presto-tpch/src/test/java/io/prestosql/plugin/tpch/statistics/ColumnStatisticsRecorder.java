@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.tpch.statistics;
 
-import io.prestosql.tpch.TpchColumnType;
+import io.trino.tpch.TpchColumnType;
 
 import java.util.Optional;
 import java.util.TreeSet;
