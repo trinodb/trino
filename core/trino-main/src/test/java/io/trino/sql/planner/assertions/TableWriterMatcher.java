@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.planner.assertions;
+package io.trino.sql.planner.assertions;
 
 import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;

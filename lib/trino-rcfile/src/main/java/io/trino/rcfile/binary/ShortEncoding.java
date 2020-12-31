@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.rcfile.binary;
+package io.trino.rcfile.binary;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;

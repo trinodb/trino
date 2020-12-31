@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.example;
+package io.trino.plugin.example;
 
 import io.airlift.bootstrap.LifeCycleManager;
 import io.prestosql.spi.connector.Connector;

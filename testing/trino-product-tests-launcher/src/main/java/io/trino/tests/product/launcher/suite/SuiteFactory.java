@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.suite;
+package io.trino.tests.product.launcher.suite;
 
 import com.google.common.collect.Ordering;
 

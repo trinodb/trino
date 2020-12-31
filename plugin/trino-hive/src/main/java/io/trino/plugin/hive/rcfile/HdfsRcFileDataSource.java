@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.rcfile;
+package io.trino.plugin.hive.rcfile;
 
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.rcfile.RcFileDataSource;

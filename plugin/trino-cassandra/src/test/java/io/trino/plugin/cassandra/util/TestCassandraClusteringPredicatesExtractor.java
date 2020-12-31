@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.cassandra.util;
+package io.trino.plugin.cassandra.util;
 
 import com.datastax.driver.core.VersionNumber;
 import com.google.common.collect.ImmutableList;

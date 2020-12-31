@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution;
+package io.trino.execution;
 
 import io.prestosql.sql.tree.DefaultTraversalVisitor;
 import io.prestosql.sql.tree.Parameter;

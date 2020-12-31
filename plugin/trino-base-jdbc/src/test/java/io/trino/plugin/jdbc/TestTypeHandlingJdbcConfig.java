@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.jdbc;
+package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;

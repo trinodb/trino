@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.type.setdigest;
+package io.trino.type.setdigest;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

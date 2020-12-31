@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.metastore;
+package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.RateLimiter;

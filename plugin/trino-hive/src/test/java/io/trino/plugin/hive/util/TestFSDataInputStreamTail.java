@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.hive.util;
+package io.trino.plugin.hive.util;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;

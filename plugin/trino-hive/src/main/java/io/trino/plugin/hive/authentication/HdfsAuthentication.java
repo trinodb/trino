@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.authentication;
+package io.trino.plugin.hive.authentication;
 
 public interface HdfsAuthentication
 {

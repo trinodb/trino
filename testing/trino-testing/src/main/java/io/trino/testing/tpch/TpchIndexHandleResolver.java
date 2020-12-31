@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.testing.tpch;
+package io.trino.testing.tpch;
 
 import io.prestosql.plugin.tpch.TpchHandleResolver;
 import io.prestosql.spi.connector.ConnectorIndexHandle;

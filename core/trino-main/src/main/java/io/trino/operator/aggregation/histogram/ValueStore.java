@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.aggregation.histogram;
+package io.trino.operator.aggregation.histogram;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.prestosql.array.IntBigArray;

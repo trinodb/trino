@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.scalar.timestamp;
+package io.trino.operator.scalar.timestamp;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import io.airlift.slice.DynamicSliceOutput;

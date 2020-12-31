@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.tpch;
+package io.trino.plugin.tpch;
 
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.connector.Connector;

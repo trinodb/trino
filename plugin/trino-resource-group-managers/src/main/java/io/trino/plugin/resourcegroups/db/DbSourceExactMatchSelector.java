@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.resourcegroups.db;
+package io.trino.plugin.resourcegroups.db;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;

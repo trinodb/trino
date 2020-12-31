@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.planner.iterative.rule;
+package io.trino.sql.planner.iterative.rule;
 
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;

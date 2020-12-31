@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.orc.reader;
+package io.trino.orc.reader;
 
 import io.prestosql.orc.OrcColumn;
 import io.prestosql.orc.OrcCorruptionException;

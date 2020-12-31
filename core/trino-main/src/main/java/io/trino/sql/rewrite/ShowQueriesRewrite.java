@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.rewrite;
+package io.trino.sql.rewrite;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;

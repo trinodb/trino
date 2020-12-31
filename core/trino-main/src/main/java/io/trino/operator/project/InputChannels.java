@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.project;
+package io.trino.operator.project;
 
 import com.google.common.primitives.Ints;
 import io.prestosql.spi.Page;

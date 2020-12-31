@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.kafka;
+package io.trino.plugin.kafka;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 

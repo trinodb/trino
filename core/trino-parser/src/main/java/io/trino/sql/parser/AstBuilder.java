@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.parser;
+package io.trino.sql.parser;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

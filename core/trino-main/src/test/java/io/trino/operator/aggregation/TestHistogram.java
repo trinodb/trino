@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.operator.aggregation;
+package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

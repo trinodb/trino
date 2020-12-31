@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.tree;
+package io.trino.sql.tree;
 
 import java.util.LinkedList;
 import java.util.Optional;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.tpcds;
+package io.trino.plugin.tpcds;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.statistics.Estimate;

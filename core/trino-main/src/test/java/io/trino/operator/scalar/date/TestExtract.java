@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.scalar.date;
+package io.trino.operator.scalar.date;
 
 import io.prestosql.operator.scalar.AbstractTestExtract;
 

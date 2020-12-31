@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.aggregation;
+package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
 import io.prestosql.block.BlockAssertions;

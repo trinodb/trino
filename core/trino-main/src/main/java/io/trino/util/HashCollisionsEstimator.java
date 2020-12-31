@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.util;
+package io.trino.util;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.ceil;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.cassandra;
+package io.trino.tests.cassandra;
 
 import com.datastax.driver.core.LocalDate;
 import com.datastax.driver.core.utils.Bytes;

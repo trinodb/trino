@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.testing.statistics;
+package io.trino.testing.statistics;
 
 public interface MetricComparisonStrategy
 {

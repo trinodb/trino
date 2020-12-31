@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.utils;
+package io.trino.tests.utils;
 
 import io.trino.tempto.fulfillment.table.MutableTablesState;
 import io.trino.tempto.fulfillment.table.TableDefinition;

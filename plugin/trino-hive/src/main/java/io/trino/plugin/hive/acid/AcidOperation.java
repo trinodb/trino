@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.acid;
+package io.trino.plugin.hive.acid;
 
 import io.prestosql.orc.OrcWriter.OrcOperation;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.accumulo.iterators;
+package io.trino.plugin.accumulo.iterators;
 
 import com.google.common.primitives.UnsignedBytes;
 import org.apache.accumulo.core.data.Key;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.spi.statistics;
+package io.trino.spi.statistics;
 
 import java.util.Objects;
 

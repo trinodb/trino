@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.iceberg.util;
+package io.trino.plugin.iceberg.util;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;

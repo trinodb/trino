@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.testing.sql;
+package io.trino.testing.sql;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.type.setdigest;
+package io.trino.type.setdigest;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;

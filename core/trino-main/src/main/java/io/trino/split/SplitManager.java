@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.split;
+package io.trino.split;
 
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;

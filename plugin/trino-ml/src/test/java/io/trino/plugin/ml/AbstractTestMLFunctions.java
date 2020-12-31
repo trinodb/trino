@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.ml;
+package io.trino.plugin.ml;
 
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;

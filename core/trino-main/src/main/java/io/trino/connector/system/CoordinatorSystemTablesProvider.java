@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.connector.system;
+package io.trino.connector.system;
 
 import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;

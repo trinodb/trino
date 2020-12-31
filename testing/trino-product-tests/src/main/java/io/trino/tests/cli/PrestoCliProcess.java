@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.cli;
+package io.trino.tests.cli;
 
 import io.trino.tempto.process.LocalCliProcess;
 

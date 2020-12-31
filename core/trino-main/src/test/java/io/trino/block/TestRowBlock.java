@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.block;
+package io.trino.block;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;

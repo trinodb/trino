@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.env;
+package io.trino.tests.product.launcher.env;
 
 import java.io.File;
 

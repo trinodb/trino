@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.tree;
+package io.trino.sql.tree;
 
 import com.google.common.collect.ImmutableList;
 

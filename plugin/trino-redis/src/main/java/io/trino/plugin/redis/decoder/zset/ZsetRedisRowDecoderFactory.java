@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.redis.decoder.zset;
+package io.trino.plugin.redis.decoder.zset;
 
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;

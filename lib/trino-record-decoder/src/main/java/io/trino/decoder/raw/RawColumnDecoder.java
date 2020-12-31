@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.decoder.raw;
+package io.trino.decoder.raw;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;

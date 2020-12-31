@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.parquet.writer.valuewriter;
+package io.trino.parquet.writer.valuewriter;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;

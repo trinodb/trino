@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.postgresql;
+package io.trino.plugin.postgresql;
 
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.block;
+package io.trino.block;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;

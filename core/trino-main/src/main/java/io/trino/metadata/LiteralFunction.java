@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.metadata;
+package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;

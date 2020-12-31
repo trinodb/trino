@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.env.environment;
+package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;

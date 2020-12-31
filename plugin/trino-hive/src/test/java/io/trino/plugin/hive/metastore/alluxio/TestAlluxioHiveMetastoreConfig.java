@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.metastore.alluxio;
+package io.trino.plugin.hive.metastore.alluxio;
 
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;

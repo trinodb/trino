@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.geospatial.serde;
+package io.trino.geospatial.serde;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.base.Joiner;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.aggregation;
+package io.trino.operator.aggregation;
 
 import io.prestosql.operator.aggregation.histogram.SingleTypedHistogram;
 import io.prestosql.operator.aggregation.histogram.TypedHistogram;

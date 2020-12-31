@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.kafka.encoder.csv;
+package io.trino.plugin.kafka.encoder.csv;
 
 import io.prestosql.plugin.kafka.encoder.EncoderColumnHandle;
 import io.prestosql.plugin.kafka.encoder.RowEncoder;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.accumulo.index;
+package io.trino.plugin.accumulo.index;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.cli;
+package io.trino.tests.product.launcher.cli;
 
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.planner.optimizations;
+package io.trino.sql.planner.optimizations;
 
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.connector.system.jdbc;
+package io.trino.connector.system.jdbc;
 
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.ConnectorSession;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.thrift;
+package io.trino.plugin.thrift;
 
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 

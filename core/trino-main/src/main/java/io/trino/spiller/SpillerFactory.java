@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spiller;
+package io.trino.spiller;
 
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.operator.SpillContext;

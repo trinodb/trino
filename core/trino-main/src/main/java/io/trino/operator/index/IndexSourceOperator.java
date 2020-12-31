@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.index;
+package io.trino.operator.index;
 
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.DriverContext;

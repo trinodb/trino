@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.testcontainers;
+package io.trino.tests.product.launcher.testcontainers;
 
 import io.airlift.log.Logger;
 import org.testcontainers.containers.output.BaseConsumer;

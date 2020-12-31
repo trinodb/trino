@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.planner.optimizations;
+package io.trino.sql.planner.optimizations;
 
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.plan.WindowNode;

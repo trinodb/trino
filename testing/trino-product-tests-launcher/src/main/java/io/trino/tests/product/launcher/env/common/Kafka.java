@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.tests.product.launcher.env.common;
+package io.trino.tests.product.launcher.env.common;
 
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;

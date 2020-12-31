@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.thrift.util;
+package io.trino.plugin.thrift.util;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.TApplicationException;

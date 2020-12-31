@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.aggregation.histogram;
+package io.trino.operator.aggregation.histogram;
 
 import io.prestosql.array.IntBigArray;
 import io.prestosql.array.LongBigArray;

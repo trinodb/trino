@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.relational.optimizer;
+package io.trino.sql.relational.optimizer;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;

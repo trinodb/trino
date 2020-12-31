@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.planner.iterative.rule;
+package io.trino.sql.planner.iterative.rule;
 
 import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.sql.planner.plan.PlanNode;

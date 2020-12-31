@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.metastore.glue;
+package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.model.Table;

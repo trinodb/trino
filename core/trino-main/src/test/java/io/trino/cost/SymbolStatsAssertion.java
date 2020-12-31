@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.cost;
+package io.trino.cost;
 
 import static io.prestosql.cost.EstimateAssertion.assertEstimateEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;

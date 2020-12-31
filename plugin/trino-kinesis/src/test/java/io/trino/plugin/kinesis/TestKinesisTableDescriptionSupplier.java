@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.kinesis;
+package io.trino.plugin.kinesis;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.kinesis.util.KinesisTestClientManager;
