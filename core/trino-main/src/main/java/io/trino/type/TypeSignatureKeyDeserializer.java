@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.google.common.collect.ImmutableSet;
 
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 public final class TypeSignatureKeyDeserializer
         extends KeyDeserializer

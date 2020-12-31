@@ -16,11 +16,11 @@ package io.trino.type;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -34,12 +34,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
-import static io.prestosql.type.SingleAccessMethodCompiler.compileSingleAccessMethod;
-import static io.prestosql.type.TypeUtils.NULL_HASH_CODE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.type.SingleAccessMethodCompiler.compileSingleAccessMethod;
+import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 
 public final class BlockTypeOperators

@@ -19,15 +19,15 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.relational.ConstantExpression;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SpecialForm;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
+import io.trino.sql.relational.ConstantExpression;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
 
 public class DereferenceCodeGenerator

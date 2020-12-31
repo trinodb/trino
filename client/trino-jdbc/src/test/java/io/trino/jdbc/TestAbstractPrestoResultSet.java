@@ -15,8 +15,8 @@ package io.trino.jdbc;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.jdbc.AbstractPrestoResultSet.DEFAULT_OBJECT_REPRESENTATION;
-import static io.prestosql.jdbc.AbstractPrestoResultSet.TYPE_CONVERSIONS;
+import static io.trino.jdbc.AbstractPrestoResultSet.DEFAULT_OBJECT_REPRESENTATION;
+import static io.trino.jdbc.AbstractPrestoResultSet.TYPE_CONVERSIONS;
 import static org.testng.Assert.fail;
 
 public class TestAbstractPrestoResultSet

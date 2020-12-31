@@ -16,7 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnMetadata;
 
 import java.util.Collections;
 import java.util.List;

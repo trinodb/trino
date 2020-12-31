@@ -14,9 +14,9 @@
 package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.resourcegroups.QueryType;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.session.ResourceEstimates;
+import io.trino.spi.resourcegroups.QueryType;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.session.ResourceEstimates;
 
 import java.util.Map;
 import java.util.Optional;

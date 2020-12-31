@@ -28,7 +28,7 @@ import io.airlift.dbpool.MySqlDataSource;
 import io.airlift.dbpool.MySqlDataSourceConfig;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.airlift.discovery.client.testing.StaticServiceSelector;
-import io.prestosql.plugin.raptor.legacy.util.DaoSupplier;
+import io.trino.plugin.raptor.legacy.util.DaoSupplier;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.tweak.ConnectionFactory;
 

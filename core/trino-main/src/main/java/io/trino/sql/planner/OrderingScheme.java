@@ -18,11 +18,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.sql.tree.OrderBy;
-import io.prestosql.sql.tree.SortItem;
-import io.prestosql.sql.tree.SortItem.NullOrdering;
-import io.prestosql.sql.tree.SortItem.Ordering;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.SortItem;
+import io.trino.sql.tree.SortItem.NullOrdering;
+import io.trino.sql.tree.SortItem.Ordering;
 
 import java.util.List;
 import java.util.Map;

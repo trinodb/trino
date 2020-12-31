@@ -14,18 +14,18 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.RowBlockBuilder;
-import io.prestosql.spi.block.SingleRowBlockWriter;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SingleRowBlockWriter;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.RowType.field;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestSimpleRowType
         extends AbstractTestType

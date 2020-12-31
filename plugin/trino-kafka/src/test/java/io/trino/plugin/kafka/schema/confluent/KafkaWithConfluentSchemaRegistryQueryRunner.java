@@ -15,9 +15,9 @@ package io.trino.plugin.kafka.schema.confluent;
 
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.plugin.kafka.KafkaQueryRunnerBuilder;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.kafka.TestingKafkaWithSchemaRegistry;
+import io.trino.plugin.kafka.KafkaQueryRunnerBuilder;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.kafka.TestingKafkaWithSchemaRegistry;
 
 import java.util.HashMap;
 import java.util.Map;

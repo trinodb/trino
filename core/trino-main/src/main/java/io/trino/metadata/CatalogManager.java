@@ -14,7 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.CatalogName;
+import io.trino.connector.CatalogName;
 
 import javax.annotation.concurrent.ThreadSafe;
 

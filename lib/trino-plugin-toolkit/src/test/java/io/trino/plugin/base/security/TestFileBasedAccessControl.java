@@ -14,16 +14,16 @@
 package io.trino.plugin.base.security;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorSecurityContext;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.ConnectorIdentity;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.PrincipalType;
-import io.prestosql.spi.security.Privilege;
+import io.trino.spi.QueryId;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.PrincipalType;
+import io.trino.spi.security.Privilege;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -34,7 +34,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 

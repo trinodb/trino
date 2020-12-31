@@ -14,10 +14,10 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
 public final class ArrayConcatUtils
 {

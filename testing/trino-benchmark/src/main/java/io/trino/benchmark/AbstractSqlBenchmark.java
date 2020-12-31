@@ -13,10 +13,10 @@
  */
 package io.trino.benchmark;
 
-import io.prestosql.operator.Driver;
-import io.prestosql.operator.TaskContext;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.NullOutputOperator.NullOutputFactory;
+import io.trino.operator.Driver;
+import io.trino.operator.TaskContext;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.NullOutputOperator.NullOutputFactory;
 import org.intellij.lang.annotations.Language;
 
 import java.util.List;

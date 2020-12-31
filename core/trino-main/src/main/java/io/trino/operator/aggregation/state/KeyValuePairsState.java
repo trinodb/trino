@@ -13,10 +13,10 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.prestosql.operator.aggregation.KeyValuePairs;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
-import io.prestosql.spi.type.Type;
+import io.trino.operator.aggregation.KeyValuePairs;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.type.Type;
 
 @AccumulatorStateMetadata(stateFactoryClass = KeyValuePairsStateFactory.class, stateSerializerClass = KeyValuePairStateSerializer.class)
 public interface KeyValuePairsState

@@ -14,20 +14,20 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.sql.planner.LogicalPlanner;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.assertions.PlanAssert;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.sql.planner.LogicalPlanner;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.assertions.PlanAssert;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestStatsCalculator
 {

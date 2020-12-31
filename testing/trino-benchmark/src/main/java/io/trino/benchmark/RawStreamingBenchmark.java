@@ -14,13 +14,13 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.operator.OperatorFactory;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.LocalQueryRunner;
 
 import java.util.List;
 
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 
 public class RawStreamingBenchmark
         extends AbstractSimpleOperatorBenchmark

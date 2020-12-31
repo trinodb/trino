@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
+import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 

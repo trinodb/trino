@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.kafka.encoder.json.format;
 
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlTime;
-import io.prestosql.spi.type.SqlTimeWithTimeZone;
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
 
 public interface JsonDateTimeFormatter
 {

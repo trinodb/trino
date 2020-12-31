@@ -15,9 +15,9 @@ package io.trino.cli;
 
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.prestosql.cli.ClientOptions.ClientExtraCredential;
-import io.prestosql.cli.ClientOptions.ClientResourceEstimate;
-import io.prestosql.cli.ClientOptions.ClientSessionProperty;
+import io.trino.cli.ClientOptions.ClientExtraCredential;
+import io.trino.cli.ClientOptions.ClientResourceEstimate;
+import io.trino.cli.ClientOptions.ClientSessionProperty;
 import picocli.CommandLine;
 import picocli.CommandLine.IVersionProvider;
 

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.base.type;
 
-import io.prestosql.spi.type.TimestampType;
+import io.trino.spi.type.TimestampType;
 import org.joda.time.DateTimeZone;
 
 import static java.util.Objects.requireNonNull;

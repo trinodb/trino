@@ -13,19 +13,19 @@
  */
 package io.trino.plugin.raptor.legacy.systemtables;
 
-import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;
 
-import static io.prestosql.plugin.raptor.legacy.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
-import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.trino.plugin.raptor.legacy.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
+import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.util.Objects.requireNonNull;
 
 public class ShardMetadataSystemTable

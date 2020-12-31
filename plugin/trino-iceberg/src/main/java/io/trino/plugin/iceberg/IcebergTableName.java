@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

@@ -13,21 +13,21 @@
  */
 package io.trino.tests;
 
-import io.prestosql.Session;
-import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryManager;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.ResultWithQueryId;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.Session;
+import io.trino.execution.QueryInfo;
+import io.trino.execution.QueryManager;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.ResultWithQueryId;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.LATE_MATERIALIZATION;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.LATE_MATERIALIZATION;
+import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertTrue;
 
 public class TestLateMaterializationQueries

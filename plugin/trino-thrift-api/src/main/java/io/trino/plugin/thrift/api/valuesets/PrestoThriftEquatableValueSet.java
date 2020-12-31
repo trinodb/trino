@@ -16,10 +16,10 @@ package io.trino.plugin.thrift.api.valuesets;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
-import io.prestosql.spi.predicate.EquatableValueSet;
-import io.prestosql.spi.predicate.EquatableValueSet.ValueEntry;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.thrift.api.PrestoThriftBlock;
+import io.trino.spi.predicate.EquatableValueSet;
+import io.trino.spi.predicate.EquatableValueSet.ValueEntry;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +28,7 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.fromBlock;
+import static io.trino.plugin.thrift.api.PrestoThriftBlock.fromBlock;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -13,8 +13,8 @@
  */
 package io.trino.execution.scheduler;
 
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.Split;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.Split;
 
 import java.util.List;
 import java.util.Set;

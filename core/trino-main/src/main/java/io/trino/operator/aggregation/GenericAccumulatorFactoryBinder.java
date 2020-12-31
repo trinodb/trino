@@ -14,13 +14,13 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.Session;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.Session;
+import io.trino.operator.PagesIndex;
+import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
 
 import java.lang.reflect.Constructor;
 import java.util.List;

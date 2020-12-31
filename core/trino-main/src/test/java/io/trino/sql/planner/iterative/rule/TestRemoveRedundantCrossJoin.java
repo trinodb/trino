@@ -13,11 +13,11 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestRemoveRedundantCrossJoin
         extends BaseRuleTest

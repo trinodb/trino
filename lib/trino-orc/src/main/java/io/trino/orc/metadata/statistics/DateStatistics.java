@@ -13,7 +13,7 @@
  */
 package io.trino.orc.metadata.statistics;
 
-import io.prestosql.orc.metadata.statistics.StatisticsHasher.Hashable;
+import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;

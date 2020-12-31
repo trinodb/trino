@@ -16,9 +16,9 @@ package io.trino.plugin.session;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.resourcegroups.QueryType;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.session.SessionConfigurationContext;
+import io.trino.spi.resourcegroups.QueryType;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.session.SessionConfigurationContext;
 import org.testng.annotations.Test;
 
 import java.util.Map;

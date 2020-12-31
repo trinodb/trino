@@ -15,8 +15,8 @@ package io.trino.execution.executor;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import io.prestosql.execution.SplitConcurrencyController;
-import io.prestosql.execution.TaskId;
+import io.trino.execution.SplitConcurrencyController;
+import io.trino.execution.TaskId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

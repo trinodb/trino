@@ -14,15 +14,15 @@
 package io.trino.sql.planner;
 
 import com.google.common.base.Joiner;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
-import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.util.Collections.nCopies;
 
 public class TestLocalExecutionPlanner

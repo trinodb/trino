@@ -16,15 +16,15 @@ package io.trino.operator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.operator.StageExecutionDescriptor.StageExecutionStrategy.DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
-import static io.prestosql.operator.StageExecutionDescriptor.StageExecutionStrategy.FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
-import static io.prestosql.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.trino.operator.StageExecutionDescriptor.StageExecutionStrategy.DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+import static io.trino.operator.StageExecutionDescriptor.StageExecutionStrategy.FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
+import static io.trino.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
 import static java.util.Objects.requireNonNull;
 
 public class StageExecutionDescriptor

@@ -15,14 +15,14 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public final class HiveSchemaProperties
 {

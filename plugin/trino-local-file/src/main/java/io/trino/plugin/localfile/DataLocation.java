@@ -16,7 +16,7 @@ package io.trino.plugin.localfile;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,8 +28,8 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.plugin.localfile.LocalFileErrorCode.LOCAL_FILE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.localfile.LocalFileErrorCode.LOCAL_FILE_NO_FILES;
+import static io.trino.plugin.localfile.LocalFileErrorCode.LOCAL_FILE_FILESYSTEM_ERROR;
+import static io.trino.plugin.localfile.LocalFileErrorCode.LOCAL_FILE_NO_FILES;
 import static java.nio.file.Files.newDirectoryStream;
 import static java.util.Objects.requireNonNull;
 

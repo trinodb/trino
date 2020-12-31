@@ -14,8 +14,8 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,8 +25,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
-import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
+import static io.trino.sql.planner.iterative.Lookup.noLookup;
+import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeSearcher

@@ -14,18 +14,18 @@
 package io.trino.operator.unnest;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.block.PageBuilderStatus;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.type.Type;
 
 import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.unnest.UnnestOperatorBlockUtil.calculateNewArraySize;
+import static io.trino.operator.unnest.UnnestOperatorBlockUtil.calculateNewArraySize;
 import static java.util.Objects.requireNonNull;
 
 /**

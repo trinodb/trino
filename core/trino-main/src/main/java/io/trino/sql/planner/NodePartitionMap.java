@@ -14,10 +14,10 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.execution.scheduler.BucketNodeMap;
-import io.prestosql.execution.scheduler.FixedBucketNodeMap;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.Split;
+import io.trino.execution.scheduler.BucketNodeMap;
+import io.trino.execution.scheduler.FixedBucketNodeMap;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.Split;
 
 import java.util.List;
 import java.util.function.ToIntFunction;

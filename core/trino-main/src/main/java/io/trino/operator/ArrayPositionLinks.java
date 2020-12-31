@@ -15,7 +15,7 @@ package io.trino.operator;
 
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;

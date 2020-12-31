@@ -15,10 +15,10 @@ package io.trino.operator.scalar;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.Character.isLetterOrDigit;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

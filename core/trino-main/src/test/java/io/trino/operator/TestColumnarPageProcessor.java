@@ -14,28 +14,28 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.ExpressionCompiler;
-import io.prestosql.sql.gen.PageFunctionCompiler;
+import io.trino.metadata.Metadata;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.gen.PageFunctionCompiler;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
-import static io.prestosql.SequencePageBuilder.createSequencePage;
-import static io.prestosql.SequencePageBuilder.createSequencePageWithDictionaryBlocks;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.PageAssertions.assertPageEquals;
-import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.relational.Expressions.field;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.SequencePageBuilder.createSequencePage;
+import static io.trino.SequencePageBuilder.createSequencePageWithDictionaryBlocks;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.relational.Expressions.field;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 
 public class TestColumnarPageProcessor
 {

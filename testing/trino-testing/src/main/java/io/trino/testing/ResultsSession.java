@@ -13,9 +13,9 @@
  */
 package io.trino.testing;
 
-import io.prestosql.client.QueryData;
-import io.prestosql.client.QueryStatusInfo;
-import io.prestosql.client.Warning;
+import io.trino.client.QueryData;
+import io.trino.client.QueryStatusInfo;
+import io.trino.client.Warning;
 
 import java.util.List;
 import java.util.Map;

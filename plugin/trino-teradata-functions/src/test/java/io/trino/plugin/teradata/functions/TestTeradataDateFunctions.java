@@ -13,20 +13,20 @@
  */
 package io.trino.plugin.teradata.functions;
 
-import io.prestosql.Session;
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.type.DateType;
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.Session;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.TimestampType;
 import org.joda.time.DateTime;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.toIntExact;
 
 public class TestTeradataDateFunctions

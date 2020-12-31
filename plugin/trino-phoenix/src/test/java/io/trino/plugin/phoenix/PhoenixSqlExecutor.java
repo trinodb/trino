@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.phoenix;
 
-import io.prestosql.testing.sql.SqlExecutor;
+import io.trino.testing.sql.SqlExecutor;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

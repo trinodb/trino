@@ -14,7 +14,7 @@
 package io.trino.plugin.raptor.legacy.storage;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.raptor.legacy.metadata.ShardRecorder;
+import io.trino.plugin.raptor.legacy.metadata.ShardRecorder;
 
 import java.util.ArrayList;
 import java.util.List;

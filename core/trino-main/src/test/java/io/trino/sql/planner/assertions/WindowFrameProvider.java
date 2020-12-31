@@ -13,10 +13,10 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.sql.planner.plan.WindowNode;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FrameBound;
-import io.prestosql.sql.tree.WindowFrame;
+import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FrameBound;
+import io.trino.sql.tree.WindowFrame;
 
 import java.util.Optional;
 

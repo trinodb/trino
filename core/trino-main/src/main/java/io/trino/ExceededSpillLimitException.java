@@ -14,9 +14,9 @@
 package io.trino;
 
 import io.airlift.units.DataSize;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.EXCEEDED_SPILL_LIMIT;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_SPILL_LIMIT;
 import static java.lang.String.format;
 
 public class ExceededSpillLimitException

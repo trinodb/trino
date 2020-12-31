@@ -13,10 +13,10 @@
  */
 package io.trino.memory;
 
-import io.prestosql.operator.DriverContext;
-import io.prestosql.operator.OperatorContext;
-import io.prestosql.operator.PipelineContext;
-import io.prestosql.operator.TaskContext;
+import io.trino.operator.DriverContext;
+import io.trino.operator.OperatorContext;
+import io.trino.operator.PipelineContext;
+import io.trino.operator.TaskContext;
 
 import java.util.List;
 

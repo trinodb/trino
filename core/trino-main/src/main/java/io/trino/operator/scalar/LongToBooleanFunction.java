@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
+import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 
 @FunctionalInterface
 public interface LongToBooleanFunction

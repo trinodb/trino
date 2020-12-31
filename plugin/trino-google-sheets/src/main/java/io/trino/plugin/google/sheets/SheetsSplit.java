@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ConnectorSplit;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
 

@@ -17,7 +17,7 @@ package io.trino.plugin.tpcds.statistics;
 import com.google.common.collect.ImmutableList;
 import io.trino.tpcds.Table;
 
-import static io.prestosql.plugin.tpcds.TpcdsMetadata.schemaNameToScaleFactor;
+import static io.trino.plugin.tpcds.TpcdsMetadata.schemaNameToScaleFactor;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

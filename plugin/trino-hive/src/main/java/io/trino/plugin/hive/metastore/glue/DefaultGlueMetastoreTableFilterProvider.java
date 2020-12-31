@@ -14,15 +14,15 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.services.glue.model.Table;
-import io.prestosql.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.MetastoreConfig;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
 
 import java.util.function.Predicate;
 
-import static io.prestosql.plugin.hive.HiveMetadata.DELTA_LAKE_PROVIDER;
-import static io.prestosql.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
+import static io.trino.plugin.hive.HiveMetadata.DELTA_LAKE_PROVIDER;
+import static io.trino.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
 

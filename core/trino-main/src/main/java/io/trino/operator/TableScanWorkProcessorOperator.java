@@ -16,22 +16,22 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.Session;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.memory.context.MemoryTrackingContext;
-import io.prestosql.metadata.Split;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.operator.WorkProcessor.ProcessState;
-import io.prestosql.operator.WorkProcessor.TransformationState;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.EmptyPageSource;
-import io.prestosql.spi.connector.UpdatablePageSource;
-import io.prestosql.split.EmptySplit;
-import io.prestosql.split.PageSourceProvider;
+import io.trino.Session;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.metadata.Split;
+import io.trino.metadata.TableHandle;
+import io.trino.operator.WorkProcessor.ProcessState;
+import io.trino.operator.WorkProcessor.TransformationState;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.split.EmptySplit;
+import io.trino.split.PageSourceProvider;
 
 import javax.annotation.Nullable;
 
@@ -43,7 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
+import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 

@@ -15,7 +15,7 @@ package io.trino.plugin.session.db;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.session.SessionMatchSpec;
+import io.trino.plugin.session.SessionMatchSpec;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;

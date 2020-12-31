@@ -13,17 +13,17 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.SortNode;
-import io.prestosql.sql.planner.plan.TopNNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.plan.EnforceSingleRowNode;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.SortNode;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 
 public class TestOrderBy
         extends BasePlanTest

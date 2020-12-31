@@ -16,11 +16,11 @@ package io.trino.sql.gen;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.sql.relational.RowExpression;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.sql.relational.RowExpression;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -28,8 +28,8 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.gen.BytecodeUtils.generateFullInvocation;
-import static io.prestosql.sql.gen.BytecodeUtils.generateInvocation;
+import static io.trino.sql.gen.BytecodeUtils.generateFullInvocation;
+import static io.trino.sql.gen.BytecodeUtils.generateInvocation;
 import static java.util.Objects.requireNonNull;
 
 public class BytecodeGeneratorContext

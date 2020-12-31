@@ -15,9 +15,9 @@ package io.trino.type;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeId;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
 
 import javax.inject.Inject;
 

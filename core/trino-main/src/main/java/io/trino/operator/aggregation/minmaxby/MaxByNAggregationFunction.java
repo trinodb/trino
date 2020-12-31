@@ -13,9 +13,9 @@
  */
 package io.trino.operator.aggregation.minmaxby;
 
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators;
 
-import static io.prestosql.util.MinMaxCompare.getMaxCompare;
+import static io.trino.util.MinMaxCompare.getMaxCompare;
 
 public class MaxByNAggregationFunction
         extends AbstractMinMaxByNAggregationFunction

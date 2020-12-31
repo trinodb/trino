@@ -17,8 +17,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergTableName

@@ -15,7 +15,7 @@ package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;

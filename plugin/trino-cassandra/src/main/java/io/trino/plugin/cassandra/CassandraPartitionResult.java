@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.cassandra;
 
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 

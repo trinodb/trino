@@ -14,22 +14,22 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.operator.WorkProcessor;
-import io.prestosql.operator.WorkProcessor.TransformationState;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.WorkProcessor;
+import io.trino.operator.WorkProcessor.TransformationState;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
-import static io.prestosql.operator.WorkProcessor.TransformationState.needsMoreData;
-import static io.prestosql.operator.WorkProcessor.TransformationState.ofResult;
-import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static io.trino.operator.WorkProcessor.TransformationState.finished;
+import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
+import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.util.Objects.requireNonNull;
 
 /**

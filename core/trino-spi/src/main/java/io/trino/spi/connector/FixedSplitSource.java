@@ -16,7 +16,7 @@ package io.trino.spi.connector;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;

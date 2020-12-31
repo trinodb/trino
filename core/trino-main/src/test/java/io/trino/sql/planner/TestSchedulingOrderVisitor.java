@@ -16,19 +16,19 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.TestingColumnHandle;
-import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
-import io.prestosql.sql.planner.plan.IndexJoinNode;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.spi.connector.TestingColumnHandle;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.IndexJoinNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.TableScanNode;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
-import static io.prestosql.sql.planner.SchedulingOrderVisitor.scheduleOrder;
+import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
+import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;

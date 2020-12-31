@@ -15,19 +15,19 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.SqlDecimal;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.SqlDecimal;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static io.prestosql.spi.type.Decimals.encodeScaledValue;
-import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
-import static io.prestosql.spi.type.Decimals.writeBigDecimal;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
+import static io.trino.spi.type.Decimals.encodeScaledValue;
+import static io.trino.spi.type.Decimals.encodeUnscaledValue;
+import static io.trino.spi.type.Decimals.writeBigDecimal;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static org.testng.Assert.assertEquals;
 
 public class TestLongDecimalType

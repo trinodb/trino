@@ -13,9 +13,9 @@
  */
 package io.trino.spi.type;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class TimeZoneNotSupportedException
         extends PrestoException

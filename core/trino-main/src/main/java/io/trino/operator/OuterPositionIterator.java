@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.PageBuilder;
+import io.trino.spi.PageBuilder;
 
 public interface OuterPositionIterator
 {

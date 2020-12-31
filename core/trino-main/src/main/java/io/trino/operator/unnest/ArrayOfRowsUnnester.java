@@ -14,15 +14,15 @@
 package io.trino.operator.unnest;
 
 import com.google.common.collect.Iterables;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.ColumnarArray;
-import io.prestosql.spi.block.ColumnarRow;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarArray;
+import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
-import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.ColumnarArray.toColumnarArray;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 
 /**

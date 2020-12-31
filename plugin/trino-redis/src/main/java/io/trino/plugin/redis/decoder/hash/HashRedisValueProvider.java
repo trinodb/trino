@@ -14,8 +14,8 @@
 package io.trino.plugin.redis.decoder.hash;
 
 import io.airlift.slice.Slice;
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
 
 import static io.airlift.slice.Slices.utf8Slice;
 

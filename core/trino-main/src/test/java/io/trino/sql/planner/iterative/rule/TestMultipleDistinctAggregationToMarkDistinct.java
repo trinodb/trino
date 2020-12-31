@@ -14,12 +14,12 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestMultipleDistinctAggregationToMarkDistinct
         extends BaseRuleTest

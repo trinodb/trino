@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kudu.schema;
 
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.kudu.client.KuduClient;
 
 import java.util.List;

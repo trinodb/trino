@@ -14,9 +14,9 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
-import io.prestosql.plugin.hive.HiveSplit.BucketValidation;
-import io.prestosql.spi.HostAddress;
+import io.trino.plugin.hive.HiveSplit.BucketConversion;
+import io.trino.plugin.hive.HiveSplit.BucketValidation;
+import io.trino.spi.HostAddress;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;

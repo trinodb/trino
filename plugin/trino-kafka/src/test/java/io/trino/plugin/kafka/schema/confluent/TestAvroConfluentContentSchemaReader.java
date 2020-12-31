@@ -15,10 +15,10 @@ package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
-import io.prestosql.decoder.avro.AvroRowDecoderFactory;
-import io.prestosql.plugin.kafka.KafkaTableHandle;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.decoder.avro.AvroRowDecoderFactory;
+import io.trino.plugin.kafka.KafkaTableHandle;
+import io.trino.spi.PrestoException;
+import io.trino.spi.predicate.TupleDomain;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.testng.annotations.Test;

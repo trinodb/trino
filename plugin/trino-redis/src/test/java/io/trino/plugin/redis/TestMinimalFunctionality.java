@@ -14,16 +14,16 @@
 package io.trino.plugin.redis;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.plugin.redis.util.JsonEncoder;
-import io.prestosql.plugin.redis.util.RedisServer;
-import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.StandaloneQueryRunner;
+import io.trino.Session;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
+import io.trino.plugin.redis.util.JsonEncoder;
+import io.trino.plugin.redis.util.RedisServer;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.BigintType;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.StandaloneQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -34,11 +34,11 @@ import redis.clients.jedis.Jedis;
 import java.util.Optional;
 import java.util.UUID;
 
-import static io.prestosql.plugin.redis.util.RedisTestUtils.createEmptyTableDescription;
-import static io.prestosql.plugin.redis.util.RedisTestUtils.installRedisPlugin;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static io.trino.plugin.redis.util.RedisTestUtils.createEmptyTableDescription;
+import static io.trino.plugin.redis.util.RedisTestUtils.installRedisPlugin;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)

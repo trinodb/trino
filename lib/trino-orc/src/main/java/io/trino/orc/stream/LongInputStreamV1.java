@@ -13,9 +13,9 @@
  */
 package io.trino.orc.stream;
 
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
-import io.prestosql.orc.checkpoint.LongStreamV1Checkpoint;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.checkpoint.LongStreamCheckpoint;
+import io.trino.orc.checkpoint.LongStreamV1Checkpoint;
 
 import java.io.IOException;
 

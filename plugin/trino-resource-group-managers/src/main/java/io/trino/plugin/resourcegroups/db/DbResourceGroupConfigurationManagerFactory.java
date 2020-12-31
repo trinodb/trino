@@ -16,12 +16,12 @@ package io.trino.plugin.resourcegroups.db;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.prestosql.plugin.base.jmx.MBeanServerModule;
-import io.prestosql.plugin.base.jmx.PrefixObjectNameGeneratorModule;
-import io.prestosql.spi.memory.ClusterMemoryPoolManager;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.plugin.base.jmx.PrefixObjectNameGeneratorModule;
+import io.trino.spi.memory.ClusterMemoryPoolManager;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;

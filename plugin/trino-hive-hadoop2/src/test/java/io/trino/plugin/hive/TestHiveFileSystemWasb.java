@@ -14,8 +14,8 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.azure.HiveAzureConfig;
-import io.prestosql.plugin.hive.azure.PrestoAzureConfigurationInitializer;
+import io.trino.plugin.hive.azure.HiveAzureConfig;
+import io.trino.plugin.hive.azure.PrestoAzureConfigurationInitializer;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;

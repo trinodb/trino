@@ -13,9 +13,9 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.prestosql.array.ObjectBigArray;
-import io.prestosql.operator.aggregation.TypedHeap;
-import io.prestosql.spi.function.AccumulatorStateFactory;
+import io.trino.array.ObjectBigArray;
+import io.trino.operator.aggregation.TypedHeap;
+import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
 public class MinMaxNStateFactory

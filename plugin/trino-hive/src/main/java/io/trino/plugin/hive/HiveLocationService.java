@@ -13,30 +13,30 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.plugin.hive.LocationHandle.WriteMode;
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.LocationHandle.WriteMode;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
-import static io.prestosql.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
-import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
-import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
-import static io.prestosql.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
-import static io.prestosql.plugin.hive.util.HiveWriteUtils.createTemporaryPath;
-import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
-import static io.prestosql.plugin.hive.util.HiveWriteUtils.isHdfsEncrypted;
-import static io.prestosql.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
-import static io.prestosql.plugin.hive.util.HiveWriteUtils.pathExists;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
+import static io.trino.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+import static io.trino.plugin.hive.util.HiveWriteUtils.createTemporaryPath;
+import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
+import static io.trino.plugin.hive.util.HiveWriteUtils.isHdfsEncrypted;
+import static io.trino.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
+import static io.trino.plugin.hive.util.HiveWriteUtils.pathExists;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;

@@ -14,18 +14,18 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeNotFoundException;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeNotFoundException;
+import io.trino.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTypeRegistry

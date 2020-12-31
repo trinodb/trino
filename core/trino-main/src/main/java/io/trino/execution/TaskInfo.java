@@ -16,10 +16,10 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.execution.buffer.BufferInfo;
-import io.prestosql.execution.buffer.OutputBufferInfo;
-import io.prestosql.operator.TaskStats;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.buffer.BufferInfo;
+import io.trino.execution.buffer.OutputBufferInfo;
+import io.trino.operator.TaskStats;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
@@ -29,8 +29,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.execution.TaskStatus.initialTaskStatus;
-import static io.prestosql.execution.buffer.BufferState.OPEN;
+import static io.trino.execution.TaskStatus.initialTaskStatus;
+import static io.trino.execution.buffer.BufferState.OPEN;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

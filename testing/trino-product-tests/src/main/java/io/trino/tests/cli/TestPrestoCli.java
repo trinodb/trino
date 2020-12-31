@@ -32,11 +32,11 @@ import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.tests.TestGroups.AUTHORIZATION;
-import static io.prestosql.tests.TestGroups.CLI;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.process.CliProcess.trimLines;
+import static io.trino.tests.TestGroups.AUTHORIZATION;
+import static io.trino.tests.TestGroups.CLI;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;

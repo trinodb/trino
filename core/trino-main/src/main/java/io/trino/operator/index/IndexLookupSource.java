@@ -13,14 +13,14 @@
  */
 package io.trino.operator.index;
 
-import io.prestosql.operator.LookupSource;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
+import io.trino.operator.LookupSource;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
+import static io.trino.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe

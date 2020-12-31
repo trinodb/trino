@@ -14,8 +14,8 @@
 package io.trino.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveColumnHandle;
-import io.prestosql.plugin.hive.HiveType;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveType;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.testng.annotations.Test;
@@ -24,14 +24,14 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Stream;
 
-import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
-import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
-import static io.prestosql.plugin.hive.s3select.S3SelectRecordCursor.updateSplitSchema;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.s3select.S3SelectRecordCursor.updateSplitSchema;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;

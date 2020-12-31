@@ -13,7 +13,7 @@
  */
 package io.trino.execution.resourcegroups;
 
-import io.prestosql.execution.resourcegroups.WeightedFairQueue.Usage;
+import io.trino.execution.resourcegroups.WeightedFairQueue.Usage;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

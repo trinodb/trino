@@ -15,22 +15,22 @@ package io.trino.plugin.kafka.encoder.raw;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.plugin.kafka.KafkaColumnHandle;
-import io.prestosql.plugin.kafka.encoder.EncoderColumnHandle;
-import io.prestosql.plugin.kafka.encoder.RowEncoder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LongArrayBlockBuilder;
-import io.prestosql.spi.block.VariableWidthBlockBuilder;
-import io.prestosql.testing.TestingConnectorSession;
+import io.trino.plugin.kafka.KafkaColumnHandle;
+import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
+import io.trino.plugin.kafka.encoder.RowEncoder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestRawEncoderMapping

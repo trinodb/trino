@@ -13,18 +13,18 @@
  */
 package io.trino.plugin.hive.parquet;
 
-import io.prestosql.parquet.writer.ParquetSchemaConverter;
-import io.prestosql.parquet.writer.ParquetWriterOptions;
-import io.prestosql.plugin.hive.FileWriter;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveFileWriterFactory;
-import io.prestosql.plugin.hive.HiveSessionProperties;
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.metastore.StorageFormat;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.parquet.writer.ParquetSchemaConverter;
+import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HiveFileWriterFactory;
+import io.trino.plugin.hive.HiveSessionProperties;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
@@ -41,10 +41,10 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.prestosql.plugin.hive.util.HiveUtil.getColumnNames;
-import static io.prestosql.plugin.hive.util.HiveUtil.getColumnTypes;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
+import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
+import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

@@ -14,7 +14,7 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -23,7 +23,7 @@ import java.util.Random;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static io.prestosql.spi.block.BlockTestUtils.assertBlockEquals;
+import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 
 public abstract class BaseBlockEncodingTest<T>
 {

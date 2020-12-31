@@ -13,8 +13,8 @@
  */
 package io.trino.operator;
 
-import io.prestosql.array.LongBigArray;
-import io.prestosql.operator.GroupedTopNRowNumberAccumulator.RowReference;
+import io.trino.array.LongBigArray;
+import io.trino.operator.GroupedTopNRowNumberAccumulator.RowReference;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparator;

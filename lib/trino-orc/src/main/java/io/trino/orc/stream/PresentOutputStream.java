@@ -13,11 +13,11 @@
  */
 package io.trino.orc.stream;
 
-import io.prestosql.orc.OrcOutputBuffer;
-import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
-import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.Stream;
+import io.trino.orc.OrcOutputBuffer;
+import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
+import io.trino.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.Stream;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -28,7 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static java.lang.Math.toIntExact;
 
 public class PresentOutputStream

@@ -18,8 +18,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.execution.buffer.PageCodecMarker.COMPRESSED;
-import static io.prestosql.execution.buffer.PageCodecMarker.ENCRYPTED;
+import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
+import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static java.util.Objects.requireNonNull;
 
 public class SerializedPage

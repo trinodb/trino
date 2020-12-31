@@ -22,7 +22,7 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.metadata.InternalNode;
+import io.trino.metadata.InternalNode;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;

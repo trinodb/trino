@@ -15,7 +15,7 @@ package io.trino.spi.statistics;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.statistics.DoubleRange.union;
+import static io.trino.spi.statistics.DoubleRange.union;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 

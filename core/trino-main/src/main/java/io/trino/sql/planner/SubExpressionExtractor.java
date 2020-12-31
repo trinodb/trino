@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.util.AstUtils;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.util.AstUtils;
 
 import java.util.Set;
 

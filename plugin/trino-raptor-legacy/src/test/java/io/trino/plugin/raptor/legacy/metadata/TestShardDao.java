@@ -31,7 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;

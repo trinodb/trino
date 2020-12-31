@@ -14,15 +14,15 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.plugin.hive.AcidInfo;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.EmptyPageSource;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.plugin.hive.AcidInfo;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.EmptyPageSource;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -40,10 +40,10 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe

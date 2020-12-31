@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.kafka.encoder.avro;
 
-import io.prestosql.plugin.kafka.encoder.EncoderColumnHandle;
-import io.prestosql.plugin.kafka.encoder.RowEncoder;
-import io.prestosql.plugin.kafka.encoder.RowEncoderFactory;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
+import io.trino.plugin.kafka.encoder.RowEncoder;
+import io.trino.plugin.kafka.encoder.RowEncoderFactory;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.avro.Schema;
 
 import java.util.List;

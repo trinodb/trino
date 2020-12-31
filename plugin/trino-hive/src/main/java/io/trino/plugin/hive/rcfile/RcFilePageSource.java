@@ -15,27 +15,27 @@ package io.trino.plugin.hive.rcfile;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.hive.HiveColumnHandle;
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.rcfile.RcFileCorruptionException;
-import io.prestosql.rcfile.RcFileReader;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.LazyBlock;
-import io.prestosql.spi.block.LazyBlockLoader;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveType;
+import io.trino.rcfile.RcFileCorruptionException;
+import io.trino.rcfile.RcFileReader;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LazyBlock;
+import io.trino.spi.block.LazyBlockLoader;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.type.Type;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

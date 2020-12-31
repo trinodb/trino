@@ -16,13 +16,13 @@ package io.trino.sql.gen;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SpecialForm;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
 public class IsNullCodeGenerator

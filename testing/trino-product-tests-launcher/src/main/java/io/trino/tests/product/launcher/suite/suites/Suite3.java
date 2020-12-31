@@ -14,17 +14,17 @@
 package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.environment.MultinodeTls;
-import io.prestosql.tests.product.launcher.env.environment.MultinodeTlsKerberos;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationWithDataProtection;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationWithWireEncryption;
-import io.prestosql.tests.product.launcher.suite.Suite;
-import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.environment.MultinodeTls;
+import io.trino.tests.product.launcher.env.environment.MultinodeTlsKerberos;
+import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationWithDataProtection;
+import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationWithWireEncryption;
+import io.trino.tests.product.launcher.suite.Suite;
+import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
-import static io.prestosql.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
+import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite3
         extends Suite

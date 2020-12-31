@@ -14,11 +14,11 @@
 package io.trino.operator.aggregation.state;
 
 import io.airlift.stats.QuantileDigest;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.QuantileDigestType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.QuantileDigestType;
+import io.trino.spi.type.Type;
 
 public class QuantileDigestStateSerializer
         implements AccumulatorStateSerializer<QuantileDigestState>

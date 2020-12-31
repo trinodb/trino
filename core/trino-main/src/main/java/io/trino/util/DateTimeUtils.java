@@ -13,11 +13,11 @@
  */
 package io.trino.util;
 
-import io.prestosql.client.IntervalDayTime;
-import io.prestosql.client.IntervalYearMonth;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.sql.tree.IntervalLiteral.IntervalField;
+import io.trino.client.IntervalDayTime;
+import io.trino.client.IntervalYearMonth;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.tree.IntervalLiteral.IntervalField;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.DurationFieldType;
@@ -43,13 +43,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
-import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
-import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
-import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
-import static io.prestosql.util.DateTimeZoneIndex.unpackDateTimeZone;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static io.trino.util.DateTimeZoneIndex.unpackChronology;
+import static io.trino.util.DateTimeZoneIndex.unpackDateTimeZone;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 

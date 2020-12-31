@@ -14,8 +14,8 @@
 package io.trino.plugin.phoenix;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
@@ -23,8 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.plugin.phoenix.PhoenixTableProperties.getRowkeys;
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.plugin.phoenix.PhoenixTableProperties.getRowkeys;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 
 public class PhoenixColumnProperties
 {

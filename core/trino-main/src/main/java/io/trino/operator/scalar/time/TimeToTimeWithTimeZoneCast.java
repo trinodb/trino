@@ -13,20 +13,20 @@
  */
 package io.trino.operator.scalar.time;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimeWithTimeZone;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
-import static io.prestosql.type.DateTimes.NANOSECONDS_PER_DAY;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.prestosql.type.DateTimes.getOffsetMinutes;
-import static io.prestosql.type.DateTimes.rescale;
-import static io.prestosql.type.DateTimes.round;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.trino.type.DateTimes.NANOSECONDS_PER_DAY;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
+import static io.trino.type.DateTimes.getOffsetMinutes;
+import static io.trino.type.DateTimes.rescale;
+import static io.trino.type.DateTimes.round;
 
 @ScalarOperator(CAST)
 public final class TimeToTimeWithTimeZoneCast

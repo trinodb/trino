@@ -15,16 +15,16 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.MethodAndNativeContainerTypes;
-import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
-import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
-import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation.ScalarImplementationChoice;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
-import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
-import io.prestosql.spi.type.Type;
-import io.prestosql.util.Reflection;
+import io.trino.metadata.PolymorphicScalarFunctionBuilder.MethodAndNativeContainerTypes;
+import io.trino.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
+import io.trino.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
+import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesScalarFunctionImplementation.ScalarImplementationChoice;
+import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
+import io.trino.spi.type.Type;
+import io.trino.util.Reflection;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

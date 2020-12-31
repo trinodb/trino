@@ -15,7 +15,7 @@ package io.trino.spi.block;
 
 import java.util.Arrays;
 
-import static io.prestosql.spi.block.BlockUtil.MAX_ARRAY_SIZE;
+import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
 import static java.lang.String.format;
 
 /**

@@ -15,7 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.mongodb.client.ListIndexesIterable;
-import io.prestosql.spi.connector.SortOrder;
+import io.trino.spi.connector.SortOrder;
 import org.bson.Document;
 
 import java.util.List;

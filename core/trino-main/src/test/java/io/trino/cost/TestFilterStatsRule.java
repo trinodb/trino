@@ -14,20 +14,20 @@
 
 package io.trino.cost;
 
-import io.prestosql.sql.planner.FunctionCallBuilder;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.ComparisonExpression.Operator;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.ComparisonExpression.Operator;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestFilterStatsRule
         extends BaseStatsCalculatorTest

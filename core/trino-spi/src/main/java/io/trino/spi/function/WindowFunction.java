@@ -13,7 +13,7 @@
  */
 package io.trino.spi.function;
 
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 
 public interface WindowFunction
 {

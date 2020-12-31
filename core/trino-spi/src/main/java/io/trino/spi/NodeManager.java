@@ -15,7 +15,7 @@ package io.trino.spi;
 
 import java.util.Set;
 
-import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 
 public interface NodeManager
 {

@@ -14,16 +14,16 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
 import java.util.Map;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.util.StructuralTestUtil.mapBlockOf;
-import static io.prestosql.util.StructuralTestUtil.mapType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.util.StructuralTestUtil.mapBlockOf;
+import static io.trino.util.StructuralTestUtil.mapType;
 
 public class TestBigintVarcharMapType
         extends AbstractTestType

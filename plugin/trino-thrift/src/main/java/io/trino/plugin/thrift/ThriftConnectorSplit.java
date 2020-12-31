@@ -16,9 +16,9 @@ package io.trino.plugin.thrift;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.thrift.api.PrestoThriftId;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ConnectorSplit;
+import io.trino.plugin.thrift.api.PrestoThriftId;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
 import java.util.Objects;

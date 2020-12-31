@@ -15,12 +15,12 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.LambdaArgumentDeclaration;
-import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.function.Function;

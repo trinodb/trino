@@ -13,7 +13,7 @@
  */
 package io.trino.orc;
 
-import io.prestosql.orc.stream.OrcDataOutput;
+import io.trino.orc.stream.OrcDataOutput;
 
 import java.io.Closeable;
 import java.io.IOException;

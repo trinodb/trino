@@ -22,7 +22,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
+import static io.trino.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static java.util.Objects.requireNonNull;
 
 public class ShardNode

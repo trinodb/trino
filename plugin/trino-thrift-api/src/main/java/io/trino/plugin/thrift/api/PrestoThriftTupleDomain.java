@@ -25,7 +25,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.prestosql.plugin.thrift.api.NameValidationUtils.checkValidName;
+import static io.trino.plugin.thrift.api.NameValidationUtils.checkValidName;
 
 @ThriftStruct
 public final class PrestoThriftTupleDomain

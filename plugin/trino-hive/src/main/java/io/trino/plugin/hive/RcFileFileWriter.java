@@ -16,17 +16,17 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.OutputStreamSliceOutput;
-import io.prestosql.rcfile.AircompressorCodecFactory;
-import io.prestosql.rcfile.HadoopCodecFactory;
-import io.prestosql.rcfile.RcFileDataSource;
-import io.prestosql.rcfile.RcFileEncoding;
-import io.prestosql.rcfile.RcFileWriter;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.type.Type;
+import io.trino.rcfile.AircompressorCodecFactory;
+import io.trino.rcfile.HadoopCodecFactory;
+import io.trino.rcfile.RcFileDataSource;
+import io.trino.rcfile.RcFileEncoding;
+import io.trino.rcfile.RcFileWriter;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -41,9 +41,9 @@ import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static java.util.Objects.requireNonNull;
 
 public class RcFileFileWriter

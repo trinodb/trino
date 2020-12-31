@@ -14,12 +14,12 @@
 
 package io.trino.memory;
 
-import io.prestosql.spi.QueryId;
+import io.trino.spi.QueryId;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 
 public class TotalReservationLowMemoryKiller
         implements LowMemoryKiller

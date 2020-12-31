@@ -14,11 +14,11 @@
 package io.trino.plugin.ml;
 
 import com.google.common.base.Splitter;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 import libsvm.svm_parameter;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 

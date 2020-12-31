@@ -14,7 +14,7 @@
 package io.trino.plugin.thrift;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Map;
 

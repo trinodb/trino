@@ -15,8 +15,8 @@ package io.trino.plugin.kafka.util;
 
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
-import io.prestosql.plugin.kafka.KafkaTopicDescription;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.kafka.KafkaTopicDescription;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.io.IOException;
 import java.util.AbstractMap;

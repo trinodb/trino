@@ -14,22 +14,22 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.AbstractIterator;
-import io.prestosql.orc.OrcDataSource;
-import io.prestosql.orc.OrcPredicate;
-import io.prestosql.orc.OrcReader;
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.orc.OrcRecordReader;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.Type;
+import io.trino.orc.OrcDataSource;
+import io.trino.orc.OrcPredicate;
+import io.trino.orc.OrcReader;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.orc.OrcRecordReader;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.Type;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.List;
 
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 

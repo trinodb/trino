@@ -13,18 +13,18 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import io.prestosql.Session;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.trino.Session;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExchangeNode;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 
 public class TestForceSingleNodeOutput
         extends BasePlanTest

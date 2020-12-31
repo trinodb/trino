@@ -15,9 +15,9 @@ package io.trino.plugin.hive.rubix;
 
 import com.qubole.rubix.spi.ClusterManager;
 import com.qubole.rubix.spi.ClusterType;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeManager;
+import io.trino.spi.HostAddress;
+import io.trino.spi.Node;
+import io.trino.spi.NodeManager;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;

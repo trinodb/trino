@@ -14,16 +14,16 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
-import io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.plugin.jdbc.SessionPropertiesProvider;
+import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 
 public final class PostgreSqlSessionProperties
         implements SessionPropertiesProvider

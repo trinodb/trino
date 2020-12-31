@@ -20,17 +20,17 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SpecialForm;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static java.util.Objects.requireNonNull;
 
 public class NullIfCodeGenerator

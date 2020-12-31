@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.SchemaTableName;
 
-import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
 public class ViewAlreadyExistsException

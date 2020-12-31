@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
+import static io.trino.orc.metadata.statistics.BinaryStatistics.BINARY_VALUE_BYTES_OVERHEAD;
 import static java.util.Objects.requireNonNull;
 
 public class BinaryStatisticsBuilder

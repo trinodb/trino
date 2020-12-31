@@ -23,12 +23,12 @@ import io.trino.tempto.fulfillment.table.kafka.KafkaTableDefinition;
 import io.trino.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.KAFKA;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.KAFKA;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
 
 public class TestKafkaAvroWritesSmokeTest

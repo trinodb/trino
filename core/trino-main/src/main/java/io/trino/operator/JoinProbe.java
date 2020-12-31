@@ -13,15 +13,15 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 public class JoinProbe
 {

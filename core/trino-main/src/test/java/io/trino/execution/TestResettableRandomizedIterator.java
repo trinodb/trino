@@ -14,7 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.execution.scheduler.ResettableRandomizedIterator;
+import io.trino.execution.scheduler.ResettableRandomizedIterator;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;

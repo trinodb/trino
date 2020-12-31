@@ -13,8 +13,8 @@
  */
 package io.trino.decoder;
 
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.type.Type;
 
 // Connectors that have rows that can be decoded into
 // columns using io.prestosql.decoder

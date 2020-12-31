@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.azure;
 
-import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.trino.plugin.hive.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.adl.AdlFileSystem;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;

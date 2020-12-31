@@ -14,8 +14,8 @@
 package io.trino.dispatcher;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.ManagedQueryExecution;
-import io.prestosql.execution.QueryTracker.TrackedQuery;
+import io.trino.execution.ManagedQueryExecution;
+import io.trino.execution.QueryTracker.TrackedQuery;
 
 public interface DispatchQuery
         extends TrackedQuery, ManagedQueryExecution

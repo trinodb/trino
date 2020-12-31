@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation.minmaxby;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 
 /**
  * Used for MinMaxBy aggregation states where value's native container type is Block or Slice.

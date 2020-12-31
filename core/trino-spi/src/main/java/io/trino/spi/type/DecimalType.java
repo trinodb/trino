@@ -13,14 +13,14 @@
  */
 package io.trino.spi.type;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.util.List;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
-import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
+import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.TypeSignatureParameter.numericParameter;
 import static java.lang.String.format;
 
 public abstract class DecimalType

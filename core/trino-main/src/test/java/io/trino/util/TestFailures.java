@@ -13,13 +13,13 @@
  */
 package io.trino.util;
 
-import io.prestosql.execution.ExecutionFailureInfo;
-import io.prestosql.spi.PrestoException;
+import io.trino.execution.ExecutionFailureInfo;
+import io.trino.spi.PrestoException;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
-import static io.prestosql.util.Failures.toFailure;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static io.trino.util.Failures.toFailure;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;

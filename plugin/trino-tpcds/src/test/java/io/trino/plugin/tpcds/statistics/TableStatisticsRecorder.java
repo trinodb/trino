@@ -15,8 +15,8 @@
 package io.trino.plugin.tpcds.statistics;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.tpcds.TpcdsRecordSet;
-import io.prestosql.spi.connector.RecordCursor;
+import io.trino.plugin.tpcds.TpcdsRecordSet;
+import io.trino.spi.connector.RecordCursor;
 import io.trino.tpcds.Results;
 import io.trino.tpcds.Session;
 import io.trino.tpcds.Table;

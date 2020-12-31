@@ -13,17 +13,17 @@
  */
 package io.trino.plugin.base.security;
 
-import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.spi.connector.CatalogSchemaRoutineName;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.eventlistener.EventListener;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
-import io.prestosql.spi.security.SystemAccessControl;
-import io.prestosql.spi.security.SystemSecurityContext;
-import io.prestosql.spi.security.ViewExpression;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaRoutineName;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
+import io.trino.spi.security.SystemAccessControl;
+import io.trino.spi.security.SystemSecurityContext;
+import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Optional;

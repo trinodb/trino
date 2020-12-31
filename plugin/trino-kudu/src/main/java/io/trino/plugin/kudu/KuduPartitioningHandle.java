@@ -15,9 +15,9 @@ package io.trino.plugin.kudu;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.kudu.schema.KuduRangePartition;
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.kudu.schema.KuduRangePartition;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;

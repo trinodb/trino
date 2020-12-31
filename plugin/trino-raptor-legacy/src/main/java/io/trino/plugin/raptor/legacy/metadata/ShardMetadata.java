@@ -27,9 +27,9 @@ import java.util.UUID;
 import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
-import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalLong;
-import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
+import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
+import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.getOptionalLong;
+import static io.trino.plugin.raptor.legacy.util.UuidUtil.uuidFromBytes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

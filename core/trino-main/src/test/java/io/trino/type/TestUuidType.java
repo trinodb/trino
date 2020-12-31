@@ -15,14 +15,14 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.type.UuidOperators.castFromVarcharToUuid;
-import static io.prestosql.type.UuidType.UUID;
+import static io.trino.type.UuidOperators.castFromVarcharToUuid;
+import static io.trino.type.UuidType.UUID;
 import static org.testng.Assert.assertEquals;
 
 public class TestUuidType

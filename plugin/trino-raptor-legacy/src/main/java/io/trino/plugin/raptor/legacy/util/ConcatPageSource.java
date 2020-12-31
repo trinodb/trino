@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy.util;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ConnectorPageSource;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorPageSource;
 
 import java.io.IOException;
 import java.util.Iterator;

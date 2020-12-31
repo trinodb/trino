@@ -19,8 +19,8 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.util.Reflection;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.util.Reflection;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
@@ -36,11 +36,11 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
-import static io.prestosql.util.CompilerUtils.defineClass;
-import static io.prestosql.util.CompilerUtils.makeClassName;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.sql.gen.BytecodeUtils.loadConstant;
+import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.Failures.checkCondition;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 

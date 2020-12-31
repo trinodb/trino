@@ -13,14 +13,14 @@
  */
 package io.trino.server.ui;
 
-import io.prestosql.spi.security.BasicPrincipal;
-import io.prestosql.spi.security.Identity;
+import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
-import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.redirectAllFormLoginToUi;
+import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.redirectAllFormLoginToUi;
 import static java.util.Objects.requireNonNull;
 
 public class FixedUserWebUiAuthenticationFilter

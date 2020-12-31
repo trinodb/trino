@@ -20,8 +20,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
-import io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
-import io.prestosql.spi.HostAddress;
+import io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
+import io.trino.spi.HostAddress;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -31,7 +31,7 @@ import java.util.Set;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
+import static io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy.IGNORE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ConfluentSchemaRegistryConfig

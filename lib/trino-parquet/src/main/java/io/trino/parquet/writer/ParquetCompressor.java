@@ -24,7 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.zip.GZIPOutputStream;
 
-import static io.prestosql.parquet.writer.ParquetDataOutput.createDataOutput;
+import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

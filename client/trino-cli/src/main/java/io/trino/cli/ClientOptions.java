@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.prestosql.client.ClientSession;
+import io.trino.client.ClientSession;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -35,7 +35,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.prestosql.client.KerberosUtil.defaultCredentialCachePath;
+import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

@@ -13,20 +13,20 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.prestosql.plugin.hive.metastore.HivePrincipal;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.GrantInfo;
-import io.prestosql.spi.security.Privilege;
-import io.prestosql.spi.security.RoleGrant;
+import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.Privilege;
+import io.trino.spi.security.RoleGrant;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public interface AccessControlMetadata
 {

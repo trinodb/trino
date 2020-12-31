@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import io.airlift.json.JsonModule;
-import io.prestosql.connector.informationschema.InformationSchemaTableHandle;
-import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.trino.connector.informationschema.InformationSchemaTableHandle;
+import io.trino.spi.connector.ConnectorTableHandle;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -31,8 +31,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.prestosql.connector.informationschema.InformationSchemaTable.COLUMNS;
-import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
+import static io.trino.connector.informationschema.InformationSchemaTable.COLUMNS;
+import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

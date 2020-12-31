@@ -13,15 +13,15 @@
  */
 package io.trino.spi.predicate;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 
 import javax.annotation.Nullable;
 
-import static io.prestosql.spi.type.TypeUtils.readNativeValue;
-import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.String.format;
 
 public final class Utils

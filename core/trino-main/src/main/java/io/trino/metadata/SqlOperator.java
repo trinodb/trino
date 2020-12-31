@@ -13,18 +13,18 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.mangleOperatorName;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.SUBSCRIPT;
 import static java.util.Collections.nCopies;
 
 public abstract class SqlOperator

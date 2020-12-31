@@ -15,7 +15,7 @@ package io.trino.sql;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimeZoneKey;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;

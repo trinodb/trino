@@ -14,23 +14,23 @@
 package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.EnvironmentDefaults;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationCrossRealm;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeMysql;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodePostgresql;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeSparkIceberg;
-import io.prestosql.tests.product.launcher.env.environment.SinglenodeSqlserver;
-import io.prestosql.tests.product.launcher.env.environment.TwoKerberosHives;
-import io.prestosql.tests.product.launcher.env.environment.TwoMixedHives;
-import io.prestosql.tests.product.launcher.suite.Suite;
-import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.EnvironmentDefaults;
+import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationCrossRealm;
+import io.trino.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
+import io.trino.tests.product.launcher.env.environment.SinglenodeMysql;
+import io.trino.tests.product.launcher.env.environment.SinglenodePostgresql;
+import io.trino.tests.product.launcher.env.environment.SinglenodeSparkIceberg;
+import io.trino.tests.product.launcher.env.environment.SinglenodeSqlserver;
+import io.trino.tests.product.launcher.env.environment.TwoKerberosHives;
+import io.trino.tests.product.launcher.env.environment.TwoMixedHives;
+import io.trino.tests.product.launcher.suite.Suite;
+import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
+import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite7NonGeneric
         extends Suite

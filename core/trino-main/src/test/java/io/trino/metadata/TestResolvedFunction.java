@@ -15,10 +15,10 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.ResolvedFunction.ResolvedFunctionDecoder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeId;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -27,7 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Integer.parseInt;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

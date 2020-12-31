@@ -16,10 +16,10 @@ package io.trino.plugin.ml;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import io.airlift.slice.Slice;
-import io.prestosql.array.ObjectBigArray;
-import io.prestosql.array.SliceBigArray;
-import io.prestosql.spi.function.AccumulatorStateFactory;
-import io.prestosql.spi.function.GroupedAccumulatorState;
+import io.trino.array.ObjectBigArray;
+import io.trino.array.SliceBigArray;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.GroupedAccumulatorState;
 import libsvm.svm_parameter;
 import org.openjdk.jol.info.ClassLayout;
 

@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
 public class DecimalModule
         implements Module

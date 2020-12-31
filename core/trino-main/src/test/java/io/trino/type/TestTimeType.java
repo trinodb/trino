@@ -13,11 +13,11 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.SqlTime;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.SqlTime;
 
-import static io.prestosql.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.TIME;
 
 public class TestTimeType
         extends AbstractTestType

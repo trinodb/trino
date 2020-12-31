@@ -15,15 +15,15 @@ package io.trino.operator.spiller;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spiller.FileSingleStreamSpillerFactory;
-import io.prestosql.spiller.GenericSpillerFactory;
-import io.prestosql.spiller.Spiller;
-import io.prestosql.spiller.SpillerFactory;
-import io.prestosql.spiller.SpillerStats;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.type.Type;
+import io.trino.spiller.FileSingleStreamSpillerFactory;
+import io.trino.spiller.GenericSpillerFactory;
+import io.trino.spiller.Spiller;
+import io.trino.spiller.SpillerFactory;
+import io.trino.spiller.SpillerStats;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -44,12 +44,12 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @State(Scope.Thread)

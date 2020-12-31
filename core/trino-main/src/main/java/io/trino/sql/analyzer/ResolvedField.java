@@ -13,7 +13,7 @@
  */
 package io.trino.sql.analyzer;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import javax.annotation.concurrent.Immutable;
 

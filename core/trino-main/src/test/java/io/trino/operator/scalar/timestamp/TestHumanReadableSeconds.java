@@ -13,10 +13,10 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestHumanReadableSeconds
         extends AbstractTestFunctions

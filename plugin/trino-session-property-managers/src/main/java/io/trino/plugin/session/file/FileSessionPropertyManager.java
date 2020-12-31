@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.plugin.session.AbstractSessionPropertyManager;
-import io.prestosql.plugin.session.SessionMatchSpec;
+import io.trino.plugin.session.AbstractSessionPropertyManager;
+import io.trino.plugin.session.SessionMatchSpec;
 
 import javax.inject.Inject;
 

@@ -15,25 +15,25 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.MapType;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.util.StructuralTestUtil.mapType;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.AggregationTestUtils.getFinalBlock;
+import static io.trino.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

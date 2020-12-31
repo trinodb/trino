@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
 

@@ -13,17 +13,17 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.SemiJoinNode;
-import io.prestosql.sql.tree.ExistsPredicate;
-import io.prestosql.sql.tree.InPredicate;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.tree.ExistsPredicate;
+import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static java.util.Collections.emptyList;
 
 public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin

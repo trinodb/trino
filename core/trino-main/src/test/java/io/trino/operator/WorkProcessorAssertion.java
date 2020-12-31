@@ -14,8 +14,8 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.operator.WorkProcessor.ProcessState;
-import io.prestosql.operator.WorkProcessor.TransformationState;
+import io.trino.operator.WorkProcessor.ProcessState;
+import io.trino.operator.WorkProcessor.TransformationState;
 
 import java.util.Iterator;
 import java.util.List;

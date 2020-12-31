@@ -15,25 +15,25 @@ package io.trino.rcfile.binary;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.plugin.base.type.DecodedTimestamp;
-import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
-import io.prestosql.rcfile.ColumnData;
-import io.prestosql.rcfile.EncodeOutput;
-import io.prestosql.rcfile.TimestampHolder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.plugin.base.type.PrestoTimestampEncoder;
+import io.trino.rcfile.ColumnData;
+import io.trino.rcfile.EncodeOutput;
+import io.trino.rcfile.TimestampHolder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.TimestampType;
 import org.joda.time.DateTimeZone;
 
 import java.util.function.BiFunction;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
-import static io.prestosql.rcfile.RcFileDecoderUtils.decodeVIntSize;
-import static io.prestosql.rcfile.RcFileDecoderUtils.isNegativeVInt;
-import static io.prestosql.rcfile.RcFileDecoderUtils.readVInt;
-import static io.prestosql.rcfile.RcFileDecoderUtils.writeVInt;
-import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.rcfile.RcFileDecoderUtils.decodeVIntSize;
+import static io.trino.rcfile.RcFileDecoderUtils.isNegativeVInt;
+import static io.trino.rcfile.RcFileDecoderUtils.readVInt;
+import static io.trino.rcfile.RcFileDecoderUtils.writeVInt;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampEncoding

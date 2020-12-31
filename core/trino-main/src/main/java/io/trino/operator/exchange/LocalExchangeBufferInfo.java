@@ -15,8 +15,8 @@ package io.trino.operator.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.operator.OperatorInfo;
-import io.prestosql.util.Mergeable;
+import io.trino.operator.OperatorInfo;
+import io.trino.util.Mergeable;
 
 public class LocalExchangeBufferInfo
         implements Mergeable<LocalExchangeBufferInfo>, OperatorInfo

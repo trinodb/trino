@@ -14,29 +14,29 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
+import io.trino.metadata.Metadata;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.predicate.Domain.multipleValues;
-import static io.prestosql.spi.predicate.Range.greaterThan;
-import static io.prestosql.spi.predicate.Range.greaterThanOrEqual;
-import static io.prestosql.spi.predicate.Range.lessThan;
-import static io.prestosql.spi.predicate.Range.lessThanOrEqual;
-import static io.prestosql.spi.predicate.Range.range;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.predicate.Domain.multipleValues;
+import static io.trino.spi.predicate.Range.greaterThan;
+import static io.trino.spi.predicate.Range.greaterThanOrEqual;
+import static io.trino.spi.predicate.Range.lessThan;
+import static io.trino.spi.predicate.Range.lessThanOrEqual;
+import static io.trino.spi.predicate.Range.range;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static java.lang.Float.floatToIntBits;
 import static org.testng.Assert.assertEquals;
 

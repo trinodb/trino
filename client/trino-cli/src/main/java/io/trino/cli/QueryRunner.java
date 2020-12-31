@@ -15,9 +15,9 @@ package io.trino.cli;
 
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
-import io.prestosql.client.ClientSession;
-import io.prestosql.client.OkHttpUtil;
-import io.prestosql.client.StatementClient;
+import io.trino.client.ClientSession;
+import io.trino.client.OkHttpUtil;
+import io.trino.client.StatementClient;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -27,17 +27,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.client.ClientSession.stripTransactionId;
-import static io.prestosql.client.OkHttpUtil.basicAuth;
-import static io.prestosql.client.OkHttpUtil.setupChannelSocket;
-import static io.prestosql.client.OkHttpUtil.setupCookieJar;
-import static io.prestosql.client.OkHttpUtil.setupHttpProxy;
-import static io.prestosql.client.OkHttpUtil.setupKerberos;
-import static io.prestosql.client.OkHttpUtil.setupSocksProxy;
-import static io.prestosql.client.OkHttpUtil.setupSsl;
-import static io.prestosql.client.OkHttpUtil.setupTimeouts;
-import static io.prestosql.client.OkHttpUtil.tokenAuth;
-import static io.prestosql.client.StatementClientFactory.newStatementClient;
+import static io.trino.client.ClientSession.stripTransactionId;
+import static io.trino.client.OkHttpUtil.basicAuth;
+import static io.trino.client.OkHttpUtil.setupChannelSocket;
+import static io.trino.client.OkHttpUtil.setupCookieJar;
+import static io.trino.client.OkHttpUtil.setupHttpProxy;
+import static io.trino.client.OkHttpUtil.setupKerberos;
+import static io.trino.client.OkHttpUtil.setupSocksProxy;
+import static io.trino.client.OkHttpUtil.setupSsl;
+import static io.trino.client.OkHttpUtil.setupTimeouts;
+import static io.trino.client.OkHttpUtil.tokenAuth;
+import static io.trino.client.StatementClientFactory.newStatementClient;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

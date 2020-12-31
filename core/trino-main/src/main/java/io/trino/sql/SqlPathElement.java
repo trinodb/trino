@@ -15,7 +15,7 @@ package io.trino.sql;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.sql.tree.Identifier;
+import io.trino.sql.tree.Identifier;
 
 import java.util.Objects;
 import java.util.Optional;

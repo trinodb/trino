@@ -13,9 +13,9 @@
  */
 package io.trino.execution.scheduler;
 
-import io.prestosql.execution.NodeTaskMap;
-import io.prestosql.execution.RemoteTask;
-import io.prestosql.metadata.InternalNode;
+import io.trino.execution.NodeTaskMap;
+import io.trino.execution.RemoteTask;
+import io.trino.metadata.InternalNode;
 
 import java.util.HashMap;
 import java.util.List;

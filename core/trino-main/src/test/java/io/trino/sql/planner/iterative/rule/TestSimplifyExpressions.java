@@ -13,19 +13,19 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.planner.LiteralEncoder;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolAllocator;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.LogicalBinaryExpression;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -33,17 +33,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.sql.ExpressionUtils.binaryExpression;
-import static io.prestosql.sql.ExpressionUtils.extractPredicates;
-import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
-import static io.prestosql.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.sql.ExpressionUtils.binaryExpression;
+import static io.trino.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 

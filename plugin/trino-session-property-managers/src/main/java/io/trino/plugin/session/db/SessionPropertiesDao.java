@@ -14,7 +14,7 @@
 package io.trino.plugin.session.db;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.plugin.session.SessionMatchSpec;
+import io.trino.plugin.session.SessionMatchSpec;
 import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
@@ -22,9 +22,9 @@ import org.jdbi.v3.sqlobject.statement.UseRowMapper;
 
 import java.util.List;
 
-import static io.prestosql.plugin.session.db.util.SessionPropertiesDaoUtil.CLIENT_TAGS_TABLE;
-import static io.prestosql.plugin.session.db.util.SessionPropertiesDaoUtil.PROPERTIES_TABLE;
-import static io.prestosql.plugin.session.db.util.SessionPropertiesDaoUtil.SESSION_SPECS_TABLE;
+import static io.trino.plugin.session.db.util.SessionPropertiesDaoUtil.CLIENT_TAGS_TABLE;
+import static io.trino.plugin.session.db.util.SessionPropertiesDaoUtil.PROPERTIES_TABLE;
+import static io.trino.plugin.session.db.util.SessionPropertiesDaoUtil.SESSION_SPECS_TABLE;
 
 /**
  * Dao should guarantee that the list of SessionMatchSpecs is returned in increasing order of priority. i.e. if two

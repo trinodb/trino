@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -34,7 +34,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.hive.orc;
 
-import io.prestosql.orc.OrcDataSource;
-import io.prestosql.orc.OrcDataSourceId;
-import io.prestosql.orc.OrcReader;
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.spi.PrestoException;
+import io.trino.orc.OrcDataSource;
+import io.trino.orc.OrcDataSourceId;
+import io.trino.orc.OrcReader;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -27,9 +27,9 @@ import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
 
-import static io.prestosql.orc.OrcReader.createOrcReader;
-import static io.prestosql.plugin.hive.AcidInfo.OriginalFileInfo;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static io.trino.orc.OrcReader.createOrcReader;
+import static io.trino.plugin.hive.AcidInfo.OriginalFileInfo;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 
 public final class OriginalFilesUtils
 {

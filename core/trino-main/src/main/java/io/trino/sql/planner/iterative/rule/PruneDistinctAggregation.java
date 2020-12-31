@@ -14,23 +14,23 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ExceptNode;
-import io.prestosql.sql.planner.plan.IntersectNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
-import io.prestosql.sql.planner.plan.UnionNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExceptNode;
+import io.trino.sql.planner.plan.IntersectNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.plan.UnionNode;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
 
 public class PruneDistinctAggregation
         implements Rule<AggregationNode>

@@ -13,11 +13,11 @@
  */
 package io.trino.matching;
 
-import io.prestosql.matching.example.rel.FilterNode;
-import io.prestosql.matching.example.rel.JoinNode;
-import io.prestosql.matching.example.rel.ProjectNode;
-import io.prestosql.matching.example.rel.RelNode;
-import io.prestosql.matching.example.rel.ScanNode;
+import io.trino.matching.example.rel.FilterNode;
+import io.trino.matching.example.rel.JoinNode;
+import io.trino.matching.example.rel.ProjectNode;
+import io.trino.matching.example.rel.RelNode;
+import io.trino.matching.example.rel.ScanNode;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -27,15 +27,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.matching.Pattern.any;
-import static io.prestosql.matching.Pattern.typeOf;
-import static io.prestosql.matching.example.rel.Patterns.filter;
-import static io.prestosql.matching.example.rel.Patterns.plan;
-import static io.prestosql.matching.example.rel.Patterns.project;
-import static io.prestosql.matching.example.rel.Patterns.scan;
-import static io.prestosql.matching.example.rel.Patterns.source;
-import static io.prestosql.matching.example.rel.Patterns.tableName;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.matching.Pattern.any;
+import static io.trino.matching.Pattern.typeOf;
+import static io.trino.matching.example.rel.Patterns.filter;
+import static io.trino.matching.example.rel.Patterns.plan;
+import static io.trino.matching.example.rel.Patterns.project;
+import static io.trino.matching.example.rel.Patterns.scan;
+import static io.trino.matching.example.rel.Patterns.source;
+import static io.trino.matching.example.rel.Patterns.tableName;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

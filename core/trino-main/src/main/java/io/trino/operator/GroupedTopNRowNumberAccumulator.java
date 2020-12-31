@@ -14,9 +14,9 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.array.LongBigArray;
-import io.prestosql.util.HeapTraversal;
-import io.prestosql.util.LongBigArrayFIFOQueue;
+import io.trino.array.LongBigArray;
+import io.trino.util.HeapTraversal;
+import io.trino.util.LongBigArrayFIFOQueue;
 import it.unimi.dsi.fastutil.longs.LongComparator;
 import org.openjdk.jol.info.ClassLayout;
 

@@ -15,7 +15,7 @@ package io.trino.orc.stream;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.orc.metadata.Stream;
+import io.trino.orc.metadata.Stream;
 
 import java.util.function.ToLongFunction;
 

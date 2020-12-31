@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.rubix;
 
-import io.prestosql.plugin.hive.ConfigurationInitializer;
+import io.trino.plugin.hive.ConfigurationInitializer;
 
 public interface RubixHdfsInitializer
         extends ConfigurationInitializer

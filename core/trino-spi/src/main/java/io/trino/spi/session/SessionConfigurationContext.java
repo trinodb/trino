@@ -13,7 +13,7 @@
  */
 package io.trino.spi.session;
 
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.ResourceGroupId;
 
 import java.util.Optional;
 import java.util.Set;

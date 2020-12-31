@@ -16,7 +16,7 @@ package io.trino.plugin.password.file;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
-import io.prestosql.spi.security.GroupProvider;
+import io.trino.spi.security.GroupProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;

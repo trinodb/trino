@@ -15,11 +15,11 @@ package io.trino.operator;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.array.LongBigArray;
-import io.prestosql.operator.RowReferencePageManager.LoadCursor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.array.LongBigArray;
+import io.trino.operator.RowReferencePageManager.LoadCursor;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.longs.LongComparator;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -28,7 +28,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 /**

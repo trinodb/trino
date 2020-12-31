@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.prestosql.operator.scalar.AbstractTestExtract;
-import io.prestosql.sql.parser.ParsingException;
+import io.trino.operator.scalar.AbstractTestExtract;
+import io.trino.sql.parser.ParsingException;
 import org.testng.annotations.Test;
 
 import java.util.List;

@@ -13,20 +13,20 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.Session;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 

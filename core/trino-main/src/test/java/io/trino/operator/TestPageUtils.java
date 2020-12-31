@@ -13,15 +13,15 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlock;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LazyBlock;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import static io.prestosql.block.BlockAssertions.createIntsBlock;
-import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
+import static io.trino.block.BlockAssertions.createIntsBlock;
+import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static org.testng.Assert.assertEquals;
 
 public class TestPageUtils

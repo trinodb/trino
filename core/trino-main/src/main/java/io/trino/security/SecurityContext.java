@@ -13,11 +13,11 @@
  */
 package io.trino.security;
 
-import io.prestosql.Session;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.SystemSecurityContext;
-import io.prestosql.transaction.TransactionId;
+import io.trino.Session;
+import io.trino.spi.QueryId;
+import io.trino.spi.security.Identity;
+import io.trino.spi.security.SystemSecurityContext;
+import io.trino.transaction.TransactionId;
 
 import java.util.Objects;
 import java.util.Optional;

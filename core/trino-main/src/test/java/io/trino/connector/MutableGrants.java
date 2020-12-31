@@ -13,15 +13,15 @@
  */
 package io.trino.connector;
 
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static io.prestosql.spi.security.PrincipalType.USER;
+import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 
 public class MutableGrants<T>

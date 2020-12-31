@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.Partition;
 
 import java.util.Optional;
 

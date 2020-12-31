@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import io.prestosql.plugin.hive.HiveMetastoreClosure;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.hive.HiveMetastoreClosure;
+import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Map;

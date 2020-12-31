@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import io.prestosql.plugin.hive.acid.AcidOperation;
+import io.trino.plugin.hive.acid.AcidOperation;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;

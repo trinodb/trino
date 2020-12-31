@@ -13,8 +13,8 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;

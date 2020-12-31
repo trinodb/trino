@@ -14,15 +14,15 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.buffer.PagesSerde;
-import io.prestosql.execution.buffer.PagesSerdeFactory;
-import io.prestosql.execution.buffer.SerializedPage;
-import io.prestosql.metadata.Split;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.UpdatablePageSource;
-import io.prestosql.split.RemoteSplit;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.connector.CatalogName;
+import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.execution.buffer.SerializedPage;
+import io.trino.metadata.Split;
+import io.trino.spi.Page;
+import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.split.RemoteSplit;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.net.URI;
 import java.util.Optional;

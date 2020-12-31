@@ -15,13 +15,13 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.planner.plan.SpatialJoinNode;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.SpatialJoinNode;
 
 import javax.annotation.Nullable;
 
@@ -35,8 +35,8 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.sql.planner.plan.SpatialJoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.SpatialJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.SpatialJoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.SpatialJoinNode.Type.LEFT;
 import static java.util.Objects.requireNonNull;
 
 public class SpatialJoinOperator

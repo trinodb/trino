@@ -15,30 +15,30 @@ package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.gen.PageFunctionCompiler;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
-import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.PageAssertions.assertPageEquals;
-import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 
 public class TestTupleFilterProcessor
 {

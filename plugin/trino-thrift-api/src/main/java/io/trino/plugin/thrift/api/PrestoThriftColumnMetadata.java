@@ -16,8 +16,8 @@ package io.trino.plugin.thrift.api;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.TypeManager;
 
 import javax.annotation.Nullable;
 
@@ -26,7 +26,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.prestosql.plugin.thrift.api.NameValidationUtils.checkValidName;
+import static io.trino.plugin.thrift.api.NameValidationUtils.checkValidName;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct

@@ -15,9 +15,9 @@ package io.trino.plugin.password.ldap;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.password.Credential;
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.BasicPrincipal;
+import io.trino.plugin.password.Credential;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.BasicPrincipal;
 import org.testng.annotations.Test;
 
 import javax.naming.NamingException;

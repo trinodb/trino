@@ -14,11 +14,11 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.kafka.BasicTestingKafka;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.kafka.BasicTestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 
 import java.util.UUID;
 
-import static io.prestosql.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
+import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)

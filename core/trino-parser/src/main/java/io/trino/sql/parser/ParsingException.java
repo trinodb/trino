@@ -13,7 +13,7 @@
  */
 package io.trino.sql.parser;
 
-import io.prestosql.sql.tree.NodeLocation;
+import io.trino.sql.tree.NodeLocation;
 import org.antlr.v4.runtime.RecognitionException;
 
 import static com.google.common.base.Preconditions.checkArgument;

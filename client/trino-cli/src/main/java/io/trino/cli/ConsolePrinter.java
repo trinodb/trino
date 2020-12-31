@@ -15,7 +15,7 @@ package io.trino.cli;
 
 import java.io.PrintStream;
 
-import static io.prestosql.cli.TerminalUtils.isRealTerminal;
+import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static java.util.Objects.requireNonNull;
 
 public class ConsolePrinter

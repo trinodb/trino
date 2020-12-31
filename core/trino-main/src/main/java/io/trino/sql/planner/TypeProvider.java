@@ -14,7 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.Collections;
 import java.util.Map;

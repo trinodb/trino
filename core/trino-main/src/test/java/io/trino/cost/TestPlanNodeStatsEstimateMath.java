@@ -13,14 +13,14 @@
  */
 package io.trino.cost;
 
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
-import static io.prestosql.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
-import static io.prestosql.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
-import static io.prestosql.cost.PlanNodeStatsEstimateMath.capStats;
-import static io.prestosql.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
+import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
+import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
+import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

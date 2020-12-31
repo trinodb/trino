@@ -15,29 +15,29 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.FixedSplitSource;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.connector.SystemTable.Distribution;
-import io.prestosql.spi.connector.TableNotFoundException;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.SystemTable.Distribution;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Set;
 
-import static io.prestosql.metadata.NodeState.ACTIVE;
-import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
-import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
-import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
+import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;
+import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.util.Objects.requireNonNull;
 
 public class SystemSplitManager

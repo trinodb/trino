@@ -23,11 +23,11 @@ import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.RecordingHiveMetastoreModule;
-import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
+import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.ForRecordingHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.RecordingHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
 
 import java.util.concurrent.Executor;
 import java.util.function.Predicate;

@@ -15,9 +15,9 @@ package io.trino.sql.planner;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.connector.CatalogName;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Objects;
 import java.util.Optional;

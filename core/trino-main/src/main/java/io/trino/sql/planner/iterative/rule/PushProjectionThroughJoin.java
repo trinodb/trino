@@ -15,16 +15,16 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.Expression;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Map;
@@ -34,9 +34,9 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
 /**
  * Utility class for pushing projections through inner join so that joins are not separated

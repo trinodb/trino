@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.connector.NotFoundException;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.NotFoundException;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 

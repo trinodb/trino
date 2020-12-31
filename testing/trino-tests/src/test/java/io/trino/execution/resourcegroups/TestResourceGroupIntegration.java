@@ -14,18 +14,18 @@
 package io.trino.execution.resourcegroups;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.resourcegroups.ResourceGroupManagerPlugin;
-import io.prestosql.server.ResourceGroupInfo;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
+import io.trino.server.ResourceGroupInfo;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;

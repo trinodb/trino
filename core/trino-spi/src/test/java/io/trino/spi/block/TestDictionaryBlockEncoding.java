@@ -16,8 +16,8 @@ package io.trino.spi.block;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.block.BlockTestUtils.assertBlockEquals;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.SchemaTableName;
 
-import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_UNKNOWN_TABLE_TYPE;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNKNOWN_TABLE_TYPE;
 import static java.util.Objects.requireNonNull;
 
 public class UnknownTableTypeException

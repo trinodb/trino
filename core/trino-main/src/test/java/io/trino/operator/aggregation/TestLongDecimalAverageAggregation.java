@@ -14,15 +14,15 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Type;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static io.prestosql.spi.type.Decimals.encodeScaledValue;
+import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.Decimals.encodeScaledValue;
 
 public class TestLongDecimalAverageAggregation
         extends AbstractTestDecimalAverageAggregation

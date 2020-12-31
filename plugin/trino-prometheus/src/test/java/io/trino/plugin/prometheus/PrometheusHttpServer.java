@@ -36,7 +36,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.Map;
 
-import static io.prestosql.plugin.prometheus.PrometheusClient.METRICS_ENDPOINT;
+import static io.trino.plugin.prometheus.PrometheusClient.METRICS_ENDPOINT;
 
 public class PrometheusHttpServer
 {

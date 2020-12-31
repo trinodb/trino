@@ -15,18 +15,18 @@ package io.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
-import io.prestosql.testing.datatype.DataSetup;
-import io.prestosql.testing.datatype.SqlDataTypeTest;
-import io.prestosql.testing.sql.PrestoSqlExecutor;
+import io.trino.Session;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.datatype.CreateAsSelectDataSetup;
+import io.trino.testing.datatype.DataSetup;
+import io.trino.testing.datatype.SqlDataTypeTest;
+import io.trino.testing.sql.PrestoSqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
 public class TestSqlServerTypeMapping
         extends AbstractTestQueryFramework

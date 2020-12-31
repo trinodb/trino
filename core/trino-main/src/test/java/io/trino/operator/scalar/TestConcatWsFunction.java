@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 public class TestConcatWsFunction

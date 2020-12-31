@@ -14,11 +14,11 @@
 package io.trino.plugin.jdbc;
 
 import io.airlift.testing.EquivalenceTester;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.jdbc.MetadataUtil.TABLE_CODEC;
-import static io.prestosql.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
+import static io.trino.plugin.jdbc.MetadataUtil.TABLE_CODEC;
+import static io.trino.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
 
 public class TestJdbcTableHandle
 {

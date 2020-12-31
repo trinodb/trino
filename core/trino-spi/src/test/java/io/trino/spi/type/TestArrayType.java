@@ -15,7 +15,7 @@ package io.trino.spi.type;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 
 public class TestArrayType

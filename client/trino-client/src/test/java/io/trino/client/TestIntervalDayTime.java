@@ -15,9 +15,9 @@ package io.trino.client;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.client.IntervalDayTime.formatMillis;
-import static io.prestosql.client.IntervalDayTime.parseMillis;
-import static io.prestosql.client.IntervalDayTime.toMillis;
+import static io.trino.client.IntervalDayTime.formatMillis;
+import static io.trino.client.IntervalDayTime.parseMillis;
+import static io.trino.client.IntervalDayTime.toMillis;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 

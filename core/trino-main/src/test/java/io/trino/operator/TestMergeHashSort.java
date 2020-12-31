@@ -14,16 +14,16 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.spi.Page;
+import io.trino.spi.type.TypeOperators;
+import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.operator.WorkProcessorAssertion.assertFinishes;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.WorkProcessorAssertion.assertFinishes;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

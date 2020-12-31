@@ -34,10 +34,10 @@ import org.testng.annotations.Test;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.geospatial.serde.GeometrySerde.deserialize;
-import static io.prestosql.plugin.geospatial.GeoFunctions.stEnvelope;
-import static io.prestosql.plugin.geospatial.GeoFunctions.stGeometryFromText;
-import static io.prestosql.plugin.geospatial.GeoFunctions.stIntersection;
+import static io.trino.geospatial.serde.GeometrySerde.deserialize;
+import static io.trino.plugin.geospatial.GeoFunctions.stEnvelope;
+import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
+import static io.trino.plugin.geospatial.GeoFunctions.stIntersection;
 import static org.testng.Assert.assertEquals;
 
 @State(Scope.Thread)

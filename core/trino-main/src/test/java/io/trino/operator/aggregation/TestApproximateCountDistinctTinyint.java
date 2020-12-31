@@ -13,11 +13,11 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 
 public class TestApproximateCountDistinctTinyint
         extends AbstractTestApproximateCountDistinct

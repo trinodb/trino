@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.kafka.encoder.json.format;
 
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlTime;
-import io.prestosql.spi.type.SqlTimeWithTimeZone;
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.Type;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -26,20 +26,20 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.NANOSECONDS_PER_MICROSECOND;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.NANOSECONDS_PER_MILLISECOND;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.getMicrosOfSecond;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.getMillisOfSecond;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.getNanosOfDay;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.scaleEpochMicrosToSeconds;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.scaleEpochMillisToSeconds;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToMillis;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToNanos;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimeType.TIME_MILLIS;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.getMicrosOfSecond;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.getMillisOfSecond;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.getNanosOfDay;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scaleEpochMicrosToSeconds;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scaleEpochMillisToSeconds;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToMillis;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToNanos;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_TIME;

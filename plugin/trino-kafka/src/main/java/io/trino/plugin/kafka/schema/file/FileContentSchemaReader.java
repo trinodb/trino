@@ -14,8 +14,8 @@
 package io.trino.plugin.kafka.schema.file;
 
 import com.google.common.io.CharStreams;
-import io.prestosql.plugin.kafka.schema.AbstractContentSchemaReader;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.kafka.schema.AbstractContentSchemaReader;
+import io.trino.spi.PrestoException;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -27,7 +27,7 @@ import java.net.URL;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 

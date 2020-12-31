@@ -18,17 +18,17 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.DecimalModule;
-import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.ForBaseJdbc;
-import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DecimalModule;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
 import org.postgresql.Driver;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
 public class PostgreSqlClientModule
         implements Module

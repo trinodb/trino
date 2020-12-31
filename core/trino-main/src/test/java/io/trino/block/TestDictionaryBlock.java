@@ -15,17 +15,17 @@ package io.trino.block;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.block.DictionaryId;
-import io.prestosql.spi.block.VariableWidthBlock;
-import io.prestosql.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.VariableWidthBlock;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.prestosql.block.BlockAssertions.createSlicesBlock;
+import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;

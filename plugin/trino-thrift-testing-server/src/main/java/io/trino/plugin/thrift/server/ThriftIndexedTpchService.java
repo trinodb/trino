@@ -15,30 +15,30 @@ package io.trino.plugin.thrift.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
-import io.prestosql.plugin.thrift.api.PrestoThriftId;
-import io.prestosql.plugin.thrift.api.PrestoThriftNullableToken;
-import io.prestosql.plugin.thrift.api.PrestoThriftPageResult;
-import io.prestosql.plugin.thrift.api.PrestoThriftSchemaTableName;
-import io.prestosql.plugin.thrift.api.PrestoThriftServiceException;
-import io.prestosql.plugin.thrift.api.PrestoThriftSplit;
-import io.prestosql.plugin.thrift.api.PrestoThriftSplitBatch;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.RecordPageSource;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.type.Type;
-import io.prestosql.split.MappedRecordSet;
-import io.prestosql.testing.tpch.TpchIndexedData;
-import io.prestosql.testing.tpch.TpchIndexedData.IndexedTable;
-import io.prestosql.testing.tpch.TpchScaledTable;
+import io.trino.plugin.thrift.api.PrestoThriftBlock;
+import io.trino.plugin.thrift.api.PrestoThriftId;
+import io.trino.plugin.thrift.api.PrestoThriftNullableToken;
+import io.trino.plugin.thrift.api.PrestoThriftPageResult;
+import io.trino.plugin.thrift.api.PrestoThriftSchemaTableName;
+import io.trino.plugin.thrift.api.PrestoThriftServiceException;
+import io.trino.plugin.thrift.api.PrestoThriftSplit;
+import io.trino.plugin.thrift.api.PrestoThriftSplitBatch;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.type.Type;
+import io.trino.split.MappedRecordSet;
+import io.trino.testing.tpch.TpchIndexedData;
+import io.trino.testing.tpch.TpchIndexedData.IndexedTable;
+import io.trino.testing.tpch.TpchScaledTable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.thrift.server.SplitInfo.indexSplit;
-import static io.prestosql.testing.AbstractTestIndexedQueries.INDEX_SPEC;
+import static io.trino.plugin.thrift.server.SplitInfo.indexSplit;
+import static io.trino.testing.AbstractTestIndexedQueries.INDEX_SPEC;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 

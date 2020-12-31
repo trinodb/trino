@@ -18,9 +18,9 @@ import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.CREATE_TABLE;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.CREATE_TABLE;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)

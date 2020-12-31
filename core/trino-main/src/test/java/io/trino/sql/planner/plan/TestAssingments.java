@@ -14,10 +14,10 @@
 package io.trino.sql.planner.plan;
 
 import com.google.common.collect.ImmutableCollection;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.testng.Assert.assertTrue;
 
 public class TestAssingments

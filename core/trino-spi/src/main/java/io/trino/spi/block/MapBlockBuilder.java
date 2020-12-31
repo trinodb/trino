@@ -14,7 +14,7 @@
 
 package io.trino.spi.block;
 
-import io.prestosql.spi.type.MapType;
+import io.trino.spi.type.MapType;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -24,10 +24,10 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
-import static io.prestosql.spi.block.BlockUtil.calculateNewArraySize;
-import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
-import static io.prestosql.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
+import static io.trino.spi.block.MapBlock.createMapBlockInternal;
+import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

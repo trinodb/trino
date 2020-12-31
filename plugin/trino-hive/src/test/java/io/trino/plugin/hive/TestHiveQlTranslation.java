@@ -18,9 +18,9 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlParser;
+import io.trino.spi.PrestoException;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlParser;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
-import static io.prestosql.plugin.hive.HiveQlToPrestoTranslator.translateHiveViewToPresto;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
+import static io.trino.plugin.hive.HiveQlToPrestoTranslator.translateHiveViewToPresto;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;

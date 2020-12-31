@@ -14,7 +14,7 @@
 package io.trino.sql.relational;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.Objects;
 

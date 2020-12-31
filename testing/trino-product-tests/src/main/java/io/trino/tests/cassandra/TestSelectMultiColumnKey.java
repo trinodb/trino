@@ -20,15 +20,15 @@ import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.CASSANDRA;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.cassandra.MultiColumnKeyTableDefinition.CASSANDRA_MULTI_COLUMN_KEY;
-import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.trino.tests.TestGroups.CASSANDRA;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.cassandra.MultiColumnKeyTableDefinition.CASSANDRA_MULTI_COLUMN_KEY;
+import static io.trino.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.trino.tests.cassandra.TestConstants.KEY_SPACE;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 
 public class TestSelectMultiColumnKey

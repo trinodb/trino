@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
-import io.prestosql.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
+import io.trino.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde.serdeConstants;

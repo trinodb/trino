@@ -14,9 +14,9 @@
 package io.trino.orc.stream;
 
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcDecompressor;
-import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcDecompressor;
+import io.trino.orc.checkpoint.LongStreamCheckpoint;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -24,10 +24,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcDecompressor.createOrcDecompressor;
-import static io.prestosql.orc.metadata.CompressionKind.SNAPPY;
-import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.orc.OrcDecompressor.createOrcDecompressor;
+import static io.trino.orc.metadata.CompressionKind.SNAPPY;
+import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 
 public class TestLongStreamV2
         extends AbstractTestValueStream<Long, LongStreamCheckpoint, LongOutputStreamV2, LongInputStreamV2>

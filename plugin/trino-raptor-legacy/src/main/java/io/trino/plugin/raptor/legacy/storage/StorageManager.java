@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.raptor.legacy.storage;
 
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.Type;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.OptionalInt;

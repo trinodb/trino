@@ -13,12 +13,12 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.SqlDecimal;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.SqlDecimal;
 
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 
 public class TestShortDecimalType
         extends AbstractTestType

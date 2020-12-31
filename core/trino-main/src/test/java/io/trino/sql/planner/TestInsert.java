@@ -16,32 +16,32 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.connector.MockConnectorTableHandle;
-import io.prestosql.plugin.tpch.TpchPartitioningHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorNewTableLayout;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.plan.TableWriterNode;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorTableHandle;
+import io.trino.plugin.tpch.TpchPartitioningHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.plan.TableWriterNode;
+import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.REDISTRIBUTE_WRITES;
-import static io.prestosql.SystemSessionProperties.TASK_WRITER_COUNT;
-import static io.prestosql.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
+import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestInsert
         extends BasePlanTest

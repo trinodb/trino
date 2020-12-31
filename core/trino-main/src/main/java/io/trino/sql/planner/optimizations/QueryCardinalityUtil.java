@@ -14,22 +14,22 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.Range;
-import io.prestosql.sql.planner.iterative.GroupReference;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.LimitNode;
-import io.prestosql.sql.planner.plan.OffsetNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.TopNNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.EnforceSingleRowNode;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.OffsetNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.ValuesNode;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
+import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;

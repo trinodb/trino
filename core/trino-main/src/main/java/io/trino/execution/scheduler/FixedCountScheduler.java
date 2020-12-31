@@ -14,9 +14,9 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.execution.RemoteTask;
-import io.prestosql.execution.SqlStageExecution;
-import io.prestosql.metadata.InternalNode;
+import io.trino.execution.RemoteTask;
+import io.trino.execution.SqlStageExecution;
+import io.trino.metadata.InternalNode;
 
 import java.util.List;
 import java.util.Optional;

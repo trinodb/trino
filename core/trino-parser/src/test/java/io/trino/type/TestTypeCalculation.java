@@ -16,7 +16,7 @@ package io.trino.type;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static io.prestosql.type.TypeCalculation.calculateLiteralValue;
+import static io.trino.type.TypeCalculation.calculateLiteralValue;
 import static org.testng.Assert.assertEquals;
 
 public class TestTypeCalculation

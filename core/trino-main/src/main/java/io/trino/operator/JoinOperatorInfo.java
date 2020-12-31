@@ -15,15 +15,15 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.operator.LookupJoinOperators.JoinType;
-import io.prestosql.util.Mergeable;
+import io.trino.operator.LookupJoinOperators.JoinType;
+import io.trino.util.Mergeable;
 
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.JoinStatisticsCounter.HISTOGRAM_BUCKETS;
+import static io.trino.operator.JoinStatisticsCounter.HISTOGRAM_BUCKETS;
 
 public class JoinOperatorInfo
         implements Mergeable<JoinOperatorInfo>, OperatorInfo

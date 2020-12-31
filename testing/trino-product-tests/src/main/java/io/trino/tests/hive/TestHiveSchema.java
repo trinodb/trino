@@ -29,10 +29,10 @@ import java.util.List;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.util.Objects.requireNonNull;
 
 public class TestHiveSchema

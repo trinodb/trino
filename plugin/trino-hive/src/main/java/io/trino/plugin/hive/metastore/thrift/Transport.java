@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
-import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
+import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;

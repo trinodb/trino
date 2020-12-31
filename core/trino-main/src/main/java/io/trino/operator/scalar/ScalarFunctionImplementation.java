@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.spi.function.InvocationConvention;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.spi.function.InvocationConvention;
 
 public interface ScalarFunctionImplementation
 {

@@ -13,13 +13,13 @@
  */
 package io.trino.index;
 
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.IndexHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorIndex;
-import io.prestosql.spi.connector.ConnectorIndexProvider;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.IndexHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorIndex;
+import io.trino.spi.connector.ConnectorIndexProvider;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;

@@ -15,29 +15,29 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.JoinNode.EquiJoinClause;
-import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.LongLiteral;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
-import static io.prestosql.cost.PlanNodeStatsAssertion.assertThat;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
+import static io.trino.cost.PlanNodeStatsAssertion.assertThat;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static java.lang.Double.NaN;
 import static org.testng.Assert.assertEquals;
 

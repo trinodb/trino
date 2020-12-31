@@ -13,19 +13,19 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.Session;
-import io.prestosql.cost.CachingStatsProvider;
-import io.prestosql.cost.StatsAndCosts;
-import io.prestosql.cost.StatsCalculator;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.Session;
+import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.StatsAndCosts;
+import io.trino.cost.StatsCalculator;
+import io.trino.cost.StatsProvider;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.PlanNode;
 
-import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
-import static io.prestosql.sql.planner.iterative.Plans.resolveGroupReferences;
-import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
+import static io.trino.sql.planner.iterative.Lookup.noLookup;
+import static io.trino.sql.planner.iterative.Plans.resolveGroupReferences;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static java.lang.String.format;
 
 public final class PlanAssert

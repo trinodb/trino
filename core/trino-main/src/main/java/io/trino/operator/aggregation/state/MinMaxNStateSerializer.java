@@ -14,16 +14,16 @@
 package io.trino.operator.aggregation.state;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.aggregation.TypedHeap;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
+import io.trino.operator.aggregation.TypedHeap;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
 
 public class MinMaxNStateSerializer

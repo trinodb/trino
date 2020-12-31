@@ -13,19 +13,19 @@
  */
 package io.trino.testing;
 
-import io.prestosql.Session;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.trino.Session;
+import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
 
-import static io.prestosql.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.DataProviders.toDataProvider;
-import static io.prestosql.testing.QueryAssertions.assertContains;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.DataProviders.toDataProvider;
+import static io.trino.testing.QueryAssertions.assertContains;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;

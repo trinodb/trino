@@ -15,10 +15,10 @@ package io.trino.spi.transaction;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static io.prestosql.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
-import static io.prestosql.spi.transaction.IsolationLevel.REPEATABLE_READ;
-import static io.prestosql.spi.transaction.IsolationLevel.SERIALIZABLE;
+import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static io.trino.spi.transaction.IsolationLevel.REPEATABLE_READ;
+import static io.trino.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

@@ -16,16 +16,16 @@ package io.trino.operator;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.execution.buffer.PagesSerde;
-import io.prestosql.execution.buffer.PagesSerdeFactory;
-import io.prestosql.metadata.Split;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.connector.UpdatablePageSource;
-import io.prestosql.spi.type.Type;
-import io.prestosql.split.RemoteSplit;
-import io.prestosql.sql.gen.OrderingCompiler;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.metadata.Split;
+import io.trino.spi.Page;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.spi.type.Type;
+import io.trino.split.RemoteSplit;
+import io.trino.sql.gen.OrderingCompiler;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -37,8 +37,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.util.MergeSortedPages.mergeSortedPages;
-import static io.prestosql.util.MoreLists.mappedCopy;
+import static io.trino.util.MergeSortedPages.mergeSortedPages;
+import static io.trino.util.MoreLists.mappedCopy;
 import static java.util.Objects.requireNonNull;
 
 public class MergeOperator

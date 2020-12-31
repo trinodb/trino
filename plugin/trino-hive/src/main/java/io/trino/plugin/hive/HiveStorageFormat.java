@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
@@ -44,7 +44,7 @@ import org.apache.hive.hcatalog.data.JsonSerDe;
 
 import java.util.List;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

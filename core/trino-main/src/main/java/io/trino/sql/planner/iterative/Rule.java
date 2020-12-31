@@ -13,15 +13,15 @@
  */
 package io.trino.sql.planner.iterative;
 
-import io.prestosql.Session;
-import io.prestosql.cost.CostProvider;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.SymbolAllocator;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.Session;
+import io.trino.cost.CostProvider;
+import io.trino.cost.StatsProvider;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 

@@ -14,14 +14,14 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static io.prestosql.spi.type.DateType.DATE;
+import static io.trino.spi.type.DateType.DATE;
 
 public class TestDateMaxAggregation
         extends AbstractTestAggregationFunction

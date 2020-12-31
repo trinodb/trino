@@ -18,19 +18,19 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.TestingTypeDeserializer;
-import io.prestosql.spi.type.TestingTypeManager;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.TestingTypeDeserializer;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Comparator.comparing;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;

@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.connector.CatalogName;
+import io.trino.connector.CatalogName;
 
 import java.util.Set;
 import java.util.function.Consumer;

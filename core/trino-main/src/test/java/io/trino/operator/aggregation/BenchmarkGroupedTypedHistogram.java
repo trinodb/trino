@@ -14,12 +14,12 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.GroupByIdBlock;
-import io.prestosql.operator.aggregation.groupby.GroupByAggregationTestUtils;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.aggregation.groupby.GroupByAggregationTestUtils;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -44,11 +44,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static io.prestosql.block.BlockAssertions.createStringsBlock;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.aggregation.histogram.Histogram.NAME;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.histogram.Histogram.NAME;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 @OutputTimeUnit(TimeUnit.SECONDS)
 //@BenchmarkMode(Mode.AverageTime)

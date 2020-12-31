@@ -14,7 +14,7 @@
 package io.trino.execution.warnings;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoWarning;
+import io.trino.spi.PrestoWarning;
 
 import java.util.List;
 

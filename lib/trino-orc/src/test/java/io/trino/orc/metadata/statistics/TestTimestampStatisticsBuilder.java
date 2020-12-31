@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
 import org.testng.annotations.Test;
 
-import static io.prestosql.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.TIMESTAMP;
-import static io.prestosql.orc.metadata.statistics.TimestampStatistics.TIMESTAMP_VALUE_BYTES;
+import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.TIMESTAMP;
+import static io.trino.orc.metadata.statistics.TimestampStatistics.TIMESTAMP_VALUE_BYTES;
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
 import static org.testng.Assert.assertFalse;

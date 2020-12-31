@@ -14,20 +14,20 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.LimitOperator.LimitOperatorFactory;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.operator.OrderByOperator.OrderByOperatorFactory;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.OrderingCompiler;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.operator.LimitOperator.LimitOperatorFactory;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.OrderByOperator.OrderByOperatorFactory;
+import io.trino.operator.PagesIndex;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.OrderingCompiler;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.LocalQueryRunner;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 
 public class OrderByBenchmark
         extends AbstractSimpleOperatorBenchmark

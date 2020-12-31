@@ -22,7 +22,7 @@ import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.List;
 
-import static io.prestosql.tests.sqlserver.TestConstants.CONNECTOR_NAME;
+import static io.trino.tests.sqlserver.TestConstants.CONNECTOR_NAME;
 import static java.util.Collections.nCopies;
 
 public final class SqlServerDataTypesTableDefinition

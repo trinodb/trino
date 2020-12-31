@@ -14,9 +14,9 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 

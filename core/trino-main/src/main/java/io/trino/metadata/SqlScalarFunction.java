@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ScalarFunctionImplementation;
 
 public abstract class SqlScalarFunction
         implements SqlFunction

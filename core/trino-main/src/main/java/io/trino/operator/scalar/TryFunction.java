@@ -13,22 +13,22 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.function.TypeParameterSpecialization;
-import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.function.TypeParameterSpecialization;
+import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.operator.scalar.TryFunction.NAME;
-import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.operator.scalar.TryFunction.NAME;
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 
 @Description("Internal try function for desugaring TRY")
 @ScalarFunction(value = NAME, hidden = true, deterministic = false)

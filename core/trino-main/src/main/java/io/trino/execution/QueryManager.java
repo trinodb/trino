@@ -14,11 +14,11 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.server.protocol.Slug;
-import io.prestosql.spi.QueryId;
+import io.trino.Session;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.server.BasicQueryInfo;
+import io.trino.server.protocol.Slug;
+import io.trino.spi.QueryId;
 
 import java.util.List;
 import java.util.NoSuchElementException;

@@ -21,8 +21,8 @@ import java.nio.ByteOrder;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
-import static io.prestosql.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
+import static io.trino.spi.type.Decimals.longTenToNth;
 import static java.lang.Integer.toUnsignedLong;
 import static java.lang.Math.abs;
 import static java.lang.System.arraycopy;

@@ -13,22 +13,22 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.prestosql.Session;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.testing.TestingHivePlugin;
-import io.prestosql.spi.security.PrincipalType;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.Session;
+import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.testing.TestingHivePlugin;
+import io.trino.spi.security.PrincipalType;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import java.io.File;
 
-import static io.prestosql.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
-import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 public class TestSpatialJoins

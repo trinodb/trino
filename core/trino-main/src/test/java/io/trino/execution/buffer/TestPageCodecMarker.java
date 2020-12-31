@@ -15,8 +15,8 @@ package io.trino.execution.buffer;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.execution.buffer.PageCodecMarker.COMPRESSED;
-import static io.prestosql.execution.buffer.PageCodecMarker.ENCRYPTED;
+import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
+import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

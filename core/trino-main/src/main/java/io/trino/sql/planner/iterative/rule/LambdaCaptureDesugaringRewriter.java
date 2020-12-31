@@ -18,17 +18,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolAllocator;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.tree.BindExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.LambdaArgumentDeclaration;
-import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.BindExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,7 +36,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static java.util.Objects.requireNonNull;
 
 public final class LambdaCaptureDesugaringRewriter

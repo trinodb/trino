@@ -13,10 +13,10 @@
  */
 package io.trino.operator;
 
-import io.prestosql.execution.buffer.PagesSerdeFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.function.Function;

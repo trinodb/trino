@@ -15,7 +15,7 @@ package io.trino.plugin.memory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.Set;
 

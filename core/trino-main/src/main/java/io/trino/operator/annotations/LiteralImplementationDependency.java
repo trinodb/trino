@@ -13,9 +13,9 @@
  */
 package io.trino.operator.annotations;
 
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 
 import static java.util.Objects.requireNonNull;
 

@@ -15,7 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.RemoteTask;
+import io.trino.execution.RemoteTask;
 
 import java.util.Optional;
 import java.util.Set;

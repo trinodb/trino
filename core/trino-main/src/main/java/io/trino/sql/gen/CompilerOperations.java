@@ -13,13 +13,13 @@
  */
 package io.trino.sql.gen;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 
 import javax.annotation.Nullable;
 
 import java.util.Set;
 
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 // This methods are statically bound by the compiler
 @SuppressWarnings("UnusedDeclaration")

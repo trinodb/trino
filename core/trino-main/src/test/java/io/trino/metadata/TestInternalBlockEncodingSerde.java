@@ -16,19 +16,19 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockEncoding;
-import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spi.block.VariableWidthBlockEncoding;
-import io.prestosql.spi.type.TestingTypeManager;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockEncoding;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.VariableWidthBlockEncoding;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestInternalBlockEncodingSerde

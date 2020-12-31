@@ -14,10 +14,10 @@
 package io.trino.operator.aggregation.multimapagg;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.aggregation.AbstractGroupCollectionAggregationState;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.operator.aggregation.AbstractGroupCollectionAggregationState;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 
 public final class GroupedMultimapAggregationState
         extends AbstractGroupCollectionAggregationState<MultimapAggregationStateConsumer>

@@ -13,26 +13,26 @@
  */
 package io.trino.plugin.pinot;
 
-import io.prestosql.pinot.client.PinotClient;
-import io.prestosql.pinot.client.PinotQueryClient;
-import io.prestosql.pinot.query.DynamicTable;
-import io.prestosql.pinot.query.PinotQuery;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.pinot.client.PinotClient;
+import io.trino.plugin.pinot.client.PinotQueryClient;
+import io.trino.plugin.pinot.query.DynamicTable;
+import io.trino.plugin.pinot.query.PinotQuery;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.prestosql.pinot.query.DynamicTablePqlExtractor.extractPql;
-import static io.prestosql.pinot.query.PinotQueryBuilder.generatePql;
+import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.extractPql;
+import static io.trino.plugin.pinot.query.PinotQueryBuilder.generatePql;
 import static java.util.Objects.requireNonNull;
 
 public class PinotPageSourceProvider

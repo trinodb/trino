@@ -15,15 +15,15 @@ package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.dispatcher.DispatchManager;
-import io.prestosql.execution.QueryState;
-import io.prestosql.execution.scheduler.NodeSchedulerConfig;
-import io.prestosql.memory.ClusterMemoryManager;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.metadata.NodeState;
-import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.server.security.ResourceSecurity;
+import io.trino.dispatcher.DispatchManager;
+import io.trino.execution.QueryState;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
+import io.trino.memory.ClusterMemoryManager;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.NodeState;
+import io.trino.server.BasicQueryInfo;
+import io.trino.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -31,7 +31,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
-import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.plugin.jdbc.credential.CredentialPropertiesProvider;
-import io.prestosql.plugin.jdbc.credential.CredentialProvider;
-import io.prestosql.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.sql.Connection;
 import java.sql.Driver;

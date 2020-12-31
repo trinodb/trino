@@ -14,7 +14,7 @@
 package io.trino.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.orc.metadata.statistics.ColumnStatistics;
+import io.trino.orc.metadata.statistics.ColumnStatistics;
 
 import java.util.List;
 

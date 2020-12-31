@@ -15,12 +15,12 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.type.Type;
-import io.prestosql.testing.MaterializedResult;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.Type;
+import io.trino.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -28,13 +28,13 @@ import java.util.List;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
-import static io.prestosql.SequencePageBuilder.createSequencePage;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.execution.buffer.PageSplitterUtil.splitPage;
-import static io.prestosql.operator.OperatorAssertion.toMaterializedResult;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.SequencePageBuilder.createSequencePage;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
+import static io.trino.operator.OperatorAssertion.toMaterializedResult;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class TestPageSplitterUtil

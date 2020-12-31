@@ -24,7 +24,7 @@ import java.util.TreeSet;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Sets.filter;
 import static com.google.common.collect.Sets.intersection;
-import static io.prestosql.spi.type.TimeZoneKey.isUtcZoneId;
+import static io.trino.spi.type.TimeZoneKey.isUtcZoneId;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
 

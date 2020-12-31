@@ -16,15 +16,15 @@ package io.trino.plugin.thrift;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.client.DriftClient;
-import io.prestosql.plugin.thrift.api.PrestoThriftId;
-import io.prestosql.plugin.thrift.api.PrestoThriftNullableToken;
-import io.prestosql.plugin.thrift.api.PrestoThriftPageResult;
-import io.prestosql.plugin.thrift.api.PrestoThriftService;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.thrift.api.PrestoThriftId;
+import io.trino.plugin.thrift.api.PrestoThriftNullableToken;
+import io.trino.plugin.thrift.api.PrestoThriftPageResult;
+import io.trino.plugin.thrift.api.PrestoThriftService;
+import io.trino.spi.HostAddress;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
@@ -37,7 +37,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
-import static io.prestosql.plugin.thrift.util.ThriftExceptions.catchingThriftException;
+import static io.trino.plugin.thrift.util.ThriftExceptions.catchingThriftException;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 

@@ -14,16 +14,16 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.MoreExecutors;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.memory.context.MemoryTrackingContext;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.testing.TestingSession;
-import io.prestosql.testing.TestingTaskContext;
+import io.trino.execution.Lifespan;
+import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.TestingSession;
+import io.trino.testing.TestingTaskContext;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 
 public final class TestingOperatorContext
 {

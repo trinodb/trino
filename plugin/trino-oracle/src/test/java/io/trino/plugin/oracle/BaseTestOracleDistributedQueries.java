@@ -13,20 +13,20 @@
  */
 package io.trino.plugin.oracle;
 
-import io.prestosql.Session;
-import io.prestosql.execution.QueryInfo;
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.ResultWithQueryId;
-import io.prestosql.testing.sql.SqlExecutor;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.Session;
+import io.trino.execution.QueryInfo;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.ResultWithQueryId;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

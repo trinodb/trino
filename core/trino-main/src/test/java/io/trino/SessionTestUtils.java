@@ -13,11 +13,11 @@
  */
 package io.trino;
 
-import io.prestosql.client.ClientCapabilities;
+import io.trino.client.ClientCapabilities;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.stream;
 
 public final class SessionTestUtils

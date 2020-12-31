@@ -16,7 +16,7 @@ package io.trino.spi.connector;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
+import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
 
 public class SchemaTablePrefix
 {

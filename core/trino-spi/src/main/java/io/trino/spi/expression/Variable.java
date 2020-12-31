@@ -13,7 +13,7 @@
  */
 package io.trino.spi.expression;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;

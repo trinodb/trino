@@ -13,8 +13,8 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Map;
 import java.util.Optional;

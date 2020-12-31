@@ -14,16 +14,16 @@
 package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
-import io.prestosql.sql.planner.plan.OutputNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ExplainAnalyzeNode;
+import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import org.testng.annotations.Test;
 
 public class TestVerifyOnlyOneOutputNode

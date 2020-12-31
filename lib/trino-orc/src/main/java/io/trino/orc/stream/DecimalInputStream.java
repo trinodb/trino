@@ -15,14 +15,14 @@ package io.trino.orc.stream;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.checkpoint.DecimalStreamCheckpoint;
 
 import java.io.IOException;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 
 public class DecimalInputStream
         implements ValueInputStream<DecimalStreamCheckpoint>

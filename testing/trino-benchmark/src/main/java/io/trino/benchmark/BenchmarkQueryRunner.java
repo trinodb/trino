@@ -14,15 +14,15 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.Session;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.testing.LocalQueryRunner;
 
 import java.util.Map;
 
-import static io.prestosql.Session.SessionBuilder;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.Session.SessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class BenchmarkQueryRunner
 {

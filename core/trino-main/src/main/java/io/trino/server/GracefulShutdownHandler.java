@@ -16,8 +16,8 @@ package io.trino.server;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.execution.TaskInfo;
-import io.prestosql.execution.TaskManager;
+import io.trino.execution.TaskInfo;
+import io.trino.execution.TaskManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;

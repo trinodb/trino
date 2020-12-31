@@ -14,7 +14,7 @@
 package io.trino.spi.connector;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;

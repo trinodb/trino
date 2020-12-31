@@ -14,10 +14,10 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.RowType.Field;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.RowType.Field;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -42,9 +42,9 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.addElement;
-import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.getHashCodeBlockMethod;
-import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.toType;
+import static io.trino.operator.scalar.TypeOperatorBenchmarkUtil.addElement;
+import static io.trino.operator.scalar.TypeOperatorBenchmarkUtil.getHashCodeBlockMethod;
+import static io.trino.operator.scalar.TypeOperatorBenchmarkUtil.toType;
 import static java.util.Collections.nCopies;
 
 @SuppressWarnings("MethodMayBeStatic")

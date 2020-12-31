@@ -13,27 +13,27 @@
  */
 package io.trino.operator.scalar.timetz;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimeWithTimeZone;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 
 import java.time.LocalDate;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackOffsetMinutes;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static io.prestosql.type.DateTimes.MILLISECONDS_PER_DAY;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MINUTE;
-import static io.prestosql.type.DateTimes.rescale;
-import static io.prestosql.type.DateTimes.round;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.trino.type.DateTimes.MILLISECONDS_PER_DAY;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_DAY;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_MINUTE;
+import static io.trino.type.DateTimes.rescale;
+import static io.trino.type.DateTimes.round;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
 

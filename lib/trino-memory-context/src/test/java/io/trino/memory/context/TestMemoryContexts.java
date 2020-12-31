@@ -20,8 +20,8 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;

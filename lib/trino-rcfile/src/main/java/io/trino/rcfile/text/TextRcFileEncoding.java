@@ -15,10 +15,10 @@ package io.trino.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.rcfile.ColumnEncoding;
-import io.prestosql.rcfile.RcFileEncoding;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.Type;
+import io.trino.rcfile.ColumnEncoding;
+import io.trino.rcfile.RcFileEncoding;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.stream.Collectors;

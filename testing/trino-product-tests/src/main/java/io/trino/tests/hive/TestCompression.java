@@ -19,14 +19,14 @@ import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.HIVE_COMPRESSION;
-import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.ORDERS;
+import static io.trino.tests.TestGroups.HIVE_COMPRESSION;
+import static io.trino.tests.TestGroups.SKIP_ON_CDH;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCompression

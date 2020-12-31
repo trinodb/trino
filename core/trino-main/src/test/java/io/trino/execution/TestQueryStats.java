@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.operator.FilterAndProjectOperator;
-import io.prestosql.operator.OperatorStats;
-import io.prestosql.operator.TableWriterOperator;
-import io.prestosql.spi.eventlistener.StageGcStatistics;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.operator.FilterAndProjectOperator;
+import io.trino.operator.OperatorStats;
+import io.trino.operator.TableWriterOperator;
+import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
+import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;

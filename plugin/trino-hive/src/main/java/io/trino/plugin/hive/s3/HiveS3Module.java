@@ -17,11 +17,11 @@ import com.google.inject.Binder;
 import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
-import io.prestosql.plugin.hive.DynamicConfigurationProvider;
-import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
+import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.ConfigurationInitializer;
+import io.trino.plugin.hive.DynamicConfigurationProvider;
+import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 

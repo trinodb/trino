@@ -16,12 +16,12 @@ package io.trino.decoder.json;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.DecoderTestColumnHandle;
-import io.prestosql.decoder.FieldValueProvider;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.Type;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.DecoderTestColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.decoder.RowDecoder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.Type;
 
 import java.util.Map;
 import java.util.Optional;

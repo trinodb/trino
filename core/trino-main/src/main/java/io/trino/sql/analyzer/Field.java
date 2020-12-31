@@ -13,9 +13,9 @@
  */
 package io.trino.sql.analyzer;
 
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.QualifiedName;
 
 import java.util.Optional;
 

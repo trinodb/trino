@@ -14,18 +14,18 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.connector.Assignment;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ProjectionApplicationResult;
-import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.expression.Variable;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.Assignment;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Map;
@@ -35,8 +35,8 @@ import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.sql.planner.plan.Patterns.tableScan;
-import static io.prestosql.util.MoreLists.filteredCopy;
+import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static io.trino.util.MoreLists.filteredCopy;
 import static java.util.Objects.requireNonNull;
 
 /**

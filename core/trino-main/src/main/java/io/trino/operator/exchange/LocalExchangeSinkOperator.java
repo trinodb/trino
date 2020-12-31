@@ -14,17 +14,17 @@
 package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.operator.DriverContext;
-import io.prestosql.operator.LocalPlannerAware;
-import io.prestosql.operator.Operator;
-import io.prestosql.operator.OperatorContext;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.operator.exchange.LocalExchange.LocalExchangeFactory;
-import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
-import io.prestosql.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
-import io.prestosql.spi.Page;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.Lifespan;
+import io.trino.operator.DriverContext;
+import io.trino.operator.LocalPlannerAware;
+import io.trino.operator.Operator;
+import io.trino.operator.OperatorContext;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
+import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactory;
+import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
+import io.trino.spi.Page;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.function.Function;
 

@@ -13,20 +13,20 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.PlanNode;
 
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
-import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.filter;
-import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtLeastScalar;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
+import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class RemoveUnreferencedScalarSubqueries
         implements Rule<CorrelatedJoinNode>

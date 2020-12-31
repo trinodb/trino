@@ -14,12 +14,12 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.decoder.avro.AvroRowDecoderFactory;
-import io.prestosql.plugin.kafka.KafkaTopicFieldDescription;
-import io.prestosql.plugin.kafka.KafkaTopicFieldGroup;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.decoder.avro.AvroRowDecoderFactory;
+import io.trino.plugin.kafka.KafkaTopicFieldDescription;
+import io.trino.plugin.kafka.KafkaTopicFieldGroup;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import org.apache.avro.Schema;
 
 import javax.inject.Inject;
@@ -29,7 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.plugin.kafka.schema.confluent.ConfluentSessionProperties.getEmptyFieldStrategy;
+import static io.trino.plugin.kafka.schema.confluent.ConfluentSessionProperties.getEmptyFieldStrategy;
 import static java.util.Objects.requireNonNull;
 
 public class AvroSchemaParser

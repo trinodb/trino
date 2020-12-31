@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.planprinter;
 
-import io.prestosql.operator.WindowInfo;
+import io.trino.operator.WindowInfo;
 import org.testng.annotations.Test;
 
 import static java.util.Collections.emptyList;

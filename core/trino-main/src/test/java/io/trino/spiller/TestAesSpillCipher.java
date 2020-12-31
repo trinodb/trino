@@ -13,14 +13,14 @@
  */
 package io.trino.spiller;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.expectThrows;

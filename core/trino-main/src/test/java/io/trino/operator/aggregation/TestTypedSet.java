@@ -14,12 +14,12 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
@@ -27,13 +27,13 @@ import java.util.List;
 import java.util.Set;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.block.BlockAssertions.createEmptyLongsBlock;
-import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
-import static io.prestosql.block.BlockAssertions.createLongsBlock;
-import static io.prestosql.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.block.BlockAssertions.createEmptyLongsBlock;
+import static io.trino.block.BlockAssertions.createLongSequenceBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

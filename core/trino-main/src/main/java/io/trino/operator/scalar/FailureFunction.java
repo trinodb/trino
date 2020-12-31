@@ -15,13 +15,13 @@ package io.trino.operator.scalar;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import io.prestosql.client.FailureInfo;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.client.FailureInfo;
+import io.trino.spi.PrestoException;
+import io.trino.spi.StandardErrorCode;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 public final class FailureFunction
 {

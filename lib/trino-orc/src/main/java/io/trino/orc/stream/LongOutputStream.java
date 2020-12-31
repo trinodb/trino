@@ -13,10 +13,10 @@
  */
 package io.trino.orc.stream;
 
-import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
-import io.prestosql.orc.metadata.CompressionKind;
+import io.trino.orc.checkpoint.LongStreamCheckpoint;
+import io.trino.orc.metadata.CompressionKind;
 
-import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
+import static io.trino.orc.metadata.Stream.StreamKind.LENGTH;
 
 public interface LongOutputStream
         extends ValueOutputStream<LongStreamCheckpoint>

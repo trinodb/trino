@@ -14,9 +14,9 @@
 package io.trino.connector.system.jdbc;
 
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.QualifiedTablePrefix;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.metadata.QualifiedTablePrefix;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 

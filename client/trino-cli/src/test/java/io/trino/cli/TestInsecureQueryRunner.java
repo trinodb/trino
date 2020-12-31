@@ -29,12 +29,12 @@ import java.security.SecureRandom;
 
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.prestosql.cli.ClientOptions.OutputFormat.CSV;
-import static io.prestosql.cli.TerminalUtils.getTerminal;
-import static io.prestosql.cli.TestQueryRunner.createClientSession;
-import static io.prestosql.cli.TestQueryRunner.createQueryRunner;
-import static io.prestosql.cli.TestQueryRunner.createResults;
-import static io.prestosql.cli.TestQueryRunner.nullPrintStream;
+import static io.trino.cli.ClientOptions.OutputFormat.CSV;
+import static io.trino.cli.TerminalUtils.getTerminal;
+import static io.trino.cli.TestQueryRunner.createClientSession;
+import static io.trino.cli.TestQueryRunner.createQueryRunner;
+import static io.trino.cli.TestQueryRunner.createResults;
+import static io.trino.cli.TestQueryRunner.nullPrintStream;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

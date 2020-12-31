@@ -14,16 +14,16 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.BucketFunction;
-import io.prestosql.spi.connector.ConnectorBucketNodeMap;
-import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Node;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.BucketFunction;
+import io.trino.spi.connector.ConnectorBucketNodeMap;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
@@ -32,8 +32,8 @@ import java.util.Map;
 import java.util.function.ToIntFunction;
 
 import static com.google.common.collect.Maps.uniqueIndex;
-import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static io.prestosql.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
+import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorNodePartitioningProvider

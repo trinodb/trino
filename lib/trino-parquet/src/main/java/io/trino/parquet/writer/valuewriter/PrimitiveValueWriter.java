@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;

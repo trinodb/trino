@@ -15,8 +15,8 @@ package io.trino.plugin.redis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Map;
 import java.util.Optional;

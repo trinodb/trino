@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnHandle;
 
 import java.util.List;
 

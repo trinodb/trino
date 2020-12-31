@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.geospatial.aggregation;
 
-import io.prestosql.geospatial.serde.GeometrySerde;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.Type;
+import io.trino.geospatial.serde.GeometrySerde;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 
 public class GeometryStateSerializer
         implements AccumulatorStateSerializer<GeometryState>

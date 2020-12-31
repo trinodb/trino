@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingPrestoServer;
 import oracle.jdbc.OracleType;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.PostgreSQLContainer;

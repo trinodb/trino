@@ -13,21 +13,21 @@
  */
 package io.trino.operator.index;
 
-import io.prestosql.metadata.Split;
-import io.prestosql.operator.DriverContext;
-import io.prestosql.operator.FinishedOperator;
-import io.prestosql.operator.Operator;
-import io.prestosql.operator.OperatorContext;
-import io.prestosql.operator.PageSourceOperator;
-import io.prestosql.operator.SourceOperator;
-import io.prestosql.operator.SourceOperatorFactory;
-import io.prestosql.operator.SplitOperatorInfo;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ConnectorIndex;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.connector.UpdatablePageSource;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.metadata.Split;
+import io.trino.operator.DriverContext;
+import io.trino.operator.FinishedOperator;
+import io.trino.operator.Operator;
+import io.trino.operator.OperatorContext;
+import io.trino.operator.PageSourceOperator;
+import io.trino.operator.SourceOperator;
+import io.trino.operator.SourceOperatorFactory;
+import io.trino.operator.SplitOperatorInfo;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorIndex;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
 import java.util.function.Function;

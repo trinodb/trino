@@ -23,7 +23,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.prestosql.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
+import static io.trino.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 
 public class TestNodeMemoryConfig
 {

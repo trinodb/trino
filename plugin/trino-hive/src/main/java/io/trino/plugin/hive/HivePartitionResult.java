@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Iterator;
 import java.util.List;

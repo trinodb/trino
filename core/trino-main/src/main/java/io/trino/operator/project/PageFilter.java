@@ -13,8 +13,8 @@
  */
 package io.trino.operator.project;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorSession;
 
 public interface PageFilter
 {

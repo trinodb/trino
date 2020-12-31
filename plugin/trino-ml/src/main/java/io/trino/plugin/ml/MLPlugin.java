@@ -15,16 +15,16 @@ package io.trino.plugin.ml;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.ml.type.ClassifierParametricType;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.type.ParametricType;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.ml.type.ClassifierParametricType;
+import io.trino.spi.Plugin;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.Type;
 
 import java.util.Set;
 
-import static io.prestosql.plugin.ml.MLFeaturesFunctions.ML_FEATURE_FUNCTIONS;
-import static io.prestosql.plugin.ml.type.ModelType.MODEL;
-import static io.prestosql.plugin.ml.type.RegressorType.REGRESSOR;
+import static io.trino.plugin.ml.MLFeaturesFunctions.ML_FEATURE_FUNCTIONS;
+import static io.trino.plugin.ml.type.ModelType.MODEL;
+import static io.trino.plugin.ml.type.RegressorType.REGRESSOR;
 
 public class MLPlugin
         implements Plugin

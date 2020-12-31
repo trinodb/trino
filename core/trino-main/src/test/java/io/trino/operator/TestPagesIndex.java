@@ -14,17 +14,17 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-import static io.prestosql.SequencePageBuilder.createSequencePage;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.SequencePageBuilder.createSequencePage;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

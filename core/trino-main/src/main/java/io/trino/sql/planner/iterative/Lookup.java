@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.iterative;
 
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.function.Function;
 import java.util.stream.Stream;

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.benchmark;
 
-import io.prestosql.plugin.hive.HiveCompressionCodec;
-import io.prestosql.plugin.hive.benchmark.BenchmarkHiveFileFormat.CompressionCounter;
-import io.prestosql.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet;
+import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.CompressionCounter;
+import io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

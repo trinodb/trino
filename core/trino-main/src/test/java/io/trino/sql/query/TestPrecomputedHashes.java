@@ -13,13 +13,13 @@
  */
 package io.trino.sql.query;
 
-import io.prestosql.Session;
+import io.trino.Session;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrecomputedHashes

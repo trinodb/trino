@@ -13,7 +13,7 @@
  */
 package io.trino.cost;
 
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 public interface StatsProvider
 {

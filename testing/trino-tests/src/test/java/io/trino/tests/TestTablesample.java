@@ -15,17 +15,17 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.sql.query.QueryAssertions;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
-import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablesample

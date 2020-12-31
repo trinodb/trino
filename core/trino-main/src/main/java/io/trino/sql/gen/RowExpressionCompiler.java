@@ -19,17 +19,17 @@ import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
-import io.prestosql.sql.relational.CallExpression;
-import io.prestosql.sql.relational.ConstantExpression;
-import io.prestosql.sql.relational.InputReferenceExpression;
-import io.prestosql.sql.relational.LambdaDefinitionExpression;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.RowExpressionVisitor;
-import io.prestosql.sql.relational.SpecialForm;
-import io.prestosql.sql.relational.VariableReferenceExpression;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
+import io.trino.sql.relational.CallExpression;
+import io.trino.sql.relational.ConstantExpression;
+import io.trino.sql.relational.InputReferenceExpression;
+import io.trino.sql.relational.LambdaDefinitionExpression;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.RowExpressionVisitor;
+import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.relational.VariableReferenceExpression;
 
 import java.util.Map;
 import java.util.Optional;
@@ -42,8 +42,8 @@ import static io.airlift.bytecode.instruction.Constant.loadFloat;
 import static io.airlift.bytecode.instruction.Constant.loadInt;
 import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
-import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
-import static io.prestosql.sql.gen.LambdaBytecodeGenerator.generateLambda;
+import static io.trino.sql.gen.BytecodeUtils.loadConstant;
+import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
 
 public class RowExpressionCompiler
 {

@@ -15,9 +15,9 @@ package io.trino.operator;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.operator.WorkProcessor.ProcessState;
-import io.prestosql.operator.WorkProcessor.Transformation;
-import io.prestosql.operator.WorkProcessor.TransformationState;
+import io.trino.operator.WorkProcessor.ProcessState;
+import io.trino.operator.WorkProcessor.Transformation;
+import io.trino.operator.WorkProcessor.TransformationState;
 
 import javax.annotation.Nullable;
 

@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
+import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

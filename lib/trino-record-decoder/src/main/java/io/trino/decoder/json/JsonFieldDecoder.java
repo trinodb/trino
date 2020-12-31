@@ -14,7 +14,7 @@
 package io.trino.decoder.json;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.prestosql.decoder.FieldValueProvider;
+import io.trino.decoder.FieldValueProvider;
 
 public interface JsonFieldDecoder
 {

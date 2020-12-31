@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation.histogram;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 
 public interface HistogramValueReader
 {

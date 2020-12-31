@@ -13,20 +13,20 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.optimizations.QueryCardinalityUtil;
-import io.prestosql.sql.planner.plan.ApplyNode;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.ExistsPredicate;
-import io.prestosql.sql.tree.Expression;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.QueryCardinalityUtil;
+import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.ExistsPredicate;
+import io.trino.sql.tree.Expression;
 
-import static io.prestosql.sql.planner.plan.Patterns.applyNode;
-import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.planner.plan.Patterns.applyNode;
+import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Given:

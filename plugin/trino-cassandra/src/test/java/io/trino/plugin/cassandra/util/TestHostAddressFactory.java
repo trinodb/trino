@@ -16,7 +16,7 @@ package io.trino.plugin.cassandra.util;
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.TestHost;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 import org.testng.annotations.Test;
 
 import java.net.InetAddress;

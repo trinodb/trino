@@ -20,21 +20,21 @@ import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HiveBucketProperty;
-import io.prestosql.plugin.hive.PartitionStatistics;
-import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
-import io.prestosql.plugin.hive.metastore.Storage;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.plugin.hive.metastore.glue.GlueColumnStatisticsProvider;
+import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.glue.GlueColumnStatisticsProvider;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 
 public final class GlueInputConverter
 {

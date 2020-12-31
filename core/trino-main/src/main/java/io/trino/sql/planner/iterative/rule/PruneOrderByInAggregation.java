@@ -14,18 +14,18 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
 public class PruneOrderByInAggregation

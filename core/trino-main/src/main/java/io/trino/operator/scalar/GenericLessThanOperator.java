@@ -14,19 +14,19 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.SqlOperator;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.SqlOperator;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.prestosql.metadata.Signature.orderableTypeParameter;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.metadata.Signature.orderableTypeParameter;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class GenericLessThanOperator

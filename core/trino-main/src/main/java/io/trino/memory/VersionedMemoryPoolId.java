@@ -13,7 +13,7 @@
  */
 package io.trino.memory;
 
-import io.prestosql.spi.memory.MemoryPoolId;
+import io.trino.spi.memory.MemoryPoolId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

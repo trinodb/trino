@@ -15,24 +15,24 @@ package io.trino.orc.writer;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.orc.metadata.ColumnMetadata;
-import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.OrcType;
-import io.prestosql.orc.metadata.statistics.BinaryStatisticsBuilder;
-import io.prestosql.orc.metadata.statistics.BloomFilterBuilder;
-import io.prestosql.orc.metadata.statistics.DateStatisticsBuilder;
-import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
-import io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder;
-import io.prestosql.orc.metadata.statistics.StringStatisticsBuilder;
-import io.prestosql.orc.metadata.statistics.TimestampStatisticsBuilder;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.Type;
+import io.trino.orc.metadata.ColumnMetadata;
+import io.trino.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.OrcType;
+import io.trino.orc.metadata.statistics.BinaryStatisticsBuilder;
+import io.trino.orc.metadata.statistics.BloomFilterBuilder;
+import io.trino.orc.metadata.statistics.DateStatisticsBuilder;
+import io.trino.orc.metadata.statistics.DoubleStatisticsBuilder;
+import io.trino.orc.metadata.statistics.IntegerStatisticsBuilder;
+import io.trino.orc.metadata.statistics.StringStatisticsBuilder;
+import io.trino.orc.metadata.statistics.TimestampStatisticsBuilder;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.Type;
 
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

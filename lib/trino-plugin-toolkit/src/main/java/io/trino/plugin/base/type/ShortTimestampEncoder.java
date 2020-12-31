@@ -13,15 +13,15 @@
  */
 package io.trino.plugin.base.type;
 
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.TimestampType;
 import org.joda.time.DateTimeZone;
 
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
-import static io.prestosql.spi.type.Timestamps.round;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.round;
 
 class ShortTimestampEncoder
         extends AbstractPrestoTimestampEncoder<Long>

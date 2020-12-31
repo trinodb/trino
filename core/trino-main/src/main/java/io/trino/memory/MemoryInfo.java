@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.prestosql.spi.memory.MemoryPoolId;
-import io.prestosql.spi.memory.MemoryPoolInfo;
+import io.trino.spi.memory.MemoryPoolId;
+import io.trino.spi.memory.MemoryPoolInfo;
 
 import java.util.Map;
 

@@ -18,11 +18,11 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.AUTHORIZATION;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.TestGroups.AUTHORIZATION;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestSqlStandardAccessControlChecks

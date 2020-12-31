@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.mysql;
 
-import io.prestosql.plugin.jdbc.JdbcPlugin;
+import io.trino.plugin.jdbc.JdbcPlugin;
 
 public class MySqlPlugin
         extends JdbcPlugin

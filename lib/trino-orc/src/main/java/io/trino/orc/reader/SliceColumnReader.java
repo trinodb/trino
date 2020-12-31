@@ -15,18 +15,18 @@ package io.trino.orc.reader;
 
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.orc.OrcColumn;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.metadata.ColumnEncoding;
-import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import io.prestosql.orc.metadata.ColumnMetadata;
-import io.prestosql.orc.stream.InputStreamSources;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarbinaryType;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.orc.OrcColumn;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.metadata.ColumnEncoding;
+import io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.trino.orc.metadata.ColumnMetadata;
+import io.trino.orc.stream.InputStreamSources;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -34,13 +34,13 @@ import java.io.UncheckedIOException;
 import java.time.ZoneId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
-import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
-import static io.prestosql.spi.type.Chars.byteCountWithoutTrailingSpace;
-import static io.prestosql.spi.type.Varchars.byteCount;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
+import static io.trino.spi.type.Chars.byteCountWithoutTrailingSpace;
+import static io.trino.spi.type.Varchars.byteCount;
 import static java.util.Objects.requireNonNull;
 
 public class SliceColumnReader

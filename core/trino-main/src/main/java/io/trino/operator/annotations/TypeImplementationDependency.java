@@ -14,15 +14,15 @@
 package io.trino.operator.annotations;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.Objects;
 
-import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.metadata.SignatureBinder.applyBoundVariables;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeImplementationDependency

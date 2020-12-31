@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.thrift.api.valuesets;
 
-import io.prestosql.spi.predicate.ValueSet;
+import io.trino.spi.predicate.ValueSet;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
-import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
+import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

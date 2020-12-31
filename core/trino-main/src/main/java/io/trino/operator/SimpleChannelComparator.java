@@ -13,14 +13,14 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.operator.SyntheticAddress.decodePosition;
-import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.operator.SyntheticAddress.decodePosition;
+import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class SimpleChannelComparator

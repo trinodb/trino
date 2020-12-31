@@ -14,10 +14,10 @@
 package io.trino.operator.scalar.annotations;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.scalar.ScalarHeader;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.ScalarOperator;
+import io.trino.operator.scalar.ScalarHeader;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarOperator;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
@@ -27,8 +27,8 @@ import java.util.Optional;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.Signature.mangleOperatorName;
-import static io.prestosql.operator.annotations.FunctionsParserHelper.parseDescription;
+import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.util.Objects.requireNonNull;
 
 public class ScalarImplementationHeader

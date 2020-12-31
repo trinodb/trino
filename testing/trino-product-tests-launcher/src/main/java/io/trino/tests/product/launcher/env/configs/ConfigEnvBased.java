@@ -15,17 +15,17 @@ package io.trino.tests.product.launcher.env.configs;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import io.prestosql.tests.product.launcher.docker.DockerFiles;
-import io.prestosql.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.Environment;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.PRESTO;
-import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.PRESTO;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;

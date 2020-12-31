@@ -21,10 +21,10 @@ import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.metastore.Storage;
-import io.prestosql.plugin.hive.metastore.StorageFormat;
-import io.prestosql.spi.security.PrincipalType;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.spi.security.PrincipalType;
 import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;

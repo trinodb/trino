@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.spi.session.ResourceEstimates;
+import io.trino.spi.session.ResourceEstimates;
 
 import java.util.Objects;
 import java.util.Optional;

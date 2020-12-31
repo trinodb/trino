@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorContext;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorHandleResolver;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
+import static io.trino.plugin.iceberg.InternalIcebergConnectorFactory.createConnector;
 import static java.util.Objects.requireNonNull;
 
 public class TestingIcebergConnectorFactory

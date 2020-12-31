@@ -14,8 +14,8 @@
 package io.trino.plugin.tpch;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.statistics.DoubleRange;
-import io.prestosql.spi.statistics.Estimate;
+import io.trino.spi.statistics.DoubleRange;
+import io.trino.spi.statistics.Estimate;
 
 import java.util.Optional;
 

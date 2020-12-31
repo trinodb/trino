@@ -13,7 +13,7 @@
  */
 package io.trino.connector;
 
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 
 class MockConnectorInsertTableHandle
         implements ConnectorInsertTableHandle

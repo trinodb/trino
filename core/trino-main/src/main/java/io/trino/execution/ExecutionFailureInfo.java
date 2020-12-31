@@ -16,10 +16,10 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.client.ErrorLocation;
-import io.prestosql.client.FailureInfo;
-import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.HostAddress;
+import io.trino.client.ErrorLocation;
+import io.trino.client.FailureInfo;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.HostAddress;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;

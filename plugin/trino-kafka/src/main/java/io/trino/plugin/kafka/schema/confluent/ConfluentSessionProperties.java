@@ -14,16 +14,16 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.kafka.SessionPropertiesProvider;
-import io.prestosql.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.plugin.kafka.SessionPropertiesProvider;
+import io.trino.plugin.kafka.schema.confluent.AvroSchemaConverter.EmptyFieldStrategy;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static java.util.Objects.requireNonNull;
 
 public class ConfluentSessionProperties

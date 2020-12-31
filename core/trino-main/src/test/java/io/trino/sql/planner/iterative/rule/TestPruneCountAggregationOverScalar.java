@@ -15,27 +15,27 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
-import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.plugin.tpch.TpchTransactionHandle;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.sql.planner.FunctionCallBuilder;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.TableHandle;
+import io.trino.plugin.tpch.TpchColumnHandle;
+import io.trino.plugin.tpch.TpchTableHandle;
+import io.trino.plugin.tpch.TpchTransactionHandle;
+import io.trino.spi.type.BigintType;
+import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 
 public class TestPruneCountAggregationOverScalar
         extends BaseRuleTest

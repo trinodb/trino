@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorContext;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;

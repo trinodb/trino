@@ -14,7 +14,7 @@
 package io.trino.plugin.raptor.legacy.backup;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
@@ -27,9 +27,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
 
-import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
-import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_NOT_FOUND;
-import static io.prestosql.plugin.raptor.legacy.storage.FileStorageService.getFileSystemPath;
+import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
+import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_NOT_FOUND;
+import static io.trino.plugin.raptor.legacy.storage.FileStorageService.getFileSystemPath;
 import static java.nio.file.Files.deleteIfExists;
 import static java.util.Objects.requireNonNull;
 

@@ -16,10 +16,10 @@ package io.trino.cost;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.FixedWidthType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeProvider;
+import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 
@@ -31,7 +31,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.util.MoreMath.firstNonNaN;
+import static io.trino.util.MoreMath.firstNonNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;

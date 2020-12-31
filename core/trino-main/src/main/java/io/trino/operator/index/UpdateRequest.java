@@ -15,7 +15,7 @@ package io.trino.operator.index;
 
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.concurrent.MoreFutures;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import javax.annotation.concurrent.ThreadSafe;
 

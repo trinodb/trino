@@ -13,20 +13,20 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.analyzer.Analysis;
-import io.prestosql.sql.analyzer.CanonicalizationAware;
-import io.prestosql.sql.analyzer.ResolvedField;
-import io.prestosql.sql.analyzer.Scope;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.Node;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.CanonicalizationAware;
+import io.trino.sql.analyzer.ResolvedField;
+import io.trino.sql.analyzer.Scope;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Node;
 
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.util.AstUtils.treeEqual;
-import static io.prestosql.sql.util.AstUtils.treeHash;
+import static io.trino.sql.util.AstUtils.treeEqual;
+import static io.trino.sql.util.AstUtils.treeHash;
 import static java.util.Objects.requireNonNull;
 
 /**

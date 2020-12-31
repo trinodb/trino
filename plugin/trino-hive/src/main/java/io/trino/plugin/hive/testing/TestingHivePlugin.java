@@ -15,9 +15,9 @@ package io.trino.plugin.hive.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static java.util.Objects.requireNonNull;

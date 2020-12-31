@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeId;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -28,7 +28,7 @@ import java.sql.SQLException;
 import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
+import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
 import static java.util.Objects.requireNonNull;
 
 public class TableColumn

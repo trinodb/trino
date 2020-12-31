@@ -13,12 +13,12 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.operator.scalar.annotations.ScalarFromAnnotationsParser;
-import io.prestosql.operator.window.WindowAnnotationsParser;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.WindowFunction;
+import io.trino.operator.scalar.annotations.ScalarFromAnnotationsParser;
+import io.trino.operator.window.WindowAnnotationsParser;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.WindowFunction;
 
 import java.util.Collection;
 import java.util.List;

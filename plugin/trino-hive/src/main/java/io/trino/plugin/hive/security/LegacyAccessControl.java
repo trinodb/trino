@@ -13,18 +13,18 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.prestosql.plugin.hive.HiveTransactionHandle;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorSecurityContext;
-import io.prestosql.spi.connector.SchemaRoutineName;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
-import io.prestosql.spi.security.ViewExpression;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.HiveTransactionHandle;
+import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.SchemaRoutineName;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
+import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
@@ -32,13 +32,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
-import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
-import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
-import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
-import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
+import static io.trino.spi.security.AccessDeniedException.denyDropTable;
+import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

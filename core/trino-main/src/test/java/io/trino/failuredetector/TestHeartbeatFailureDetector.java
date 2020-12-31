@@ -27,9 +27,9 @@ import io.airlift.json.JsonModule;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
-import io.prestosql.execution.QueryManagerConfig;
-import io.prestosql.failuredetector.HeartbeatFailureDetector.Stats;
-import io.prestosql.server.InternalCommunicationConfig;
+import io.trino.execution.QueryManagerConfig;
+import io.trino.failuredetector.HeartbeatFailureDetector.Stats;
+import io.trino.server.InternalCommunicationConfig;
 import org.testng.annotations.Test;
 
 import javax.ws.rs.GET;

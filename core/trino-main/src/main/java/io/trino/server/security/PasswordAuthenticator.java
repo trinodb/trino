@@ -13,16 +13,16 @@
  */
 package io.trino.server.security;
 
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.Identity;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
 
-import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
-import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static io.trino.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
+import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 
 public class PasswordAuthenticator

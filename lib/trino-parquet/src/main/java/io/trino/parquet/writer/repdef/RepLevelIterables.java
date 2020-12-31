@@ -14,11 +14,11 @@
 package io.trino.parquet.writer.repdef;
 
 import com.google.common.collect.AbstractIterator;
-import io.prestosql.parquet.writer.repdef.RepLevelIterable.RepValueIterator;
-import io.prestosql.parquet.writer.repdef.RepLevelIterable.RepetitionLevel;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.ColumnarArray;
-import io.prestosql.spi.block.ColumnarMap;
+import io.trino.parquet.writer.repdef.RepLevelIterable.RepValueIterator;
+import io.trino.parquet.writer.repdef.RepLevelIterable.RepetitionLevel;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarArray;
+import io.trino.spi.block.ColumnarMap;
 
 import java.util.Iterator;
 import java.util.List;

@@ -14,8 +14,8 @@
 package io.trino.execution.resourcegroups;
 
 import io.airlift.units.DataSize;
-import io.prestosql.execution.MockManagedQueryExecution;
-import io.prestosql.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
+import io.trino.execution.MockManagedQueryExecution;
+import io.trino.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

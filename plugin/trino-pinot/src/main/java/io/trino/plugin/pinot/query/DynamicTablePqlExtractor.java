@@ -13,15 +13,15 @@
  */
 package io.trino.plugin.pinot.query;
 
-import io.prestosql.pinot.PinotColumnHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.pinot.PinotColumnHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.pinot.query.FilterToPqlConverter.encloseInParentheses;
-import static io.prestosql.pinot.query.PinotQueryBuilder.getFilterClause;
+import static io.trino.plugin.pinot.query.FilterToPqlConverter.encloseInParentheses;
+import static io.trino.plugin.pinot.query.PinotQueryBuilder.getFilterClause;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

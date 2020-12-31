@@ -15,10 +15,10 @@ package io.trino.plugin.kudu;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarbinaryType;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
 
 import java.util.Objects;
 

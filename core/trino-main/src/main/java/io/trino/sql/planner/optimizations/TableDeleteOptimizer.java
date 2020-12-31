@@ -14,19 +14,19 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.Iterables;
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.SymbolAllocator;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.plan.DeleteNode;
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.SimplePlanRewriter;
-import io.prestosql.sql.planner.plan.TableDeleteNode;
-import io.prestosql.sql.planner.plan.TableFinishNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.DeleteNode;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.TableDeleteNode;
+import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Optional;

@@ -13,9 +13,9 @@
  */
 package io.trino.testing;
 
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.execution.warnings.WarningCollectorConfig;
-import io.prestosql.execution.warnings.WarningCollectorFactory;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.execution.warnings.WarningCollectorFactory;
 
 import static java.util.Objects.requireNonNull;
 

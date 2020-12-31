@@ -13,16 +13,16 @@
  */
 package io.trino.connector.informationschema;
 
-import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.transaction.IsolationLevel;
-import io.prestosql.transaction.InternalConnector;
-import io.prestosql.transaction.TransactionId;
+import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.transaction.IsolationLevel;
+import io.trino.transaction.InternalConnector;
+import io.trino.transaction.TransactionId;
 
 import static java.util.Objects.requireNonNull;
 

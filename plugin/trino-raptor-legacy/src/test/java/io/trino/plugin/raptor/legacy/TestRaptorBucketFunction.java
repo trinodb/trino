@@ -14,18 +14,18 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.BucketFunction;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.BucketFunction;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static io.prestosql.block.BlockAssertions.createIntsBlock;
-import static io.prestosql.block.BlockAssertions.createLongsBlock;
-import static io.prestosql.block.BlockAssertions.createStringsBlock;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.block.BlockAssertions.createIntsBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestRaptorBucketFunction

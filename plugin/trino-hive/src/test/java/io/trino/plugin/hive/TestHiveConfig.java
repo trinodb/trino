@@ -26,9 +26,9 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
-import static io.prestosql.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
+import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
+import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
+import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveConfig
 {

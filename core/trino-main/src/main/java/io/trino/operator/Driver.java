@@ -22,13 +22,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.execution.ScheduledSplit;
-import io.prestosql.execution.TaskSource;
-import io.prestosql.metadata.Split;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.UpdatablePageSource;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.ScheduledSplit;
+import io.trino.execution.TaskSource;
+import io.trino.metadata.Split;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -49,8 +49,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.prestosql.operator.Operator.NOT_BLOCKED;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.operator.Operator.NOT_BLOCKED;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 

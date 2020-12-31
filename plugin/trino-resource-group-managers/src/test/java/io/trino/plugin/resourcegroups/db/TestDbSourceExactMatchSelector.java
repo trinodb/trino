@@ -16,19 +16,19 @@ package io.trino.plugin.resourcegroups.db;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.resourcegroups.SelectionContext;
-import io.prestosql.spi.resourcegroups.SelectionCriteria;
-import io.prestosql.spi.session.ResourceEstimates;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.SelectionContext;
+import io.trino.spi.resourcegroups.SelectionCriteria;
+import io.trino.spi.session.ResourceEstimates;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.spi.resourcegroups.QueryType.DELETE;
-import static io.prestosql.spi.resourcegroups.QueryType.INSERT;
-import static io.prestosql.spi.resourcegroups.QueryType.SELECT;
+import static io.trino.spi.resourcegroups.QueryType.DELETE;
+import static io.trino.spi.resourcegroups.QueryType.INSERT;
+import static io.trino.spi.resourcegroups.QueryType.SELECT;
 import static org.testng.Assert.assertEquals;
 
 public class TestDbSourceExactMatchSelector

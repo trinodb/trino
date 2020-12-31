@@ -30,8 +30,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
-import static io.prestosql.plugin.hive.util.ConfigurationUtils.readConfiguration;
+import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
+import static io.trino.plugin.hive.util.ConfigurationUtils.readConfiguration;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.CommonConfigurationKeys.IPC_PING_INTERVAL_KEY;

@@ -21,8 +21,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.NOT_SUPPORTED;
-import static io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.NOT_SUPPORTED;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
 
 public class TestFileHiveMetastoreConfig
 {

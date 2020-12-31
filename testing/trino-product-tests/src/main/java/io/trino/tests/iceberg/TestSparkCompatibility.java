@@ -20,13 +20,13 @@ import org.testng.annotations.Test;
 import java.sql.Date;
 import java.sql.Timestamp;
 
-import static io.prestosql.tests.TestGroups.ICEBERG;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
-import static io.prestosql.tests.utils.QueryExecutors.onSpark;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.TestGroups.ICEBERG;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onSpark;
 import static java.lang.String.format;
 
 public class TestSparkCompatibility

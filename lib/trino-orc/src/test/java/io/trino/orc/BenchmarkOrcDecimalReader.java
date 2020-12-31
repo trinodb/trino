@@ -14,10 +14,10 @@
 package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.SqlDecimal;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.SqlDecimal;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -47,13 +47,13 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.prestosql.orc.OrcTester.Format.ORC_12;
-import static io.prestosql.orc.OrcTester.READER_OPTIONS;
-import static io.prestosql.orc.OrcTester.writeOrcColumnHive;
-import static io.prestosql.orc.metadata.CompressionKind.NONE;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.trino.orc.OrcTester.Format.ORC_12;
+import static io.trino.orc.OrcTester.READER_OPTIONS;
+import static io.trino.orc.OrcTester.writeOrcColumnHive;
+import static io.trino.orc.metadata.CompressionKind.NONE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static java.util.UUID.randomUUID;
 
 @SuppressWarnings("MethodMayBeStatic")

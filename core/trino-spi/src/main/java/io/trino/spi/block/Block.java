@@ -19,8 +19,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
 
-import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
-import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 
 public interface Block
 {

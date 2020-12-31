@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 
 import static java.util.Objects.requireNonNull;
 

@@ -15,11 +15,11 @@ package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
-import io.prestosql.operator.aggregation.ApproximateSetAggregation;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.operator.aggregation.ApproximateSetAggregation;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 public final class HyperLogLogFunctions
 {

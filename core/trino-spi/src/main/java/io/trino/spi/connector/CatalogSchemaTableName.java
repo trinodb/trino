@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
+import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Objects.requireNonNull;
 
 public final class CatalogSchemaTableName

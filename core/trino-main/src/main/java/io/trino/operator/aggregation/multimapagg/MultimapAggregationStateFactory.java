@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation.multimapagg;
 
-import io.prestosql.spi.function.AccumulatorStateFactory;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 

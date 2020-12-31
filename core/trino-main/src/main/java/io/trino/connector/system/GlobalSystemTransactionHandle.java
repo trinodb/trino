@@ -15,8 +15,8 @@ package io.trino.connector.system;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.transaction.TransactionId;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.transaction.TransactionId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

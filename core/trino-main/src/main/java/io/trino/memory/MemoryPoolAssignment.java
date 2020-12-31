@@ -15,8 +15,8 @@ package io.trino.memory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.memory.MemoryPoolId;
+import io.trino.spi.QueryId;
+import io.trino.spi.memory.MemoryPoolId;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

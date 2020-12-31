@@ -14,19 +14,19 @@
 package io.trino.cost;
 
 import io.airlift.log.Logger;
-import io.prestosql.Session;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.GroupReference;
-import io.prestosql.sql.planner.iterative.Memo;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.Session;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.Memo;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.SystemSessionProperties.isEnableStatsCalculator;
-import static io.prestosql.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
+import static io.trino.SystemSessionProperties.isEnableStatsCalculator;
+import static io.trino.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
 import static java.util.Objects.requireNonNull;
 
 public class CachingCostProvider

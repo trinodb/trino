@@ -15,11 +15,11 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.stats.TDigest;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
+import static io.trino.spi.function.OperatorType.CAST;
 
 public final class TDigestOperators
 {

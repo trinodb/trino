@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.kudu;
 
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
+import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

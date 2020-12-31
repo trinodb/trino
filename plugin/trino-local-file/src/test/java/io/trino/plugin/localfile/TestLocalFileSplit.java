@@ -15,7 +15,7 @@ package io.trino.plugin.localfile;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 import org.testng.annotations.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;

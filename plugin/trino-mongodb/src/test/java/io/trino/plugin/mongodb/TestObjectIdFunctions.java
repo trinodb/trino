@@ -13,15 +13,15 @@
  */
 package io.trino.plugin.mongodb;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
 
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.time.ZoneOffset.UTC;
 
 public class TestObjectIdFunctions

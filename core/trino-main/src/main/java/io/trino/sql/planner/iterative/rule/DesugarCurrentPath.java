@@ -13,15 +13,15 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.FunctionCallBuilder;
-import io.prestosql.sql.tree.CurrentPath;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.FunctionCallBuilder;
+import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.QualifiedName;
 
-import static io.prestosql.sql.tree.ExpressionTreeRewriter.rewriteWith;
+import static io.trino.sql.tree.ExpressionTreeRewriter.rewriteWith;
 
 public class DesugarCurrentPath
         extends ExpressionRewriteRuleSet

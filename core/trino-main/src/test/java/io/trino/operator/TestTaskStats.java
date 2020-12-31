@@ -21,7 +21,7 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
-import static io.prestosql.operator.TestPipelineStats.assertExpectedPipelineStats;
+import static io.trino.operator.TestPipelineStats.assertExpectedPipelineStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;

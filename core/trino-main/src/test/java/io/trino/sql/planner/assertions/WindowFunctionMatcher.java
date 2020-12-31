@@ -13,14 +13,14 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.WindowNode;
-import io.prestosql.sql.planner.plan.WindowNode.Function;
-import io.prestosql.sql.tree.FunctionCall;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.plan.WindowNode.Function;
+import io.trino.sql.tree.FunctionCall;
 
 import java.util.Map;
 import java.util.Objects;
@@ -28,7 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
+import static io.trino.metadata.ResolvedFunction.extractFunctionName;
 import static java.util.Objects.requireNonNull;
 
 public class WindowFunctionMatcher

@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.jdbc.jmx;
 
-import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.spi.connector.ConnectorSession;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

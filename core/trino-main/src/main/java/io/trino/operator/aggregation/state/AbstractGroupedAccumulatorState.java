@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.prestosql.spi.function.GroupedAccumulatorState;
+import io.trino.spi.function.GroupedAccumulatorState;
 
 public abstract class AbstractGroupedAccumulatorState
         implements GroupedAccumulatorState

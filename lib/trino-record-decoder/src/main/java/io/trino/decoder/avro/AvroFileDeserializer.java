@@ -13,7 +13,7 @@
  */
 package io.trino.decoder.avro;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.io.DatumReader;
@@ -22,7 +22,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class AvroFileDeserializer<T>

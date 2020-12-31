@@ -14,10 +14,10 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.LimitOperator.LimitOperatorFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.testing.MaterializedResult;
+import io.trino.operator.LimitOperator.LimitOperatorFactory;
+import io.trino.spi.Page;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.MaterializedResult;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -27,12 +27,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
-import static io.prestosql.SequencePageBuilder.createSequencePage;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.SequencePageBuilder.createSequencePage;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 

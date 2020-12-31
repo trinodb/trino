@@ -15,22 +15,22 @@ package io.trino.sql;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.type.JoniRegexp;
-import io.prestosql.type.LikeFunctions;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.PrestoException;
+import io.trino.type.JoniRegexp;
+import io.trino.type.LikeFunctions;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.type.LikeFunctions.isLikePattern;
-import static io.prestosql.type.LikeFunctions.likeChar;
-import static io.prestosql.type.LikeFunctions.likePattern;
-import static io.prestosql.type.LikeFunctions.likeVarchar;
-import static io.prestosql.type.LikeFunctions.patternConstantPrefixBytes;
-import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.type.LikeFunctions.isLikePattern;
+import static io.trino.type.LikeFunctions.likeChar;
+import static io.trino.type.LikeFunctions.likePattern;
+import static io.trino.type.LikeFunctions.likeVarchar;
+import static io.trino.type.LikeFunctions.patternConstantPrefixBytes;
+import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

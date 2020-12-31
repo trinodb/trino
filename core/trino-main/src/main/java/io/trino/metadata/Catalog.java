@@ -13,11 +13,11 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.connector.Connector;
+import io.trino.connector.CatalogName;
+import io.trino.spi.connector.Connector;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.metadata.MetadataUtil.checkCatalogName;
+import static io.trino.metadata.MetadataUtil.checkCatalogName;
 import static java.util.Objects.requireNonNull;
 
 public class Catalog

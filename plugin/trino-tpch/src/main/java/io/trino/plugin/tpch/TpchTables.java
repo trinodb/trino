@@ -14,18 +14,18 @@
 package io.trino.plugin.tpch;
 
 import com.google.common.collect.AbstractIterator;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.RecordPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 import io.trino.tpch.TpchTable;
 
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.tpch.TpchRecordSet.createTpchRecordSet;
+import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 
 public final class TpchTables
 {

@@ -15,10 +15,10 @@ package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.kafka.encoder.RowEncoder;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorPageSink;
+import io.trino.plugin.kafka.encoder.RowEncoder;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorPageSink;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.kafka.KafkaErrorCode.KAFKA_PRODUCER_ERROR;
+import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_PRODUCER_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;

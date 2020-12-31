@@ -14,9 +14,9 @@
 package io.trino.plugin.kudu.schema;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.SchemaNotFoundException;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.SchemaNotFoundException;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
@@ -38,9 +38,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.plugin.kudu.KuduClientSession.DEFAULT_SCHEMA;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 
 public class SchemaEmulationByTableNameConvention
         implements SchemaEmulation

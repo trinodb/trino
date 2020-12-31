@@ -15,15 +15,15 @@ package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 
-import static io.prestosql.pinot.MetadataUtil.TEST_TABLE;
+import static io.trino.plugin.pinot.MetadataUtil.TEST_TABLE;
 import static org.testng.Assert.assertEquals;
 
 public class TestPinotMetadata

@@ -13,13 +13,13 @@
  */
 package io.trino;
 
-import io.prestosql.block.BlockAssertions;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageSorter;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.PageBuilderStatus;
-import io.prestosql.spi.type.Type;
+import io.trino.block.BlockAssertions;
+import io.trino.operator.PagesIndex;
+import io.trino.spi.Page;
+import io.trino.spi.PageSorter;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.type.Type;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -39,11 +39,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Collections.nCopies;
 
 @State(Scope.Thread)

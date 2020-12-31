@@ -13,14 +13,14 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.sql.planner.plan.Patterns.project;
+import static io.trino.sql.planner.plan.Patterns.project;
 
 public class PruneProjectColumns
         extends ProjectOffPushDownRule<ProjectNode>

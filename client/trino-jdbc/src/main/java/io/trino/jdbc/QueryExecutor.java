@@ -14,11 +14,11 @@
 package io.trino.jdbc;
 
 import io.airlift.json.JsonCodec;
-import io.prestosql.client.ClientException;
-import io.prestosql.client.ClientSession;
-import io.prestosql.client.JsonResponse;
-import io.prestosql.client.ServerInfo;
-import io.prestosql.client.StatementClient;
+import io.trino.client.ClientException;
+import io.trino.client.ClientSession;
+import io.trino.client.JsonResponse;
+import io.trino.client.ServerInfo;
+import io.trino.client.StatementClient;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -26,7 +26,7 @@ import okhttp3.Request;
 import java.net.URI;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.prestosql.client.StatementClientFactory.newStatementClient;
+import static io.trino.client.StatementClientFactory.newStatementClient;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

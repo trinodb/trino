@@ -19,18 +19,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.TestingBlockEncodingSerde;
-import io.prestosql.spi.block.TestingBlockJsonSerde;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.type.TestingTypeDeserializer;
-import io.prestosql.spi.type.TestingTypeManager;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.TestingBlockEncodingSerde;
+import io.trino.spi.block.TestingBlockJsonSerde;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.type.TestingTypeDeserializer;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestRangeJsonSerde

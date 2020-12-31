@@ -13,11 +13,11 @@
  */
 package io.trino.type;
 
-import io.prestosql.operator.scalar.ColorFunctions;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractIntType;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.operator.scalar.ColorFunctions;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.AbstractIntType;
+import io.trino.spi.type.TypeSignature;
 
 import static java.lang.String.format;
 

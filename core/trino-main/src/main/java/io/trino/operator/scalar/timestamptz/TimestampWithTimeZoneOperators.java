@@ -13,23 +13,23 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.type.Constraint;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.StandardTypes;
+import io.trino.type.Constraint;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
-import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.SUBTRACT;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.DateTimes.roundToNearest;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.type.DateTimes.roundToNearest;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public final class TimestampWithTimeZoneOperators

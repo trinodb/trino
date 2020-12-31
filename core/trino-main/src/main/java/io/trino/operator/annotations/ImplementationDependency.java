@@ -14,20 +14,20 @@
 package io.trino.operator.annotations;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.prestosql.spi.function.CastDependency;
-import io.prestosql.spi.function.Convention;
-import io.prestosql.spi.function.FunctionDependency;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.OperatorDependency;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.spi.function.CastDependency;
+import io.trino.spi.function.Convention;
+import io.trino.spi.function.FunctionDependency;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.OperatorDependency;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.sql.tree.QualifiedName;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -41,8 +41,8 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 public interface ImplementationDependency
 {

@@ -16,9 +16,9 @@ package io.trino.plugin.pinot;
 import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
-import static io.prestosql.pinot.MetadataUtil.COLUMN_CODEC;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.pinot.MetadataUtil.COLUMN_CODEC;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestPinotColumnHandle

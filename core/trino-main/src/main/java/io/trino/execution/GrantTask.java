@@ -14,17 +14,17 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.spi.security.Privilege;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Grant;
-import io.prestosql.sql.tree.GrantOnType;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
+import io.trino.security.AccessControl;
+import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.security.Privilege;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Grant;
+import io.trino.sql.tree.GrantOnType;
+import io.trino.transaction.TransactionManager;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -33,13 +33,13 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
-import static io.prestosql.metadata.MetadataUtil.createPrincipal;
-import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.prestosql.spi.StandardErrorCode.INVALID_PRIVILEGE;
-import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
-import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.metadata.MetadataUtil.createCatalogSchemaName;
+import static io.trino.metadata.MetadataUtil.createPrincipal;
+import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.INVALID_PRIVILEGE;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
 public class GrantTask
         implements DataDefinitionTask<Grant>

@@ -15,7 +15,7 @@
 package io.trino.plugin.tpcds;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.statistics.Estimate;
+import io.trino.spi.statistics.Estimate;
 
 import java.util.Optional;
 

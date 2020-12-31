@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kafka.encoder.json.format;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.Locale;
 import java.util.Optional;

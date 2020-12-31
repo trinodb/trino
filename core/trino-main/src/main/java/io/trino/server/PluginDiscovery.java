@@ -14,7 +14,7 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Plugin;
+import io.trino.spi.Plugin;
 import org.objectweb.asm.ClassReader;
 import org.sonatype.aether.artifact.Artifact;
 

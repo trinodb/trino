@@ -13,27 +13,27 @@
  */
 package io.trino.plugin.kudu;
 
-import io.prestosql.Session;
-import io.prestosql.cost.StatsAndCosts;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.cost.StatsAndCosts;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
 
-import static io.prestosql.SystemSessionProperties.COLOCATED_JOIN;
-import static io.prestosql.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
-import static io.prestosql.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
-import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.prestosql.SystemSessionProperties.GROUPED_EXECUTION;
-import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
-import static io.prestosql.plugin.kudu.KuduQueryRunnerFactory.createSession;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
+import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
+import static io.trino.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
+import static io.trino.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.GROUPED_EXECUTION;
+import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
+import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createSession;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static java.lang.String.format;
 
 public class TestKuduIntegrationGroupedExecution

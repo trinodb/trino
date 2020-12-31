@@ -13,13 +13,13 @@
  */
 package io.trino.parquet.dictionary;
 
-import io.prestosql.parquet.DictionaryPage;
+import io.trino.parquet.DictionaryPage;
 import org.apache.parquet.column.values.plain.PlainValuesReader.DoublePlainValuesReader;
 
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.parquet.ParquetReaderUtils.toInputStream;
+import static io.trino.parquet.ParquetReaderUtils.toInputStream;
 
 public class DoubleDictionary
         extends Dictionary

@@ -15,16 +15,16 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.UnionNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.UnionNode;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
-import static io.prestosql.sql.planner.plan.Patterns.union;
+import static io.trino.sql.planner.plan.Patterns.union;
 
 /**
  * Transforms

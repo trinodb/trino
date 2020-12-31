@@ -14,7 +14,7 @@
 package io.trino.tests.product.launcher.env.common;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.env.Environment;
 
 import java.util.List;
 

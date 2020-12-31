@@ -14,14 +14,14 @@
 package io.trino.plugin.thrift.api.valuesets;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftJson;
-import io.prestosql.spi.predicate.ValueSet;
+import io.trino.plugin.thrift.api.datatypes.PrestoThriftJson;
+import io.trino.spi.predicate.ValueSet;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.jsonData;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
-import static io.prestosql.type.JsonType.JSON;
+import static io.trino.plugin.thrift.api.PrestoThriftBlock.jsonData;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
+import static io.trino.type.JsonType.JSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

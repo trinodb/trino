@@ -16,7 +16,7 @@ package io.trino.orc.metadata.statistics;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
+import static io.trino.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static java.lang.Math.addExact;
 import static java.util.Objects.requireNonNull;
 

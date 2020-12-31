@@ -15,23 +15,23 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
-import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.plugin.tpch.TpchTransactionHandle;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.TableHandle;
+import io.trino.plugin.tpch.TpchColumnHandle;
+import io.trino.plugin.tpch.TpchTableHandle;
+import io.trino.plugin.tpch.TpchTransactionHandle;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestTransformCorrelatedSingleRowSubqueryToProject
         extends BaseRuleTest

@@ -14,16 +14,16 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.predicate.Utils;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.predicate.Utils;
+import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.function.BiConsumer;
 
-import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
-import static io.prestosql.spi.block.BlockUtil.checkValidPosition;
-import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
+import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;

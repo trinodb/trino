@@ -19,12 +19,12 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.MYSQL;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.utils.QueryExecutors.onMySql;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.MYSQL;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.utils.QueryExecutors.onMySql;
 import static java.lang.String.format;
 
 public class TestCreateTableAsSelect

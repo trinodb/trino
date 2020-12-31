@@ -14,12 +14,12 @@
 
 package io.trino.plugin.hive.statistics;
 
-import io.prestosql.plugin.hive.HivePartition;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.statistics.TableStatistics;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.HivePartition;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;

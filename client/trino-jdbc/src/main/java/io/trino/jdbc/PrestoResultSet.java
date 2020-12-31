@@ -15,9 +15,9 @@ package io.trino.jdbc;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Streams;
-import io.prestosql.client.Column;
-import io.prestosql.client.QueryStatusInfo;
-import io.prestosql.client.StatementClient;
+import io.trino.client.Column;
+import io.trino.client.QueryStatusInfo;
+import io.trino.client.StatementClient;
 
 import java.sql.SQLException;
 import java.sql.Statement;

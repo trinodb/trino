@@ -15,11 +15,11 @@ package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.client.ClientTypeSignature;
-import io.prestosql.client.Column;
-import io.prestosql.client.QueryResults;
-import io.prestosql.client.StatementStats;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.client.ClientTypeSignature;
+import io.trino.client.Column;
+import io.trino.client.QueryResults;
+import io.trino.client.StatementStats;
+import io.trino.spi.type.StandardTypes;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;

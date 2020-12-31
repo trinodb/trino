@@ -16,8 +16,8 @@ package io.trino.plugin.hive.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.base.security.FileBasedAccessControlModule;
-import io.prestosql.plugin.base.security.ReadOnlySecurityModule;
+import io.trino.plugin.base.security.FileBasedAccessControlModule;
+import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigurationModule.installModules;

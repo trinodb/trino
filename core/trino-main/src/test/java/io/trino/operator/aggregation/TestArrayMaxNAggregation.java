@@ -15,10 +15,10 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -27,8 +27,8 @@ import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.stream.LongStream;
 
-import static io.prestosql.block.BlockAssertions.createLongRepeatBlock;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.block.BlockAssertions.createLongRepeatBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 public class TestArrayMaxNAggregation
         extends AbstractTestAggregationFunction

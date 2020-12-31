@@ -13,7 +13,7 @@
  */
 package io.trino.server.security;
 
-import io.prestosql.server.security.ResourceSecurity.AccessType;
+import io.trino.server.security.ResourceSecurity.AccessType;
 
 import java.lang.reflect.AnnotatedElement;
 import java.util.Optional;

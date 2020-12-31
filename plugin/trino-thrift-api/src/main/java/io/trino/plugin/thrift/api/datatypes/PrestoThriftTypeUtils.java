@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.thrift.api.datatypes;
 
-import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.thrift.api.PrestoThriftBlock;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.type.Type;
 
 import java.util.function.BiFunction;
 

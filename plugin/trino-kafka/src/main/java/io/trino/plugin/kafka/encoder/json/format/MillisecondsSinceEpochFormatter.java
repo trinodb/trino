@@ -13,15 +13,15 @@
  */
 package io.trino.plugin.kafka.encoder.json.format;
 
-import io.prestosql.spi.type.SqlTime;
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToMillis;
-import static io.prestosql.spi.type.TimeType.TIME_MILLIS;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToMillis;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 
 public class MillisecondsSinceEpochFormatter
         implements JsonDateTimeFormatter

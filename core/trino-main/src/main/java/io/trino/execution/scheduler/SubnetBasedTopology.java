@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.net.InetAddresses;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 
 import javax.inject.Inject;
 
@@ -29,7 +29,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static java.util.Objects.requireNonNull;
 
 public class SubnetBasedTopology

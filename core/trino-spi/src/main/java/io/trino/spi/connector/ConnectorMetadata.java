@@ -14,18 +14,18 @@
 package io.trino.spi.connector;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.expression.Constant;
-import io.prestosql.spi.expression.Variable;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.security.GrantInfo;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
-import io.prestosql.spi.security.RoleGrant;
-import io.prestosql.spi.statistics.ComputedStatistics;
-import io.prestosql.spi.statistics.TableStatistics;
-import io.prestosql.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.PrestoException;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.Variable;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.GrantInfo;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
+import io.trino.spi.security.RoleGrant;
+import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 
 import javax.annotation.Nullable;
 
@@ -38,8 +38,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;

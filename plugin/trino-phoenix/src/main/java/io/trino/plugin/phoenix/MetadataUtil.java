@@ -17,7 +17,7 @@ import org.apache.phoenix.util.SchemaUtil;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.phoenix.PhoenixMetadata.DEFAULT_SCHEMA;
+import static io.trino.plugin.phoenix.PhoenixMetadata.DEFAULT_SCHEMA;
 import static org.apache.phoenix.query.QueryConstants.NULL_SCHEMA_NAME;
 
 public final class MetadataUtil

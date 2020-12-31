@@ -14,9 +14,9 @@
 package io.trino.server.security.oauth2;
 
 import io.airlift.log.Logger;
-import io.prestosql.server.security.ResourceSecurity;
-import io.prestosql.server.security.oauth2.OAuth2Service.OAuthResult;
-import io.prestosql.server.ui.OAuthWebUiCookie;
+import io.trino.server.security.ResourceSecurity;
+import io.trino.server.security.oauth2.OAuth2Service.OAuthResult;
+import io.trino.server.ui.OAuthWebUiCookie;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -30,9 +30,9 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 
-import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
-import static io.prestosql.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.TEXT_HTML;
 

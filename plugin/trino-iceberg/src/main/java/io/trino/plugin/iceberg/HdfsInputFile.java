@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.io.InputFile;
@@ -24,7 +24,7 @@ import org.apache.iceberg.io.SeekableInputStream;
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsInputFile

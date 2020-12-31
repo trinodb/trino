@@ -16,23 +16,23 @@ package io.trino.plugin.geospatial.aggregation;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
-import io.prestosql.geospatial.GeometryType;
-import io.prestosql.geospatial.serde.GeometrySerde;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationState;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
+import io.trino.geospatial.GeometryType;
+import io.trino.geospatial.serde.GeometrySerde;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
 
 import java.util.Set;
 
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
 /**

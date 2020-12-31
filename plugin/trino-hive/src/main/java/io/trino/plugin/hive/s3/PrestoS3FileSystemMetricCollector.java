@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.s3;
 
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.aws.AbstractSdkMetricsCollector;
+import io.trino.plugin.hive.aws.AbstractSdkMetricsCollector;
 
 import static java.util.Objects.requireNonNull;
 

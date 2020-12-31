@@ -13,17 +13,17 @@
  */
 package io.trino.plugin.tpcds;
 
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 

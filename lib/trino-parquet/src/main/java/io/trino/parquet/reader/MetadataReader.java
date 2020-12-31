@@ -15,7 +15,7 @@ package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetDataSource;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
@@ -54,7 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
+import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;

@@ -13,8 +13,8 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.BigintType;
+import io.trino.spi.Page;
+import io.trino.spi.type.BigintType;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

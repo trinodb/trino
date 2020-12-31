@@ -15,14 +15,14 @@ package io.trino.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.plugin.base.type.DecodedTimestamp;
-import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
-import io.prestosql.rcfile.ColumnData;
-import io.prestosql.rcfile.EncodeOutput;
-import io.prestosql.rcfile.TimestampHolder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.plugin.base.type.PrestoTimestampEncoder;
+import io.trino.rcfile.ColumnData;
+import io.trino.rcfile.EncodeOutput;
+import io.trino.rcfile.TimestampHolder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.TimestampType;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -31,7 +31,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.function.BiFunction;
 
-import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;

@@ -14,10 +14,10 @@
 package io.trino.plugin.prometheus;
 
 import io.airlift.log.Logger;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;
+import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

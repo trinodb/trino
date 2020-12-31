@@ -14,20 +14,20 @@
 package io.trino.orc.reader;
 
 import com.google.common.io.Closer;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.orc.OrcBlockFactory;
-import io.prestosql.orc.OrcColumn;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.metadata.ColumnEncoding;
-import io.prestosql.orc.metadata.ColumnMetadata;
-import io.prestosql.orc.stream.BooleanInputStream;
-import io.prestosql.orc.stream.InputStreamSource;
-import io.prestosql.orc.stream.InputStreamSources;
-import io.prestosql.orc.stream.LongInputStream;
-import io.prestosql.spi.block.ArrayBlock;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.Type;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.orc.OrcBlockFactory;
+import io.trino.orc.OrcColumn;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.metadata.ColumnEncoding;
+import io.trino.orc.metadata.ColumnMetadata;
+import io.trino.orc.stream.BooleanInputStream;
+import io.trino.orc.stream.InputStreamSource;
+import io.trino.orc.stream.InputStreamSources;
+import io.trino.orc.stream.LongInputStream;
+import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -38,14 +38,14 @@ import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
-import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
-import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
-import static io.prestosql.orc.reader.ColumnReaders.createColumnReader;
-import static io.prestosql.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
-import static io.prestosql.orc.reader.ReaderUtils.unpackLengthNulls;
-import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
-import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
+import static io.trino.orc.metadata.Stream.StreamKind.LENGTH;
+import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.trino.orc.reader.ColumnReaders.createColumnReader;
+import static io.trino.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
+import static io.trino.orc.reader.ReaderUtils.unpackLengthNulls;
+import static io.trino.orc.reader.ReaderUtils.verifyStreamType;
+import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

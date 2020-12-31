@@ -13,12 +13,12 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
 
-import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Collections.singletonList;
 
 public interface ConnectorNodePartitioningProvider

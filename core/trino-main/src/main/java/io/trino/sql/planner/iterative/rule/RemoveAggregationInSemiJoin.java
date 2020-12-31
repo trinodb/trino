@@ -14,18 +14,18 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.SemiJoinNode;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.plan.Patterns.SemiJoin.getFilteringSource;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
-import static io.prestosql.sql.planner.plan.Patterns.semiJoin;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.plan.Patterns.SemiJoin.getFilteringSource;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.planner.plan.Patterns.semiJoin;
 
 /**
  * Remove the aggregation node that produces distinct rows from the Filtering source of a Semi join.

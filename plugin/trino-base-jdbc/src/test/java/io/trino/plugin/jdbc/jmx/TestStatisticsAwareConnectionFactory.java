@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.jdbc.jmx;
 
-import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.ConnectionFactory;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestStatisticsAwareConnectionFactory
 {

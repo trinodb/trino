@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.ml.type;
 
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignature;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes

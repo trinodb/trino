@@ -15,27 +15,27 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator;
-import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
-import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.tree.Expression;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.PlanNodeDecorrelator;
+import io.trino.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
+import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.tree.Expression;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.matching.Pattern.nonEmpty;
-import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
-import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.matching.Pattern.nonEmpty;
+import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
+import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Tries to decorrelate subquery and rewrite it using normal join.

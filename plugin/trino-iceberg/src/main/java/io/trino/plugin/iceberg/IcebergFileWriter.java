@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.prestosql.plugin.hive.FileWriter;
+import io.trino.plugin.hive.FileWriter;
 import org.apache.iceberg.Metrics;
 
 public interface IcebergFileWriter

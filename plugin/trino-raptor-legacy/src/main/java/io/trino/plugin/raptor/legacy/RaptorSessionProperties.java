@@ -15,19 +15,19 @@ package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public class RaptorSessionProperties
 {

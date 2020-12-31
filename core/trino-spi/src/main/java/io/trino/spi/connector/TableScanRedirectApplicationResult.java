@@ -13,7 +13,7 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Map;
 

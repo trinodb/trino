@@ -15,8 +15,8 @@ package io.trino.server.security;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.prestosql.spi.security.CertificateAuthenticator;
-import io.prestosql.spi.security.CertificateAuthenticatorFactory;
+import io.trino.spi.security.CertificateAuthenticator;
+import io.trino.spi.security.CertificateAuthenticatorFactory;
 
 import java.io.File;
 import java.util.HashMap;

@@ -13,9 +13,9 @@
  */
 package io.trino.transaction;
 
-import io.prestosql.Session;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.Session;
+import io.trino.security.AccessControl;
+import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.function.Consumer;
 import java.util.function.Function;

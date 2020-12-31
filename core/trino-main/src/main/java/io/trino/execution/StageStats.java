@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.operator.BlockedReason;
-import io.prestosql.operator.OperatorStats;
-import io.prestosql.spi.eventlistener.StageGcStatistics;
+import io.trino.operator.BlockedReason;
+import io.trino.operator.OperatorStats;
+import io.trino.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
@@ -32,8 +32,8 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.execution.StageState.FLUSHING;
-import static io.prestosql.execution.StageState.RUNNING;
+import static io.trino.execution.StageState.FLUSHING;
+import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 

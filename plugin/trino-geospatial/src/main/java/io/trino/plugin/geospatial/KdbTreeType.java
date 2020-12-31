@@ -14,13 +14,13 @@
 package io.trino.plugin.geospatial;
 
 import io.airlift.slice.Slice;
-import io.prestosql.geospatial.KdbTree;
-import io.prestosql.geospatial.KdbTreeUtils;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractVariableWidthType;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.geospatial.KdbTree;
+import io.trino.geospatial.KdbTreeUtils;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.TypeSignature;
 
 import static io.airlift.slice.Slices.utf8Slice;
 

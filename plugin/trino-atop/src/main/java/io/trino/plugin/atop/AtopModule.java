@@ -16,9 +16,9 @@ package io.trino.plugin.atop;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.plugin.base.CatalogName;
+import io.trino.spi.NodeManager;
+import io.trino.spi.type.TypeManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;

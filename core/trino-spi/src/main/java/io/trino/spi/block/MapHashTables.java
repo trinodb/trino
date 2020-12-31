@@ -13,8 +13,8 @@
  */
 package io.trino.spi.block;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.MapType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.MapType;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -25,7 +25,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 
 @ThreadSafe

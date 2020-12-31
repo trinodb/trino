@@ -22,7 +22,7 @@ import javax.validation.constraints.NotNull;
 import java.io.File;
 import java.util.Optional;
 
-import static io.prestosql.server.security.KerberosNameType.HOSTBASED_SERVICE;
+import static io.trino.server.security.KerberosNameType.HOSTBASED_SERVICE;
 
 public class KerberosConfig
 {

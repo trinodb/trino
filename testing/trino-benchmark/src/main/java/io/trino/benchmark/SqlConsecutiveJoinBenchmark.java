@@ -14,11 +14,11 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.testing.LocalQueryRunner;
 
-import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 
 public class SqlConsecutiveJoinBenchmark
         extends AbstractSqlBenchmark

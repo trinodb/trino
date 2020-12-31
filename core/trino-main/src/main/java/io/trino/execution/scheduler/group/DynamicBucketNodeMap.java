@@ -13,9 +13,9 @@
  */
 package io.trino.execution.scheduler.group;
 
-import io.prestosql.execution.scheduler.BucketNodeMap;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.Split;
+import io.trino.execution.scheduler.BucketNodeMap;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.Split;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 

@@ -14,14 +14,14 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.analyzer.Analysis;
-import io.prestosql.sql.analyzer.Scope;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.LambdaArgumentDeclaration;
-import io.prestosql.sql.tree.NodeRef;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Scope;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.NodeRef;
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 
-import static io.prestosql.sql.planner.ScopeAware.scopeAwareKey;
+import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static java.util.Objects.requireNonNull;
 
 class PlanBuilder

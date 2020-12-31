@@ -13,18 +13,18 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.Analysis;
-import io.prestosql.sql.tree.Cast;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.NodeRef;
+import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.NodeRef;
 
 import java.util.Map;
 import java.util.Set;
 
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 
 public final class Coercer
 {

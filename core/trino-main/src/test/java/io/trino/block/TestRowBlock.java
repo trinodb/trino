@@ -15,12 +15,12 @@
 package io.trino.block;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.ByteArrayBlock;
-import io.prestosql.spi.block.RowBlockBuilder;
-import io.prestosql.spi.block.SingleRowBlock;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ByteArrayBlock;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.testng.annotations.Test;
 
@@ -30,9 +30,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.block.RowBlock.fromFieldBlocks;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.block.RowBlock.fromFieldBlocks;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;

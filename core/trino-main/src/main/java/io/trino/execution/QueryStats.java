@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.operator.BlockedReason;
-import io.prestosql.operator.OperatorStats;
-import io.prestosql.operator.TableWriterOperator;
-import io.prestosql.spi.eventlistener.StageGcStatistics;
+import io.trino.operator.BlockedReason;
+import io.trino.operator.OperatorStats;
+import io.trino.operator.TableWriterOperator;
+import io.trino.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -33,7 +33,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
+import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 

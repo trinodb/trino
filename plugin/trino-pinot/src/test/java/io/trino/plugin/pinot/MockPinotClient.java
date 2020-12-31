@@ -18,19 +18,19 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.json.JsonCodec;
-import io.prestosql.pinot.client.IdentityPinotHostMapper;
-import io.prestosql.pinot.client.PinotClient;
+import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
+import io.trino.plugin.pinot.client.PinotClient;
 import org.apache.pinot.spi.data.Schema;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.pinot.MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC;
-import static io.prestosql.pinot.MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC;
-import static io.prestosql.pinot.MetadataUtil.TABLES_JSON_CODEC;
-import static io.prestosql.pinot.MetadataUtil.TEST_TABLE;
-import static io.prestosql.pinot.MetadataUtil.TIME_BOUNDARY_JSON_CODEC;
+import static io.trino.plugin.pinot.MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC;
+import static io.trino.plugin.pinot.MetadataUtil.BROKER_RESPONSE_NATIVE_JSON_CODEC;
+import static io.trino.plugin.pinot.MetadataUtil.TABLES_JSON_CODEC;
+import static io.trino.plugin.pinot.MetadataUtil.TEST_TABLE;
+import static io.trino.plugin.pinot.MetadataUtil.TIME_BOUNDARY_JSON_CODEC;
 
 public class MockPinotClient
         extends PinotClient

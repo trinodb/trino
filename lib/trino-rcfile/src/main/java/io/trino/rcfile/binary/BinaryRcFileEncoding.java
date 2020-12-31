@@ -13,10 +13,10 @@
  */
 package io.trino.rcfile.binary;
 
-import io.prestosql.rcfile.ColumnEncoding;
-import io.prestosql.rcfile.RcFileEncoding;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.Type;
+import io.trino.rcfile.ColumnEncoding;
+import io.trino.rcfile.RcFileEncoding;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;

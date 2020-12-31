@@ -14,8 +14,8 @@
 package io.trino.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 
 public interface SliceColumnStatisticsBuilder
         extends StatisticsBuilder

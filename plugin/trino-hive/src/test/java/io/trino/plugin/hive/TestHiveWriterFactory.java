@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.hive.HiveWriterFactory.computeBucketedFileName;
+import static io.trino.plugin.hive.HiveWriterFactory.computeBucketedFileName;
 import static org.apache.hadoop.hive.ql.exec.Utilities.getBucketIdFromFile;
 import static org.testng.Assert.assertEquals;
 

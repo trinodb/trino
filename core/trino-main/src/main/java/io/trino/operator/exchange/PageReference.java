@@ -13,7 +13,7 @@
  */
 package io.trino.operator.exchange;
 
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import javax.annotation.concurrent.ThreadSafe;
 

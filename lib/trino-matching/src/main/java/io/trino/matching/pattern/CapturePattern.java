@@ -13,11 +13,11 @@
  */
 package io.trino.matching.pattern;
 
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Match;
-import io.prestosql.matching.Pattern;
-import io.prestosql.matching.PatternVisitor;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Match;
+import io.trino.matching.Pattern;
+import io.trino.matching.PatternVisitor;
 
 import java.util.stream.Stream;
 

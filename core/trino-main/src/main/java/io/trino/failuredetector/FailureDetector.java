@@ -14,7 +14,7 @@
 package io.trino.failuredetector;
 
 import io.airlift.discovery.client.ServiceDescriptor;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 
 import java.util.Set;
 

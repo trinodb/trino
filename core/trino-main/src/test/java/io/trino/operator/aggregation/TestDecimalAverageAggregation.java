@@ -13,20 +13,20 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
-import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
+import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
+import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.UnscaledDecimal128Arithmetic;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static io.prestosql.operator.aggregation.DecimalAverageAggregation.average;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.trino.operator.aggregation.DecimalAverageAggregation.average;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

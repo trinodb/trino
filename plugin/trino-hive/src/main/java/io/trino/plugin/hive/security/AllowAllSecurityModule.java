@@ -16,8 +16,8 @@ package io.trino.plugin.hive.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.plugin.base.security.AllowAllAccessControl;
-import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.trino.plugin.base.security.AllowAllAccessControl;
+import io.trino.spi.connector.ConnectorAccessControl;
 
 public class AllowAllSecurityModule
         implements Module

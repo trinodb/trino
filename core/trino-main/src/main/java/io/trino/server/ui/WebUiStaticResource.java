@@ -13,7 +13,7 @@
  */
 package io.trino.server.ui;
 
-import io.prestosql.server.security.ResourceSecurity;
+import io.trino.server.security.ResourceSecurity;
 
 import javax.servlet.ServletContext;
 import javax.ws.rs.GET;
@@ -28,8 +28,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("")

@@ -16,7 +16,7 @@ package io.trino.server.ui;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 public class DisabledWebUiAuthenticationFilter

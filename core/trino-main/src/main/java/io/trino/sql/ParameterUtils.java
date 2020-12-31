@@ -14,11 +14,11 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.NodeLocation;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.Parameter;
-import io.prestosql.sql.tree.Statement;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.Statement;
 
 import java.util.Comparator;
 import java.util.Iterator;
@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.execution.ParameterExtractor.getParameters;
+import static io.trino.execution.ParameterExtractor.getParameters;
 
 public class ParameterUtils
 {

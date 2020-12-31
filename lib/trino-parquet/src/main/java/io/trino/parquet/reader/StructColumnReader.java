@@ -13,11 +13,11 @@
  */
 package io.trino.parquet.reader;
 
-import io.prestosql.parquet.Field;
+import io.trino.parquet.Field;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 
-import static io.prestosql.parquet.ParquetTypeUtils.isValueNull;
+import static io.trino.parquet.ParquetTypeUtils.isValueNull;
 
 public final class StructColumnReader
 {

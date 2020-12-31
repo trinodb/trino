@@ -14,7 +14,7 @@
 package io.trino.plugin.atop;
 
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;

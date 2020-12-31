@@ -14,8 +14,8 @@
 package io.trino.plugin.raptor.legacy.storage;
 
 import io.airlift.log.Logger;
-import io.prestosql.plugin.raptor.legacy.util.Closer;
-import io.prestosql.plugin.raptor.legacy.util.SyncingFileSystem;
+import io.trino.plugin.raptor.legacy.util.Closer;
+import io.trino.plugin.raptor.legacy.util.SyncingFileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -45,7 +45,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.raptor.legacy.util.Closer.closer;
+import static io.trino.plugin.raptor.legacy.util.Closer.closer;
 import static java.lang.Math.toIntExact;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createReader;
 import static org.apache.hadoop.hive.ql.io.orc.OrcFile.createWriter;

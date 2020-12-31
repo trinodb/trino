@@ -13,17 +13,17 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.prestosql.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGeoSpatialQueries

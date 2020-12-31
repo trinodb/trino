@@ -17,11 +17,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.execution.StateMachine;
-import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
-import io.prestosql.execution.buffer.SerializedPageReference.PagesReleasedListener;
-import io.prestosql.memory.context.LocalMemoryContext;
+import io.trino.execution.StateMachine;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.SerializedPageReference.PagesReleasedListener;
+import io.trino.memory.context.LocalMemoryContext;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -30,14 +30,14 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.execution.buffer.BufferState.FAILED;
-import static io.prestosql.execution.buffer.BufferState.FINISHED;
-import static io.prestosql.execution.buffer.BufferState.FLUSHING;
-import static io.prestosql.execution.buffer.BufferState.NO_MORE_BUFFERS;
-import static io.prestosql.execution.buffer.BufferState.NO_MORE_PAGES;
-import static io.prestosql.execution.buffer.BufferState.OPEN;
-import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
-import static io.prestosql.execution.buffer.SerializedPageReference.dereferencePages;
+import static io.trino.execution.buffer.BufferState.FAILED;
+import static io.trino.execution.buffer.BufferState.FINISHED;
+import static io.trino.execution.buffer.BufferState.FLUSHING;
+import static io.trino.execution.buffer.BufferState.NO_MORE_BUFFERS;
+import static io.trino.execution.buffer.BufferState.NO_MORE_PAGES;
+import static io.trino.execution.buffer.BufferState.OPEN;
+import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
+import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputBuffer

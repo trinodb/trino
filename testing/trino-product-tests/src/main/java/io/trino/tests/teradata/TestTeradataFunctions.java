@@ -20,10 +20,10 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static io.prestosql.tests.TestGroups.FUNCTIONS;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.TestGroups.FUNCTIONS;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 
 public class TestTeradataFunctions
         extends ProductTest

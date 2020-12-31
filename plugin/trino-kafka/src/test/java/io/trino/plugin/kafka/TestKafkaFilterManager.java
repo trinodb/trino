@@ -14,15 +14,15 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.predicate.SortedRangeSet;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.SortedRangeSet;
 import org.testng.annotations.Test;
 
 import java.util.Set;
 
-import static io.prestosql.spi.predicate.Domain.multipleValues;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.predicate.Domain.multipleValues;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

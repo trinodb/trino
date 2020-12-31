@@ -13,7 +13,7 @@
  */
 package io.trino;
 
-import io.prestosql.jdbc.PrestoDriver;
+import io.trino.jdbc.PrestoDriver;
 
 import java.util.Optional;
 

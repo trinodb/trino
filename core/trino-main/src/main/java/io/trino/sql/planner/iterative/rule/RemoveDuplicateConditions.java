@@ -13,13 +13,13 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.trino.metadata.Metadata;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.LogicalBinaryExpression;
 
-import static io.prestosql.sql.ExpressionUtils.combinePredicates;
-import static io.prestosql.sql.ExpressionUtils.extractPredicates;
+import static io.trino.sql.ExpressionUtils.combinePredicates;
+import static io.trino.sql.ExpressionUtils.extractPredicates;
 
 /**
  * Flattens and removes duplicate conjuncts or disjuncts. E.g.,

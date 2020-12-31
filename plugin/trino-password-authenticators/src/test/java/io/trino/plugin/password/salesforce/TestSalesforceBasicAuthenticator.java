@@ -18,7 +18,7 @@ import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.units.Duration;
-import io.prestosql.spi.security.AccessDeniedException;
+import io.trino.spi.security.AccessDeniedException;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;

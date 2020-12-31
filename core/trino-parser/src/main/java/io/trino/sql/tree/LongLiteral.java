@@ -13,7 +13,7 @@
  */
 package io.trino.sql.tree;
 
-import io.prestosql.sql.parser.ParsingException;
+import io.trino.sql.parser.ParsingException;
 
 import java.util.Optional;
 

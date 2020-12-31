@@ -13,15 +13,15 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.type.ArrayType;
+import io.trino.spi.type.ArrayType;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
 
 public class TestArrayReduceFunction

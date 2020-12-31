@@ -18,14 +18,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryStats;
-import io.prestosql.operator.BlockedReason;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.StandardErrorCode;
-import io.prestosql.spi.eventlistener.StageGcStatistics;
-import io.prestosql.spi.memory.MemoryPoolId;
-import io.prestosql.spi.resourcegroups.QueryType;
+import io.trino.execution.QueryInfo;
+import io.trino.execution.QueryStats;
+import io.trino.operator.BlockedReason;
+import io.trino.spi.QueryId;
+import io.trino.spi.StandardErrorCode;
+import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.memory.MemoryPoolId;
+import io.trino.spi.resourcegroups.QueryType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -33,9 +33,9 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.execution.QueryState.RUNNING;
-import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static org.testng.Assert.assertEquals;
 
 public class TestBasicQueryInfo

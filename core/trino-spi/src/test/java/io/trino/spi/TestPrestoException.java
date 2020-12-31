@@ -15,7 +15,7 @@ package io.trino.spi;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.ErrorType.USER_ERROR;
+import static io.trino.spi.ErrorType.USER_ERROR;
 import static org.testng.Assert.assertEquals;
 
 public class TestPrestoException

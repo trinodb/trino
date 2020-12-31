@@ -14,14 +14,14 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.type.DateTimes;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.type.DateTimes;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -29,17 +29,17 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.operator.scalar.StringFunctions.trim;
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.MAX_PRECISION;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
-import static io.prestosql.type.DateTimes.longTimestampWithTimeZone;
-import static io.prestosql.type.DateTimes.rescale;
-import static io.prestosql.type.DateTimes.round;
+import static io.trino.operator.scalar.StringFunctions.trim;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_PRECISION;
+import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
+import static io.trino.type.DateTimes.MILLISECONDS_PER_SECOND;
+import static io.trino.type.DateTimes.longTimestampWithTimeZone;
+import static io.trino.type.DateTimes.rescale;
+import static io.trino.type.DateTimes.round;
 
 @ScalarOperator(CAST)
 public final class VarcharToTimestampWithTimeZoneCast

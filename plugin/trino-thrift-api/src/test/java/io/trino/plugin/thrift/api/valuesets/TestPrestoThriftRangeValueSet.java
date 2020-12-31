@@ -14,21 +14,21 @@
 package io.trino.plugin.thrift.api.valuesets;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
-import io.prestosql.plugin.thrift.api.datatypes.PrestoThriftBigint;
-import io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftMarker;
-import io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftRange;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.predicate.ValueSet;
+import io.trino.plugin.thrift.api.PrestoThriftBlock;
+import io.trino.plugin.thrift.api.datatypes.PrestoThriftBigint;
+import io.trino.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftMarker;
+import io.trino.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftRange;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.bigintData;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.ABOVE;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.BELOW;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.EXACTLY;
-import static io.prestosql.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
-import static io.prestosql.spi.predicate.Range.range;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.plugin.thrift.api.PrestoThriftBlock.bigintData;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.ABOVE;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.BELOW;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftRangeValueSet.PrestoThriftBound.EXACTLY;
+import static io.trino.plugin.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
+import static io.trino.spi.predicate.Range.range;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 

@@ -14,7 +14,7 @@
 package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import java.util.function.LongConsumer;
 

@@ -13,7 +13,7 @@
  */
 package io.trino.tests.utils;
 
-import io.prestosql.jdbc.PrestoConnection;
+import io.trino.jdbc.PrestoConnection;
 
 import java.sql.Connection;
 import java.sql.ResultSet;

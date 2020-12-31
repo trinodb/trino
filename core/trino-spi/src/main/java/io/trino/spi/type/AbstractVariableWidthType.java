@@ -13,10 +13,10 @@
  */
 package io.trino.spi.type;
 
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockBuilderStatus;
-import io.prestosql.spi.block.PageBuilderStatus;
-import io.prestosql.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 
 import static java.lang.Math.min;
 

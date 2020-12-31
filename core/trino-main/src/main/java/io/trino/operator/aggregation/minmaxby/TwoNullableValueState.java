@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation.minmaxby;
 
-import io.prestosql.operator.aggregation.state.InitialBooleanValue;
-import io.prestosql.spi.function.AccumulatorState;
+import io.trino.operator.aggregation.state.InitialBooleanValue;
+import io.trino.spi.function.AccumulatorState;
 
 // TODO: Add multiple aggregation states support to aggregation framework to avoid
 // cartesian product of types for aggregation functions takes multiple parameters.

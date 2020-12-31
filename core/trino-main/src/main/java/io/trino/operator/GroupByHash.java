@@ -14,19 +14,19 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.Session;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.Session;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static io.prestosql.operator.UpdateMemory.NOOP;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static io.trino.operator.UpdateMemory.NOOP;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
 {

@@ -18,20 +18,20 @@ import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveBucketProperty;
-import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.Storage;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.plugin.hive.metastore.glue.converter.GlueInputConverter;
+import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestDatabase;
-import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestPartition;
-import static io.prestosql.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestTable;
+import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestDatabase;
+import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestPartition;
+import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestTable;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 

@@ -14,8 +14,8 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.SetMultimap;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.spi.HostAddress;
+import io.trino.metadata.InternalNode;
+import io.trino.spi.HostAddress;
 
 import java.net.InetAddress;
 import java.util.Set;

@@ -17,11 +17,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SymbolReference;
 
 import javax.annotation.concurrent.Immutable;
 

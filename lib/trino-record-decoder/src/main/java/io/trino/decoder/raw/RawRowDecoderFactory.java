@@ -13,9 +13,9 @@
  */
 package io.trino.decoder.raw;
 
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.decoder.RowDecoderFactory;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderFactory;
 
 import java.util.Map;
 import java.util.Set;

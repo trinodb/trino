@@ -16,16 +16,16 @@ package io.trino.cli;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.prestosql.cli.ClientOptions.ClientResourceEstimate;
-import io.prestosql.cli.ClientOptions.ClientSessionProperty;
-import io.prestosql.cli.ClientOptions.OutputFormat;
-import io.prestosql.client.ClientSession;
+import io.trino.cli.ClientOptions.ClientResourceEstimate;
+import io.trino.cli.ClientOptions.ClientSessionProperty;
+import io.trino.cli.ClientOptions.OutputFormat;
+import io.trino.client.ClientSession;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;
 import java.util.Optional;
 
-import static io.prestosql.cli.Presto.createCommandLine;
+import static io.trino.cli.Presto.createCommandLine;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

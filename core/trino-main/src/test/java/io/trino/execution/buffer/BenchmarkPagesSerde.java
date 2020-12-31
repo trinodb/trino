@@ -14,11 +14,11 @@
 package io.trino.execution.buffer;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spiller.AesSpillCipher;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.spiller.AesSpillCipher;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -45,9 +45,9 @@ import java.util.Optional;
 import java.util.Random;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.PageAssertions.assertPageEquals;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.TimeUnit.SECONDS;
 

@@ -13,13 +13,13 @@
  */
 package io.trino.operator;
 
-import io.prestosql.execution.TaskId;
-import io.prestosql.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
-import io.prestosql.operator.WorkProcessor.TransformationState;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.TaskId;
+import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
+import io.trino.operator.WorkProcessor.TransformationState;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 
@@ -27,10 +27,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
-import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
-import static io.prestosql.operator.WorkProcessor.TransformationState.ofResult;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.operator.WorkProcessor.TransformationState.finished;
+import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class AssignUniqueIdOperator

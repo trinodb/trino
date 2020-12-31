@@ -15,9 +15,9 @@ package io.trino.client;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.client.IntervalYearMonth.formatMonths;
-import static io.prestosql.client.IntervalYearMonth.parseMonths;
-import static io.prestosql.client.IntervalYearMonth.toMonths;
+import static io.trino.client.IntervalYearMonth.formatMonths;
+import static io.trino.client.IntervalYearMonth.parseMonths;
+import static io.trino.client.IntervalYearMonth.toMonths;
 import static org.testng.Assert.assertEquals;
 
 public class TestIntervalYearMonth

@@ -15,7 +15,7 @@ package io.trino.spiller;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.ExceededSpillLimitException;
+import io.trino.ExceededSpillLimitException;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -24,8 +24,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.prestosql.ExceededSpillLimitException.exceededLocalLimit;
-import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static io.trino.ExceededSpillLimitException.exceededLocalLimit;
+import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

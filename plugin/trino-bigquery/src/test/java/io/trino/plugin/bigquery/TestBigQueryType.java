@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.spi.type.Decimals.encodeScaledValue;
+import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static java.math.BigDecimal.ONE;
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -14,8 +14,8 @@
 package io.trino.operator.aggregation.state;
 
 import io.airlift.stats.TDigest;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
 import java.util.List;
 

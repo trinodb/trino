@@ -15,10 +15,10 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.client.Warning;
-import io.prestosql.spi.WarningCode;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.client.Warning;
+import io.trino.spi.WarningCode;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -28,9 +28,9 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.execution.TestQueryRunnerUtil.createQueryRunner;
-import static io.prestosql.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.execution.TestQueryRunnerUtil.createQueryRunner;
+import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
 
 public class TestWarnings

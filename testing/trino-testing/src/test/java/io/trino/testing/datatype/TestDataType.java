@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.time.LocalTime;
 
-import static io.prestosql.testing.datatype.DataType.timeDataType;
+import static io.trino.testing.datatype.DataType.timeDataType;
 import static org.testng.Assert.assertEquals;
 
 public class TestDataType

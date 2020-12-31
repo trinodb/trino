@@ -13,23 +13,23 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.IntersectNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.GenericLiteral;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.IntersectNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.GenericLiteral;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.ExpressionUtils.and;
-import static io.prestosql.sql.planner.plan.Patterns.Intersect.distinct;
-import static io.prestosql.sql.planner.plan.Patterns.intersect;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ExpressionUtils.and;
+import static io.trino.sql.planner.plan.Patterns.Intersect.distinct;
+import static io.trino.sql.planner.plan.Patterns.intersect;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
 
 /**

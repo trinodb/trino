@@ -15,12 +15,12 @@ package io.trino.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.prestosql.tests.product.launcher.Extensions;
-import io.prestosql.tests.product.launcher.LauncherModule;
-import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
-import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
-import io.prestosql.tests.product.launcher.env.EnvironmentModule;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.trino.tests.product.launcher.Extensions;
+import io.trino.tests.product.launcher.LauncherModule;
+import io.trino.tests.product.launcher.env.EnvironmentConfigFactory;
+import io.trino.tests.product.launcher.env.EnvironmentFactory;
+import io.trino.tests.product.launcher.env.EnvironmentModule;
+import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
@@ -33,7 +33,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.concurrent.Callable;
 
-import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Command;
 

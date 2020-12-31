@@ -13,7 +13,7 @@
  */
 package io.trino.orc.metadata;
 
-import io.prestosql.orc.metadata.statistics.StripeStatistics;
+import io.trino.orc.metadata.statistics.StripeStatistics;
 
 import java.util.List;
 import java.util.Optional;

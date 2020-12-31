@@ -14,10 +14,10 @@
 package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.jmx.MetadataUtil.SPLIT_CODEC;
+import static io.trino.plugin.jmx.MetadataUtil.SPLIT_CODEC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 

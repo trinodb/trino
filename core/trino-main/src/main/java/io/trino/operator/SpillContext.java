@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spiller.LocalSpillContext;
+import io.trino.spiller.LocalSpillContext;
 
 import java.io.Closeable;
 

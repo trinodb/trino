@@ -16,7 +16,7 @@ package io.trino.plugin.resourcegroups.db;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;

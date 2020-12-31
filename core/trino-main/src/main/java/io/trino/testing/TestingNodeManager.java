@@ -14,10 +14,10 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.client.NodeVersion;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeManager;
+import io.trino.client.NodeVersion;
+import io.trino.metadata.InternalNode;
+import io.trino.spi.Node;
+import io.trino.spi.NodeManager;
 
 import java.net.URI;
 import java.util.Collection;

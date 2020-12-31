@@ -16,8 +16,8 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
+import io.trino.spi.predicate.Domain;
+import io.trino.sql.planner.plan.DynamicFilterId;
 
 import javax.annotation.concurrent.GuardedBy;
 

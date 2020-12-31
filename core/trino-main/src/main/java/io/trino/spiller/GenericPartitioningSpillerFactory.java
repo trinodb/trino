@@ -14,10 +14,10 @@
 package io.trino.spiller;
 
 import com.google.inject.Inject;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.operator.PartitionFunction;
-import io.prestosql.operator.SpillContext;
-import io.prestosql.spi.type.Type;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.operator.PartitionFunction;
+import io.trino.operator.SpillContext;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 

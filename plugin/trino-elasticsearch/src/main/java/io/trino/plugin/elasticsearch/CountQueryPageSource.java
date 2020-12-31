@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import io.prestosql.elasticsearch.client.ElasticsearchClient;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ConnectorPageSource;
+import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorPageSource;
 
-import static io.prestosql.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

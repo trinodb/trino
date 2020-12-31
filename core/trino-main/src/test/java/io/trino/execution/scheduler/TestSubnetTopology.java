@@ -14,12 +14,12 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 import org.testng.annotations.Test;
 
-import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
-import static io.prestosql.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv4;
-import static io.prestosql.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv6;
+import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static io.trino.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv4;
+import static io.trino.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv6;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 

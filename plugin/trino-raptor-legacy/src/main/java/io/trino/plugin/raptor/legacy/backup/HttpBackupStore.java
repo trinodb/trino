@@ -22,8 +22,8 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.slice.XxHash64;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.NodeManager;
+import io.trino.spi.PrestoException;
 
 import javax.inject.Inject;
 
@@ -45,7 +45,7 @@ import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.airlift.http.client.Request.Builder.preparePut;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
-import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
+import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_ERROR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

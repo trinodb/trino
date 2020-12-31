@@ -15,9 +15,9 @@ package io.trino.plugin.password.file;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.password.file.EncryptionUtil.getHashingAlgorithm;
-import static io.prestosql.plugin.password.file.HashingAlgorithm.BCRYPT;
-import static io.prestosql.plugin.password.file.HashingAlgorithm.PBKDF2;
+import static io.trino.plugin.password.file.EncryptionUtil.getHashingAlgorithm;
+import static io.trino.plugin.password.file.HashingAlgorithm.BCRYPT;
+import static io.trino.plugin.password.file.HashingAlgorithm.PBKDF2;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 

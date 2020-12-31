@@ -13,16 +13,16 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.StandardTypes;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_DAY;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.type.DateTimes.MICROSECONDS_PER_DAY;
 import static java.lang.Math.floorDiv;
 
 @ScalarOperator(CAST)

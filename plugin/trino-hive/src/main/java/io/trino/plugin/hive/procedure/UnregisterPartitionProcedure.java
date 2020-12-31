@@ -14,22 +14,22 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveMetadata;
-import io.prestosql.plugin.hive.HiveMetastoreClosure;
-import io.prestosql.plugin.hive.TransactionalMetadataFactory;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.TableNotFoundException;
-import io.prestosql.spi.procedure.Procedure;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.plugin.hive.HiveMetadata;
+import io.trino.plugin.hive.HiveMetastoreClosure;
+import io.trino.plugin.hive.TransactionalMetadataFactory;
+import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.PrestoException;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.procedure.Procedure;
+import io.trino.spi.type.ArrayType;
 import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
@@ -38,11 +38,11 @@ import javax.inject.Provider;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static io.prestosql.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
-import static io.prestosql.plugin.hive.procedure.Procedures.checkPartitionColumns;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
+import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.block.MethodHandleUtil.methodHandle;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

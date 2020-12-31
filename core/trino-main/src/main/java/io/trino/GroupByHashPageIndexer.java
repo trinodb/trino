@@ -13,21 +13,21 @@
  */
 package io.trino;
 
-import io.prestosql.operator.GroupByHash;
-import io.prestosql.operator.GroupByIdBlock;
-import io.prestosql.operator.Work;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageIndexer;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.operator.GroupByHash;
+import io.trino.operator.GroupByIdBlock;
+import io.trino.operator.Work;
+import io.trino.spi.Page;
+import io.trino.spi.PageIndexer;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.operator.UpdateMemory.NOOP;
+import static io.trino.operator.UpdateMemory.NOOP;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

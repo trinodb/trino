@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

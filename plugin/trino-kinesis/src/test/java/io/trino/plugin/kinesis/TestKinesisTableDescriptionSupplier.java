@@ -14,21 +14,21 @@
 package io.trino.plugin.kinesis;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.kinesis.util.KinesisTestClientManager;
-import io.prestosql.plugin.kinesis.util.MockKinesisClient;
-import io.prestosql.plugin.kinesis.util.TestUtils;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.kinesis.util.KinesisTestClientManager;
+import io.trino.plugin.kinesis.util.MockKinesisClient;
+import io.trino.plugin.kinesis.util.TestUtils;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.SchemaTableName;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

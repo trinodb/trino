@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 public class TestEncodedPolylineFunctions

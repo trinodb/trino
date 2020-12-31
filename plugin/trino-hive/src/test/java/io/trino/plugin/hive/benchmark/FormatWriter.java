@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.benchmark;
 
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import java.io.Closeable;
 import java.io.IOException;

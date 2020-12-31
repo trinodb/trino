@@ -15,28 +15,28 @@ package io.trino.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.connector.GroupingProperty;
-import io.prestosql.spi.connector.LocalProperty;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.optimizations.LocalProperties;
-import io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
-import io.prestosql.sql.planner.sanity.PlanSanityChecker.Checker;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.spi.connector.GroupingProperty;
+import io.trino.spi.connector.LocalProperty;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.optimizations.LocalProperties;
+import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.sanity.PlanSanityChecker.Checker;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
+import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
 
 /**
  * Verifies that input of streaming aggregations is grouped on the grouping keys

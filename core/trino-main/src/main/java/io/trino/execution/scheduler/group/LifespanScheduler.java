@@ -14,8 +14,8 @@
 package io.trino.execution.scheduler.group;
 
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.execution.scheduler.SourceScheduler;
+import io.trino.execution.Lifespan;
+import io.trino.execution.scheduler.SourceScheduler;
 
 public interface LifespanScheduler
 {

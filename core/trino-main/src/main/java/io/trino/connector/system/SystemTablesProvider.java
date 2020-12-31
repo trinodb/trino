@@ -13,9 +13,9 @@
  */
 package io.trino.connector.system;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
 
 import java.util.Optional;
 import java.util.Set;

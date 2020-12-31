@@ -15,26 +15,26 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
-import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.plugin.tpch.TpchTransactionHandle;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.TableHandle;
+import io.trino.plugin.tpch.TpchColumnHandle;
+import io.trino.plugin.tpch.TpchTableHandle;
+import io.trino.plugin.tpch.TpchTransactionHandle;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictTableScan;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestPruneTableScanColumns
         extends BaseRuleTest

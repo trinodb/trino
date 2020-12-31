@@ -21,11 +21,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.util.DisjointSet;
+import io.trino.metadata.Metadata;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SymbolReference;
+import io.trino.util.DisjointSet;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,10 +39,10 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
-import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
-import static io.prestosql.sql.planner.NullabilityAnalyzer.mayReturnNullOnNonNullInput;
+import static io.trino.sql.ExpressionUtils.extractConjuncts;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
+import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
+import static io.trino.sql.planner.NullabilityAnalyzer.mayReturnNullOnNonNullInput;
 import static java.util.Objects.requireNonNull;
 
 /**

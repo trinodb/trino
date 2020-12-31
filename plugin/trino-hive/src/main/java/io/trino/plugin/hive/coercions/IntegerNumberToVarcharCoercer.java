@@ -14,10 +14,10 @@
 
 package io.trino.plugin.hive.coercions;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import static io.airlift.slice.Slices.utf8Slice;
 

@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 
 public class SchemaPropertyManager
         extends AbstractPropertyManager

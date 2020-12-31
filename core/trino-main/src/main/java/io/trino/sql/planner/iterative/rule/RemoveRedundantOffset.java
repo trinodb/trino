@@ -14,14 +14,14 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.OffsetNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.OffsetNode;
+import io.trino.sql.planner.plan.ValuesNode;
 
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.prestosql.sql.planner.plan.Patterns.offset;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.plan.Patterns.offset;
 
 /**
  * Remove Offset node and its subplan when the subplan is guaranteed to produce no more rows than the offset

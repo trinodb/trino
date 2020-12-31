@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.env;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import io.airlift.log.Logger;
-import io.prestosql.tests.product.launcher.util.ConsoleTable;
+import io.trino.tests.product.launcher.util.ConsoleTable;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeExecutor;
 import net.jodah.failsafe.Timeout;
@@ -31,7 +31,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.tests.product.launcher.env.StatisticsFetcher.Stats.HEADER;
+import static io.trino.tests.product.launcher.env.StatisticsFetcher.Stats.HEADER;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;

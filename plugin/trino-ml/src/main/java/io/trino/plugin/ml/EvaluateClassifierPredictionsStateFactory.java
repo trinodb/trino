@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.ml;
 
-import io.prestosql.array.ObjectBigArray;
-import io.prestosql.spi.function.AccumulatorStateFactory;
-import io.prestosql.spi.function.GroupedAccumulatorState;
+import io.trino.array.ObjectBigArray;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.GroupedAccumulatorState;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.HashMap;

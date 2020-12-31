@@ -13,12 +13,12 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestSimplifyIn
         extends BasePlanTest

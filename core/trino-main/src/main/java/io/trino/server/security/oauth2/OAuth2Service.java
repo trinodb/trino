@@ -21,7 +21,7 @@ import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
-import io.prestosql.server.security.oauth2.OAuth2Client.AccessToken;
+import io.trino.server.security.oauth2.OAuth2Client.AccessToken;
 
 import javax.inject.Inject;
 

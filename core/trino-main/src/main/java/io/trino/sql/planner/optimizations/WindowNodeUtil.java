@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.Collection;
 

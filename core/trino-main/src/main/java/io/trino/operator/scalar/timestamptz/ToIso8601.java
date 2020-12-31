@@ -14,14 +14,14 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.type.Constraint;
-import io.prestosql.type.DateTimes;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.type.Constraint;
+import io.trino.type.DateTimes;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -30,12 +30,12 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.DateTimes.getMillisOfSecond;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.type.DateTimes.getMillisOfSecond;
 
 @ScalarFunction("to_iso8601")
 public final class ToIso8601

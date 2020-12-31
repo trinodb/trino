@@ -29,16 +29,16 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.spi.block.BlockUtil.MAX_ARRAY_SIZE;
-import static io.prestosql.spi.block.BlockUtil.calculateBlockResetBytes;
-import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
-import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
-import static io.prestosql.spi.block.BlockUtil.checkValidPosition;
-import static io.prestosql.spi.block.BlockUtil.checkValidPositions;
-import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
-import static io.prestosql.spi.block.BlockUtil.compactArray;
-import static io.prestosql.spi.block.BlockUtil.compactOffsets;
-import static io.prestosql.spi.block.BlockUtil.compactSlice;
+import static io.trino.spi.block.BlockUtil.MAX_ARRAY_SIZE;
+import static io.trino.spi.block.BlockUtil.calculateBlockResetBytes;
+import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
+import static io.trino.spi.block.BlockUtil.checkValidPositions;
+import static io.trino.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactOffsets;
+import static io.trino.spi.block.BlockUtil.compactSlice;
 import static java.lang.Math.min;
 
 public class VariableWidthBlockBuilder

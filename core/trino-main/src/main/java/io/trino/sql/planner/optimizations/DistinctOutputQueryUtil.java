@@ -13,18 +13,18 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.AssignUniqueId;
-import io.prestosql.sql.planner.plan.DistinctLimitNode;
-import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
-import io.prestosql.sql.planner.plan.ExceptNode;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.IntersectNode;
-import io.prestosql.sql.planner.plan.LimitNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
-import io.prestosql.sql.planner.plan.TopNNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.DistinctLimitNode;
+import io.trino.sql.planner.plan.EnforceSingleRowNode;
+import io.trino.sql.planner.plan.ExceptNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.IntersectNode;
+import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.function.Function;
 

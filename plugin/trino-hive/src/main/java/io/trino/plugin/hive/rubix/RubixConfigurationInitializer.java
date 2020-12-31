@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive.rubix;
 
-import io.prestosql.plugin.hive.DynamicConfigurationProvider;
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.DynamicConfigurationProvider;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;

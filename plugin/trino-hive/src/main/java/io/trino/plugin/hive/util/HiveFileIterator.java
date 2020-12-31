@@ -15,10 +15,10 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
-import io.prestosql.plugin.hive.DirectoryLister;
-import io.prestosql.plugin.hive.NamenodeStats;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.hive.DirectoryLister;
+import io.trino.plugin.hive.NamenodeStats;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -30,8 +30,8 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
 
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 

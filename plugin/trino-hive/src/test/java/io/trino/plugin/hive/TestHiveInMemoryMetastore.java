@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import org.testng.SkipException;
 
 import java.io.File;

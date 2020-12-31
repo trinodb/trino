@@ -16,7 +16,7 @@ package io.trino.tests.tpch;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.testing.DistributedQueryRunner;
 
 public final class TpchQueryRunner
 {

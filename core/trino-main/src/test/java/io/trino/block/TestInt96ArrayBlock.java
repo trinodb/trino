@@ -14,16 +14,16 @@
 package io.trino.block;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.Int96ArrayBlock;
-import io.prestosql.spi.block.Int96ArrayBlockBuilder;
-import io.prestosql.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.Int96ArrayBlock;
+import io.trino.spi.block.Int96ArrayBlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.block.Int96ArrayBlock.INT96_BYTES;
+import static io.trino.spi.block.Int96ArrayBlock.INT96_BYTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

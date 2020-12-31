@@ -15,19 +15,19 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.sql.gen.ExpressionCompiler;
-import io.prestosql.sql.gen.PageFunctionCompiler;
-import io.prestosql.sql.relational.CallExpression;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.type.MapType;
+import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.relational.CallExpression;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -52,15 +52,15 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.block.BlockAssertions.createSlicesBlock;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.sql.relational.Expressions.field;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.util.StructuralTestUtil.mapType;
+import static io.trino.block.BlockAssertions.createSlicesBlock;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.relational.Expressions.field;
+import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.util.StructuralTestUtil.mapType;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)

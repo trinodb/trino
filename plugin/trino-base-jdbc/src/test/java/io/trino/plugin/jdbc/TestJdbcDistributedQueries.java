@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.testing.AbstractTestQueries;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
-import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
+import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
 public class TestJdbcDistributedQueries
         extends AbstractTestQueries

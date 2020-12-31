@@ -17,19 +17,19 @@ package io.trino.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.prestosql.client.NodeVersion;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.memory.MemoryPoolId;
-import io.prestosql.spi.memory.MemoryPoolInfo;
+import io.trino.client.NodeVersion;
+import io.trino.metadata.InternalNode;
+import io.trino.spi.QueryId;
+import io.trino.spi.memory.MemoryPoolId;
+import io.trino.spi.memory.MemoryPoolInfo;
 
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
+import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.trino.memory.LocalMemoryManager.RESERVED_POOL;
 
 public final class LowMemoryKillerTestingUtils
 {

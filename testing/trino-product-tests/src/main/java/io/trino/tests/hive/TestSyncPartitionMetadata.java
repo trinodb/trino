@@ -15,24 +15,24 @@ package io.trino.tests.hive;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestosql.testng.services.Flaky;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.HiveDataSource;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
-import static io.prestosql.tests.TestGroups.PRESTO_JDBC;
-import static io.prestosql.tests.TestGroups.SMOKE;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.HIVE_PARTITIONING;
+import static io.trino.tests.TestGroups.PRESTO_JDBC;
+import static io.trino.tests.TestGroups.SMOKE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

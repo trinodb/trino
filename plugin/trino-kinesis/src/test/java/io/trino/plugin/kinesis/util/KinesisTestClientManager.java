@@ -16,7 +16,7 @@ package io.trino.plugin.kinesis.util;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.kinesis.AmazonKinesisClient;
 import com.amazonaws.services.s3.AmazonS3Client;
-import io.prestosql.plugin.kinesis.KinesisClientProvider;
+import io.trino.plugin.kinesis.KinesisClientProvider;
 
 /**
  * Test implementation of KinesisClientProvider that incorporates a mock Kinesis client.

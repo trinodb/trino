@@ -14,20 +14,20 @@
 package io.trino.sql.parser;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.tree.ColumnDefinition;
-import io.prestosql.sql.tree.DataType;
-import io.prestosql.sql.tree.DataTypeParameter;
-import io.prestosql.sql.tree.DateTimeDataType;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.GenericDataType;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.IntervalDayTimeDataType;
-import io.prestosql.sql.tree.NodeLocation;
-import io.prestosql.sql.tree.NumericParameter;
-import io.prestosql.sql.tree.Property;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.RowDataType;
-import io.prestosql.sql.tree.TypeParameter;
+import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.DataType;
+import io.trino.sql.tree.DataTypeParameter;
+import io.trino.sql.tree.DateTimeDataType;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.GenericDataType;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IntervalDayTimeDataType;
+import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.NumericParameter;
+import io.trino.sql.tree.Property;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.RowDataType;
+import io.trino.sql.tree.TypeParameter;
 
 import java.util.Arrays;
 import java.util.List;

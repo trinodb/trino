@@ -13,12 +13,12 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 
 public class TestDataSizeFunctions
         extends AbstractTestFunctions

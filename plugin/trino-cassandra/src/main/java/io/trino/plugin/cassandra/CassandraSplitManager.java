@@ -17,17 +17,17 @@ import com.datastax.driver.core.Host;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.cassandra.util.HostAddressFactory;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.FixedSplitSource;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.cassandra.util.HostAddressFactory;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.plugin.cassandra.CassandraSessionProperties.getSplitsPerNode;
+import static io.trino.plugin.cassandra.CassandraSessionProperties.getSplitsPerNode;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

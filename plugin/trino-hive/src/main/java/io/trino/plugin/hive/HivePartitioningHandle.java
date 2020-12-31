@@ -15,8 +15,8 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 
 import java.util.List;
 import java.util.Objects;

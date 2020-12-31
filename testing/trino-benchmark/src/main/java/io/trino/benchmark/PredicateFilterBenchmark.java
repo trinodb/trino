@@ -15,25 +15,25 @@ package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.operator.FilterAndProjectOperator;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.sql.gen.ExpressionCompiler;
-import io.prestosql.sql.gen.PageFunctionCompiler;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.operator.FilterAndProjectOperator;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.project.PageProcessor;
+import io.trino.sql.gen.ExpressionCompiler;
+import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.relational.RowExpression;
+import io.trino.testing.LocalQueryRunner;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.relational.Expressions.call;
-import static io.prestosql.sql.relational.Expressions.constant;
-import static io.prestosql.sql.relational.Expressions.field;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.relational.Expressions.call;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.relational.Expressions.field;
 
 public class PredicateFilterBenchmark
         extends AbstractSimpleOperatorBenchmark

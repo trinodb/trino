@@ -20,17 +20,17 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.prestosql.sql.gen.BytecodeUtils.generateInvocation;
+import static io.trino.sql.gen.BytecodeUtils.generateInvocation;
 import static java.util.Objects.requireNonNull;
 
 public class InvokeFunctionBytecodeExpression

@@ -16,10 +16,10 @@ package io.trino.plugin.thrift.api.datatypes;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import io.prestosql.plugin.thrift.api.PrestoThriftBlock;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LongArrayBlock;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.thrift.api.PrestoThriftBlock;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -30,9 +30,9 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.booleanData;
-import static io.prestosql.plugin.thrift.api.PrestoThriftBlock.doubleData;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.plugin.thrift.api.PrestoThriftBlock.booleanData;
+import static io.trino.plugin.thrift.api.PrestoThriftBlock.doubleData;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.doubleToLongBits;
 
 /**

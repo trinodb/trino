@@ -33,16 +33,16 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.GEOMETRYCOLLECTION;
-import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.LINESTRING;
-import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.MULTILINESTRING;
-import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOINT;
-import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOLYGON;
-import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.POINT;
-import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.POLYGON;
-import static io.prestosql.geospatial.serde.BenchmarkGeometrySerializationData.readResource;
-import static io.prestosql.geospatial.serde.JtsGeometrySerde.deserialize;
-import static io.prestosql.geospatial.serde.JtsGeometrySerde.serialize;
+import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.GEOMETRYCOLLECTION;
+import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.LINESTRING;
+import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.MULTILINESTRING;
+import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOINT;
+import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.MULTIPOLYGON;
+import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.POINT;
+import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.POLYGON;
+import static io.trino.geospatial.serde.BenchmarkGeometrySerializationData.readResource;
+import static io.trino.geospatial.serde.JtsGeometrySerde.deserialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
 

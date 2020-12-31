@@ -14,9 +14,9 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -26,11 +26,11 @@ import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.toUnscaledString;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.toUnscaledString;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static java.lang.Math.abs;
 import static java.lang.Math.pow;
 import static java.lang.Math.round;

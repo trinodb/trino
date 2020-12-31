@@ -13,15 +13,15 @@
  */
 package io.trino.operator.unnest;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.DictionaryBlock;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
 
 import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.unnest.UnnestOperatorBlockUtil.calculateNewArraySize;
+import static io.trino.operator.unnest.UnnestOperatorBlockUtil.calculateNewArraySize;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -15,21 +15,21 @@ package io.trino.orc;
 
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.statistics.NoOpBloomFilterBuilder;
-import io.prestosql.orc.metadata.statistics.StringStatisticsBuilder;
-import io.prestosql.orc.writer.SliceDictionaryColumnWriter;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.trino.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.statistics.NoOpBloomFilterBuilder;
+import io.trino.orc.metadata.statistics.StringStatisticsBuilder;
+import io.trino.orc.writer.SliceDictionaryColumnWriter;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
-import static io.prestosql.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
-import static io.prestosql.orc.metadata.OrcColumnId.ROOT_COLUMN;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.orc.OrcWriterOptions.DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
+import static io.trino.orc.OrcWriterOptions.DEFAULT_MAX_STRING_STATISTICS_LIMIT;
+import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
 

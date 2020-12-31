@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.mysql;
 
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;

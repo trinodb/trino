@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.util.Optional;
 

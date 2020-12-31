@@ -14,7 +14,7 @@
 package io.trino.cli;
 
 import io.airlift.units.Duration;
-import io.prestosql.client.StatementClient;
+import io.trino.client.StatementClient;
 
 import java.io.Closeable;
 import java.io.IOException;

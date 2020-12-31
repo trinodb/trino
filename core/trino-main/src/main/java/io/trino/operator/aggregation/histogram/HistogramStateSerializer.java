@@ -13,12 +13,12 @@
  */
 package io.trino.operator.aggregation.histogram;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.operator.aggregation.histogram.Histogram.EXPECTED_SIZE_FOR_HASHING;
+import static io.trino.operator.aggregation.histogram.Histogram.EXPECTED_SIZE_FOR_HASHING;
 
 public class HistogramStateSerializer
         implements AccumulatorStateSerializer<HistogramState>

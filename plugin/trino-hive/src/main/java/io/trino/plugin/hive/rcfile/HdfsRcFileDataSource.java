@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.rcfile;
 
-import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.rcfile.RcFileDataSource;
-import io.prestosql.rcfile.RcFileDataSourceId;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.rcfile.RcFileDataSource;
+import io.trino.rcfile.RcFileDataSourceId;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;

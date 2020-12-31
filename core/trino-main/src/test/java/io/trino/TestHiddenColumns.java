@@ -14,16 +14,16 @@
 package io.trino;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.MaterializedResult;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.MaterializedResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestHiddenColumns
 {

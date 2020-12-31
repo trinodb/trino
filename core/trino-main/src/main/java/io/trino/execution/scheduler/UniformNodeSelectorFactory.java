@@ -20,11 +20,11 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSetMultimap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.NodeTaskMap;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.spi.HostAddress;
+import io.trino.connector.CatalogName;
+import io.trino.execution.NodeTaskMap;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
+import io.trino.spi.HostAddress;
 
 import javax.inject.Inject;
 
@@ -37,7 +37,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;

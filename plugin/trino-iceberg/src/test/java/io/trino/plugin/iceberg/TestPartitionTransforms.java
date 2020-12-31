@@ -23,10 +23,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
 
-import static io.prestosql.plugin.iceberg.PartitionTransforms.epochDay;
-import static io.prestosql.plugin.iceberg.PartitionTransforms.epochHour;
-import static io.prestosql.plugin.iceberg.PartitionTransforms.epochMonth;
-import static io.prestosql.plugin.iceberg.PartitionTransforms.epochYear;
+import static io.trino.plugin.iceberg.PartitionTransforms.epochDay;
+import static io.trino.plugin.iceberg.PartitionTransforms.epochHour;
+import static io.trino.plugin.iceberg.PartitionTransforms.epochMonth;
+import static io.trino.plugin.iceberg.PartitionTransforms.epochYear;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;

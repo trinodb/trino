@@ -14,29 +14,29 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.Work;
-import io.prestosql.operator.project.PageProjection;
-import io.prestosql.operator.project.SelectedPositions;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.sql.relational.CallExpression;
+import io.trino.metadata.Metadata;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.Work;
+import io.trino.operator.project.PageProjection;
+import io.trino.operator.project.SelectedPositions;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.sql.relational.CallExpression;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.relational.Expressions.call;
-import static io.prestosql.sql.relational.Expressions.constant;
-import static io.prestosql.sql.relational.Expressions.field;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.relational.Expressions.call;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.relational.Expressions.field;
+import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;

@@ -14,8 +14,8 @@
 package io.trino.plugin.hive.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 

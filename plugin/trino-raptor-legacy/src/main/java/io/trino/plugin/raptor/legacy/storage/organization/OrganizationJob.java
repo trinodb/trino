@@ -14,12 +14,12 @@
 package io.trino.plugin.raptor.legacy.storage.organization;
 
 import io.airlift.log.Logger;
-import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
-import io.prestosql.plugin.raptor.legacy.metadata.MetadataDao;
-import io.prestosql.plugin.raptor.legacy.metadata.ShardInfo;
-import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
-import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
-import io.prestosql.plugin.raptor.legacy.metadata.TableMetadata;
+import io.trino.plugin.raptor.legacy.metadata.ColumnInfo;
+import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
+import io.trino.plugin.raptor.legacy.metadata.ShardInfo;
+import io.trino.plugin.raptor.legacy.metadata.ShardManager;
+import io.trino.plugin.raptor.legacy.metadata.TableColumn;
+import io.trino.plugin.raptor.legacy.metadata.TableMetadata;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -29,7 +29,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
-import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;

@@ -14,13 +14,13 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.AstVisitor;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.NodeRef;
+import io.trino.Session;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.NodeRef;
 
 import java.util.HashMap;
 import java.util.Map;

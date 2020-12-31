@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy;
 
-import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
-import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
+import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
+import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;

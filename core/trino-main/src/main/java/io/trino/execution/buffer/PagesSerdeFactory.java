@@ -15,8 +15,8 @@ package io.trino.execution.buffer;
 
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
-import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spiller.SpillCipher;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spiller.SpillCipher;
 
 import java.util.Optional;
 

@@ -14,10 +14,10 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
+import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRaptorIntegrationSmokeTestBucketed

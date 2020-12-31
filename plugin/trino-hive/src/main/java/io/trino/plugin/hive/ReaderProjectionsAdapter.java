@@ -15,21 +15,21 @@ package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.ColumnarRow;
-import io.prestosql.spi.block.LazyBlock;
-import io.prestosql.spi.block.LazyBlockLoader;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.LazyBlock;
+import io.trino.spi.block.LazyBlockLoader;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 
 public class ReaderProjectionsAdapter

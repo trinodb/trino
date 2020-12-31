@@ -14,16 +14,16 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.QueryRunner;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SystemSessionProperties.DICTIONARY_AGGREGATION;
-import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.SystemSessionProperties.DICTIONARY_AGGREGATION;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDictionaryAggregation
         extends AbstractTestQueryFramework

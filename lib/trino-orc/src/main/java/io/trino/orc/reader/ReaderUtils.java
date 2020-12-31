@@ -13,9 +13,9 @@
  */
 package io.trino.orc.reader;
 
-import io.prestosql.orc.OrcColumn;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.spi.type.Type;
+import io.trino.orc.OrcColumn;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.spi.type.Type;
 
 import java.util.function.Predicate;
 

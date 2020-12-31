@@ -16,8 +16,8 @@ package io.trino.server;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.Duration;
-import io.prestosql.client.NodeVersion;
-import io.prestosql.memory.MemoryInfo;
+import io.trino.client.NodeVersion;
+import io.trino.memory.MemoryInfo;
 
 import static java.util.Objects.requireNonNull;
 

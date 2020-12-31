@@ -13,12 +13,12 @@
  */
 package io.trino.spi.block;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Random;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestVariableWidthBlockEncoding
         extends BaseBlockEncodingTest<String>

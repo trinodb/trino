@@ -15,7 +15,7 @@ package io.trino.server.security;
 
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.log.Logger;
-import io.prestosql.spi.security.Identity;
+import io.trino.spi.security.Identity;
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
@@ -46,7 +46,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 import static org.ietf.jgss.GSSCredential.ACCEPT_ONLY;

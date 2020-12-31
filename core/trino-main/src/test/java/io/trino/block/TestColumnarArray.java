@@ -15,26 +15,26 @@ package io.trino.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.ArrayBlockBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.ColumnarArray;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ArrayBlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ColumnarArray;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
 
-import static io.prestosql.block.ColumnarTestUtils.alternatingNullValues;
-import static io.prestosql.block.ColumnarTestUtils.assertBlock;
-import static io.prestosql.block.ColumnarTestUtils.assertBlockPosition;
-import static io.prestosql.block.ColumnarTestUtils.createTestDictionaryBlock;
-import static io.prestosql.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
-import static io.prestosql.block.ColumnarTestUtils.createTestRleBlock;
-import static io.prestosql.block.ColumnarTestUtils.createTestRleExpectedValues;
-import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.block.ColumnarTestUtils.alternatingNullValues;
+import static io.trino.block.ColumnarTestUtils.assertBlock;
+import static io.trino.block.ColumnarTestUtils.assertBlockPosition;
+import static io.trino.block.ColumnarTestUtils.createTestDictionaryBlock;
+import static io.trino.block.ColumnarTestUtils.createTestDictionaryExpectedValues;
+import static io.trino.block.ColumnarTestUtils.createTestRleBlock;
+import static io.trino.block.ColumnarTestUtils.createTestRleExpectedValues;
+import static io.trino.spi.block.ColumnarArray.toColumnarArray;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

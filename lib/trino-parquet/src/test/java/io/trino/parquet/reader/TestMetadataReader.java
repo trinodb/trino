@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;

@@ -15,12 +15,12 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HiveBucketProperty;
-import io.prestosql.plugin.hive.HiveMetastoreClosure;
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.PartitionStatistics;
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.plugin.hive.HiveMetastoreClosure;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.authentication.HiveIdentity;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -34,10 +34,10 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
-import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertTrue;

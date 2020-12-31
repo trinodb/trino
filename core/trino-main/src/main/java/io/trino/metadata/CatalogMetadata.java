@@ -14,11 +14,11 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.connector.ConnectorCapabilities;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.spi.connector.ConnectorCapabilities;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
 import java.util.Set;

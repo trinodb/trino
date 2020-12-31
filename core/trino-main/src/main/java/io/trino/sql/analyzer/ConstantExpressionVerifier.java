@@ -13,17 +13,17 @@
  */
 package io.trino.sql.analyzer;
 
-import io.prestosql.sql.tree.DefaultTraversalVisitor;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FieldReference;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.NodeRef;
+import io.trino.sql.tree.DefaultTraversalVisitor;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FieldReference;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeRef;
 
 import java.util.Set;
 
-import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
 public final class ConstantExpressionVerifier
 {

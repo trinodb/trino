@@ -19,15 +19,15 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.predicate.Marker;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.predicate.Marker;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.type.Type;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
+import static io.trino.spi.predicate.Marker.Bound.EXACTLY;
 
 public class RangeJsonSerde
 {

@@ -16,12 +16,12 @@ package io.trino.eventlistener;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.eventlistener.EventListener;
-import io.prestosql.spi.eventlistener.EventListenerFactory;
-import io.prestosql.spi.eventlistener.QueryCompletedEvent;
-import io.prestosql.spi.eventlistener.QueryCreatedEvent;
-import io.prestosql.spi.eventlistener.SplitCompletedEvent;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.eventlistener.QueryCompletedEvent;
+import io.trino.spi.eventlistener.QueryCreatedEvent;
+import io.trino.spi.eventlistener.SplitCompletedEvent;
 
 import java.io.File;
 import java.io.IOException;

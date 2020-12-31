@@ -16,12 +16,12 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.prestosql.execution.QueryIdGenerator;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.security.ConnectorIdentity;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.execution.QueryIdGenerator;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.TimeZoneKey;
 
 import java.time.Instant;
 import java.util.List;
@@ -30,8 +30,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

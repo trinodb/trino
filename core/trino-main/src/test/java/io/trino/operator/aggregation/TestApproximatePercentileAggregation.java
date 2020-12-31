@@ -14,26 +14,26 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.type.ArrayType;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static io.prestosql.block.BlockAssertions.createBlockOfReals;
-import static io.prestosql.block.BlockAssertions.createDoubleRepeatBlock;
-import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
-import static io.prestosql.block.BlockAssertions.createDoublesBlock;
-import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
-import static io.prestosql.block.BlockAssertions.createLongsBlock;
-import static io.prestosql.block.BlockAssertions.createSequenceBlockOfReal;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.block.BlockAssertions.createBlockOfReals;
+import static io.trino.block.BlockAssertions.createDoubleRepeatBlock;
+import static io.trino.block.BlockAssertions.createDoubleSequenceBlock;
+import static io.trino.block.BlockAssertions.createDoublesBlock;
+import static io.trino.block.BlockAssertions.createLongSequenceBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.block.BlockAssertions.createSequenceBlockOfReal;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximatePercentileAggregation
 {

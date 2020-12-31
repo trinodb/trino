@@ -15,9 +15,9 @@ package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.operator.WorkProcessor;
-import io.prestosql.operator.WorkProcessor.ProcessState;
-import io.prestosql.spi.Page;
+import io.trino.operator.WorkProcessor;
+import io.trino.operator.WorkProcessor.ProcessState;
+import io.trino.spi.Page;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.metadata.Split;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorSplit;
+import io.trino.connector.CatalogName;
+import io.trino.execution.Lifespan;
+import io.trino.metadata.Split;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorPartitionHandle;
+import io.trino.spi.connector.ConnectorSplit;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -33,9 +33,9 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static io.prestosql.split.MockSplitSource.Action.DO_NOTHING;
-import static io.prestosql.split.MockSplitSource.Action.FINISH;
+import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.split.MockSplitSource.Action.DO_NOTHING;
+import static io.trino.split.MockSplitSource.Action.FINISH;
 
 @NotThreadSafe
 public class MockSplitSource

@@ -19,7 +19,7 @@ import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
+import io.trino.plugin.hive.s3.PrestoS3FileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 

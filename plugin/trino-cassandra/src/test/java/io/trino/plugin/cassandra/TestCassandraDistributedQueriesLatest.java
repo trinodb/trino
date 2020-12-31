@@ -14,10 +14,10 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
-import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
+import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 
 public class TestCassandraDistributedQueriesLatest
         extends BaseCassandraDistributedQueries

@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy.storage;
 
-import io.prestosql.plugin.raptor.legacy.metadata.ShardInfo;
-import io.prestosql.spi.Page;
+import io.trino.plugin.raptor.legacy.metadata.ShardInfo;
+import io.trino.spi.Page;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

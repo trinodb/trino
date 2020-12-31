@@ -13,7 +13,7 @@
  */
 package io.trino.geospatial.serde;
 
-import io.prestosql.geospatial.GeometryType;
+import io.trino.geospatial.GeometryType;
 
 public enum GeometrySerializationType
 {

@@ -16,14 +16,14 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.Page;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.type.BlockTypeOperators;
 
 import java.util.Iterator;
 import java.util.List;
@@ -31,9 +31,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static io.prestosql.operator.GroupByHash.createGroupByHash;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static io.trino.operator.GroupByHash.createGroupByHash;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class TopNRowNumberOperator

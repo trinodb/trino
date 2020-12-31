@@ -14,8 +14,8 @@
 package io.trino.operator;
 
 import io.airlift.units.DataSize;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import it.unimi.dsi.fastutil.HashCommon;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
@@ -24,9 +24,9 @@ import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static io.prestosql.operator.SyntheticAddress.decodePosition;
-import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
-import static io.prestosql.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
+import static io.trino.operator.SyntheticAddress.decodePosition;
+import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
+import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

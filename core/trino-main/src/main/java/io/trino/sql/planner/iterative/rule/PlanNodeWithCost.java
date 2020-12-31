@@ -14,8 +14,8 @@
 
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.cost.PlanCostEstimate;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.cost.PlanCostEstimate;
+import io.trino.sql.planner.plan.PlanNode;
 
 import static java.util.Objects.requireNonNull;
 

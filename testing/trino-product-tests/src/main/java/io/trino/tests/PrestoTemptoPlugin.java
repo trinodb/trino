@@ -14,7 +14,6 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.hive.HiveVersionProvider;
 import io.trino.tempto.TemptoPlugin;
 import io.trino.tempto.fulfillment.RequirementFulfiller;
 import io.trino.tempto.fulfillment.table.TableDefinition;
@@ -23,18 +22,19 @@ import io.trino.tempto.fulfillment.table.kafka.KafkaTableManager;
 import io.trino.tempto.initialization.SuiteModuleProvider;
 import io.trino.tempto.internal.fulfillment.ldap.LdapObjectFulfiller;
 import io.trino.tempto.internal.fulfillment.ldap.LdapObjectModuleProvider;
+import io.trino.tests.hive.HiveVersionProvider;
 
 import java.util.List;
 
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static io.prestosql.tests.hive.TestHiveBucketedTables.BUCKETED_NATION;
-import static io.prestosql.tests.hive.TestHiveBucketedTables.BUCKETED_NATION_PREPARED;
-import static io.prestosql.tests.hive.TestHiveBucketedTables.BUCKETED_PARTITIONED_NATION;
-import static io.prestosql.tests.hive.TestHiveBucketedTables.BUCKETED_SORTED_NATION;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.trino.tests.hive.TestHiveBucketedTables.BUCKETED_NATION;
+import static io.trino.tests.hive.TestHiveBucketedTables.BUCKETED_NATION_PREPARED;
+import static io.trino.tests.hive.TestHiveBucketedTables.BUCKETED_PARTITIONED_NATION;
+import static io.trino.tests.hive.TestHiveBucketedTables.BUCKETED_SORTED_NATION;
 
 public class PrestoTemptoPlugin
         implements TemptoPlugin

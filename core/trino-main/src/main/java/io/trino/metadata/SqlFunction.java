@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import static io.prestosql.metadata.FunctionDependencyDeclaration.NO_DEPENDENCIES;
+import static io.trino.metadata.FunctionDependencyDeclaration.NO_DEPENDENCIES;
 
 public interface SqlFunction
 {

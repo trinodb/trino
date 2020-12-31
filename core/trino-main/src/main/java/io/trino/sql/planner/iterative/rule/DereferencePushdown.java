@@ -14,12 +14,12 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
 import java.util.List;
@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.sql.planner.SymbolsExtractor.extractAll;
+import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 
 /**
  * Provides helper methods to push down dereferences in the query plan.

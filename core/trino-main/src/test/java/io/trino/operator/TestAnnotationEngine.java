@@ -13,8 +13,8 @@
  */
 package io.trino.operator;
 
-import io.prestosql.operator.aggregation.AggregationImplementation;
-import io.prestosql.operator.scalar.ParametricScalar;
+import io.trino.operator.aggregation.AggregationImplementation;
+import io.trino.operator.scalar.ParametricScalar;
 
 import static org.testng.Assert.assertEquals;
 

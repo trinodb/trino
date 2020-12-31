@@ -31,14 +31,14 @@ import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.raptor.legacy.RaptorColumnHandle.isHiddenColumn;
-import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.maxColumn;
-import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.minColumn;
-import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
-import static io.prestosql.plugin.raptor.legacy.metadata.ShardPredicate.bindValue;
-import static io.prestosql.plugin.raptor.legacy.storage.ColumnIndexStatsUtils.jdbcType;
-import static io.prestosql.plugin.raptor.legacy.util.ArrayUtil.intArrayToBytes;
-import static io.prestosql.plugin.raptor.legacy.util.UuidUtil.uuidToBytes;
+import static io.trino.plugin.raptor.legacy.RaptorColumnHandle.isHiddenColumn;
+import static io.trino.plugin.raptor.legacy.metadata.DatabaseShardManager.maxColumn;
+import static io.trino.plugin.raptor.legacy.metadata.DatabaseShardManager.minColumn;
+import static io.trino.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
+import static io.trino.plugin.raptor.legacy.metadata.ShardPredicate.bindValue;
+import static io.trino.plugin.raptor.legacy.storage.ColumnIndexStatsUtils.jdbcType;
+import static io.trino.plugin.raptor.legacy.util.ArrayUtil.intArrayToBytes;
+import static io.trino.plugin.raptor.legacy.util.UuidUtil.uuidToBytes;
 
 class IndexInserter
         implements AutoCloseable

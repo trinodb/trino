@@ -15,7 +15,7 @@ package io.trino.verifier;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.verifier.Validator.precisionCompare;
+import static io.trino.verifier.Validator.precisionCompare;
 import static java.lang.Double.NaN;
 import static org.testng.Assert.assertEquals;
 

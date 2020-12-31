@@ -13,13 +13,13 @@
  */
 package io.trino.orc;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.trino.metadata.Metadata;
+import io.trino.orc.metadata.CompressionKind;
+import io.trino.spi.Page;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -33,15 +33,15 @@ import java.io.IOException;
 import java.util.HashMap;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
-import static io.prestosql.orc.OrcTester.Format.ORC_12;
-import static io.prestosql.orc.OrcTester.createCustomOrcRecordReader;
-import static io.prestosql.orc.OrcTester.createOrcRecordWriter;
-import static io.prestosql.orc.OrcTester.createSettableStructObjectInspector;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.trino.orc.OrcTester.Format.ORC_12;
+import static io.trino.orc.OrcTester.createCustomOrcRecordReader;
+import static io.trino.orc.OrcTester.createOrcRecordWriter;
+import static io.trino.orc.OrcTester.createSettableStructObjectInspector;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage

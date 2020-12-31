@@ -14,10 +14,10 @@
 package io.trino.plugin.session.db;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.session.AbstractSessionPropertyManager;
-import io.prestosql.plugin.session.SessionMatchSpec;
-import io.prestosql.spi.session.SessionConfigurationContext;
-import io.prestosql.spi.session.SessionPropertyConfigurationManager;
+import io.trino.plugin.session.AbstractSessionPropertyManager;
+import io.trino.plugin.session.SessionMatchSpec;
+import io.trino.spi.session.SessionConfigurationContext;
+import io.trino.spi.session.SessionPropertyConfigurationManager;
 
 import javax.inject.Inject;
 

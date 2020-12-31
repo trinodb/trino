@@ -15,8 +15,8 @@ package io.trino.server.security;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.server.InternalAuthenticationManager;
-import io.prestosql.spi.security.Identity;
+import io.trino.server.InternalAuthenticationManager;
+import io.trino.spi.security.Identity;
 
 import javax.annotation.Priority;
 import javax.inject.Inject;
@@ -29,8 +29,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.server.ServletSecurityUtils.sendWwwAuthenticate;
-import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
+import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
+import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.Priorities.AUTHENTICATION;
 

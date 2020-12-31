@@ -20,12 +20,12 @@ import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.plugin.base.jmx.MBeanServerModule;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
-import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
-import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
+import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.plugin.base.util.LoggingInvocationHandler;
+import io.trino.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import org.weakref.jmx.guice.MBeanModule;
 
 import static com.google.common.reflect.Reflection.newProxy;

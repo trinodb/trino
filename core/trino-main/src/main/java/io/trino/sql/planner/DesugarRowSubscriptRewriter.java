@@ -15,23 +15,23 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.Cast;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.SubscriptExpression;
+import io.trino.Session;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.SubscriptExpression;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

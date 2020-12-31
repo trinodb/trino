@@ -14,14 +14,14 @@
 package io.trino.tests.product.launcher.env.configs;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.docker.DockerFiles;
-import io.prestosql.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.Environment;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.PRESTO;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.PRESTO;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 

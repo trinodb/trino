@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar.time;
 
-import io.prestosql.sql.query.QueryAssertions;
+import io.trino.sql.query.QueryAssertions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

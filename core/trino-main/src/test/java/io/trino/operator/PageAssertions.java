@@ -13,12 +13,12 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static io.prestosql.block.BlockAssertions.assertBlockEquals;
+import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static org.testng.Assert.assertEquals;
 
 public final class PageAssertions

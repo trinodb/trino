@@ -14,13 +14,13 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.DoubleType;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.DoubleType;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.prometheus.MetadataUtil.TABLE_CODEC;
-import static io.prestosql.plugin.prometheus.MetadataUtil.varcharMapType;
-import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
+import static io.trino.plugin.prometheus.MetadataUtil.TABLE_CODEC;
+import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
+import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static org.testng.Assert.assertEquals;
 
 public class TestPrometheusTable

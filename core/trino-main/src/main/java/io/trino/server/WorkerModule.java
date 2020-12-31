@@ -17,15 +17,15 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.prestosql.execution.QueryManager;
-import io.prestosql.execution.resourcegroups.NoOpResourceGroupManager;
-import io.prestosql.execution.resourcegroups.ResourceGroupManager;
-import io.prestosql.failuredetector.FailureDetector;
-import io.prestosql.failuredetector.NoOpFailureDetector;
-import io.prestosql.server.ui.NoWebUiAuthenticationFilter;
-import io.prestosql.server.ui.WebUiAuthenticationFilter;
-import io.prestosql.transaction.NoOpTransactionManager;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.execution.QueryManager;
+import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
+import io.trino.execution.resourcegroups.ResourceGroupManager;
+import io.trino.failuredetector.FailureDetector;
+import io.trino.failuredetector.NoOpFailureDetector;
+import io.trino.server.ui.NoWebUiAuthenticationFilter;
+import io.trino.server.ui.WebUiAuthenticationFilter;
+import io.trino.transaction.NoOpTransactionManager;
+import io.trino.transaction.TransactionManager;
 
 import javax.inject.Singleton;
 

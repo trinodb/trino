@@ -16,10 +16,10 @@ package io.trino.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.metastore.SortingColumn;
-import io.prestosql.plugin.hive.util.HiveBucketing;
-import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.hive.metastore.SortingColumn;
+import io.trino.plugin.hive.util.HiveBucketing;
+import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
 import java.util.List;
@@ -29,7 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static java.util.Objects.requireNonNull;
 
 public class HiveBucketProperty

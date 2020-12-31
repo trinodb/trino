@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
@@ -22,8 +22,8 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.Set;
 
-import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
-import static io.prestosql.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
+import static io.trino.plugin.hive.util.ConfigurationUtils.copy;
+import static io.trino.plugin.hive.util.ConfigurationUtils.getInitialConfiguration;
 import static java.util.Objects.requireNonNull;
 
 public class HiveHdfsConfiguration

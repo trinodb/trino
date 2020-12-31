@@ -14,18 +14,18 @@
 
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.GroupReference;
-import io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType;
-import io.prestosql.sql.planner.iterative.rule.ReorderJoins;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
-import io.prestosql.sql.planner.plan.SemiJoinNode;
-import io.prestosql.sql.planner.plan.SpatialJoinNode;
-import io.prestosql.sql.planner.plan.UnionNode;
+import io.trino.Session;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
+import io.trino.sql.planner.iterative.rule.ReorderJoins;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SpatialJoinNode;
+import io.trino.sql.planner.plan.UnionNode;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -33,7 +33,7 @@ import javax.inject.Inject;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.prestosql.cost.LocalCostEstimate.addPartialComponents;
+import static io.trino.cost.LocalCostEstimate.addPartialComponents;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.hive.authentication;
 
-import io.prestosql.plugin.hive.ForHdfs;
+import io.trino.plugin.hive.ForHdfs;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.inject.Inject;
 
-import static io.prestosql.plugin.hive.authentication.UserGroupInformationUtils.executeActionInDoAs;
+import static io.trino.plugin.hive.authentication.UserGroupInformationUtils.executeActionInDoAs;
 import static java.util.Objects.requireNonNull;
 
 public class ImpersonatingHdfsAuthentication

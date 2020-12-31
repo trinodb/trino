@@ -13,7 +13,7 @@
  */
 package io.trino.spi.security;
 
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 import java.util.Optional;

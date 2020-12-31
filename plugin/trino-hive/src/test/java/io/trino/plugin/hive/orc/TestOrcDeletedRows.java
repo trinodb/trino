@@ -14,13 +14,13 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.plugin.hive.AcidInfo;
-import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.plugin.hive.AcidInfo;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
@@ -32,10 +32,10 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.SESSION;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcDeletedRows

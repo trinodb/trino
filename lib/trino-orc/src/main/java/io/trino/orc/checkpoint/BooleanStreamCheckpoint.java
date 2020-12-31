@@ -14,7 +14,7 @@
 package io.trino.orc.checkpoint;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.orc.checkpoint.Checkpoints.ColumnPositionsList;
+import io.trino.orc.checkpoint.Checkpoints.ColumnPositionsList;
 
 import java.util.List;
 

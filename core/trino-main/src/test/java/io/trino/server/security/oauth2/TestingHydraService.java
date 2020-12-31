@@ -15,9 +15,9 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.prestosql.server.testing.TestingPrestoServer;
-import io.prestosql.server.ui.WebUiModule;
-import io.prestosql.util.AutoCloseableCloser;
+import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.ui.WebUiModule;
+import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;

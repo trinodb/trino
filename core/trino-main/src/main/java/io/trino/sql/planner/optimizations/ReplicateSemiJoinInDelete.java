@@ -13,17 +13,17 @@
  */
 package io.trino.sql.planner.optimizations;
 
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.SymbolAllocator;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.plan.DeleteNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.SemiJoinNode;
-import io.prestosql.sql.planner.plan.SimplePlanRewriter;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.DeleteNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SimplePlanRewriter;
 
-import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
+import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static java.util.Objects.requireNonNull;
 
 public class ReplicateSemiJoinInDelete

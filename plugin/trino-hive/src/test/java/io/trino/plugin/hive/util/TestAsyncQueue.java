@@ -17,7 +17,7 @@ package io.trino.plugin.hive.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.Threads;
-import io.prestosql.plugin.hive.util.AsyncQueue.BorrowResult;
+import io.trino.plugin.hive.util.AsyncQueue.BorrowResult;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

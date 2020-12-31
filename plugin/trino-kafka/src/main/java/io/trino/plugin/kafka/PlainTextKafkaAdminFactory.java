@@ -14,7 +14,7 @@
 
 package io.trino.plugin.kafka;
 
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 
 import javax.inject.Inject;
 

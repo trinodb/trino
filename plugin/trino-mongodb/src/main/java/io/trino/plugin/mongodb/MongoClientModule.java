@@ -19,7 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Singleton;
 

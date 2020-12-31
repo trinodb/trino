@@ -13,21 +13,21 @@
  */
 package io.trino.orc.metadata.statistics;
 
-import io.prestosql.orc.metadata.statistics.StatisticsHasher.Hashable;
+import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.orc.metadata.statistics.BinaryStatisticsBuilder.mergeBinaryStatistics;
-import static io.prestosql.orc.metadata.statistics.BooleanStatisticsBuilder.mergeBooleanStatistics;
-import static io.prestosql.orc.metadata.statistics.DateStatisticsBuilder.mergeDateStatistics;
-import static io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder.mergeDoubleStatistics;
-import static io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
-import static io.prestosql.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
-import static io.prestosql.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
-import static io.prestosql.orc.metadata.statistics.TimestampStatisticsBuilder.mergeTimestampStatistics;
+import static io.trino.orc.metadata.statistics.BinaryStatisticsBuilder.mergeBinaryStatistics;
+import static io.trino.orc.metadata.statistics.BooleanStatisticsBuilder.mergeBooleanStatistics;
+import static io.trino.orc.metadata.statistics.DateStatisticsBuilder.mergeDateStatistics;
+import static io.trino.orc.metadata.statistics.DoubleStatisticsBuilder.mergeDoubleStatistics;
+import static io.trino.orc.metadata.statistics.IntegerStatisticsBuilder.mergeIntegerStatistics;
+import static io.trino.orc.metadata.statistics.LongDecimalStatisticsBuilder.mergeDecimalStatistics;
+import static io.trino.orc.metadata.statistics.StringStatisticsBuilder.mergeStringStatistics;
+import static io.trino.orc.metadata.statistics.TimestampStatisticsBuilder.mergeTimestampStatistics;
 
 public class ColumnStatistics
         implements Hashable

@@ -15,7 +15,7 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.RateLimiter;
-import io.prestosql.spi.procedure.Procedure;
+import io.trino.spi.procedure.Procedure;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -23,7 +23,7 @@ import javax.inject.Provider;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
+import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public class WriteHiveMetastoreRecordingProcedure

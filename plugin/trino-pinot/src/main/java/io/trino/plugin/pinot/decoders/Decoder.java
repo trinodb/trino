@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.pinot.decoders;
 
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 
 import java.util.function.Supplier;
 

@@ -14,17 +14,17 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.block.BlockAssertions.createBlockOfReals;
-import static io.prestosql.block.BlockAssertions.createSequenceBlockOfReal;
-import static io.prestosql.spi.type.RealType.REAL;
+import static io.trino.block.BlockAssertions.createBlockOfReals;
+import static io.trino.block.BlockAssertions.createSequenceBlockOfReal;
+import static io.trino.spi.type.RealType.REAL;
 
 public class TestRealRegrSlopeAggregation
         extends AbstractTestAggregationFunction

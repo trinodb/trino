@@ -13,24 +13,24 @@
  */
 package io.trino.parquet.reader;
 
-import io.prestosql.parquet.RichColumnDescriptor;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Type;
+import io.trino.parquet.RichColumnDescriptor;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Type;
 import org.apache.parquet.io.ParquetDecodingException;
 
-import static io.prestosql.parquet.ParquetTypeUtils.getShortDecimalValue;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DecimalConversions.shortToLongCast;
-import static io.prestosql.spi.type.DecimalConversions.shortToShortCast;
-import static io.prestosql.spi.type.Decimals.isLongDecimal;
-import static io.prestosql.spi.type.Decimals.isShortDecimal;
-import static io.prestosql.spi.type.Decimals.longTenToNth;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DecimalConversions.shortToLongCast;
+import static io.trino.spi.type.DecimalConversions.shortToShortCast;
+import static io.trino.spi.type.Decimals.isLongDecimal;
+import static io.trino.spi.type.Decimals.isShortDecimal;
+import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;

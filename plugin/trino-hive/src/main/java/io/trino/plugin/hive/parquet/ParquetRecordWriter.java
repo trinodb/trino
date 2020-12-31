@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive.parquet;
 
-import io.prestosql.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
@@ -30,8 +30,8 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Properties;
 
-import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetWriterBlockSize;
-import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetWriterPageSize;
+import static io.trino.plugin.hive.HiveSessionProperties.getParquetWriterBlockSize;
+import static io.trino.plugin.hive.HiveSessionProperties.getParquetWriterPageSize;
 import static java.util.Objects.requireNonNull;
 
 public final class ParquetRecordWriter

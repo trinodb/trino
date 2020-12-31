@@ -14,13 +14,13 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RowType.field;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RowType.field;
 import static org.testng.Assert.assertEquals;
 
 public class TestFunctionType

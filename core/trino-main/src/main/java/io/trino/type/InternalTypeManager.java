@@ -13,12 +13,12 @@
  */
 package io.trino.type;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeId;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 

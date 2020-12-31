@@ -14,9 +14,9 @@
 package io.trino.operator.scalar;
 
 import com.google.common.base.CaseFormat;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.query.QueryAssertions;
-import io.prestosql.sql.tree.Extract;
+import io.trino.spi.PrestoException;
+import io.trino.sql.query.QueryAssertions;
+import io.trino.sql.tree.Extract;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

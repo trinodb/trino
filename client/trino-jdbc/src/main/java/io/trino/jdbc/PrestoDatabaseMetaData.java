@@ -16,9 +16,9 @@ package io.trino.jdbc;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.client.ClientTypeSignature;
-import io.prestosql.client.ClientTypeSignatureParameter;
-import io.prestosql.client.Column;
+import io.trino.client.ClientTypeSignature;
+import io.trino.client.ClientTypeSignatureParameter;
+import io.trino.client.Column;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.Lists.newArrayList;
-import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
+import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 

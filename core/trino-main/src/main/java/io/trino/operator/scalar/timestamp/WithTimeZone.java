@@ -14,25 +14,25 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.TimeZoneNotSupportedException;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimeZoneNotSupportedException;
 import org.joda.time.DateTimeZone;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.type.DateTimes.getMicrosOfMilli;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.type.DateTimes.getMicrosOfMilli;
+import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.String.format;
 import static org.joda.time.DateTimeZone.UTC;
 

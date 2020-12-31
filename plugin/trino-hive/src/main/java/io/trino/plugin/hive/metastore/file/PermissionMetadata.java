@@ -15,11 +15,11 @@ package io.trino.plugin.hive.metastore.file;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.hive.metastore.HivePrincipal;
-import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
-import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 
-import static io.prestosql.spi.security.PrincipalType.USER;
+import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 
 public class PermissionMetadata

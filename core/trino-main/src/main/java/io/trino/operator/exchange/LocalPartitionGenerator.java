@@ -14,9 +14,9 @@
 package io.trino.operator.exchange;
 
 import io.airlift.slice.XxHash64;
-import io.prestosql.operator.HashGenerator;
-import io.prestosql.operator.PartitionFunction;
-import io.prestosql.spi.Page;
+import io.trino.operator.HashGenerator;
+import io.trino.operator.PartitionFunction;
+import io.trino.spi.Page;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

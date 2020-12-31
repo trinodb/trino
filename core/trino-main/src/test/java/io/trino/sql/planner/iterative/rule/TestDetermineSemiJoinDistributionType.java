@@ -15,34 +15,34 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.cost.CostComparator;
-import io.prestosql.cost.PlanNodeStatsEstimate;
-import io.prestosql.cost.SymbolStatsEstimate;
-import io.prestosql.cost.TaskCountEstimator;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.RuleAssert;
-import io.prestosql.sql.planner.iterative.rule.test.RuleTester;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.cost.CostComparator;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.cost.SymbolStatsEstimate;
+import io.trino.cost.TaskCountEstimator;
+import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.RuleAssert;
+import io.trino.sql.planner.iterative.rule.test.RuleTester;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.semiJoin;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expressions;
-import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
-import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
-import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
+import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
+import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 @Test(singleThreaded = true)
 public class TestDetermineSemiJoinDistributionType

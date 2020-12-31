@@ -15,7 +15,7 @@ package io.trino.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.type.TypeId;
+import io.trino.spi.type.TypeId;
 
 import java.util.List;
 import java.util.Optional;

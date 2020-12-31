@@ -14,10 +14,10 @@
 package io.trino.server.ui;
 
 import io.airlift.log.Logger;
-import io.prestosql.server.security.PasswordAuthenticatorManager;
-import io.prestosql.server.security.SecurityConfig;
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.PasswordAuthenticator;
+import io.trino.server.security.PasswordAuthenticatorManager;
+import io.trino.server.security.SecurityConfig;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.PasswordAuthenticator;
 
 import javax.inject.Inject;
 

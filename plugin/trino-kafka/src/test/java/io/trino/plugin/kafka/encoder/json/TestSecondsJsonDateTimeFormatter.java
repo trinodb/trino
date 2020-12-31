@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.kafka.encoder.json;
 
-import io.prestosql.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -24,11 +24,11 @@ import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 
-import static io.prestosql.plugin.kafka.encoder.json.format.DateTimeFormat.SECONDS_SINCE_EPOCH;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.SECONDS_SINCE_EPOCH;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.time.ZoneOffset.UTC;
 
 public class TestSecondsJsonDateTimeFormatter

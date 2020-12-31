@@ -15,33 +15,33 @@ package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.prestosql.operator.Driver;
-import io.prestosql.operator.DriverFactory;
-import io.prestosql.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import io.prestosql.operator.JoinBridgeManager;
-import io.prestosql.operator.LookupJoinOperators;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.operator.PartitionedLookupSourceFactory;
-import io.prestosql.operator.TaskContext;
-import io.prestosql.operator.ValuesOperator.ValuesOperatorFactory;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.spiller.SingleStreamSpillerFactory;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.NullOutputOperator.NullOutputOperatorFactory;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.operator.Driver;
+import io.trino.operator.DriverFactory;
+import io.trino.operator.HashBuilderOperator.HashBuilderOperatorFactory;
+import io.trino.operator.JoinBridgeManager;
+import io.trino.operator.LookupJoinOperators;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.PagesIndex;
+import io.trino.operator.PartitionedLookupSourceFactory;
+import io.trino.operator.TaskContext;
+import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.spiller.SingleStreamSpillerFactory;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.NullOutputOperator.NullOutputOperatorFactory;
+import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 
 public class HashBuildBenchmark
         extends AbstractOperatorBenchmark

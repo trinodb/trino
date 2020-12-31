@@ -16,10 +16,10 @@ package io.trino.plugin.kafka.schema.file;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.decoder.DecoderModule;
-import io.prestosql.plugin.kafka.encoder.EncoderModule;
-import io.prestosql.plugin.kafka.schema.ContentSchemaReader;
-import io.prestosql.plugin.kafka.schema.TableDescriptionSupplier;
+import io.trino.decoder.DecoderModule;
+import io.trino.plugin.kafka.encoder.EncoderModule;
+import io.trino.plugin.kafka.schema.ContentSchemaReader;
+import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 

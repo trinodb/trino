@@ -15,9 +15,9 @@
 package io.trino.plugin.session.file;
 
 import io.airlift.testing.TempFile;
-import io.prestosql.plugin.session.AbstractTestSessionPropertyManager;
-import io.prestosql.plugin.session.SessionMatchSpec;
-import io.prestosql.spi.session.SessionPropertyConfigurationManager;
+import io.trino.plugin.session.AbstractTestSessionPropertyManager;
+import io.trino.plugin.session.SessionMatchSpec;
+import io.trino.spi.session.SessionPropertyConfigurationManager;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,7 +25,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 
-import static io.prestosql.plugin.session.file.FileSessionPropertyManager.CODEC;
+import static io.trino.plugin.session.file.FileSessionPropertyManager.CODEC;
 import static org.testng.Assert.assertEquals;
 
 public class TestFileSessionPropertyManager

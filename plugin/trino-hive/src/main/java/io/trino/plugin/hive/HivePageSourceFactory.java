@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.predicate.TupleDomain;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 

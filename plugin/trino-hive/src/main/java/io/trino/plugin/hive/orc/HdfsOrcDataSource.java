@@ -14,20 +14,20 @@
 package io.trino.plugin.hive.orc;
 
 import io.airlift.slice.Slice;
-import io.prestosql.orc.AbstractOrcDataSource;
-import io.prestosql.orc.OrcDataSourceId;
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
-import io.prestosql.spi.PrestoException;
+import io.trino.orc.AbstractOrcDataSource;
+import io.trino.orc.OrcDataSourceId;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.util.FSDataInputStreamTail;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.hdfs.BlockMissingException;
 
 import java.io.IOException;
 
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

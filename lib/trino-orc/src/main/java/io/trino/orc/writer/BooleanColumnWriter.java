@@ -16,21 +16,21 @@ package io.trino.orc.writer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
-import io.prestosql.orc.metadata.ColumnEncoding;
-import io.prestosql.orc.metadata.CompressedMetadataWriter;
-import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.RowGroupIndex;
-import io.prestosql.orc.metadata.Stream;
-import io.prestosql.orc.metadata.Stream.StreamKind;
-import io.prestosql.orc.metadata.statistics.BooleanStatisticsBuilder;
-import io.prestosql.orc.metadata.statistics.ColumnStatistics;
-import io.prestosql.orc.stream.BooleanOutputStream;
-import io.prestosql.orc.stream.PresentOutputStream;
-import io.prestosql.orc.stream.StreamDataOutput;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
+import io.trino.orc.metadata.ColumnEncoding;
+import io.trino.orc.metadata.CompressedMetadataWriter;
+import io.trino.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.RowGroupIndex;
+import io.trino.orc.metadata.Stream;
+import io.trino.orc.metadata.Stream.StreamKind;
+import io.trino.orc.metadata.statistics.BooleanStatisticsBuilder;
+import io.trino.orc.metadata.statistics.ColumnStatistics;
+import io.trino.orc.stream.BooleanOutputStream;
+import io.trino.orc.stream.PresentOutputStream;
+import io.trino.orc.stream.StreamDataOutput;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -41,8 +41,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static io.prestosql.orc.metadata.CompressionKind.NONE;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static io.trino.orc.metadata.CompressionKind.NONE;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanColumnWriter

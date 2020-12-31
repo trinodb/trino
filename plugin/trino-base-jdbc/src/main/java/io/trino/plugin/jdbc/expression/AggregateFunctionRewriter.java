@@ -14,12 +14,12 @@
 package io.trino.plugin.jdbc.expression;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.matching.Match;
-import io.prestosql.plugin.jdbc.JdbcExpression;
-import io.prestosql.plugin.jdbc.expression.AggregateFunctionRule.RewriteContext;
-import io.prestosql.spi.connector.AggregateFunction;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.matching.Match;
+import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.expression.AggregateFunctionRule.RewriteContext;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Iterator;
 import java.util.Map;

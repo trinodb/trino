@@ -17,9 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.metastore.HivePageSinkMetadata;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.List;
 import java.util.Map;

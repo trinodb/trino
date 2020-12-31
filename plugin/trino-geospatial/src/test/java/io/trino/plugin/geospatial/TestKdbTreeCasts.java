@@ -14,14 +14,14 @@
 package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.geospatial.KdbTreeUtils;
-import io.prestosql.geospatial.Rectangle;
-import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.trino.geospatial.KdbTreeUtils;
+import io.trino.geospatial.Rectangle;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.geospatial.KdbTree.buildKdbTree;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.geospatial.KdbTree.buildKdbTree;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 public class TestKdbTreeCasts

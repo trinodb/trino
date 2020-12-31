@@ -14,15 +14,15 @@
 
 package io.trino.memory;
 
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.memory.MemoryPoolInfo;
+import io.trino.spi.QueryId;
+import io.trino.spi.memory.MemoryPoolInfo;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
 import static java.util.Comparator.comparingLong;
 
 public class TotalReservationOnBlockedNodesLowMemoryKiller

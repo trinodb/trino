@@ -14,11 +14,11 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.parser.ParsingException;
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlBaseLexer;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Identifier;
+import io.trino.sql.parser.ParsingException;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlBaseLexer;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.Identifier;
 import org.antlr.v4.runtime.Vocabulary;
 
 import java.io.IOException;

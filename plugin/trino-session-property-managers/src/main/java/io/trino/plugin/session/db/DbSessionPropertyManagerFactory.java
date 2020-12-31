@@ -16,10 +16,10 @@ package io.trino.plugin.session.db;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.prestosql.plugin.base.jmx.MBeanServerModule;
-import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
-import io.prestosql.spi.session.SessionPropertyConfigurationManager;
-import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.plugin.base.jmx.MBeanServerModule;
+import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
+import io.trino.spi.session.SessionPropertyConfigurationManager;
+import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;

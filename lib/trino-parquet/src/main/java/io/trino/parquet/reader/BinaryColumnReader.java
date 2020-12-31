@@ -14,17 +14,17 @@
 package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
-import io.prestosql.parquet.RichColumnDescriptor;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.parquet.RichColumnDescriptor;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.apache.parquet.io.api.Binary;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static io.prestosql.spi.type.Varchars.truncateToLength;
+import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.trino.spi.type.Varchars.truncateToLength;
 
 public class BinaryColumnReader
         extends PrimitiveColumnReader

@@ -15,10 +15,10 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
-import static io.prestosql.type.JsonType.JSON;
+import static io.trino.type.JsonType.JSON;
 
 public class TestJsonType
         extends AbstractTestType

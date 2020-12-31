@@ -14,20 +14,20 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.Session;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.Session;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static io.prestosql.operator.GroupByHash.createGroupByHash;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static io.trino.operator.GroupByHash.createGroupByHash;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class MarkDistinctHash
 {

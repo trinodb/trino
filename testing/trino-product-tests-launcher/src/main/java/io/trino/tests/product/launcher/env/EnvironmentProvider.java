@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.env;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
+import io.trino.tests.product.launcher.env.common.EnvironmentExtender;
 
 import java.util.IdentityHashMap;
 import java.util.List;

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 
 public interface AccessControlMetadataFactory
 {

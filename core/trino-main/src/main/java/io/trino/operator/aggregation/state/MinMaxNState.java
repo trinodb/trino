@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.prestosql.operator.aggregation.TypedHeap;
-import io.prestosql.spi.function.AccumulatorState;
+import io.trino.operator.aggregation.TypedHeap;
+import io.trino.spi.function.AccumulatorState;
 
 public interface MinMaxNState
         extends AccumulatorState

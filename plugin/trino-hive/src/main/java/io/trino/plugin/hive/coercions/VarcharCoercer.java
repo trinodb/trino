@@ -14,13 +14,13 @@
 package io.trino.plugin.hive.coercions;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.VarcharType;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.HivePageSource.narrowerThan;
-import static io.prestosql.spi.type.Varchars.truncateToLength;
+import static io.trino.plugin.hive.HivePageSource.narrowerThan;
+import static io.trino.spi.type.Varchars.truncateToLength;
 
 public class VarcharCoercer
         extends TypeCoercer<VarcharType, VarcharType>

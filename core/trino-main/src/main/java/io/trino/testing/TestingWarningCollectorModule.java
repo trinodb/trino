@@ -17,8 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import io.prestosql.execution.warnings.WarningCollectorConfig;
-import io.prestosql.execution.warnings.WarningCollectorFactory;
+import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.execution.warnings.WarningCollectorFactory;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;

@@ -13,8 +13,8 @@
  */
 package io.trino.tests;
 
-import io.prestosql.testing.AbstractTestWindowQueries;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestWindowQueries;
+import io.trino.testing.QueryRunner;
 
 public class TestSpilledWindowQueries
         extends AbstractTestWindowQueries

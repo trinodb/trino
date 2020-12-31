@@ -16,7 +16,7 @@ package io.trino.execution.executor;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
-import io.prestosql.execution.SplitRunner;
+import io.trino.execution.SplitRunner;
 
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.Duration.succinctNanos;
-import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;

@@ -14,9 +14,9 @@
 package io.trino;
 
 import io.airlift.units.Duration;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 
 public class ExceededCpuLimitException
         extends PrestoException

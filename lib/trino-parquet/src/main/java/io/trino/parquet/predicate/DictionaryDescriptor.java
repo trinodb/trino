@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.predicate;
 
-import io.prestosql.parquet.DictionaryPage;
+import io.trino.parquet.DictionaryPage;
 import org.apache.parquet.column.ColumnDescriptor;
 
 import java.util.Optional;

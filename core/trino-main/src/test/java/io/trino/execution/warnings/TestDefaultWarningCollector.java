@@ -13,8 +13,8 @@
  */
 package io.trino.execution.warnings;
 
-import io.prestosql.spi.PrestoWarning;
-import io.prestosql.spi.WarningCode;
+import io.trino.spi.PrestoWarning;
+import io.trino.spi.WarningCode;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

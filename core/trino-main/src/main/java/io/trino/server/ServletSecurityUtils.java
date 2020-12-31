@@ -13,8 +13,8 @@
  */
 package io.trino.server;
 
-import io.prestosql.spi.security.BasicPrincipal;
-import io.prestosql.spi.security.Identity;
+import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
@@ -26,7 +26,7 @@ import java.security.Principal;
 import java.util.Collection;
 
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
-import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.trino.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static javax.ws.rs.core.HttpHeaders.WWW_AUTHENTICATE;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 

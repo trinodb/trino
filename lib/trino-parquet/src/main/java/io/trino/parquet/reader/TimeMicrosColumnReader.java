@@ -13,10 +13,10 @@
  */
 package io.trino.parquet.reader;
 
-import io.prestosql.parquet.RichColumnDescriptor;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Timestamps;
-import io.prestosql.spi.type.Type;
+import io.trino.parquet.RichColumnDescriptor;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Timestamps;
+import io.trino.spi.type.Type;
 
 public class TimeMicrosColumnReader
         extends PrimitiveColumnReader

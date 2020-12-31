@@ -15,10 +15,10 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
-import io.prestosql.plugin.hive.acid.AcidOperation;
+import io.trino.plugin.base.util.LoggingInvocationHandler;
+import io.trino.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
+import io.trino.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
+import io.trino.plugin.hive.acid.AcidOperation;
 import org.apache.hadoop.hive.common.ValidTxnList;
 import org.apache.hadoop.hive.metastore.api.AbortTxnRequest;
 import org.apache.hadoop.hive.metastore.api.AddDynamicPartitions;
@@ -74,7 +74,7 @@ import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
-import static io.prestosql.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.txn.TxnUtils.createValidTxnWriteIdList;

@@ -14,7 +14,7 @@
 package io.trino.plugin.mysql;
 
 import com.mysql.jdbc.Driver;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
 
 import javax.validation.constraints.AssertTrue;
 

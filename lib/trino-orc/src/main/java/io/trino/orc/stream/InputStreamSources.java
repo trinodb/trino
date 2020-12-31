@@ -14,14 +14,14 @@
 package io.trino.orc.stream;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.orc.OrcColumn;
-import io.prestosql.orc.StreamId;
-import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.trino.orc.OrcColumn;
+import io.trino.orc.StreamId;
+import io.trino.orc.metadata.Stream.StreamKind;
 
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.trino.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.util.Objects.requireNonNull;
 
 public class InputStreamSources

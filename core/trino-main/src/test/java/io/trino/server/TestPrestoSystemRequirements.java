@@ -15,8 +15,8 @@ package io.trino.server;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
-import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static io.trino.server.PrestoSystemRequirements.verifyJvmRequirements;
+import static io.trino.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 
 public class TestPrestoSystemRequirements
 {

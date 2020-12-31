@@ -13,9 +13,9 @@
  */
 package io.trino.spi;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.block.DictionaryId;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.DictionaryId;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
+import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

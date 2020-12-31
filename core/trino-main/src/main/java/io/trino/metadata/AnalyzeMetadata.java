@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 
 import static java.util.Objects.requireNonNull;
 

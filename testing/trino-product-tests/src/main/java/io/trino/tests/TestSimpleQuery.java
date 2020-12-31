@@ -24,12 +24,12 @@ import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.fulfillment.table.ImmutableTableRequirement;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.SIMPLE;
-import static io.prestosql.tests.TestGroups.SMOKE;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContextIfSet;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.SIMPLE;
+import static io.trino.tests.TestGroups.SMOKE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimpleQuery

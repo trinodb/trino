@@ -14,15 +14,15 @@
 package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.dispatcher.DispatchManager;
-import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryState;
-import io.prestosql.security.AccessControl;
-import io.prestosql.server.security.ResourceSecurity;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.GroupProvider;
+import io.trino.dispatcher.DispatchManager;
+import io.trino.execution.QueryInfo;
+import io.trino.execution.QueryState;
+import io.trino.security.AccessControl;
+import io.trino.server.security.ResourceSecurity;
+import io.trino.spi.PrestoException;
+import io.trino.spi.QueryId;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.GroupProvider;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -43,13 +43,13 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import static io.prestosql.connector.system.KillQueryProcedure.createKillQueryException;
-import static io.prestosql.connector.system.KillQueryProcedure.createPreemptQueryException;
-import static io.prestosql.security.AccessControlUtil.checkCanKillQueryOwnedBy;
-import static io.prestosql.security.AccessControlUtil.checkCanViewQueryOwnedBy;
-import static io.prestosql.security.AccessControlUtil.filterQueries;
-import static io.prestosql.server.HttpRequestSessionContext.extractAuthorizedIdentity;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
+import static io.trino.connector.system.KillQueryProcedure.createKillQueryException;
+import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryException;
+import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
+import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
+import static io.trino.security.AccessControlUtil.filterQueries;
+import static io.trino.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -15,7 +15,7 @@ package io.trino.spi.type;
 
 import java.util.Objects;
 
-import static io.prestosql.spi.type.Timestamps.formatTimestamp;
+import static io.trino.spi.type.Timestamps.formatTimestamp;
 
 public final class LongTimestamp
         implements Comparable<LongTimestamp>
