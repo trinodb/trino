@@ -37,7 +37,7 @@ public enum PinotErrorCode
      * Connectors can use error codes starting at the range 0x0100_0000
      * See https://github.com/prestodb/presto/wiki/Error-Codes
      *
-     * @see io.prestosql.spi.StandardErrorCode
+     * @see io.trino.spi.StandardErrorCode
      */
 
     private final ErrorCode errorCode;

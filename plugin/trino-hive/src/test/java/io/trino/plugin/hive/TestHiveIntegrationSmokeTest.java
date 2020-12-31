@@ -7177,7 +7177,7 @@ public class TestHiveIntegrationSmokeTest
     {
         File schemaFile = File.createTempFile("avro_single_column-", ".avsc");
         String schema = "{\n" +
-                "  \"namespace\": \"io.prestosql.test\",\n" +
+                "  \"namespace\": \"io.trino.test\",\n" +
                 "  \"name\": \"single_column\",\n" +
                 "  \"type\": \"record\",\n" +
                 "  \"fields\": [\n" +

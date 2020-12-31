@@ -906,14 +906,14 @@ public class AccumuloClient
         }
 
         ImmutableSet.Builder<Range> rangeBuilder = ImmutableSet.builder();
-        for (io.prestosql.spi.predicate.Range range : domain.get().getValues().getRanges().getOrderedRanges()) {
+        for (io.trino.spi.predicate.Range range : domain.get().getValues().getRanges().getOrderedRanges()) {
             rangeBuilder.add(getRangeFromPrestoRange(range, serializer));
         }
 
         return rangeBuilder.build();
     }
 
-    private static Range getRangeFromPrestoRange(io.prestosql.spi.predicate.Range prestoRange, AccumuloRowSerializer serializer)
+    private static Range getRangeFromPrestoRange(io.trino.spi.predicate.Range prestoRange, AccumuloRowSerializer serializer)
             throws TableNotFoundException
     {
         Range accumuloRange;

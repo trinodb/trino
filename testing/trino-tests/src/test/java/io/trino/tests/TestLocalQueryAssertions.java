@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Test {@link io.prestosql.sql.query.QueryAssertions} with {@link io.prestosql.testing.LocalQueryRunner}
+ * Test {@link io.trino.sql.query.QueryAssertions} with {@link io.trino.testing.LocalQueryRunner}
  */
 public class TestLocalQueryAssertions
         extends AbstractQueryAssertionsTest

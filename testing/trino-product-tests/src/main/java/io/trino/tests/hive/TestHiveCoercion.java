@@ -719,9 +719,9 @@ public class TestHiveCoercion
         return tableHandle;
     }
 
-    private io.prestosql.jdbc.Row.Builder rowBuilder()
+    private io.trino.jdbc.Row.Builder rowBuilder()
     {
-        return io.prestosql.jdbc.Row.builder();
+        return io.trino.jdbc.Row.builder();
     }
 
     private static Row project(Row row, int... columns)

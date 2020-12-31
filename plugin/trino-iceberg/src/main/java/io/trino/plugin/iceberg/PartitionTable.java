@@ -69,8 +69,8 @@ public class PartitionTable
     private final Optional<Long> snapshotId;
     private final Map<Integer, Type.PrimitiveType> idToTypeMapping;
     private final List<Types.NestedField> nonPartitionPrimitiveColumns;
-    private final List<io.prestosql.spi.type.Type> partitionColumnTypes;
-    private final List<io.prestosql.spi.type.Type> resultTypes;
+    private final List<io.trino.spi.type.Type> partitionColumnTypes;
+    private final List<io.trino.spi.type.Type> resultTypes;
     private final List<RowType> columnMetricTypes;
     private final ConnectorTableMetadata connectorTableMetadata;
 

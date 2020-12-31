@@ -517,7 +517,7 @@ public class KuduClientSession
                     Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
                     List<Range> rangeList = ranges.getOrderedRanges();
                     if (rangeList.stream().allMatch(Range::isSingleValue)) {
-                        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+                        io.trino.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
                         List<Object> javaValues = rangeList.stream()
                                 .map(range -> TypeHelper.getJavaValue(type, range.getSingleValue()))
                                 .collect(toImmutableList());
@@ -549,7 +549,7 @@ public class KuduClientSession
 
     private KuduPredicate createInListPredicate(ColumnSchema columnSchema, DiscreteValues discreteValues)
     {
-        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+        io.trino.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         List<Object> javaValues = discreteValues.getValues().stream().map(value -> TypeHelper.getJavaValue(type, value)).collect(toImmutableList());
         return KuduPredicate.newInListPredicate(columnSchema, javaValues);
     }
@@ -561,7 +561,7 @@ public class KuduClientSession
 
     private KuduPredicate createComparisonPredicate(ColumnSchema columnSchema, KuduPredicate.ComparisonOp op, Object value)
     {
-        io.prestosql.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
+        io.trino.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         Object javaValue = TypeHelper.getJavaValue(type, value);
         if (javaValue instanceof Long) {
             return KuduPredicate.newComparisonPredicate(columnSchema, op, (Long) javaValue);

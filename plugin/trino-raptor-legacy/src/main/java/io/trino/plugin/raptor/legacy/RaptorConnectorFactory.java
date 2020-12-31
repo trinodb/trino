@@ -71,7 +71,7 @@ public class RaptorConnectorFactory
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new MBeanModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName, "io.prestosql.plugin.raptor.legacy", "presto.plugin.raptor.legacy"),
+                new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.raptor.legacy", "presto.plugin.raptor.legacy"),
                 new MBeanServerModule(),
                 binder -> {
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());

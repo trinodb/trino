@@ -39,7 +39,7 @@ public class FlakyTestRetryAnalyzer
 
     // This property exists so that flaky tests are retried on CI only by default but tests of retrying pass locally as well.
     // TODO replace pom.xml property with explicit invocation of a testng runner (test suite with a test) and amend the retryer behavior on that level
-    private static final String ENABLED_SYSTEM_PROPERTY = "io.prestosql.testng.services.FlakyTestRetryAnalyzer.enabled";
+    private static final String ENABLED_SYSTEM_PROPERTY = "io.trino.testng.services.FlakyTestRetryAnalyzer.enabled";
 
     @VisibleForTesting
     static final int ALLOWED_RETRIES_COUNT = 2;

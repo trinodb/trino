@@ -17,7 +17,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
 // Connectors that have rows that can be decoded into
-// columns using io.prestosql.decoder
+// columns using io.trino.decoder
 // can choose to implement this interface
 public interface DecoderColumnHandle
         extends ColumnHandle

@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>io.prestosql.tests.product.launcher.cli.Launcher</main-class>
+        <main-class>io.trino.tests.product.launcher.cli.Launcher</main-class>
     </properties>
 
     <dependencies>

@@ -27,7 +27,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Json description to parse a single field from a Kafka topic message. See {@link io.prestosql.plugin.kafka.KafkaTopicDescription} for more details.
+ * Json description to parse a single field from a Kafka topic message. See {@link io.trino.plugin.kafka.KafkaTopicDescription} for more details.
  */
 public final class KafkaTopicFieldDescription
 {

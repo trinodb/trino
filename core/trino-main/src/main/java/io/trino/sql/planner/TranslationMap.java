@@ -52,7 +52,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Keeps mappings of fields and AST expressions to symbols in the current plan within query boundary.
  *
- * AST and IR expressions use the same class hierarchy ({@link io.prestosql.sql.tree.Expression},
+ * AST and IR expressions use the same class hierarchy ({@link io.trino.sql.tree.Expression},
  * but differ in the following ways:
  * <li>AST expressions contain Identifiers, while IR expressions contain SymbolReferences</li>
  * <li>FunctionCalls in AST expressions are SQL function names. In IR expressions, they contain an encoded name representing a resolved function</li>

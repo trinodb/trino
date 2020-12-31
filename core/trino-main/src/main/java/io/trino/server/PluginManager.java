@@ -66,7 +66,7 @@ import static java.util.Objects.requireNonNull;
 public class PluginManager
 {
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
-            .add("io.prestosql.spi.")
+            .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
             .add("org.openjdk.jol.")

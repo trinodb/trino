@@ -80,7 +80,7 @@ public class IoPlanPrinter
     }
 
     /**
-     * @throws io.prestosql.NotInTransactionException if called without an active transaction
+     * @throws io.trino.NotInTransactionException if called without an active transaction
      */
     public static String textIoPlan(Plan plan, Metadata metadata, TypeOperators typeOperators, Session session)
     {

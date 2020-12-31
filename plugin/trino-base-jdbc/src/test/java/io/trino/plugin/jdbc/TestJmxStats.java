@@ -42,12 +42,12 @@ public class TestJmxStats
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:driver:"), new TestingConnectorContext());
         MBeanServer mbeanServer = getPlatformMBeanServer();
-        Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("io.prestosql.plugin.jdbc:*"), null);
+        Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("io.trino.plugin.jdbc:*"), null);
 
         assertTrue(objectNames.containsAll(
                 ImmutableSet.of(
-                        new ObjectName("io.prestosql.plugin.jdbc:type=ConnectionFactory,name=test"),
-                        new ObjectName("io.prestosql.plugin.jdbc:type=JdbcClient,name=test"))));
+                        new ObjectName("io.trino.plugin.jdbc:type=ConnectionFactory,name=test"),
+                        new ObjectName("io.trino.plugin.jdbc:type=JdbcClient,name=test"))));
 
         for (ObjectName objectName : objectNames) {
             MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);

@@ -67,7 +67,7 @@ public class SecurityContext
     @Override
     public boolean equals(Object o)
     {
-        // this is needed by io.prestosql.sql.analyzer.Analysis.AccessControlInfo
+        // this is needed by io.trino.sql.analyzer.Analysis.AccessControlInfo
         if (this == o) {
             return true;
         }
@@ -83,7 +83,7 @@ public class SecurityContext
     @Override
     public int hashCode()
     {
-        // this is needed by io.prestosql.sql.analyzer.Analysis.AccessControlInfo
+        // this is needed by io.trino.sql.analyzer.Analysis.AccessControlInfo
         return Objects.hash(transactionId, identity, queryId);
     }
 

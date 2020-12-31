@@ -101,7 +101,7 @@ public class TestParquetSymlinkInputFormat
             throws IOException
     {
         hdfsClient.delete(location);
-        try (InputStream inputStream = getResource(Paths.get("io/prestosql/tests/hive/data/single_int_column/", resource).toString()).openStream()) {
+        try (InputStream inputStream = getResource(Paths.get("io/trino/tests/hive/data/single_int_column/", resource).toString()).openStream()) {
             hdfsClient.saveFile(location, inputStream);
         }
     }

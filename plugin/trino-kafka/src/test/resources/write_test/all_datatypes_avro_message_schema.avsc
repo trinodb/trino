@@ -1,7 +1,7 @@
 {
   "type" : "record",
   "name" : "all_datatypes_avro_message",
-  "namespace" : "io.prestosql.plugin.kafka",
+  "namespace" : "io.trino.plugin.kafka",
   "fields" :
   [
               {

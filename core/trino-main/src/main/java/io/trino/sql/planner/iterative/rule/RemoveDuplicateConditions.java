@@ -44,7 +44,7 @@ public class RemoveDuplicateConditions
     }
 
     private static class Visitor
-            extends io.prestosql.sql.tree.ExpressionRewriter<Void>
+            extends io.trino.sql.tree.ExpressionRewriter<Void>
     {
         private final Metadata metadata;
 

@@ -1,5 +1,5 @@
 {
-  "namespace": "io.prestosql.test",
+  "namespace": "io.trino.test",
   "name": "product_tests_avro_table",
   "type": "record",
   "fields": [

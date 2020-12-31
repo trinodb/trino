@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>io.prestosql.plugin.thrift.server.ThriftTpchServer</main-class>
+        <main-class>io.trino.plugin.thrift.server.ThriftTpchServer</main-class>
     </properties>
 
     <dependencies>

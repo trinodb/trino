@@ -2042,7 +2042,7 @@ class AstBuilder
     @Override
     public Node visitParameter(SqlBaseParser.ParameterContext context)
     {
-        io.prestosql.sql.tree.Parameter parameter = new io.prestosql.sql.tree.Parameter(getLocation(context), parameterPosition);
+        io.trino.sql.tree.Parameter parameter = new io.trino.sql.tree.Parameter(getLocation(context), parameterPosition);
         parameterPosition++;
         return parameter;
     }

@@ -736,7 +736,7 @@ public class TestJdbcPreparedStatement
         assertThatThrownBy(() -> assertion.roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate)))
                 // TODO (https://github.com/trinodb/trino/issues/6242) this currently fails
                 .isInstanceOf(SQLException.class)
-                .hasStackTraceContaining("io.prestosql.jdbc.PrestoResultSet.getObject")
+                .hasStackTraceContaining("io.trino.jdbc.PrestoResultSet.getObject")
                 .hasMessage("Expected value to be a date but is: 1970-01-01");
 
         assertBind((ps, i) -> ps.setObject(i, jvmGapDate, Types.DATE))

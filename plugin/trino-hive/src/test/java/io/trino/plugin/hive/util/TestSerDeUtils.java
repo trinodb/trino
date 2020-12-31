@@ -190,8 +190,8 @@ public class TestSerDeUtils
         ListHolder listHolder = new ListHolder();
         listHolder.array = array;
 
-        io.prestosql.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
-        io.prestosql.spi.type.Type arrayOfRowType = RowType.anonymous(ImmutableList.of(new ArrayType(rowType)));
+        io.trino.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        io.trino.spi.type.Type arrayOfRowType = RowType.anonymous(ImmutableList.of(new ArrayType(rowType)));
         Block actual = toBinaryBlock(arrayOfRowType, listHolder, getInspector(ListHolder.class));
         BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1024);
         rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 8, 9L));
@@ -234,7 +234,7 @@ public class TestSerDeUtils
         // test simple structs
         InnerStruct innerStruct = new InnerStruct(13, 14L);
 
-        io.prestosql.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        io.trino.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
         Block actual = toBinaryBlock(rowType, innerStruct, getInspector(InnerStruct.class));
 
         Block expected = rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 13, 14L);
@@ -260,11 +260,11 @@ public class TestSerDeUtils
         outerStruct.map.put("fifteen", new InnerStruct(-5, -10L));
         outerStruct.innerStruct = new InnerStruct(18, 19L);
 
-        io.prestosql.spi.type.Type innerRowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
-        io.prestosql.spi.type.Type arrayOfInnerRowType = new ArrayType(innerRowType);
-        io.prestosql.spi.type.Type mapOfInnerRowType = mapType(createUnboundedVarcharType(), innerRowType);
-        List<io.prestosql.spi.type.Type> outerRowParameterTypes = ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, createUnboundedVarcharType(), createUnboundedVarcharType(), arrayOfInnerRowType, mapOfInnerRowType, innerRowType);
-        io.prestosql.spi.type.Type outerRowType = RowType.anonymous(outerRowParameterTypes);
+        io.trino.spi.type.Type innerRowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        io.trino.spi.type.Type arrayOfInnerRowType = new ArrayType(innerRowType);
+        io.trino.spi.type.Type mapOfInnerRowType = mapType(createUnboundedVarcharType(), innerRowType);
+        List<io.trino.spi.type.Type> outerRowParameterTypes = ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, createUnboundedVarcharType(), createUnboundedVarcharType(), arrayOfInnerRowType, mapOfInnerRowType, innerRowType);
+        io.trino.spi.type.Type outerRowType = RowType.anonymous(outerRowParameterTypes);
 
         actual = toBinaryBlock(outerRowType, outerStruct, getInspector(OuterStruct.class));
 
@@ -321,7 +321,7 @@ public class TestSerDeUtils
         return sliceOutput.slice();
     }
 
-    private static Block toBinaryBlock(io.prestosql.spi.type.Type type, Object object, ObjectInspector inspector)
+    private static Block toBinaryBlock(io.trino.spi.type.Type type, Object object, ObjectInspector inspector)
     {
         if (inspector.getCategory() == Category.PRIMITIVE) {
             return getPrimitiveBlock(type, object, inspector);
@@ -329,7 +329,7 @@ public class TestSerDeUtils
         return getBlockObject(type, object, inspector);
     }
 
-    private static Block getPrimitiveBlock(io.prestosql.spi.type.Type type, Object object, ObjectInspector inspector)
+    private static Block getPrimitiveBlock(io.trino.spi.type.Type type, Object object, ObjectInspector inspector)
     {
         BlockBuilder builder = VARBINARY.createBlockBuilder(null, 1);
         serializeObject(type, builder, object, inspector);

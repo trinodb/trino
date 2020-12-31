@@ -734,7 +734,7 @@ class Query
             return null;
         }
 
-        io.prestosql.execution.StageStats stageStats = stageInfo.getStageStats();
+        io.trino.execution.StageStats stageStats = stageInfo.getStageStats();
 
         ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
         for (StageInfo subStage : stageInfo.getSubStages()) {

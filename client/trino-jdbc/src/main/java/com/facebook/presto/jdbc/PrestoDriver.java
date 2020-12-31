@@ -14,8 +14,8 @@
 package com.facebook.presto.jdbc;
 
 /**
- * @deprecated Use {@link io.prestosql.jdbc.PrestoDriver} instead.
+ * @deprecated Use {@link io.trino.jdbc.PrestoDriver} instead.
  */
 @Deprecated
 public class PrestoDriver
-        extends io.prestosql.jdbc.PrestoDriver {}
+        extends io.trino.jdbc.PrestoDriver {}

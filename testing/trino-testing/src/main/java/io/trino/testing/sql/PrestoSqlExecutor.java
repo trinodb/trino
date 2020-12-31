@@ -19,7 +19,7 @@ import io.trino.testing.QueryRunner;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSqlExecutor
-        implements io.prestosql.testing.sql.SqlExecutor
+        implements io.trino.testing.sql.SqlExecutor
 {
     private final QueryRunner queryRunner;
     private final Session session;

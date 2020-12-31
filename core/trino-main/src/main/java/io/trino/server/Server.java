@@ -89,7 +89,7 @@ public class Server
                 new JsonModule(),
                 new JaxrsModule(),
                 new MBeanModule(),
-                new PrefixObjectNameGeneratorModule("io.prestosql"),
+                new PrefixObjectNameGeneratorModule("io.trino"),
                 new JmxModule(),
                 new JmxHttpModule(),
                 new LogJmxModule(),

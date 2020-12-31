@@ -104,7 +104,7 @@
                 <version>1.2.5.RELEASE</version>
                 <configuration>
                     <classifier>executable</classifier>
-                    <mainClass>io.prestosql.benchto.driver.DriverApp</mainClass>
+                    <mainClass>io.trino.benchto.driver.DriverApp</mainClass>
                     <layout>ZIP</layout>
                 </configuration>
                 <executions>

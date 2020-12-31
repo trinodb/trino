@@ -9,7 +9,7 @@ of the master branch.
  release, and selecting the ``presto-benchmark-driver-*.jar`` file. Once it is
  downloaded, rename it to `presto-benchmark-driver` and make it executable with `chmod +x`.
 
-[maven_download]: https://repo.maven.apache.org/maven2/io/prestosql/trino-benchmark-driver/
+[maven_download]: https://repo.maven.apache.org/maven2/io/trino/trino-benchmark-driver/
 
 ## Suites
 

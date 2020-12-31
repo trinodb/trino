@@ -46,7 +46,7 @@
                         <configuration>
                             <outputFile>${project.build.directory}/PrestoThriftService.thrift</outputFile>
                             <classes>
-                                <class>io.prestosql.plugin.thrift.api.PrestoThriftService</class>
+                                <class>io.trino.plugin.thrift.api.PrestoThriftService</class>
                             </classes>
                             <recursive>true</recursive>
                         </configuration>
@@ -72,7 +72,7 @@
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <mainClass>io.prestosql.sql.ReservedIdentifiers</mainClass>
+                            <mainClass>io.trino.sql.ReservedIdentifiers</mainClass>
                             <arguments>
                                 <argument>validateDocs</argument>
                                 <argument>${project.basedir}/src/main/sphinx/language/reserved.rst</argument>

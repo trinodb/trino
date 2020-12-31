@@ -254,7 +254,7 @@ public class TestServer
         QueryError queryError = queryResults.getError();
         List<String> stackTrace = Splitter.on("\n").splitToList(getStackTraceAsString(queryError.getFailureInfo().toException()));
         long versionLines = stackTrace.stream()
-                .filter(line -> line.contains("at io.prestosql.$gen.Presto_testversion____"))
+                .filter(line -> line.contains("at io.trino.$gen.Presto_testversion____"))
                 .count();
         assertEquals(versionLines, 1, "Number of times version is embedded in stacktrace");
     }

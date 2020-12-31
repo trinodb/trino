@@ -44,7 +44,7 @@ public class TestExecutionJmxMetrics
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setAdditionalModule(new PrefixObjectNameGeneratorModule("io.prestosql"))
+                .setAdditionalModule(new PrefixObjectNameGeneratorModule("io.trino"))
                 .build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             InternalResourceGroupManager<?> resourceGroupManager = queryRunner.getCoordinator().getResourceGroupManager()

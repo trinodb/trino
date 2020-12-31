@@ -530,7 +530,7 @@ public class ThriftHiveMetastore
         }
         alterTable(identity, databaseName, tableName, modifiedTable);
 
-        io.prestosql.plugin.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
+        io.trino.plugin.hive.metastore.Table table = fromMetastoreApiTable(modifiedTable);
         OptionalLong rowCount = basicStatistics.getRowCount();
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.getColumnStatistics().entrySet().stream()
                 .flatMap(entry -> {
