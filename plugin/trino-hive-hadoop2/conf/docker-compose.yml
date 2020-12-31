@@ -17,6 +17,6 @@ services:
       - '50070:50070' # NameNode Web UI prior to Hadoop 3
       - '50075:50075' # DataNode Web UI prior to Hadoop 3
     volumes:
-      - ../../presto-hive/src/test/sql:/docker/sql:ro
+      - ../../trino-hive/src/test/sql:/docker/sql:ro
       - ./files:/docker/files:ro
       - ./files/tez-site.xml:/etc/tez/conf/tez-site.xml:ro

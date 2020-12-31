@@ -32,7 +32,7 @@ import static java.lang.String.format;
 /**
  * This is a tool used to record statistics for TPCH tables.
  * <p>
- * The results are output to {@code presto-tpch/src/main/resources/tpch/statistics/${schemaName}} directory.
+ * The results are output to {@code trino-tpch/src/main/resources/tpch/statistics/${schemaName}} directory.
  * <p>
  * The tool is run by invoking its {@code main} method.
  */

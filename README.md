@@ -5,7 +5,7 @@
 <p align="center">See the <a href="https://trino.io/docs/current/">User Manual</a> for deployment instructions and end user documentation.</p>
 <p align="center">
    <a href="https://trino.io/download.html">
-       <img src="https://img.shields.io/maven-central/v/io.prestosql/presto-server.svg?label=Download" alt="Maven Central" />
+       <img src="https://img.shields.io/maven-central/v/io.trino/trino-server.svg?label=Download" alt="Maven Central" />
    </a>
    <a href="https://trino.io/slack.html">
        <img src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358" alt="Presto Slack" />
@@ -62,9 +62,9 @@ development. Use the following options to create a run configuration:
 * Main Class: `io.prestosql.server.PrestoServer`
 * VM Options: `-ea -XX:+UseG1GC -XX:G1HeapRegionSize=32M -XX:+UseGCOverheadLimit -XX:+ExplicitGCInvokesConcurrent -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -Djdk.attach.allowAttachSelf=true`
 * Working directory: `$MODULE_DIR$`
-* Use classpath of module: `presto-server-main`
+* Use classpath of module: `trino-server-main`
 
-The working directory should be the `presto-server-main` subdirectory. In
+The working directory should be the `trino-server-main` subdirectory. In
 IntelliJ, using `$MODULE_DIR$` accomplishes this automatically.
 
 Additionally, the Hive plugin must be configured with the location of your Hive
@@ -91,7 +91,7 @@ Then add the following to the list of VM options:
 
 Start the CLI to connect to the server and run SQL queries:
 
-    presto-cli/target/presto-cli-*-executable.jar
+    client/trino-cli/target/trino-cli-*-executable.jar
 
 Run a query to see the nodes in the cluster:
 

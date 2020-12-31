@@ -33,7 +33,7 @@ public class TestingAccumuloServer
     private static final int ZOOKEEPER_PORT = 2181;
 
     private static final String ACCUMULO_EXT_PATH = "/usr/local/lib/accumulo/lib/ext";
-    private static final String ITERATORS_JAR = "presto-accumulo-iterators.jar";
+    private static final String ITERATORS_JAR = "trino-accumulo-iterators.jar";
 
     private static final TestingAccumuloServer instance = new TestingAccumuloServer();
 

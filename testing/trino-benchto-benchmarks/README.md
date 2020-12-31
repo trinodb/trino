@@ -84,10 +84,10 @@ tpch_medium: tpcds_10gb_txt
 
 With the scene set up as in the previous section, the benchmark can be run with:
 ```bash
-./mvnw clean package -pl presto-benchto-benchmarks
-java -Xmx1g -jar presto-benchto-benchmarks/target/presto-benchto-benchmarks-*-executable.jar \
-    --sql presto-benchto-benchmarks/src/main/resources/sql \
-    --benchmarks presto-benchto-benchmarks/src/main/resources/benchmarks \
+./mvnw clean package -pl :trino-benchto-benchmarks
+java -Xmx1g -jar trino-benchto-benchmarks/target/trino-benchto-benchmarks-*-executable.jar \
+    --sql trino-benchto-benchmarks/src/main/resources/sql \
+    --benchmarks trino-benchto-benchmarks/src/main/resources/benchmarks \
     --activeBenchmarks=presto/tpch --profile=presto-devenv \
     --overrides overrides.yaml
 ```

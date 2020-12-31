@@ -1,6 +1,6 @@
-# presto-docs - Trino documentation
+# Trino documentation
 
-The presto-docs module contains the reference documentation for Trino.
+The `docs` module contains the reference documentation for Trino.
 
 - [Writing and contributing](#writing-and-contributing)
 - [Tools](#tools)
@@ -55,7 +55,7 @@ Trino build. You just need to have built the current version from the root.
 Subsequently, you can build the site using the Maven wrapper script.
 
 ```bash
-./mvnw -pl presto-docs clean install
+./mvnw -pl docs clean install
 ```
 
 If you have Maven installed and available on the path, you can use `mvn`
@@ -71,7 +71,7 @@ Sphinx build directly. The build runs inside a Docker container and thus
 does not require having anything installed locally (except for Docker):
 
 ```bash
-presto-docs/build
+docs/build
 ```
 
 Sphinx will attempt to perform an incremental build, but it does not work
@@ -79,32 +79,32 @@ in all cases, such as after editing the CSS. You can force a full rebuild
 by doing a Maven clean first:
 
 ```bash
-./mvnw -pl presto-docs clean
+./mvnw -pl docs clean
 ```
 
 ## Viewing documentation
 
 However you built the docs, the output HTML files can be found in the folder
-`presto-docs/target/html/`.
+`docs/target/html/`.
 
-You can open the file `presto-docs/target/html/index.html` in a web browser on
+You can open the file `docs/target/html/index.html` in a web browser on
 macOS with
 
 ```bash
-open presto-docs/target/html/index.html
+open docs/target/html/index.html
 ```
 
 or on Linux with
 
 ```bash
-xdg-open presto-docs/target/html/index.html
+xdg-open docs/target/html/index.html
 ```
 
 Or you can directly call your browser of choice with the filename e.g on Ubuntu
 with Chromium:
 
 ```bash
-chromium-browser presto-docs/target/html/index.html
+chromium-browser docs/target/html/index.html
 ```
 
 Alternatively, you can start a web server with that folder as root, e.g. again
@@ -112,7 +112,7 @@ with Python and then open [http://localhost:4000](http://localhost:4000) in a
 web browser.
 
 ```bash
-cd presto-docs/target/html/
+cd docs/target/html/
 python3 -m http.server 4000
 ```
 
@@ -129,7 +129,7 @@ version you have to override the pom version with the `TRINO_VERSION`
 environment variable.
 
 ```bash
-TRINO_VERSION=327 presto-docs/build
+TRINO_VERSION=327 docs/build
 ```
 
 If you work on the docs for more than one invocation, you can export the
@@ -137,7 +137,7 @@ variable and use it with sphinx.
 
 ```bash
 export TRINO_VERSION=327
-presto-docs/build
+docs/build
 ```
 
 This is especially useful when deploying doc patches for a release where the

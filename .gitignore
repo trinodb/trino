@@ -2,9 +2,8 @@
 *.ipr
 *.iws
 target/
-/var
-/*/var/
-/presto-product-tests/**/var/
+/**/var/
+**/trino-product-tests/**/var/
 pom.xml.versionsBackup
 test-output/
 test-reports/

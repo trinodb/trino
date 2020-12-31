@@ -1,6 +1,6 @@
 # Presto product tests
 
-The product tests make use of user visible interfaces (e.g. `presto-cli`)
+The product tests make use of user visible interfaces (e.g., the CLI)
 to test Presto for correctness. The product tests complement the unit tests
 because unlike the unit tests, they exercise the Presto codebase end-to-end.
 
@@ -10,7 +10,7 @@ setup is as follows: a single Docker container runs Hadoop in pseudo-distributed
 mode and Presto runs either in Docker container(s) (both pseudo-distributed
 and distributed setups are possible) or manually from IntelliJ (for
 debugging Presto). The tests run in a separate JVM and they can be started
-using the launcher found in `presto-product-tests-launcher/bin/run-launcher`. The product
+using the launcher found in `trino-product-tests-launcher/bin/run-launcher`. The product
 tests are run using the [Tempto](https://github.com/trinodb/tempto) harness.
 
 Developers should consider writing product tests in addition to any unit tests
@@ -52,7 +52,7 @@ groups run the following command:
 
 ```
 ./mvnw install -DskipTests
-presto-product-tests-launcher/bin/run-launcher test run --environment <environment> \ 
+trino-product-tests-launcher/bin/run-launcher test run --environment <environment> \
 [--config <environment config>] \
 -- <tempto arguments>
 ```
@@ -97,7 +97,7 @@ You can obtain list of available environments using command:
  
 ```
 ./mvnw install -DskipTests
-presto-product-tests-launcher/bin/run-launcher env list
+trino-product-tests-launcher/bin/run-launcher env list
 ```
 
 #### Environment config
@@ -111,7 +111,7 @@ Most of the Hadoop-based environments can be run in multiple configurations that
 You can obtain list of available environment configurations using command:
 
 ```
-presto-product-tests-launcher/bin/run-launcher env list
+trino-product-tests-launcher/bin/run-launcher env list
 ```
 
 All of `test run`, `env up` and `suite run` commands accept `--config <environment config>` setting.
@@ -125,13 +125,13 @@ and each type can be run individually with the following commands:
 
 ```
 # Run single Java based test
-presto-product-tests-launcher/bin/run-launcher test run \
+trino-product-tests-launcher/bin/run-launcher test run \
             --environment <environment> \
             [--config <environment config>] \
             -- -t io.prestosql.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
 
 # Run single convention based test
-presto-product-tests-launcher/bin/run-launcher test run \
+trino-product-tests-launcher/bin/run-launcher test run \
             --environment <environment> \
             [--config <environment config>] \
             -- -t sql_tests.testcases.system.selectInformationSchemaTables
@@ -148,7 +148,7 @@ particular group, use the `-g` argument as shown:
 
 ```
 # Run all tests in the string_functions and create_table groups
-presto-product-tests-launcher/bin/run-launcher test run \
+trino-product-tests-launcher/bin/run-launcher test run \
             --environment <environment> \
             [--config <environment config>] \
             -- -g string_functions,create_tables
@@ -185,16 +185,16 @@ Tests are further organized into suites which contain execution of multiple test
 You can obtain list of available test suites using command:
 
 ```
-presto-product-tests-launcher/bin/run-launcher suite list
+trino-product-tests-launcher/bin/run-launcher suite list
 ```
 
-Command `presto-product-tests-launcher/bin/run-launcher/suite describe --suite <suite name>` shows list of tests that will be executed and environments 
+Command `trino-product-tests-launcher/bin/run-launcher/suite describe --suite <suite name>` shows list of tests that will be executed and environments 
 that will be used when `suite run` is invoked.
 
 You can execute single suite using command:
 
 ```
-presto-product-tests-launcher/bin/run-launcher suite run --suite <suite name> \
+trino-product-tests-launcher/bin/run-launcher suite run --suite <suite name> \
     [--config <environment config>]
 ```
 

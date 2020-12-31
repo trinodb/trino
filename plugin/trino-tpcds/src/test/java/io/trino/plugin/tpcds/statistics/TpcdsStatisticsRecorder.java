@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * This is a tool used to record statistics for TPCDS tables.
  * <p>
- * The results are output to {@code presto-tpcds/src/main/resources/tpcds/statistics/${schemaName}} directory.
+ * The results are output to {@code trino-tpcds/src/main/resources/tpcds/statistics/${schemaName}} directory.
  * <p>
  * The tool is run by invoking its {@code main} method.
  */

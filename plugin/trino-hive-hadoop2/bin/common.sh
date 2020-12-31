@@ -84,9 +84,9 @@ function termination_handler(){
 
 SCRIPT_DIR="${BASH_SOURCE%/*}"
 INTEGRATION_TESTS_ROOT="${SCRIPT_DIR}/.."
-PROJECT_ROOT="${INTEGRATION_TESTS_ROOT}/.."
+PROJECT_ROOT="${INTEGRATION_TESTS_ROOT}/../.."
 DOCKER_COMPOSE_LOCATION="${INTEGRATION_TESTS_ROOT}/conf/docker-compose.yml"
-source "${PROJECT_ROOT}/presto-product-tests/conf/product-tests-defaults.sh"
+source "${PROJECT_ROOT}/testing/trino-product-tests/conf/product-tests-defaults.sh"
 
 # check docker and docker compose installation
 docker-compose version

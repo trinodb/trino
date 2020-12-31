@@ -90,7 +90,7 @@ public final class S3SelectPushdown
 
         if (TextInputFormat.class.getName().equals(inputFormat)) {
             if (!Objects.equals(schema.getProperty(SKIP_HEADER_COUNT_KEY, "0"), "0")) {
-                // S3 Select supports skipping one line of headers, but it was returning incorrect results for presto-hive-hadoop2/conf/files/test_table_with_header.csv.gz
+                // S3 Select supports skipping one line of headers, but it was returning incorrect results for trino-hive-hadoop2/conf/files/test_table_with_header.csv.gz
                 // TODO https://github.com/trinodb/trino/issues/2349
                 return false;
             }

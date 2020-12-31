@@ -121,19 +121,19 @@ Enable errorprone ([Error Prone Installation#IDEA](https://errorprone.info/docs/
 
 The Presto Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible Javascript, which is then checked in to the Presto source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
 
-    yarn --cwd presto-main/src/main/resources/webapp/src install
+    yarn --cwd core/trino-main/src/main/resources/webapp/src install
 
 If no Javascript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
 
-    yarn --cwd presto-main/src/main/resources/webapp/src run package
+    yarn --cwd core/trino-main/src/main/resources/webapp/src run package
 
 To simplify iteration, you can also run in `watch` mode, which automatically re-compiles when changes to source files are detected:
 
-    yarn --cwd presto-main/src/main/resources/webapp/src run watch
+    yarn --cwd core/trino-main/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is complete. Project resources will be hot-reloaded and changes are reflected on browser refresh.
 
 ### Writing and Building Documentation
 
 More information about the documentation process can be found in the
-[README file in presto-docs](./presto-docs/README.md).
+[docs module](./docs/README.md).

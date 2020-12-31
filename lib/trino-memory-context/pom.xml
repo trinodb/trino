@@ -3,13 +3,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>presto-memory-context</artifactId>
-    <name>presto-memory-context</name>
+    <artifactId>trino-memory-context</artifactId>
+    <name>trino-memory-context</name>
     <description>Presto - Memory Tracking Framework</description>
 
     <properties>

@@ -22,7 +22,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-// A public facade for Row from presto-client
+// A public facade for Row from trino-client
 public final class Row
 {
     private final io.prestosql.client.Row row;
@@ -69,7 +69,7 @@ public final class Row
         return new Builder();
     }
 
-    // A public facade for Row.Builder from presto-client
+    // A public facade for Row.Builder from trino-client
     public static final class Builder
     {
         private final io.prestosql.client.Row.Builder builder = io.prestosql.client.Row.builder();

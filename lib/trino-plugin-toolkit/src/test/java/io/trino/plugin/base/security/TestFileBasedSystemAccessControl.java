@@ -729,7 +729,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void testQueryDocsExample()
     {
-        String rulesFile = new File("../presto-docs/src/main/sphinx/security/query-access.json").getAbsolutePath();
+        String rulesFile = new File("../../docs/src/main/sphinx/security/query-access.json").getAbsolutePath();
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(admin, queryId));
@@ -794,7 +794,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void testSystemInformationDocsExample()
     {
-        String rulesFile = new File("../presto-docs/src/main/sphinx/security/system-information-access.json").getAbsolutePath();
+        String rulesFile = new File("../../docs/src/main/sphinx/security/system-information-access.json").getAbsolutePath();
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
 
         accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
@@ -882,7 +882,7 @@ public class TestFileBasedSystemAccessControl
     @Test
     public void testSessionPropertyDocsExample()
     {
-        String rulesFile = new File("../presto-docs/src/main/sphinx/security/session-property-access.json").getAbsolutePath();
+        String rulesFile = new File("../../docs/src/main/sphinx/security/session-property-access.json").getAbsolutePath();
         SystemAccessControl accessControl = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
         SystemSecurityContext bannedUser = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId);
 

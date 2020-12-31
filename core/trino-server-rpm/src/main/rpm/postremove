@@ -1,6 +1,6 @@
 # Post erase script
 
-# if this is the last version of presto-server-rpm being removed (i.e. not on upgrade)
+# if this is the last version of the rpm being removed (i.e. not on upgrade)
 if [ "$1" -eq 0 ]
 then
     # Delete /etc/presto/env.sh manually during uninstall.

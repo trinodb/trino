@@ -64,7 +64,7 @@ is desired for the data directory it should be mounted to `/data/presto`.
 ## Building a custom Docker image
 
 To build an image for a locally modified version of Presto, run the Maven
-build as normal for the `presto-server` and `presto-cli` modules, then
+build as normal for the `trino-server` and `trino-cli` modules, then
 build the image:
 
 ```bash

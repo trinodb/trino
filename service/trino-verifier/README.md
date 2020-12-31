@@ -44,10 +44,10 @@ thread-count=1
 
 Lastly, download the [Maven verifier plugin][maven_download] for the same 
 release as your Presto instance by navigating to the directory for that 
-release, and selecting the ``presto-verifier-*.jar`` file. Once it is downloaded, 
+release, and selecting the ``trino-verifier-*.jar`` file. Once it is downloaded,
 rename it to `verifier`, make it executable with `chmod +x`, then run it:
 
-[maven_download]: https://repo.maven.apache.org/maven2/io/prestosql/presto-verifier/
+[maven_download]: https://repo.maven.apache.org/maven2/io/trino/trino-verifier/
 
 ```
 ./verifier config.properties

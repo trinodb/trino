@@ -40,7 +40,7 @@ public class TableStatisticsDataRepository
     {
         schemaName = normalizeSchemaName(schemaName);
         String filename = table.getName();
-        Path path = Paths.get("presto-tpcds", "src", "main", "resources", "tpcds", "statistics", schemaName, filename + ".json");
+        Path path = Paths.get("trino-tpcds", "src", "main", "resources", "tpcds", "statistics", schemaName, filename + ".json");
         writeStatistics(path, statisticsData);
     }
 

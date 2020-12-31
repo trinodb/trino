@@ -3,13 +3,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>presto-thrift-testing-server</artifactId>
-    <name>presto-thrift-testing-server</name>
+    <artifactId>trino-thrift-testing-server</artifactId>
+    <name>trino-thrift-testing-server</name>
     <description>Presto - Thrift Testing Server</description>
 
     <properties>
@@ -19,28 +20,28 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-main</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-main</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-testing</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-thrift-api</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-thrift-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-tpch</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-tpch</artifactId>
         </dependency>
 
         <dependency>
@@ -115,7 +116,7 @@
             <artifactId>assertj-core</artifactId>
         </dependency>
 
-        <!-- testng comes as a transitive compile-time dependency from presto-tests even though we only only need tpch index part -->
+        <!-- testng comes as a transitive compile-time dependency from trino-testing even though we only only need tpch index part -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
